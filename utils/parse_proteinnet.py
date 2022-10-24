@@ -29,10 +29,7 @@ class switch(object):
 
     def __iter__(self):
         """Return the match method once, then stop"""
-        try:
-            yield self.match
-        except:
-            raise StopIteration
+        yield self.match
     
     def match(self, *args):
         """Indicate whether or not to enter a case suite"""
