@@ -1,0 +1,3 @@
+[submodule "RefineGNN"]
+	path = RefineGNN
+	url = https://github.com/wengong-jin/RefineGNN
