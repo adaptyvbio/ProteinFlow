@@ -9,7 +9,7 @@ def open_pdb(file_path: str, thr_resolution: float = 3.5) -> Dict:
     - resolution is known and is not larger than the threshold.
 
     The output dictionary has the following keys:
-    - `'crd_raw'`: a `pandas` table with the coordinates,
+    - `'crd_raw'`: a `pandas` (`biopandas`) table with the coordinates,
     - `'fasta'`: a dictionary where keys are chain ids and values are fasta sequences.
 
     Parameters
