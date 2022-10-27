@@ -269,9 +269,9 @@ def cut_missing_ends(data):
             if k > 0:
                 cut_start += 1
                 start_lens.append(k)
-                data["msk"][i][j] = data["msk"][i][j][: k]
-                data["crd"][i][j] = data["crd"][i][j][: k * 14]
-                data["seq"][i][j] = data["seq"][i][j][: k]
+                data["msk"][i][j] = data["msk"][i][j][k:]
+                data["crd"][i][j] = data["crd"][i][j][k * 14:]
+                data["seq"][i][j] = data["seq"][i][j][k:]
             k = len(data["msk"][i][j]) - 1
             while mask[k] == "-":
                 k -= 1
@@ -279,8 +279,8 @@ def cut_missing_ends(data):
             if k < len(data["msk"][i][j]) - 1:
                 cut_end += 1
                 end_lens.append(len(data["msk"][i][j]) - 1 - k)
-                data["msk"][i][j] = data["msk"][i][j][k:]
-                data["crd"][i][j] = data["crd"][i][j][k * 14:]
-                data["seq"][i][j] = data["seq"][i][j][k:]
+                data["msk"][i][j] = data["msk"][i][j][: k]
+                data["crd"][i][j] = data["crd"][i][j][: k * 14]
+                data["seq"][i][j] = data["seq"][i][j][: k]
     print(f'Cut {cut_start} start intervals (mean length {np.array(start_lens).mean():.1f}) and {cut_end} end intervals (mean length {np.array(end_lens).mean():.1f})')
     return data
