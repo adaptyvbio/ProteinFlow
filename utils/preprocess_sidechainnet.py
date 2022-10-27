@@ -218,7 +218,7 @@ def preprocess(data_scn, dataset="train", similarity_thr=0.9, resolution_thr=3.5
         length_thr=length_thr,
         missing_thr=missing_thr,
     )
-    print(f'Removing {len(to_remove)} chains...')
+    print(f'Removing {len(to_remove)} chains... \n')
     print(f'Recombining chains...')
     to_keep_pdbs = defaultdict(lambda: [])
     for key in to_keep:

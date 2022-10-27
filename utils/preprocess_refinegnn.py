@@ -2,13 +2,12 @@ import sidechainnet as scn
 import json
 import numpy as np
 import os
+import pickle
 
 
-def make_files(data_path, casp_version=11, thinning=70):
-    if not os.path.exists(data_path):
-        os.mkdir(data_path)
-    print("Loading the dataset...")
-    data = scn.load(casp_version=casp_version, thinning=thinning)
+def make_files(data_path):
+    with open(data_path, "rb") as f:
+        data = pickle.load(f)
 
     for name in ["train", 'valid-10', 'valid-20', 'valid-30', 'valid-40', 'valid-50', 'valid-70', 'valid-90']:
         print(f'Processing {name}...')
