@@ -93,18 +93,18 @@ def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_
     """
     crd = pdb_dict["crd_raw"]
     fasta = pdb_dict["fasta"]
-    output = {}
+    pdb_dict = {}
     if not crd["residue_name"].isin(d3to1.keys()).all():
         return None
     for chain in crd["chain_id"].unique():
-        output[chain] = {}
+        pdb_dict[chain] = {}
         chain_crd = crd[crd["chain_id"] == chain].reset_index()
         indices = np.unique(chain_crd["residue_number"], return_index=True)[1]
         pdb_seq = "".join([d3to1[x] for x in chain_crd.loc[indices]["residue_name"]])
         aligned_seq = pairwise2.align.globalms(pdb_seq, fasta[chain], 2, -4, -.5, -.1)[0][0]
-        output[chain]["seq"] = aligned_seq
-        output[chain]["msk"] = (np.array(list(aligned_seq)) != "-").astype(int)
-        l = sum(output[chain]["msk"])
+        pdb_dict[chain]["seq"] = aligned_seq
+        pdb_dict[chain]["msk"] = (np.array(list(aligned_seq)) != "-").astype(int)
+        l = sum(pdb_dict[chain]["msk"])
         if l < min_length or l / len(aligned_seq) < 1 - max_missing:
             return None
         if max_length is not None and len(aligned_seq) > max_length:
@@ -129,8 +129,8 @@ def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_
                 return None
             else:
                 crd_arr[seq_pos, (bb_names + side_chain[res_name]).index(atom), :] = row[["x_coord", "y_coord", "z_coord"]]
-        output[chain]["crd_bb"] = crd_arr[:, : 4, :]
-        output[chain]["crd_sc"] = crd_arr[:, 4:, :]
-    return output
+        pdb_dict[chain]["crd_bb"] = crd_arr[:, : 4, :]
+        pdb_dict[chain]["crd_sc"] = crd_arr[:, 4:, :]
+    return pdb_dict
                 
         
