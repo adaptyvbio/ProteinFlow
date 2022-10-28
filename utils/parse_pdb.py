@@ -1,8 +1,6 @@
-from biopandas.pdb import PandasPdb
 from Bio import pairwise2
-from Bio.pairwise2 import format_alignment
 import numpy as np
-from typing import Dict, List
+from typing import Dict
 
 
 side_chain = {
