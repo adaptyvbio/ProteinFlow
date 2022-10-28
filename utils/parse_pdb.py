@@ -1,4 +1,8 @@
-from typing import List, Dict
+from biopandas.pdb import PandasPdb
+from Bio import pairwise2
+from Bio.pairwise2 import format_alignment
+import numpy as np
+from typing import Dict, List
 
 
 side_chain = {
@@ -29,6 +33,8 @@ d3to1 = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
  'GLY': 'G', 'HIS': 'H', 'LEU': 'L', 'ARG': 'R', 'TRP': 'W', 
  'ALA': 'A', 'VAL':'V', 'GLU': 'E', 'TYR': 'Y', 'MET': 'M'}
 
+bb_names = ["N", "C", "CA", "O"]
+
 def open_pdb(file_path: str, thr_resolution: float = 3.5) -> Dict:
     """
     Read a PDB file and parse it into a dictionary if it meets criteria
@@ -54,21 +60,6 @@ def open_pdb(file_path: str, thr_resolution: float = 3.5) -> Dict:
         the parsed dictionary or `None`, if the criteria are not met
 
     """
-    output = {}
-    if not crd["residue_name"].isin(d3to1.keys()).all():
-        print('error')
-    for chain in crd["chain_id"].unique():
-        chain_crd = crd[crd["chain_id"] == chain]
-        indices = np.unique(chain_crd["residue_number"], return_index=True)[1]
-        pdb_seq = "".join([d3to1[x] for x in chain_crd.loc[indices]["residue_name"]])
-        output["seq"] = pairwise2.align.globalms(pdb_seq, fasta[chain], 2, -1, -.5, -.1)[0][0]
-        output["msk"] = (np.array(list(output["seq"])) != "-").astype(int)
-        l = sum(output["msk"])
-        if l < min_length or l > max_length:
-            print('error')
-        output["crd_bb"] = np.zeros((l, 4, 3))
-        output["crd_sc"] = np.zeros((l, 10, 3))
-        bb_names = ["N", "C", "CA", "O"]
 
 def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_missing: float = 0.1) -> Dict:
     """
@@ -80,11 +71,11 @@ def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_
     - fraction of missing residues per chain is not larger than `max_missing`,
     - number of residues per chain is not larger than `max_length` (if provided).
 
-    The output dictionary has the following keys:
+    The output is a nested dictionary where first-level keys are chain Ids and second-level keys are the following:
     - `'crd_bb'`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, Ca, C, O),
     - `'crd_sc'`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (in a fixed order),
     - `'msk'`: a string of `'+'` and `'-'` of length `L` where `'-'` corresponds to missing residues,
-    - `'seq'`: a string of length `L` of residue types.
+    - `'seq'`: a string of length `L` of residue types,
 
     Parameters
     ----------
@@ -102,3 +93,46 @@ def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_
         the parsed dictionary or `None`, if the criteria are not met
         
     """
+    crd = pdb_dict["crd_raw"]
+    fasta = pdb_dict["fasta"]
+    output = {}
+    if not crd["residue_name"].isin(d3to1.keys()).all():
+        return None
+    for chain in crd["chain_id"].unique():
+        output[chain] = {}
+        chain_crd = crd[crd["chain_id"] == chain].reset_index()
+        indices = np.unique(chain_crd["residue_number"], return_index=True)[1]
+        pdb_seq = "".join([d3to1[x] for x in chain_crd.loc[indices]["residue_name"]])
+        aligned_seq = pairwise2.align.globalms(pdb_seq, fasta[chain], 2, -4, -.5, -.1)[0][0]
+        output[chain]["seq"] = aligned_seq
+        output[chain]["msk"] = (np.array(list(aligned_seq)) != "-").astype(int)
+        l = sum(output[chain]["msk"])
+        if l < min_length or l / len(aligned_seq) < 1 - max_missing:
+            return None
+        if max_length is not None and len(aligned_seq) > max_length:
+            return None
+        crd_arr = np.zeros((len(aligned_seq), 14, 3))
+        seq_pos = -1
+        pdb_pos = -1
+        for i, row in chain_crd.iterrows():
+            res_num = row["residue_number"]
+            res_name = row["residue_name"]
+            atom = row["atom_name"]
+            if res_num != pdb_pos:
+                seq_pos += 1
+                pdb_pos = res_num
+                while aligned_seq[seq_pos] == "-":
+                    seq_pos += 1
+                if d3to1[res_name] != aligned_seq[seq_pos]:
+                    print('error 2')
+            if atom not in bb_names + side_chain[res_name]:
+                if atom in ["OXT", "HXT"]:
+                    continue
+                return None
+            else:
+                crd_arr[seq_pos, (bb_names + side_chain[res_name]).index(atom), :] = row[["x_coord", "y_coord", "z_coord"]]
+        output[chain]["crd_bb"] = crd_arr[:, : 4, :]
+        output[chain]["crd_sc"] = crd_arr[:, 4:, :]
+    return output
+                
+        
