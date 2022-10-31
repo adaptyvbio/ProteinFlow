@@ -1,4 +1,6 @@
-from typing import List, Dict
+from Bio import pairwise2
+import numpy as np
+from typing import Dict
 import subprocess
 import gzip
 import shutil
@@ -16,7 +18,35 @@ from Bio.PDB.parse_pdb_header import parse_pdb_header
 from biopandas.pdb import PandasPdb
 
 
+side_chain = {
+    "CYS": ["CB", "SG"],
+    "ASP": ["CB", "CG", "OD1", "OD2"],
+    "SER": ["CB", "OG"],
+    "GLN": ["CB", "CG", "CD", "OE1", "NE2"],
+    "LYS": ["CB", "CG", "CD", "CE", "NZ"],
+    "ILE": ["CB", "CG1", "CG2", "CD1"],
+    "PRO": ["CB", "CG", "CD"],
+    "THR": ["CB", "OG1", "CG2"],
+    "PHE": ["CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ"],
+    "ASN": ["CB", "CG", "OD1", "ND2"],
+    "GLY": [],
+    "HIS": ["CB", "CG", "ND1", "CD2", "CE1", "NE2"],
+    "LEU": ["CB", "CG", "CD1", "CD2"],
+    "ARG": ["CB", "CG", "CD", "NE", "CZ", "NH1", "NH2"],
+    "TRP": ["CB", "CG", "CD1", "CD2", "NE1", "CE2", "CE3", "CZ2", "CZ3", "CH2"],
+    "ALA": ["CB"],
+    "VAL": ["CB", "CG1", "CG2"],
+    "GLU": ["CB", "CG", "CD", "OE1", "OE2"],
+    "TYR": ["CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ", "OH"],
+    "MET": ["CB", "CG", "SD", "CE"],
+}
 
+d3to1 = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
+ 'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N', 
+ 'GLY': 'G', 'HIS': 'H', 'LEU': 'L', 'ARG': 'R', 'TRP': 'W', 
+ 'ALA': 'A', 'VAL':'V', 'GLU': 'E', 'TYR': 'Y', 'MET': 'M'}
+
+bb_names = ["N", "C", "CA", "O"]
 
 class PDBError(ValueError):
     pass
@@ -179,9 +209,7 @@ def open_pdb(file_path: str, resolution_dict: str, thr_resolution: float = 3.5) 
     - resolution is known and is not larger than the threshold.
 
     The output dictionary has the following keys:
-    - 'pdb_id': a 4 letters string corresponding to the PDB id
-    - 'biounit': a positive integer indexing the biounit wrt its PDB
-    - `'crd_raw'`: a `pandas` table with the coordinates (the output of `ppdb.df['ATOM']`),
+    - `'crd_raw'`: a `pandas` (`biopandas`) table with the coordinates,
     - `'fasta'`: a dictionary where keys are chain ids and values are fasta sequences.
 
     Parameters
@@ -266,11 +294,11 @@ def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_
     - fraction of missing residues per chain is not larger than `max_missing`,
     - number of residues per chain is not larger than `max_length` (if provided).
 
-    The output dictionary has the following keys:
+    The output is a nested dictionary where first-level keys are chain Ids and second-level keys are the following:
     - `'crd_bb'`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, Ca, C, O),
     - `'crd_sc'`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (in a fixed order),
     - `'msk'`: a string of `'+'` and `'-'` of length `L` where `'-'` corresponds to missing residues,
-    - `'seq'`: a string of length `L` of residue types.
+    - `'seq'`: a string of length `L` of residue types,
 
     Parameters
     ----------
@@ -288,3 +316,48 @@ def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_
         the parsed dictionary or `None`, if the criteria are not met
         
     """
+    crd = pdb_dict["crd_raw"]
+    fasta = pdb_dict["fasta"]
+    pdb_dict = {}
+    if not crd["residue_name"].isin(d3to1.keys()).all():
+        raise PDBError("Unnatural amino acids found")
+    for chain in crd["chain_id"].unique():
+        pdb_dict[chain] = {}
+        chain_crd = crd[crd["chain_id"] == chain].reset_index()
+        indices = np.unique(chain_crd["residue_number"], return_index=True)[1]
+        pdb_seq = "".join([d3to1[x] for x in chain_crd.loc[indices]["residue_name"]])
+        aligned_seq = pairwise2.align.globalms(pdb_seq, fasta[chain], 2, -4, -.5, -.1)[0][0]
+        pdb_dict[chain]["seq"] = aligned_seq
+        pdb_dict[chain]["msk"] = (np.array(list(aligned_seq)) != "-").astype(int)
+        l = sum(pdb_dict[chain]["msk"])
+        if l < min_length: 
+            raise PDBError("Sequence is too short")
+        if l / len(aligned_seq) < 1 - max_missing:
+            raise PDBError("Too many missing values")
+        if max_length is not None and len(aligned_seq) > max_length:
+            raise PDBError("Sequence is too long")
+        crd_arr = np.zeros((len(aligned_seq), 14, 3))
+        seq_pos = -1
+        pdb_pos = -1
+        for _, row in chain_crd.iterrows():
+            res_num = row["residue_number"]
+            res_name = row["residue_name"]
+            atom = row["atom_name"]
+            if res_num != pdb_pos:
+                seq_pos += 1
+                pdb_pos = res_num
+                while aligned_seq[seq_pos] == "-":
+                    seq_pos += 1
+                if d3to1[res_name] != aligned_seq[seq_pos]:
+                    raise PDBError("Incorrect alignment")
+            if atom not in bb_names + side_chain[res_name]:
+                if atom in ["OXT", "HXT"]:
+                    continue
+                return None
+            else:
+                crd_arr[seq_pos, (bb_names + side_chain[res_name]).index(atom), :] = row[["x_coord", "y_coord", "z_coord"]]
+        pdb_dict[chain]["crd_bb"] = crd_arr[:, : 4, :]
+        pdb_dict[chain]["crd_sc"] = crd_arr[:, 4:, :]
+    return pdb_dict
+                
+        
