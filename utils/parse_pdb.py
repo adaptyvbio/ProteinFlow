@@ -33,6 +33,9 @@ d3to1 = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
 
 bb_names = ["N", "C", "CA", "O"]
 
+class PDBError(ValueError):
+    pass
+
 def open_pdb(file_path: str, thr_resolution: float = 3.5) -> Dict:
     """
     Read a PDB file and parse it into a dictionary if it meets criteria
@@ -95,7 +98,7 @@ def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_
     fasta = pdb_dict["fasta"]
     pdb_dict = {}
     if not crd["residue_name"].isin(d3to1.keys()).all():
-        return None
+        raise PDBError("Unnatural amino acids found")
     for chain in crd["chain_id"].unique():
         pdb_dict[chain] = {}
         chain_crd = crd[crd["chain_id"] == chain].reset_index()
@@ -105,14 +108,16 @@ def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_
         pdb_dict[chain]["seq"] = aligned_seq
         pdb_dict[chain]["msk"] = (np.array(list(aligned_seq)) != "-").astype(int)
         l = sum(pdb_dict[chain]["msk"])
-        if l < min_length or l / len(aligned_seq) < 1 - max_missing:
-            return None
+        if l < min_length: 
+            raise PDBError("Sequence is too short")
+        if l / len(aligned_seq) < 1 - max_missing:
+            raise PDBError("Too many missing values")
         if max_length is not None and len(aligned_seq) > max_length:
-            return None
+            raise PDBError("Sequence is too long")
         crd_arr = np.zeros((len(aligned_seq), 14, 3))
         seq_pos = -1
         pdb_pos = -1
-        for i, row in chain_crd.iterrows():
+        for _, row in chain_crd.iterrows():
             res_num = row["residue_number"]
             res_name = row["residue_name"]
             atom = row["atom_name"]
@@ -122,7 +127,7 @@ def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_
                 while aligned_seq[seq_pos] == "-":
                     seq_pos += 1
                 if d3to1[res_name] != aligned_seq[seq_pos]:
-                    print('error 2')
+                    raise PDBError("Incorrect alignment")
             if atom not in bb_names + side_chain[res_name]:
                 if atom in ["OXT", "HXT"]:
                     continue
