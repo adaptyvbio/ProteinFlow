@@ -61,6 +61,14 @@ class SelectHeavyAtoms(Select):
         return atom.id[0] != 'H'
 
 
+def get_pdb_file(pdb_file, bucket, tmp_folder):
+    try:
+        local_path = os.path.join(tmp_folder, os.path.basename(pdb_file))
+        bucket.download_file(pdb_file, local_path)
+        return local_path
+    except:
+        raise FileNotFoundError(f"Could not download {pdb_file}")
+
 def download_fasta(pdbcode, datadir):
     """
     Downloads a fasta file from the Internet and saves it in a data directory.
@@ -158,28 +166,28 @@ def retrieve_fasta_chains(fasta_file):
     return out_dict
 
 
-def retrieve_pdb_resolution(pdb_id):
+def retrieve_pdb_resolution(pdb_id, tmp_folder, bucket):
 
     """
     Find the resolution of the PDB by downloading the PDB from the web
     """
 
     pdb_file = 'pdb' + pdb_id + '.ent.gz'
-    pdb_unzipped = pdb_id + '_full' + '.pdb'
-    download_path = 's3://pdbsnapshots/20220103/pub/pdb/data/structures/all/pdb/' + pdb_file
-    subprocess.run(['aws', 's3', 'cp', '--no-sign-request', download_path, '.'])
+    pdb_unzipped = os.path.join(tmp_folder, pdb_id + '_full' + '.pdb')
+    download_path = '20220103/pub/pdb/data/structures/all/pdb/' + pdb_file
+    local_path = get_pdb_file(download_path, bucket=bucket, tmp_folder=tmp_folder)
 
-    with gzip.open(pdb_file, 'rb') as f_in:
+    with gzip.open(local_path, 'rb') as f_in:
         with open(pdb_unzipped, 'wb') as f_out:
             shutil.copyfileobj(f_in, f_out)
     
-    subprocess.run(['rm', pdb_file])
+    os.remove(local_path)
     header = parse_pdb_header(pdb_unzipped)
-    subprocess.run(['rm', pdb_unzipped])
+    os.remove(pdb_unzipped)
     return header['resolution']
 
 
-def check_resolution(pdb_id, resolution_dict):
+def check_resolution(pdb_id, resolution_dict, tmp_folder, bucket):
 
     """
     Find the resolution of the PDB by first checking into the resolution dictionary and then by downloading the PDB from the web if necessary
@@ -192,7 +200,7 @@ def check_resolution(pdb_id, resolution_dict):
         resolution = res_dict[pdb_id]
     
     else:
-        resolution = retrieve_pdb_resolution(pdb_id)
+        resolution = retrieve_pdb_resolution(pdb_id, tmp_folder, bucket)
         res_dict[pdb_id] = resolution
         with open(resolution_dict, 'wb') as f:
             pkl.dump(res_dict, f)
@@ -200,7 +208,7 @@ def check_resolution(pdb_id, resolution_dict):
     return resolution
 
 
-def open_pdb(file_path: str, resolution_dict: str, thr_resolution: float = 3.5) -> Dict:
+def open_pdb(file_path: str, tmp_folder: str, bucket: str, thr_resolution: float = 3.5) -> Dict:
     """
     Read a PDB file and parse it into a dictionary if it meets criteria
 
@@ -216,8 +224,8 @@ def open_pdb(file_path: str, resolution_dict: str, thr_resolution: float = 3.5) 
     ----------
     file_path : str
         the path to the .pdb{i}.gz file (i is a positive integer)
-    resolution_dict : str
-        the path to the pkl file containing a dictionary that stores the resolutions of the PDBs
+    tmp_folder : str
+        the path to the temporary data folder
     thr_resolution : float, default 3.5
         the resolution threshold
     
@@ -228,17 +236,19 @@ def open_pdb(file_path: str, resolution_dict: str, thr_resolution: float = 3.5) 
 
     """
 
-    pdb = file_path.split('.')
-    biounit = int(pdb[1][3 : ])
-    pdb = pdb[0]
-    pdb_path = pdb + '.pdb'
-    out_dict = {'pdb_id' : pdb,
-                'biounit' : biounit}
+    pdb = os.path.basename(file_path).split('.')[0]
+    pdb_path = os.path.join(tmp_folder, pdb + '.pdb')
+    out_dict = {}
+    resolution_dict = os.path.join(tmp_folder, "resolution.pkl")
+
+    if not os.path.exists(resolution_dict):
+        with open(resolution_dict, "wb") as f:
+            pkl.dump({}, f)
     
     # check that the resolution is sufficient
-    resolution = check_resolution(pdb, resolution_dict)
+    resolution = check_resolution(pdb, resolution_dict, tmp_folder, bucket)
     if resolution is None:
-        raise PDBError("Resolution was not indicated.")
+        raise PDBError("Resolution was not indicated")
     
     if resolution > thr_resolution:
         raise PDBError(f"Resolution is > {thr_resolution}")
@@ -251,7 +261,7 @@ def open_pdb(file_path: str, resolution_dict: str, thr_resolution: float = 3.5) 
     subprocess.run(['rm', file_path])
 
     # download fasta and check if it contains only proteins
-    fasta_path = download_fasta(pdb, '.')
+    fasta_path = download_fasta(pdb, tmp_folder)
 
     if fasta_path[0] == None:
         raise PDBError("Problems downloading fasta file.\n" + str(fasta_path[1]))
@@ -326,7 +336,7 @@ def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_
         chain_crd = crd[crd["chain_id"] == chain].reset_index()
         indices = np.unique(chain_crd["residue_number"], return_index=True)[1]
         pdb_seq = "".join([d3to1[x] for x in chain_crd.loc[indices]["residue_name"]])
-        aligned_seq = pairwise2.align.globalms(pdb_seq, fasta[chain], 2, -4, -.5, -.1)[0][0]
+        aligned_seq = pairwise2.align.globalms(pdb_seq, fasta[chain], 2, -10, -.5, -.1)[0][0]
         pdb_dict[chain]["seq"] = aligned_seq
         pdb_dict[chain]["msk"] = (np.array(list(aligned_seq)) != "-").astype(int)
         l = sum(pdb_dict[chain]["msk"])
@@ -346,12 +356,12 @@ def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_
             if res_num != pdb_pos:
                 seq_pos += 1
                 pdb_pos = res_num
-                while aligned_seq[seq_pos] == "-":
+                while aligned_seq[seq_pos] == "-" and seq_pos < len(aligned_seq) - 1:
                     seq_pos += 1
                 if d3to1[res_name] != aligned_seq[seq_pos]:
                     raise PDBError("Incorrect alignment")
             if atom not in bb_names + side_chain[res_name]:
-                if atom in ["OXT", "HXT"]:
+                if atom in ["OXT", "HXT"]: # extra oxygen or hydrogen
                     continue
                 return None
             else:

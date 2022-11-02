@@ -1,3 +1,6 @@
 test.ipynb
 utils/__pycache__/
 sidechainnet_data/
+data/
+.vscode/
+log*

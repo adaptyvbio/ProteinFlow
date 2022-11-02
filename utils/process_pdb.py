@@ -1,4 +1,3 @@
-from re import L
 from utils.parse_pdb import align_pdb, open_pdb, PDBError
 import os
 import boto3
@@ -26,11 +25,12 @@ all_pdbs = bucket.objects.filter(Prefix=PDB_PREFIX)[:10]
 def log_exception(exception, log_file, pdb_id):
     if isinstance(exception, PDBError):
         with open(log_file, "r") as f:
-            f.write(f'<<< {str(exception)}: {pdb_id}')
+            f.write(f'<<< {str(exception)}: {pdb_id} \n')
     else:
         with open(log_file, "r") as f:
-            f.write(f'<<< Unknown: {pdb_id}')
+            f.write(f'<<< Unknown: {pdb_id} \n')
             f.write(str(exception))
+            f.write("\n")
 
 def get_pdb_file(pdb_file, bucket):
     local_path = os.path.join(TMP_FOLDER, os.path.basename(pdb_file))

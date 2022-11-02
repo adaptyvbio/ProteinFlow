@@ -1,3 +1,4 @@
 sidechainnet>=0.7.6
 numpy>=1.23.4
 editdistance>=0.6.0
+Biopython==1.79
