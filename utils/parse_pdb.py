@@ -63,13 +63,16 @@ class SelectHeavyAtoms(Select):
 
 def get_pdb_file(pdb_file, bucket, tmp_folder):
     try:
-        local_path = os.path.join(tmp_folder, os.path.basename(pdb_file))
+        id = os.path.basename(pdb_file)
+        pdb_id = id.split('.')[0]
+        biounit = id.split('.')[1][3]
+        local_path = os.path.join(tmp_folder, f'{pdb_id}-{biounit}.pdb.gz')
         bucket.download_file(pdb_file, local_path)
         return local_path
     except:
         raise FileNotFoundError(f"Could not download {pdb_file}")
 
-def download_fasta(pdbcode, datadir):
+def download_fasta(pdbcode, biounit, datadir):
     """
     Downloads a fasta file from the Internet and saves it in a data directory.
     For informations about the download url, cf `https://www.rcsb.org/pages/download/http#structures`
@@ -80,7 +83,7 @@ def download_fasta(pdbcode, datadir):
 
     downloadurl = "https://www.rcsb.org/fasta/entry/"
     pdbfn = pdbcode + "/download"
-    outfnm = os.path.join(datadir, pdbcode + '.fasta')
+    outfnm = os.path.join(datadir,  f'{pdbcode}-{biounit}.fasta')
     
     url = downloadurl + pdbfn
     try:
@@ -208,7 +211,7 @@ def check_resolution(pdb_id, resolution_dict, tmp_folder, bucket):
     return resolution
 
 
-def open_pdb(file_path: str, tmp_folder: str, bucket: str, thr_resolution: float = 3.5) -> Dict:
+def open_pdb(file_path: str, tmp_folder: str) -> Dict:
     """
     Read a PDB file and parse it into a dictionary if it meets criteria
 
@@ -231,65 +234,39 @@ def open_pdb(file_path: str, tmp_folder: str, bucket: str, thr_resolution: float
     
     Output
     ------
-    pdb_dict : Dict | None
-        the parsed dictionary or `None`, if the criteria are not met
+    pdb_dict : Dict
+        the parsed dictionary
 
     """
 
-    pdb = os.path.basename(file_path).split('.')[0]
-    pdb_path = os.path.join(tmp_folder, pdb + '.pdb')
+    pdb, biounit = os.path.basename(file_path).split('-')
     out_dict = {}
-    resolution_dict = os.path.join(tmp_folder, "resolution.pkl")
-
-    if not os.path.exists(resolution_dict):
-        with open(resolution_dict, "wb") as f:
-            pkl.dump({}, f)
-    
-    # check that the resolution is sufficient
-    resolution = check_resolution(pdb, resolution_dict, tmp_folder, bucket)
-    if resolution is None:
-        raise PDBError("Resolution was not indicated")
-    
-    if resolution > thr_resolution:
-        raise PDBError(f"Resolution is > {thr_resolution}")
-
-    # unzip PDB
-    with gzip.open(file_path, 'rb') as f_in:
-        with open(pdb_path, 'wb') as f_out:
-            shutil.copyfileobj(f_in, f_out)
-
-    subprocess.run(['rm', file_path])
 
     # download fasta and check if it contains only proteins
-    fasta_path = download_fasta(pdb, tmp_folder)
-
-    if fasta_path[0] == None:
-        raise PDBError("Problems downloading fasta file.\n" + str(fasta_path[1]))
-    
-    if detect_non_proteins(fasta_path):
-        raise PDBError("The PDB contains non proteic residues (DNA, RNA, non-canonical amino acids, ...)")
-
-    # load PDB and save it back with all hydrogens and hetero-atoms removed
-    p = PDBParser(QUIET=True)
-    model = p.get_structure('test', pdb_path)[0]
-    io = PDBIO()
-    io.set_structure(model)
-    io.save(pdb_path, SelectHeavyAtoms())
+    fasta_path = download_fasta(pdb, biounit, tmp_folder)
+    try:
+        seqs_dict = retrieve_fasta_chains(fasta_path)
+    except FileNotFoundError:
+        raise PDBError("Fasta file not found.")
 
     # load coordinates in a nice format
-    p = PandasPdb().read_pdb(pdb_path).df['ATOM']
-    subprocess.run(['rm', pdb_path])
+    try:
+        p = PandasPdb().read_pdb(file_path).df['ATOM']
+    except FileNotFoundError:
+        raise PDBError("PDB file not found.")
     out_dict['crd_raw'] = p
-
+    
     # retrieve sequences that are relevant for this PDB from the fasta file
-    seqs_dict = retrieve_fasta_chains(fasta_path)
-    subprocess.run(['rm', fasta_path])
     chains = np.unique(p['chain_id'].values)
 
     if not set(chains).issubset(set(list(seqs_dict.keys()))):
         raise PDBError("Some chains in the PDB do not appear in the fasta file.")
     
     out_dict['fasta'] = {k : seqs_dict[k] for k in chains}
+
+    for path in [file_path, fasta_path]:
+        if os.path.exists(path):
+            subprocess.run(["rm", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     return out_dict
 
@@ -307,8 +284,9 @@ def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_
     The output is a nested dictionary where first-level keys are chain Ids and second-level keys are the following:
     - `'crd_bb'`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, Ca, C, O),
     - `'crd_sc'`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (in a fixed order),
-    - `'msk'`: a string of `'+'` and `'-'` of length `L` where `'-'` corresponds to missing residues,
-    - `'seq'`: a string of length `L` of residue types,
+    - `'msk'`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and 
+        zeros to missing values,
+    - `'seq'`: a string of length `L` with residue types.
 
     Parameters
     ----------
@@ -329,27 +307,42 @@ def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_
     crd = pdb_dict["crd_raw"]
     fasta = pdb_dict["fasta"]
     pdb_dict = {}
+    crd = crd[crd["record_name"] == "ATOM"]
+
     if not crd["residue_name"].isin(d3to1.keys()).all():
         raise PDBError("Unnatural amino acids found")
+
     for chain in crd["chain_id"].unique():
         pdb_dict[chain] = {}
         chain_crd = crd[crd["chain_id"] == chain].reset_index()
-        indices = np.unique(chain_crd["residue_number"], return_index=True)[1]
+        atom_numbers = list(chain_crd["atom_number"])
+
+        # check for multiple models
+        if atom_numbers[0] in atom_numbers[1:]:
+            index_1 = atom_numbers[1:].index(atom_numbers[0]) + 1
+            chain_crd = chain_crd.iloc[: index_1]
+        
+        # align fasta and pdb and check criteria
+        indices = np.where(np.diff(np.pad(chain_crd["residue_number"], (1, 0), constant_values=-10)) != 0)
         pdb_seq = "".join([d3to1[x] for x in chain_crd.loc[indices]["residue_name"]])
+        if len(pdb_seq) / len(fasta[chain]) < 1 - max_missing:
+            raise PDBError("Too many missing values")
         aligned_seq = pairwise2.align.globalms(pdb_seq, fasta[chain], 2, -10, -.5, -.1)[0][0]
+        if "".join([x for x in aligned_seq if x != "-"]) != pdb_seq:
+            raise PDBError("Incorrect alignment")
         pdb_dict[chain]["seq"] = aligned_seq
         pdb_dict[chain]["msk"] = (np.array(list(aligned_seq)) != "-").astype(int)
         l = sum(pdb_dict[chain]["msk"])
         if l < min_length: 
             raise PDBError("Sequence is too short")
-        if l / len(aligned_seq) < 1 - max_missing:
-            raise PDBError("Too many missing values")
         if max_length is not None and len(aligned_seq) > max_length:
             raise PDBError("Sequence is too long")
+
+        # go over rows of coordinates
         crd_arr = np.zeros((len(aligned_seq), 14, 3))
         seq_pos = -1
-        pdb_pos = -1
-        for _, row in chain_crd.iterrows():
+        pdb_pos = None
+        for row_i, row in chain_crd.iterrows():
             res_num = row["residue_number"]
             res_name = row["residue_name"]
             atom = row["atom_name"]
@@ -359,11 +352,11 @@ def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_
                 while aligned_seq[seq_pos] == "-" and seq_pos < len(aligned_seq) - 1:
                     seq_pos += 1
                 if d3to1[res_name] != aligned_seq[seq_pos]:
-                    raise PDBError("Incorrect alignment")
+                    raise PDBError("Alignment issue in processing")
             if atom not in bb_names + side_chain[res_name]:
-                if atom in ["OXT", "HXT"]: # extra oxygen or hydrogen
+                if atom in ["OXT"] or atom.startswith("H"): # extra oxygen or hydrogen
                     continue
-                return None
+                raise PDBError(f"Unexpected atoms ({atom})")
             else:
                 crd_arr[seq_pos, (bb_names + side_chain[res_name]).index(atom), :] = row[["x_coord", "y_coord", "z_coord"]]
         pdb_dict[chain]["crd_bb"] = crd_arr[:, : 4, :]
