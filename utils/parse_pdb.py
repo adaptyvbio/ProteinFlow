@@ -6,7 +6,6 @@ import gzip
 import shutil
 import urllib.request
 import os
-import sys
 import re
 import numpy as np
 import pickle as pkl

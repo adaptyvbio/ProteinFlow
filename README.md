@@ -8,7 +8,6 @@ cd ml-4
 conda create --name data python=3.9
 conda activate data
 python -m pip install -r requirements.txt
-git clone https://github.com/sbliven/rcsbsearch
 cd rcsbsearch/
 git pull origin pull/6/head
 python -m pip install . 
