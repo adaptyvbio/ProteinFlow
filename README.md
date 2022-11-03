@@ -17,7 +17,6 @@ python -m pip install -r requirements.txt
 Then you can run `run_pdb_processing.py`.
 ```
 conda activate data
-cd utils
 python run_pdb_processing.py --min_length 30 --resolution_thr 3.5
 ```
 

@@ -34,9 +34,9 @@ def log_exception(exception, log_file, pdb_id, tmp_folder):
             f.write(str(exception))
             f.write("\n")
 
-@click.option("--tmp_folder", default="../data/tmp_pdb", help="The folder where temporary files will be saved")
-@click.option("--output_folder", default="../data/pdb", help="The folder where the output files will be saved")
-@click.option("--log_folder", default="../data/logs", help="The folder where the log file will be saved")
+@click.option("--tmp_folder", default="./data/tmp_pdb", help="The folder where temporary files will be saved")
+@click.option("--output_folder", default="./data/pdb", help="The folder where the output files will be saved")
+@click.option("--log_folder", default="./data/logs", help="The folder where the log file will be saved")
 @click.option("--min_length", default=30, help="The minimum number of non-missing residues per chain")
 @click.option("--max_length", default=10000, help="The maximum number of residues per chain (set None for no threshold)")
 @click.option("--resolution_thr", default=3.5, help="The maximum resolution")
