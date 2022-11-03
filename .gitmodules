@@ -1,3 +1,6 @@
 [submodule "rcsbsearch"]
 	path = rcsbsearch
 	url = https://github.com/sbliven/rcsbsearch
+[submodule "RefineGNN"]
+	path = RefineGNN
+	url = https://github.com/wengong-jin/RefineGNN
