@@ -11,12 +11,19 @@ from tqdm import tqdm
 
 
 def clean(pdb_id, tmp_folder):
+    """
+    Remove all temporary files associated with a PDB ID
+    """
+
     for file in os.listdir(tmp_folder):
         if file.startswith(pdb_id):
             subprocess.run(["rm", os.path.join(tmp_folder, file)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def log_exception(exception, log_file, pdb_id, tmp_folder):
-    # raise exception
+    """
+    Record the error in the log file
+    """
+
     clean(pdb_id, tmp_folder)
     if isinstance(exception, PDBError):
         with open(log_file, "a") as f:
@@ -48,6 +55,8 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
     - `'msk'`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and 
         zeros to missing values,
     - `'seq'`: a string of length `L` with residue types.
+
+    All errors including reasons for filtering a file out are logged in the log file.
     """
 
     TMP_FOLDER = tmp_folder
