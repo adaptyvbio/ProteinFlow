@@ -1,10 +1,28 @@
 # ml-4
 Equivariant NN for generative sequence and structure antibody co-design
 
+## Generating data
+In order to download and process PDB files, first install the neccessary requirements;
+```
+cd ml-4
+conda create --name data python=3.9
+conda activate data
+python -m pip install -r requirements.txt
+git clone https://github.com/sbliven/rcsbsearch
+cd rcsbsearch/
+git pull origin pull/6/head
+python -m pip install . 
+cd ..
+```
 
-## Getting started
-Setup git in the instance and clone the repo:
-https://git-scm.com/book/en/v2/Getting-Started-First-Time-Git-Setup
+Then you can run `run_pdb_processing.py`.
+```
+conda activate data
+cd utils
+python run_pdb_processing.py --min_length 30 --resolution_thr 3.5
+```
+
+See `python run_pdb_processing.py --help` for a full list of parameters.
 
 
 ## Add your files
