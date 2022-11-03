@@ -326,10 +326,10 @@ def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_
         pdb_seq = "".join([d3to1[x] for x in chain_crd.loc[indices]["residue_name"]])
         if len(pdb_seq) / len(fasta[chain]) < 1 - max_missing:
             raise PDBError("Too many missing values")
-        aligned_seq = pairwise2.align.globalms(pdb_seq, fasta[chain], 2, -10, -.5, -.1)[0][0]
+        aligned_seq, fasta_seq, *_ = pairwise2.align.globalms(pdb_seq, fasta[chain], 2, -10, -.5, -.1)[0]
         if "".join([x for x in aligned_seq if x != "-"]) != pdb_seq:
             raise PDBError("Incorrect alignment")
-        pdb_dict[chain]["seq"] = aligned_seq
+        pdb_dict[chain]["seq"] = fasta_seq
         pdb_dict[chain]["msk"] = (np.array(list(aligned_seq)) != "-").astype(int)
         l = sum(pdb_dict[chain]["msk"])
         if l < min_length: 

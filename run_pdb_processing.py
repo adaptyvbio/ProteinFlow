@@ -1,4 +1,4 @@
-from parse_pdb import align_pdb, open_pdb, PDBError, get_pdb_file
+from utils.parse_pdb import align_pdb, open_pdb, PDBError, get_pdb_file
 import os
 import boto3
 import pickle
@@ -124,6 +124,7 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
                 pickle.dump(pdb_dict, f)
 
     _ = p_map(process_f, pdb_ids)
+    # process_f("196l-1", show_error=True)
 
 
 if __name__ == "__main__":
