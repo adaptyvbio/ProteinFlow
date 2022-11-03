@@ -4,14 +4,14 @@ Equivariant NN for generative sequence and structure antibody co-design
 ## Generating data
 In order to download and process PDB files, first install the neccessary requirements;
 ```
+git clone https://gitlab.com/adaptyvbio/ml-4
 cd ml-4
-conda create --name data python=3.9
+git submodule init
+git submodule update
+conda create -y --name data python=3.9
 conda activate data
+python -m pip install -e rcsbsearch/ 
 python -m pip install -r requirements.txt
-cd rcsbsearch/
-git pull origin pull/6/head
-python -m pip install . 
-cd ..
 ```
 
 Then you can run `run_pdb_processing.py`.

@@ -1,7 +1,7 @@
 sidechainnet>=0.7.6
 numpy>=1.23.4
 editdistance>=0.6.0
-Biopython?=1.79
+Biopython>=1.79
 click>=8.1.3
 biopandas>=0.4.1
 boto3>=1.25.3
