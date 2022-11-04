@@ -43,8 +43,9 @@ def log_exception(exception, log_file, pdb_id, tmp_folder):
 @click.option("--missing_thr", default=0.1, help="The maximum fraction of missing residues")
 @click.option("--filter_methods", default=True, help="If `True`, only files obtained with X-ray or EM will be processed")
 @click.option("-n", default=None, type=int, help="The number of files to process (for debugging purposes)")
+@click.option("--force", default=False, help="When `True`, rewrite the files if they already exist")
 @click.command()
-def main(tmp_folder, output_folder, log_folder, min_length, max_length, resolution_thr, missing_thr, filter_methods, n):
+def main(tmp_folder, output_folder, log_folder, min_length, max_length, resolution_thr, missing_thr, filter_methods, n, force):
     """
     Download and parse PDB files that meet filtering criteria
 
@@ -99,31 +100,29 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
         pdb_ids = pdbs
 
     def process_f(pdb_id, show_error=False, force=True):
-        pdb_id = pdb_id.lower()
-        id, biounit = pdb_id.split('-')
-        target_file = os.path.join(OUTPUT_FOLDER, pdb_id + '.pickle')
-        if not force and os.path.exists(target_file):
-            return
-        pdb_file = PDB_PREFIX + f'{id}.pdb{biounit}.gz'
-        local_path = get_pdb_file(pdb_file, boto3.resource('s3').Bucket("pdbsnapshots"), tmp_folder=TMP_FOLDER)
         try:
+            pdb_id = pdb_id.lower()
+            id, biounit = pdb_id.split('-')
+            target_file = os.path.join(OUTPUT_FOLDER, pdb_id + '.pickle')
+            if not force and os.path.exists(target_file):
+                raise PDBError("File already exists")
+            pdb_file = PDB_PREFIX + f'{id}.pdb{biounit}.gz'
+            local_path = get_pdb_file(pdb_file, boto3.resource('s3').Bucket("pdbsnapshots"), tmp_folder=TMP_FOLDER)
             pdb_dict = open_pdb(
                 local_path, 
                 tmp_folder=TMP_FOLDER,
             )
             pdb_dict = align_pdb(pdb_dict, min_length=MIN_LENGTH, max_length=MAX_LENGTH, max_missing=MISSING_THR)
+            if pdb_dict is not None:
+                with open(target_file, "wb") as f:
+                    pickle.dump(pdb_dict, f)
         except Exception as e:
             if show_error:
                 raise e
             else:
                 log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER)
-                pdb_dict = None
-        
-        if pdb_dict is not None:
-            with open(target_file, "wb") as f:
-                pickle.dump(pdb_dict, f)
 
-    _ = p_map(process_f, pdb_ids)
+    _ = p_map(lambda x: process_f(x, force=force), pdb_ids)
     # process_f("196l-1", show_error=True)
 
 
