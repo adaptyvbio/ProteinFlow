@@ -1,3 +1,4 @@
+from filter_database import remove_database_redundancies
 from utils.parse_pdb import align_pdb, open_pdb, PDBError, get_pdb_file, s3list
 import os
 import boto3
@@ -34,6 +35,7 @@ def log_exception(exception, log_file, pdb_id, tmp_folder):
             f.write(str(exception))
             f.write("\n")
 
+
 @click.option("--tmp_folder", default="./data/tmp_pdb", help="The folder where temporary files will be saved")
 @click.option("--output_folder", default="./data/pdb", help="The folder where the output files will be saved")
 @click.option("--log_folder", default="./data/logs", help="The folder where the log file will be saved")
@@ -43,10 +45,12 @@ def log_exception(exception, log_file, pdb_id, tmp_folder):
 @click.option("--missing_ends_thr", default=0.3, help="The maximum fraction of missing residues at the ends")
 @click.option("--missing_middle_thr", default=0.1, help="The maximum fraction of missing residues in the middle (after missing ends are disregarded)")
 @click.option("--filter_methods", default=True, help="If `True`, only files obtained with X-ray or EM will be processed")
+@click.option("--remove_redundancies", default=True, help="If 'True', removes biounits that are doubles of others sequence wise")
+@click.option("--seq_identity_threshold", default=.9, type=float, help="The threshold upon which sequences are considered as one and the same (default: 90%)")
 @click.option("-n", default=None, type=int, help="The number of files to process (for debugging purposes)")
 @click.option("--force", default=False, help="When `True`, rewrite the files if they already exist")
 @click.command()
-def main(tmp_folder, output_folder, log_folder, min_length, max_length, resolution_thr, missing_ends_thr, missing_middle_thr, filter_methods, n, force):
+def main(tmp_folder, output_folder, log_folder, min_length, max_length, resolution_thr, missing_ends_thr, missing_middle_thr, filter_methods, remove_redundancies, seq_identity_threshold, n, force):
     """
     Download and parse PDB files that meet filtering criteria
 
@@ -144,6 +148,9 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
 
     _ = p_map(lambda x: process_f(x, force=force), pdb_ids)
     # process_f("1b79-1", show_error=True)
+
+    if remove_redundancies:
+        remove_database_redundancies(OUTPUT_FOLDER, seq_identity_threshold=seq_identity_threshold)
 
 
 if __name__ == "__main__":
