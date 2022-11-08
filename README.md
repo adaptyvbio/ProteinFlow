@@ -22,6 +22,17 @@ python run_pdb_processing.py --min_length 30 --resolution_thr 3.5
 
 See `python run_pdb_processing.py --help` for a full list of parameters.
 
+## Submodules
+To add a repository from github as a submodule, follow this.
+1. `git clone [github url]`,
+2. `cd [repo name]`,
+3. `git remote rename origin upstream`,
+4. create a new project at https://gitlab.com/adaptyvbio,
+5. `git remote add origin [gitlab url]`,
+6. `git push -u origin --all`,
+7. `git push -u origin --tags`,
+8. go to `ml-4` on your machine,
+9. `git submodule add [gitlab url]`.
 
 ## Add your files
 
