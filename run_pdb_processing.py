@@ -1,4 +1,4 @@
-from utils.parse_pdb import align_pdb, open_pdb, PDBError, get_pdb_file
+from utils.parse_pdb import align_pdb, open_pdb, PDBError, get_pdb_file, s3list
 import os
 import boto3
 import pickle
@@ -40,12 +40,13 @@ def log_exception(exception, log_file, pdb_id, tmp_folder):
 @click.option("--min_length", default=30, help="The minimum number of non-missing residues per chain")
 @click.option("--max_length", default=10000, help="The maximum number of residues per chain (set None for no threshold)")
 @click.option("--resolution_thr", default=3.5, help="The maximum resolution")
-@click.option("--missing_thr", default=0.1, help="The maximum fraction of missing residues")
+@click.option("--missing_ends_thr", default=0.3, help="The maximum fraction of missing residues at the ends")
+@click.option("--missing_middle_thr", default=0.1, help="The maximum fraction of missing residues in the middle (after missing ends are disregarded)")
 @click.option("--filter_methods", default=True, help="If `True`, only files obtained with X-ray or EM will be processed")
 @click.option("-n", default=None, type=int, help="The number of files to process (for debugging purposes)")
 @click.option("--force", default=False, help="When `True`, rewrite the files if they already exist")
 @click.command()
-def main(tmp_folder, output_folder, log_folder, min_length, max_length, resolution_thr, missing_thr, filter_methods, n, force):
+def main(tmp_folder, output_folder, log_folder, min_length, max_length, resolution_thr, missing_ends_thr, missing_middle_thr, filter_methods, n, force):
     """
     Download and parse PDB files that meet filtering criteria
 
@@ -63,11 +64,12 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
 
     TMP_FOLDER = tmp_folder
     OUTPUT_FOLDER = output_folder
-    PDB_PREFIX = "20220103/pub/pdb/data/biounit/PDB/all/"
+    PDB_PREFIX = "pub/pdb/data/biounit/PDB/all/"
     MIN_LENGTH = min_length
     MAX_LENGTH = max_length
     RESOLUTION_THR = resolution_thr
-    MISSING_THR = missing_thr
+    MISSING_ENDS_THR = missing_ends_thr
+    MISSING_MIDDLE_THR = missing_middle_thr
 
     if not os.path.exists(TMP_FOLDER):
         os.mkdir(TMP_FOLDER)
@@ -85,11 +87,11 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
     with open(LOG_FILE, "a") as f:
         f.write(date_time)
 
-    # get filtered PDB ids
+    # get filtered PDB ids fro PDB API
     pdb_ids = Attr('rcsb_entry_info.selected_polymer_entity_types').__eq__("Protein (only)") \
-        .and_("exptl.method").in_(["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"])
+        .and_("rcsb_entry_info.resolution_combined").__le__(RESOLUTION_THR)
     if filter_methods:
-        pdb_ids = pdb_ids.and_("rcsb_entry_info.resolution_combined").__le__(RESOLUTION_THR)
+        pdb_ids = pdb_ids.and_("exptl.method").in_(["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"])
     pdb_ids = pdb_ids.exec("assembly")
     if n is not None:
         pdbs = []
@@ -98,6 +100,9 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
             if i == n:
                 break
         pdb_ids = pdbs
+    
+    ordered_folders = [x.key + PDB_PREFIX for x in s3list(boto3.resource('s3').Bucket("pdbsnapshots"), "", recursive=False, list_objs=False)]
+    ordered_folders = sorted(ordered_folders, reverse=True)
 
     def process_f(pdb_id, show_error=False, force=True):
         try:
@@ -106,13 +111,28 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
             target_file = os.path.join(OUTPUT_FOLDER, pdb_id + '.pickle')
             if not force and os.path.exists(target_file):
                 raise PDBError("File already exists")
-            pdb_file = PDB_PREFIX + f'{id}.pdb{biounit}.gz'
-            local_path = get_pdb_file(pdb_file, boto3.resource('s3').Bucket("pdbsnapshots"), tmp_folder=TMP_FOLDER)
+            pdb_file = f'{id}.pdb{biounit}.gz'
+            # download
+            local_path = get_pdb_file(
+                pdb_file, 
+                boto3.resource('s3').Bucket("pdbsnapshots"), 
+                tmp_folder=TMP_FOLDER, 
+                folders=ordered_folders
+            )
+            # parse
             pdb_dict = open_pdb(
                 local_path, 
                 tmp_folder=TMP_FOLDER,
             )
-            pdb_dict = align_pdb(pdb_dict, min_length=MIN_LENGTH, max_length=MAX_LENGTH, max_missing=MISSING_THR)
+            # filter and convert
+            pdb_dict = align_pdb(
+                pdb_dict, 
+                min_length=MIN_LENGTH, 
+                max_length=MAX_LENGTH, 
+                max_missing_ends=MISSING_ENDS_THR,
+                max_missing_middle=MISSING_MIDDLE_THR,
+            )
+            # save
             if pdb_dict is not None:
                 with open(target_file, "wb") as f:
                     pickle.dump(pdb_dict, f)
@@ -122,8 +142,8 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
             else:
                 log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER)
 
-    _ = p_map(lambda x: process_f(x, force=force), pdb_ids)
-    # process_f("196l-1", show_error=True)
+    # _ = p_map(lambda x: process_f(x, force=force), pdb_ids)
+    process_f("1b79-1", show_error=True)
 
 
 if __name__ == "__main__":
