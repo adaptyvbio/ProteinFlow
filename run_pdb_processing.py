@@ -1,4 +1,5 @@
 from parse_pdb import align_pdb, open_pdb, PDBError, get_pdb_file
+from filter_database import remove_database_redundancies
 import os
 import boto3
 import pickle
@@ -34,17 +35,19 @@ def log_exception(exception, log_file, pdb_id, tmp_folder):
             f.write(str(exception))
             f.write("\n")
 
-@click.option("--tmp_folder", default="./data/tmp_pdb", help="The folder where temporary files will be saved")
-@click.option("--output_folder", default="./data/pdb", help="The folder where the output files will be saved")
-@click.option("--log_folder", default="./data/logs", help="The folder where the log file will be saved")
-@click.option("--min_length", default=30, help="The minimum number of non-missing residues per chain")
-@click.option("--max_length", default=10000, help="The maximum number of residues per chain (set None for no threshold)")
-@click.option("--resolution_thr", default=3.5, help="The maximum resolution")
-@click.option("--missing_thr", default=0.1, help="The maximum fraction of missing residues")
+@click.option("--tmp_folder", default="./data/tmp_pdb", type=str, help="The folder where temporary files will be saved")
+@click.option("--output_folder", default="./data/pdb", type=str, help="The folder where the output files will be saved")
+@click.option("--log_folder", default="./data/logs", type=str, help="The folder where the log file will be saved")
+@click.option("--min_length", default=30, type=int, help="The minimum number of non-missing residues per chain")
+@click.option("--max_length", default=10000, type=int, help="The maximum number of residues per chain (set None for no threshold)")
+@click.option("--resolution_thr", default=3.5, type=float, help="The maximum resolution")
+@click.option("--missing_thr", default=0.1, type=float, help="The maximum fraction of missing residues")
 @click.option("--filter_methods", default=True, help="If `True`, only files obtained with X-ray or EM will be processed")
+@click.option("--remove_redundancies", default=True, help="If 'True', removes biounits that are doubles of others sequence wise")
+@click.option("--seq_identity_threshold", default=.9, type=float, help="The threshold upon which sequences are considered as one and the same (default: 90%)")
 @click.option("-n", default=None, type=int, help="The number of files to process (for debugging purposes)")
 @click.command()
-def main(tmp_folder, output_folder, log_folder, min_length, max_length, resolution_thr, missing_thr, filter_methods, n):
+def main(tmp_folder, output_folder, log_folder, min_length, max_length, resolution_thr, missing_thr, filter_methods, remove_redundancies, seq_identity_threshold, n):
     """
     Download and parse PDB files that meet filtering criteria
 
@@ -124,6 +127,9 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
                 pickle.dump(pdb_dict, f)
 
     _ = p_map(process_f, pdb_ids)
+
+    if remove_redundancies:
+        remove_database_redundancies(OUTPUT_FOLDER, seq_identity_threshold=seq_identity_threshold)
 
 
 if __name__ == "__main__":
