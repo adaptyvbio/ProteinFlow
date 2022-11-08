@@ -102,7 +102,9 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
 
     # get filtered PDB ids fro PDB API
     pdb_ids = Attr('rcsb_entry_info.selected_polymer_entity_types').__eq__("Protein (only)") \
-        .and_("rcsb_entry_info.resolution_combined").__le__(RESOLUTION_THR)
+        .or_('rcsb_entry_info.polymer_composition').__eq__("protein/oligosaccharide")
+    
+    pdb_ids = pdb_ids.and_("rcsb_entry_info.resolution_combined").__le__(RESOLUTION_THR)
     if filter_methods:
         pdb_ids = pdb_ids.and_("exptl.method").in_(["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"])
     pdb_ids = pdb_ids.exec("assembly")
