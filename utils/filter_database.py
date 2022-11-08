@@ -13,7 +13,7 @@ def open_pdb(file):
     Open a PDB file in the pickle format that follows the dwnloading and processing of the database
     """
 
-    with open(file, 'rb') as f:
+    with open(file, "rb") as f:
         return pkl.load(f)
 
 
@@ -26,7 +26,7 @@ def compare_identity(seq, seqs, threshold):
     for s in seqs:
         if editdistance.eval(s, seq) / max(len(s), len(seq)) <= (1 - threshold):
             return True
-    
+
     return False
 
 
@@ -35,15 +35,15 @@ def compare_seqs(seqs1, seqs2, threshold):
     """
     Assess whether 2 lists of sequences contain exactly the same set of sequences
     """
-    
+
     for seq in seqs1:
         if not compare_identity(seq, seqs1, threshold):
             return False
-    
+
     for seq in seqs2:
         if not compare_identity(seq, seqs2, threshold):
             return False
-    
+
     return True
 
 
@@ -59,20 +59,20 @@ def check_biounits(biounits_list, threshold):
     for k, b1 in enumerate(biounits):
 
         if k not in indexes:
-            b1_seqs = [b1[chain]['seq'] for chain in b1.keys()]
-            for l, b2 in enumerate(biounits[k + 1 : ]):
+            b1_seqs = [b1[chain]["seq"] for chain in b1.keys()]
+            for l, b2 in enumerate(biounits[k + 1 :]):
 
                 if len(b1.keys()) != len(b2.keys()):
                     continue
 
-                b2_seqs = [b2[chain]['seq'] for chain in b2.keys()]
+                b2_seqs = [b2[chain]["seq"] for chain in b2.keys()]
                 if compare_seqs(b1_seqs, b2_seqs, threshold):
                     indexes.append(k + l + 1)
 
     return indexes
 
 
-def remove_database_redundancies(dir, seq_identity_threshold=.9):
+def remove_database_redundancies(dir, seq_identity_threshold=0.9):
 
     """
     Remove all biounits in the database that are copies to another biounits in terms of sequence.
@@ -91,15 +91,19 @@ def remove_database_redundancies(dir, seq_identity_threshold=.9):
     """
 
     all_files = np.array(os.listdir(dir))
-    all_pdbs = np.array([file[ : 4] for file in all_files])
+    all_pdbs = np.array([file[:4] for file in all_files])
     pdb_counts = Counter(all_pdbs)
     pdbs_to_check = [pdb for pdb in pdb_counts.keys() if pdb_counts[pdb] > 1]
+    total_removed = []
 
     for pdb in tqdm(pdbs_to_check):
-        biounits_list = np.array([os.path.join(dir, file) for file in all_files[all_pdbs == pdb]])
+        biounits_list = np.array(
+            [os.path.join(dir, file) for file in all_files[all_pdbs == pdb]]
+        )
         redundancies = check_biounits(biounits_list, seq_identity_threshold)
         if redundancies != []:
             for k in redundancies:
-                subprocess.run(['rm', biounits_list[k]])
-    
-    return None
+                total_removed.append(os.path.basename(biounits_list[k]).split(".")[0])
+                subprocess.run(["rm", biounits_list[k]])
+
+    return total_removed

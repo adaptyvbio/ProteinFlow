@@ -17,7 +17,7 @@ if not os.path.exists(TMP_FOLDER):
 if not os.path.exists(OUTPUT_FOLDER):
     os.mkdir(OUTPUT_FOLDER)
 
-s3 = boto3.resource('s3')
+s3 = boto3.resource("s3")
 bucket = s3.Bucket("pdbsnapshots")
 all_pdbs = bucket.objects.filter(Prefix=PDB_PREFIX)[:10]
 
@@ -25,17 +25,19 @@ all_pdbs = bucket.objects.filter(Prefix=PDB_PREFIX)[:10]
 def log_exception(exception, log_file, pdb_id):
     if isinstance(exception, PDBError):
         with open(log_file, "r") as f:
-            f.write(f'<<< {str(exception)}: {pdb_id} \n')
+            f.write(f"<<< {str(exception)}: {pdb_id} \n")
     else:
         with open(log_file, "r") as f:
-            f.write(f'<<< Unknown: {pdb_id} \n')
+            f.write(f"<<< Unknown: {pdb_id} \n")
             f.write(str(exception))
             f.write("\n")
+
 
 def get_pdb_file(pdb_file, bucket):
     local_path = os.path.join(TMP_FOLDER, os.path.basename(pdb_file))
     bucket.download_file(pdb_file, local_path)
     return local_path
+
 
 for pdb_file in all_pdbs:
     local_path = get_pdb_file(pdb_file, bucket)
@@ -52,7 +54,6 @@ for pdb_file in all_pdbs:
         log_exception(e, LOG_FILE, id)
         continue
 
-        
     if pdb_dict is not None:
-        with open(os.path.join(OUTPUT_FOLDER, id + '.pickle'), "wb") as f:
+        with open(os.path.join(OUTPUT_FOLDER, id + ".pickle"), "wb") as f:
             pickle.dump(pdb_dict, f)
