@@ -142,8 +142,8 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
             else:
                 log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER)
 
-    # _ = p_map(lambda x: process_f(x, force=force), pdb_ids)
-    process_f("1b79-1", show_error=True)
+    _ = p_map(lambda x: process_f(x, force=force), pdb_ids)
+    # process_f("1b79-1", show_error=True)
 
 
 if __name__ == "__main__":
