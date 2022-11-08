@@ -200,7 +200,7 @@ def get_pdb_file(pdb_file, bucket, tmp_folder, folders):
     pdb_id = id.split(".")[0]
     biounit = id.split(".")[1][3]
     local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}.pdb.gz")
-    for folder in folders:
+    for folder in folders: # go over database snapshots in case the file is not found in the latest one
         file = folder + pdb_file
         try:
             bucket.download_file(file, local_path)
@@ -487,6 +487,8 @@ def align_pdb(
         aligned_seq, fasta_seq, *_ = pairwise2.align.globalms(
             pdb_seq, fasta[chain], 2, -10, -0.5, -0.1
         )[0]
+        if "-" in fasta_seq:
+            raise PDBError("Incorrect alignment")
         if "".join([x for x in aligned_seq if x != "-"]) != pdb_seq:
             raise PDBError("Incorrect alignment")
         start = 0

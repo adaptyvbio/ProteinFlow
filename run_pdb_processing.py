@@ -115,7 +115,7 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
         pdb_ids = pdbs
     
     ordered_folders = [x.key + PDB_PREFIX for x in s3list(boto3.resource('s3').Bucket("pdbsnapshots"), "", recursive=False, list_objs=False)]
-    ordered_folders = sorted(ordered_folders, reverse=True)
+    ordered_folders = sorted(ordered_folders, reverse=True) # a list of PDB snapshots from newest to oldest
 
     def process_f(pdb_id, show_error=False, force=True):
         try:
