@@ -15,6 +15,13 @@ from Bio.PDB.PDBIO import PDBIO
 from Bio.PDB.PDBIO import Select
 from Bio.PDB.parse_pdb_header import parse_pdb_header
 from biopandas.pdb import PandasPdb
+import os
+import boto3
+from collections import namedtuple
+from operator import attrgetter
+
+
+S3Obj = namedtuple('S3Obj', ['key', 'mtime', 'size', 'ETag'])
 
 
 side_chain = {
@@ -59,17 +66,117 @@ class SelectHeavyAtoms(Select):
     def accet_atom(self, atom):
         return atom.id[0] != 'H'
 
+def s3list(bucket, path, start=None, end=None, recursive=True, list_dirs=True,
+           list_objs=True, limit=None):
+    """
+    Iterator that lists a bucket's objects under path, (optionally) starting with
+    start and ending before end.
 
-def get_pdb_file(pdb_file, bucket, tmp_folder):
-    try:
-        id = os.path.basename(pdb_file)
-        pdb_id = id.split('.')[0]
-        biounit = id.split('.')[1][3]
-        local_path = os.path.join(tmp_folder, f'{pdb_id}-{biounit}.pdb.gz')
-        bucket.download_file(pdb_file, local_path)
-        return local_path
-    except:
-        raise FileNotFoundError(f"Could not download {pdb_file}")
+    If recursive is False, then list only the "depth=0" items (dirs and objects).
+
+    If recursive is True, then list recursively all objects (no dirs).
+
+    Args:
+        bucket:
+            a boto3.resource('s3').Bucket().
+        path:
+            a directory in the bucket.
+        start:
+            optional: start key, inclusive (may be a relative path under path, or
+            absolute in the bucket)
+        end:
+            optional: stop key, exclusive (may be a relative path under path, or
+            absolute in the bucket)
+        recursive:
+            optional, default True. If True, lists only objects. If False, lists
+            only depth 0 "directories" and objects.
+        list_dirs:
+            optional, default True. Has no effect in recursive listing. On
+            non-recursive listing, if False, then directories are omitted.
+        list_objs:
+            optional, default True. If False, then directories are omitted.
+        limit:
+            optional. If specified, then lists at most this many items.
+
+    Returns:
+        an iterator of S3Obj.
+
+    Examples:
+        # set up
+        >>> s3 = boto3.resource('s3')
+        ... bucket = s3.Bucket('bucket-name')
+
+        # iterate through all S3 objects under some dir
+        >>> for p in s3list(bucket, 'some/dir'):
+        ...     print(p)
+
+        # iterate through up to 20 S3 objects under some dir, starting with foo_0010
+        >>> for p in s3list(bucket, 'some/dir', limit=20, start='foo_0010'):
+        ...     print(p)
+
+        # non-recursive listing under some dir:
+        >>> for p in s3list(bucket, 'some/dir', recursive=False):
+        ...     print(p)
+
+        # non-recursive listing under some dir, listing only dirs:
+        >>> for p in s3list(bucket, 'some/dir', recursive=False, list_objs=False):
+        ...     print(p)
+    """
+
+    kwargs = dict()
+    if start is not None:
+        if not start.startswith(path):
+            start = os.path.join(path, start)
+        # note: need to use a string just smaller than start, because
+        # the list_object API specifies that start is excluded (the first
+        # result is *after* start).
+        kwargs.update(Marker=__prev_str(start))
+    if end is not None:
+        if not end.startswith(path):
+            end = os.path.join(path, end)
+    if not recursive:
+        kwargs.update(Delimiter='/')
+        if not path.endswith('/') and len(path) > 0:
+            path += '/'
+    kwargs.update(Prefix=path)
+    if limit is not None:
+        kwargs.update(PaginationConfig={'MaxItems': limit})
+
+    paginator = bucket.meta.client.get_paginator('list_objects')
+    for resp in paginator.paginate(Bucket=bucket.name, **kwargs):
+        q = []
+        if 'CommonPrefixes' in resp and list_dirs:
+            q = [S3Obj(f['Prefix'], None, None, None) for f in resp['CommonPrefixes']]
+        if 'Contents' in resp and list_objs:
+            q += [S3Obj(f['Key'], f['LastModified'], f['Size'], f['ETag']) for f in resp['Contents']]
+        # note: even with sorted lists, it is faster to sort(a+b)
+        # than heapq.merge(a, b) at least up to 10K elements in each list
+        q = sorted(q, key=attrgetter('key'))
+        if limit is not None:
+            q = q[:limit]
+            limit -= len(q)
+        for p in q:
+            if end is not None and p.key >= end:
+                return
+            yield p
+
+def get_pdb_file(pdb_file, bucket, tmp_folder, folders):
+    """
+    Download the file from S3 and return the local path where it was saved
+    """
+
+    id = os.path.basename(pdb_file)
+    pdb_id = id.split('.')[0]
+    biounit = id.split('.')[1][3]
+    local_path = os.path.join(tmp_folder, f'{pdb_id}-{biounit}.pdb.gz')
+    for folder in folders:
+        file = folder + pdb_file
+        try:
+            bucket.download_file(file, local_path)
+            return local_path
+        except:
+            continue
+    raise PDBError(f"Could not download {pdb_file}")
 
 def download_fasta(pdbcode, biounit, datadir):
     """
@@ -168,25 +275,25 @@ def retrieve_fasta_chains(fasta_file):
     return out_dict
 
 
-def retrieve_pdb_resolution(pdb_id, tmp_folder, bucket):
+# def retrieve_pdb_resolution(pdb_id, tmp_folder, bucket):
 
-    """
-    Find the resolution of the PDB by downloading the PDB from the web
-    """
+#     """
+#     Find the resolution of the PDB by downloading the PDB from the web
+#     """
 
-    pdb_file = 'pdb' + pdb_id + '.ent.gz'
-    pdb_unzipped = os.path.join(tmp_folder, pdb_id + '_full' + '.pdb')
-    download_path = '20220103/pub/pdb/data/structures/all/pdb/' + pdb_file
-    local_path = get_pdb_file(download_path, bucket=bucket, tmp_folder=tmp_folder)
+#     pdb_file = 'pdb' + pdb_id + '.ent.gz'
+#     pdb_unzipped = os.path.join(tmp_folder, pdb_id + '_full' + '.pdb')
+#     download_path = '20220103/pub/pdb/data/structures/all/pdb/' + pdb_file
+#     local_path = get_pdb_file(download_path, bucket=bucket, tmp_folder=tmp_folder)
 
-    with gzip.open(local_path, 'rb') as f_in:
-        with open(pdb_unzipped, 'wb') as f_out:
-            shutil.copyfileobj(f_in, f_out)
+#     with gzip.open(local_path, 'rb') as f_in:
+#         with open(pdb_unzipped, 'wb') as f_out:
+#             shutil.copyfileobj(f_in, f_out)
     
-    os.remove(local_path)
-    header = parse_pdb_header(pdb_unzipped)
-    os.remove(pdb_unzipped)
-    return header['resolution']
+#     os.remove(local_path)
+#     header = parse_pdb_header(pdb_unzipped)
+#     os.remove(pdb_unzipped)
+#     return header['resolution']
 
 
 def check_resolution(pdb_id, resolution_dict, tmp_folder, bucket):
@@ -270,7 +377,7 @@ def open_pdb(file_path: str, tmp_folder: str) -> Dict:
     return out_dict
 
 
-def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_missing: float = 0.1) -> Dict:
+def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_missing_middle: float = 0.1, max_missing_ends: float = 0.3) -> Dict:
     """
     Align and filter a PDB dictionary
 
@@ -324,12 +431,22 @@ def align_pdb(pdb_dict: Dict, min_length: int = 30, max_length: int = None, max_
         # align fasta and pdb and check criteria
         indices = np.where(np.diff(np.pad(chain_crd["residue_number"], (1, 0), constant_values=-10)) != 0)
         pdb_seq = "".join([d3to1[x] for x in chain_crd.loc[indices]["residue_name"]])
-        if len(pdb_seq) / len(fasta[chain]) < 1 - max_missing:
-            raise PDBError("Too many missing values")
-        aligned_seq = pairwise2.align.globalms(pdb_seq, fasta[chain], 2, -10, -.5, -.1)[0][0]
+        if len(pdb_seq) / len(fasta[chain]) < 1 - (max_missing_ends + max_missing_middle):
+            raise PDBError("Too many missing values in total")
+        aligned_seq, fasta_seq, *_ = pairwise2.align.globalms(pdb_seq, fasta[chain], 2, -10, -.5, -.1)[0]
         if "".join([x for x in aligned_seq if x != "-"]) != pdb_seq:
             raise PDBError("Incorrect alignment")
-        pdb_dict[chain]["seq"] = aligned_seq
+        start = 0
+        while aligned_seq[start] == "-":
+            start += 1
+        end = len(aligned_seq)
+        while aligned_seq[end - 1] == "-":
+            end -= 1
+        if start + (len(aligned_seq) - end) > max_missing_ends * len(aligned_seq):
+            raise PDBError("Too many missing values in the ends")
+        if sum([aligned_seq[i] == "-" for i in range(start, end)]) > max_missing_middle * (end - start):
+            raise PDBError("Too many missing values in the middle")
+        pdb_dict[chain]["seq"] = fasta_seq
         pdb_dict[chain]["msk"] = (np.array(list(aligned_seq)) != "-").astype(int)
         l = sum(pdb_dict[chain]["msk"])
         if l < min_length: 
