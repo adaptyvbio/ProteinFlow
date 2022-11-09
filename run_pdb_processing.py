@@ -10,6 +10,7 @@ import click
 from datetime import datetime
 from tqdm import tqdm
 from collections import defaultdict
+import shutil
 
 
 def clean(pdb_id, tmp_folder):
@@ -178,10 +179,12 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
     _ = p_map(lambda x: process_f(x, force=force), pdb_ids)
     
     stats = get_log_stats(LOG_FILE, verbose=False)
+    shutil.copy(LOG_FILE, f'{LOG_FILE}_original')
     while "<<< PDB file not found" in stats:
         os.rename(LOG_FILE, f'{LOG_FILE}_tmp')
         with open(f'{LOG_FILE}_tmp', "r") as f:
             lines = [x for x in f.readlineS() if not x.startswith("<<< PDB file not found")]
+        os.remove(f'{LOG_FILE}_tmp'L)
         with open(LOG_FILE, "a") as f:
             for line in lines:
                 f.write(line)
