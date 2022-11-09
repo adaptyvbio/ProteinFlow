@@ -207,7 +207,7 @@ def get_pdb_file(pdb_file, bucket, tmp_folder, folders):
             return local_path
         except:
             continue
-    raise PDBError(f"Could not download {pdb_file}")
+    raise PDBError(f"Could not download")
 
 
 def download_fasta(pdbcode, biounit, datadir):
@@ -391,20 +391,20 @@ def open_pdb(file_path: str, tmp_folder: str) -> Dict:
     try:
         seqs_dict = retrieve_fasta_chains(fasta_path)
     except FileNotFoundError:
-        raise PDBError("Fasta file not found.")
+        raise PDBError("Fasta file not found")
 
     # load coordinates in a nice format
     try:
         p = PandasPdb().read_pdb(file_path).df["ATOM"]
     except FileNotFoundError:
-        raise PDBError("PDB file not found.")
+        raise PDBError("PDB file not found")
     out_dict["crd_raw"] = p
 
     # retrieve sequences that are relevant for this PDB from the fasta file
     chains = np.unique(p["chain_id"].values)
 
     if not set(chains).issubset(set(list(seqs_dict.keys()))):
-        raise PDBError("Some chains in the PDB do not appear in the fasta file.")
+        raise PDBError("Some chains in the PDB do not appear in the fasta file")
 
     out_dict["fasta"] = {k: seqs_dict[k] for k in chains}
 

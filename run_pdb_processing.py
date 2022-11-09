@@ -9,6 +9,7 @@ import subprocess
 import click
 from datetime import datetime
 from tqdm import tqdm
+from collections import defaultdict
 
 
 def clean(pdb_id, tmp_folder):
@@ -17,7 +18,7 @@ def clean(pdb_id, tmp_folder):
     """
 
     for file in os.listdir(tmp_folder):
-        if file.startswith(pdb_id):
+        if file.startswith(f'{pdb_id}.'):
             subprocess.run(["rm", os.path.join(tmp_folder, file)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def log_exception(exception, log_file, pdb_id, tmp_folder):
@@ -43,6 +44,23 @@ def log_removed(removed, log_file):
     for pdb_id in removed:
         with open(log_file, "a") as f:
             f.write(f'<<< Removed due to redundancy: {pdb_id} \n')
+
+def get_log_stats(log_file, verbose=True):
+    """
+    Get a dictionary where keys are recognized error names and values are lists of PDB ids
+    """
+
+    stats = defaultdict(lambda: [])
+    with open(log_file, "r") as f:
+        for line in f.readlines():
+            if line.startswith("<<<"):
+                stats[line.split(':')[0]].append(line.split(":")[-1].strip())
+    keys = sorted(stats.keys(), key=lambda x: stats[x], reverse=True)
+    if verbose:
+        for key in keys:
+            value = stats[key]
+            print(f'{key}: {len(value)}')
+    return stats
 
 
 @click.option("--tmp_folder", default="./data/tmp_pdb", help="The folder where temporary files will be saved")
@@ -158,11 +176,23 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
                 log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER)
 
     _ = p_map(lambda x: process_f(x, force=force), pdb_ids)
-    # process_f("1b79-1", show_error=True)
+    
+    stats = get_log_stats(LOG_FILE, verbose=False)
+    while "<<< PDB file not found" in stats:
+        os.rename(LOG_FILE, f'{LOG_FILE}_tmp')
+        with open(f'{LOG_FILE}_tmp', "r") as f:
+            lines = [x for x in f.readlineS() if not x.startswith("<<< PDB file not found")]
+        with open(LOG_FILE, "a") as f:
+            for line in lines:
+                f.write(line)
+        _ = p_map(lambda x: process_f(x, force=force), stats["<<< PDB file not found"])
+        stats = get_log_stats(LOG_FILE, verbose=False)
 
     if remove_redundancies:
         removed = remove_database_redundancies(OUTPUT_FOLDER, seq_identity_threshold=seq_identity_threshold)
         log_removed(removed, LOG_FILE)
+    
+    get_log_stats(LOG_FILE)
 
 
 if __name__ == "__main__":
