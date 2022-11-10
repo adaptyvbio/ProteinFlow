@@ -461,6 +461,9 @@ def align_pdb(
     pdb_dict = {}
     crd = crd[crd["record_name"] == "ATOM"]
 
+    if len(crd["chain_id"].unique()) == 0:
+        raise PDBError("No chains found")
+
     if not crd["residue_name"].isin(d3to1.keys()).all():
         raise PDBError("Unnatural amino acids found")
 
@@ -473,7 +476,6 @@ def align_pdb(
         if atom_numbers[0] in atom_numbers[1:]:
             index_1 = atom_numbers[1:].index(atom_numbers[0]) + 1
             chain_crd = chain_crd.iloc[:index_1]
-
         # align fasta and pdb and check criteria
         indices = np.where(
             np.diff(np.pad(chain_crd["residue_number"], (1, 0), constant_values=-10))
@@ -515,6 +517,7 @@ def align_pdb(
         crd_arr = np.zeros((len(aligned_seq), 14, 3))
         seq_pos = -1
         pdb_pos = None
+        
         for row_i, row in chain_crd.iterrows():
             res_num = row["residue_number"]
             res_name = row["residue_name"]
@@ -534,6 +537,7 @@ def align_pdb(
                 crd_arr[
                     seq_pos, (bb_names + side_chain[res_name]).index(atom), :
                 ] = row[["x_coord", "y_coord", "z_coord"]]
+        print(f'{crd_arr[seq_pos - 5:, 2, :]=}')
         pdb_dict[chain]["crd_bb"] = crd_arr[:, :4, :]
         pdb_dict[chain]["crd_sc"] = crd_arr[:, 4:, :]
         pdb_dict[chain]["msk"][(pdb_dict[chain]["crd_bb"] == 0).sum(-1).sum(-1) > 0] = 0

@@ -176,6 +176,8 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
             else:
                 log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER)
 
+    # process_f("1a1q-3", show_error=True, force=force)
+
     _ = p_map(lambda x: process_f(x, force=force), pdb_ids)
     
     stats = get_log_stats(LOG_FILE, verbose=False)
