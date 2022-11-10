@@ -1,6 +1,6 @@
 [submodule "rcsbsearch"]
 	path = rcsbsearch
 	url = https://github.com/sbliven/rcsbsearch
-[submodule "refinegnn_multichain"]
-	path = refinegnn_multichain
-	url = https://gitlab.com/adaptyvbio/refinegnn_multichain
+[submodule "proteinmpnn"]
+	path = proteinmpnn
+	url = https://gitlab.com/adaptyvbio/proteinmpnn

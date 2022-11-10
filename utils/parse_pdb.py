@@ -200,14 +200,14 @@ def get_pdb_file(pdb_file, bucket, tmp_folder, folders):
     pdb_id = id.split(".")[0]
     biounit = id.split(".")[1][3]
     local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}.pdb.gz")
-    for folder in folders:
+    for folder in folders: # go over database snapshots in case the file is not found in the latest one
         file = folder + pdb_file
         try:
             bucket.download_file(file, local_path)
             return local_path
         except:
             continue
-    raise PDBError(f"Could not download {pdb_file}")
+    raise PDBError(f"Could not download")
 
 
 def download_fasta(pdbcode, biounit, datadir):
@@ -391,20 +391,20 @@ def open_pdb(file_path: str, tmp_folder: str) -> Dict:
     try:
         seqs_dict = retrieve_fasta_chains(fasta_path)
     except FileNotFoundError:
-        raise PDBError("Fasta file not found.")
+        raise PDBError("Fasta file not found")
 
     # load coordinates in a nice format
     try:
         p = PandasPdb().read_pdb(file_path).df["ATOM"]
     except FileNotFoundError:
-        raise PDBError("PDB file not found.")
+        raise PDBError("PDB file not found")
     out_dict["crd_raw"] = p
 
     # retrieve sequences that are relevant for this PDB from the fasta file
     chains = np.unique(p["chain_id"].values)
 
     if not set(chains).issubset(set(list(seqs_dict.keys()))):
-        raise PDBError("Some chains in the PDB do not appear in the fasta file.")
+        raise PDBError("Some chains in the PDB do not appear in the fasta file")
 
     out_dict["fasta"] = {k: seqs_dict[k] for k in chains}
 
@@ -461,6 +461,9 @@ def align_pdb(
     pdb_dict = {}
     crd = crd[crd["record_name"] == "ATOM"]
 
+    if len(crd["chain_id"].unique()) == 0:
+        raise PDBError("No chains found")
+
     if not crd["residue_name"].isin(d3to1.keys()).all():
         raise PDBError("Unnatural amino acids found")
 
@@ -473,7 +476,6 @@ def align_pdb(
         if atom_numbers[0] in atom_numbers[1:]:
             index_1 = atom_numbers[1:].index(atom_numbers[0]) + 1
             chain_crd = chain_crd.iloc[:index_1]
-
         # align fasta and pdb and check criteria
         indices = np.where(
             np.diff(np.pad(chain_crd["residue_number"], (1, 0), constant_values=-10))
@@ -487,6 +489,8 @@ def align_pdb(
         aligned_seq, fasta_seq, *_ = pairwise2.align.globalms(
             pdb_seq, fasta[chain], 2, -10, -0.5, -0.1
         )[0]
+        if "-" in fasta_seq:
+            raise PDBError("Incorrect alignment")
         if "".join([x for x in aligned_seq if x != "-"]) != pdb_seq:
             raise PDBError("Incorrect alignment")
         start = 0
@@ -513,6 +517,7 @@ def align_pdb(
         crd_arr = np.zeros((len(aligned_seq), 14, 3))
         seq_pos = -1
         pdb_pos = None
+        
         for row_i, row in chain_crd.iterrows():
             res_num = row["residue_number"]
             res_name = row["residue_name"]
@@ -532,6 +537,10 @@ def align_pdb(
                 crd_arr[
                     seq_pos, (bb_names + side_chain[res_name]).index(atom), :
                 ] = row[["x_coord", "y_coord", "z_coord"]]
+        print(f'{crd_arr[seq_pos - 5:, 2, :]=}')
         pdb_dict[chain]["crd_bb"] = crd_arr[:, :4, :]
         pdb_dict[chain]["crd_sc"] = crd_arr[:, 4:, :]
+        pdb_dict[chain]["msk"][(pdb_dict[chain]["crd_bb"] == 0).sum(-1).sum(-1) > 0] = 0
+        if (pdb_dict[chain]["msk"][start: end] == 0).sum() > max_missing_middle * (end - start):
+            raise PDBError("Too many missing values in the middle (backbone atoms")
     return pdb_dict
