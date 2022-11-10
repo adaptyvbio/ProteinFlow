@@ -515,6 +515,7 @@ def align_pdb(
         crd_arr = np.zeros((len(aligned_seq), 14, 3))
         seq_pos = -1
         pdb_pos = None
+        
         for row_i, row in chain_crd.iterrows():
             res_num = row["residue_number"]
             res_name = row["residue_name"]
@@ -534,6 +535,7 @@ def align_pdb(
                 crd_arr[
                     seq_pos, (bb_names + side_chain[res_name]).index(atom), :
                 ] = row[["x_coord", "y_coord", "z_coord"]]
+        print(f'{crd_arr[seq_pos - 5:, 2, :]=}')
         pdb_dict[chain]["crd_bb"] = crd_arr[:, :4, :]
         pdb_dict[chain]["crd_sc"] = crd_arr[:, 4:, :]
     return pdb_dict
