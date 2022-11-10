@@ -85,7 +85,7 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
     The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are 
     the following:
     
-    - `'crd_bb'`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, Ca, C, O),
+    - `'crd_bb'`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),
     - `'crd_sc'`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (in a fixed order),
     - `'msk'`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and 
         zeros to missing values,

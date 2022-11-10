@@ -536,4 +536,7 @@ def align_pdb(
                 ] = row[["x_coord", "y_coord", "z_coord"]]
         pdb_dict[chain]["crd_bb"] = crd_arr[:, :4, :]
         pdb_dict[chain]["crd_sc"] = crd_arr[:, 4:, :]
+        pdb_dict[chain]["msk"][(pdb_dict[chain]["crd_bb"] == 0).sum(-1).sum(-1) > 0] = 0
+        if (pdb_dict[chain]["msk"][start: end] == 0).sum() > max_missing_middle * (end - start):
+            raise PDBError("Too many missing values in the middle (backbone atoms")
     return pdb_dict
