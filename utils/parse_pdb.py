@@ -461,6 +461,9 @@ def align_pdb(
     pdb_dict = {}
     crd = crd[crd["record_name"] == "ATOM"]
 
+    if len(crd["chain_id"].unique()) == 0:
+        raise PDBError("No chains found")
+
     if not crd["residue_name"].isin(d3to1.keys()).all():
         raise PDBError("Unnatural amino acids found")
 
@@ -473,7 +476,6 @@ def align_pdb(
         if atom_numbers[0] in atom_numbers[1:]:
             index_1 = atom_numbers[1:].index(atom_numbers[0]) + 1
             chain_crd = chain_crd.iloc[:index_1]
-
         # align fasta and pdb and check criteria
         indices = np.where(
             np.diff(np.pad(chain_crd["residue_number"], (1, 0), constant_values=-10))
