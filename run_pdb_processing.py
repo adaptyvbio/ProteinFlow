@@ -45,6 +45,10 @@ def log_exception(exception, log_file, pdb_id, tmp_folder):
 @click.option("--filter_methods", default=True, help="If `True`, only files obtained with X-ray or EM will be processed")
 @click.option("--remove_redundancies", default=True, help="If 'True', removes biounits that are doubles of others sequence wise")
 @click.option("--seq_identity_threshold", default=.9, type=float, help="The threshold upon which sequences are considered as one and the same (default: 90%)")
+@click.option("--split_database", default=False, help="Whether or not to split the database ")
+@click.option("--valid_split", default=.05, type=float, help="The percentage of chains to put in the validation set (default 5%)")
+@click.option("--test_split", default=.05, type=float, help="The percentage of chains to put in the test set (default 5%)")
+@click.option("--split_tolerance", default=.2, type=float, help="The tolerance on the split ratio (default 20%)")
 @click.option("-n", default=None, type=int, help="The number of files to process (for debugging purposes)")
 @click.command()
 def main(tmp_folder, output_folder, log_folder, min_length, max_length, resolution_thr, missing_thr, filter_methods, remove_redundancies, seq_identity_threshold, n):
