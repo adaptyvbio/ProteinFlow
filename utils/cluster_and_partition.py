@@ -104,14 +104,15 @@ def write_fasta(fasta_path, merged_seqs_dict):
                 f.write(seq + '\n')
 
 
-def run_mmseqs2(fasta_file):
+def run_mmseqs2(fasta_file, tmp_folder):
 
     """
     Run the MMSeqs2 command with the parameters we want
-    Results are stored in the MMSeqs2 directory
+    Results are stored in the tmp_folder/MMSeqs2 directory
     """
 
-    subprocess.run(['mmseqs', 'easy-cluster', fasta_file, 'MMSeqs2_results/clusterRes', 'MMseqs2_results/tmp', '--min-seq-id', '0.3'])
+    os.makedirs(os.path.join(tmp_folder, 'MMSeqs2_results'))
+    subprocess.run(['mmseqs', 'easy-cluster', fasta_file, os.path.join(tmp_folder, 'MMSeqs2_results/clusterRes'), os.path.join(tmp_folder, 'MMSeqs2_results/tmp'), '--min-seq-id', '0.3'])
 
 
 def read_clusters(cluster_file_fasta):
@@ -642,14 +643,14 @@ def split_dataset(graph, clusters_dict, merged_seqs_dict, dataset_dir, valid_spl
     ) = construct_dataset(dict_list, size_array, remaining_indices)
 
     print("Classes distribution (single chain / homomer / heteromer):")
-    print("Train set:", n_single_chains_train, '/', n_homomers_train, '/', n_heteromers_train)
-    print("Validation set:", n_single_chains_valid, '/', n_homomers_valid, '/', n_heteromers_valid)
-    print("Test set:", n_single_chains_test, '/', n_homomers_test, '/', n_heteromers_test)
+    print("Train set:", int(n_single_chains_train), '/', int(n_homomers_train), '/', int(n_heteromers_train))
+    print("Validation set:", int(n_single_chains_valid), '/', int(n_homomers_valid), '/', int(n_heteromers_valid))
+    print("Test set:", int(n_single_chains_test), '/', int(n_homomers_test), '/', int(n_heteromers_test))
 
     return train_clusters_dict, train_classes_dict, valid_clusters_dict, valid_classes_dict, test_clusters_dict, test_classes_dict, single_chains, homomers, heteromers
 
 
-def build_dataset_partition(dataset_dir, valid_split=.05, test_split=.05, tolerance=.2):
+def build_dataset_partition(dataset_dir, tmp_folder, valid_split=.05, test_split=.05, tolerance=.2):
 
     """
     Build training, validation and test sets from a curated dataset of biounit, using MMSeqs2 for clustering.
@@ -686,13 +687,14 @@ def build_dataset_partition(dataset_dir, valid_split=.05, test_split=.05, tolera
     merged_seqs_dict = merge_chains(seqs_dict)
 
     # write sequences to a fasta file for clustering with MMSeqs2, run MMSeqs2 and delete the fasta file
-    fasta_file = 'all_seqs.fasta'
+    fasta_file = os.path.join(tmp_folder, 'all_seqs.fasta')
     write_fasta(fasta_file, merged_seqs_dict)
-    run_mmseqs2(fasta_file)
+    run_mmseqs2(fasta_file, tmp_folder)
     subprocess.run(['rm', fasta_file])
 
     # retrieve MMSeqs2 clusters and build a graph with these clusters
-    clusters_dict, clusters_pdb_dict = read_clusters('MMSeqs2_results/clusterRes_all_seqs.fasta')
+    clusters_dict, clusters_pdb_dict = read_clusters(os.path.join('MMSeqs2_results/clusterRes_all_seqs.fasta'))
+    subprocess.run(['rm', '-r', os.path.join(tmp_folder, 'MMSeqs2_results')])
     graph = make_graph(clusters_pdb_dict)
 
     # perform the splitting into train, validation and tesst sets

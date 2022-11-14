@@ -1,5 +1,6 @@
 from utils.filter_database import remove_database_redundancies
 from utils.parse_pdb import align_pdb, open_pdb, PDBError, get_pdb_file, s3list
+from utils.cluster_and_partition import build_dataset_partition
 import os
 import boto3
 import pickle
@@ -67,6 +68,7 @@ def get_log_stats(log_file, verbose=True):
 @click.option("--tmp_folder", default="./data/tmp_pdb", help="The folder where temporary files will be saved")
 @click.option("--output_folder", default="./data/pdb", help="The folder where the output files will be saved")
 @click.option("--log_folder", default="./data/logs", help="The folder where the log file will be saved")
+@click.option("--out_split_dict_folder", default="./data/dataset_splits_dicts", help="The folder where the dictionaries containing the train/validation/test splits information will be saved")
 @click.option("--min_length", default=30, help="The minimum number of non-missing residues per chain")
 @click.option("--max_length", default=10000, help="The maximum number of residues per chain (set None for no threshold)")
 @click.option("--resolution_thr", default=3.5, help="The maximum resolution")
@@ -100,6 +102,7 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
 
     TMP_FOLDER = tmp_folder
     OUTPUT_FOLDER = output_folder
+    DICT_FOLDER = out_split_dict_folder
     PDB_PREFIX = "pub/pdb/data/biounit/PDB/all/"
     MIN_LENGTH = min_length
     MAX_LENGTH = max_length
@@ -200,6 +203,25 @@ def main(tmp_folder, output_folder, log_folder, min_length, max_length, resoluti
     if remove_redundancies:
         removed = remove_database_redundancies(OUTPUT_FOLDER, seq_identity_threshold=seq_identity_threshold)
         log_removed(removed, LOG_FILE)
+    
+    if split_database:
+        (
+            train_clusters_dict,
+            train_classes_dict,
+            valid_clusters_dict,
+            valid_classes_dict,
+            test_clusters_dict,
+            test_classes_dict,
+        ) = build_dataset_partition(OUTPUT_FOLDER, TMP_FOLDER, valid_split=valid_split, test_split=test_split, tolerance=split_tolerance)
+        with open(os.path.join(DICT_FOLDER, 'train.pickle'), 'wb') as f:
+            pickle.dump(train_clusters_dict, f)
+            pickle.dump(train_classes_dict, f)
+        with open(os.path.join(DICT_FOLDER, 'valid.pickle'), 'wb') as f:
+            pickle.dump(valid_clusters_dict, f)
+            pickle.dump(valid_classes_dict, f)
+        with open(os.path.join(DICT_FOLDER, 'test.pickle'), 'wb') as f:
+            pickle.dump(test_clusters_dict, f)
+            pickle.dump(test_classes_dict, f)
     
     get_log_stats(LOG_FILE)
 
