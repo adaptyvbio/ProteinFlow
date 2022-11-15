@@ -212,7 +212,7 @@ def main(
         os.rename(LOG_FILE, f'{LOG_FILE}_tmp')
         with open(f'{LOG_FILE}_tmp', "r") as f:
             lines = [x for x in f.readlineS() if not x.startswith("<<< PDB file not found")]
-        os.remove(f'{LOG_FILE}_tmp'L)
+        os.remove(f'{LOG_FILE}_tmp')
         with open(LOG_FILE, "a") as f:
             for line in lines:
                 f.write(line)
