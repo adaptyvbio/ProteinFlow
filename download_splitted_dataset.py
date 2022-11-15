@@ -13,7 +13,7 @@ def biounits_in_clusters_dict(clusters_dict):
     Return the list of all biounit files present in clusters_dict
     """
 
-    return np.unique([c[0] for c in list(np.concatenate(clusters_dict.values()))])
+    return np.unique([c[0] for c in list(np.concatenate(list(clusters_dict.values())))])
 
 
 def download_dataset_dicts_from_s3(dict_folder_path, s3_path='s3://ml4-main-storage/bestprot_20221110_splits_dict/'):
