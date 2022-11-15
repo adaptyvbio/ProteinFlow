@@ -3,6 +3,7 @@ import argparse
 import subprocess
 import numpy as np
 import pickle as pkl
+from tqdm import tqdm
 
 
 
@@ -47,6 +48,14 @@ def download_dataset_from_s3(train_clusters_dict, valid_clusters_dict, test_clus
     valid_path = os.path.join(dataset_path, 'validation')
     test_path = os.path.join(dataset_path, 'test')
 
+    if not os.path.exists(dataset_path):
+        os.makedirs(dataset_path)
+    
+    print('Downloading the datset from s3...')
+    subprocess.run(['aws', 's3', 'cp', '--recursive', s3_path, dataset_path])
+    print('Done!')
+    print("We're almost there, just a tiny effort left :-)")
+
     if not os.path.exists(train_path):
         os.makedirs(train_path)
     if not os.path.exists(valid_path):
@@ -54,12 +63,20 @@ def download_dataset_from_s3(train_clusters_dict, valid_clusters_dict, test_clus
     if not os.path.exists(test_path):
         os.makedirs(test_path)
     
-    for biounit in train_biounits:
-        subprocess.run(['aws', 's3', 'cp', os.path.join(s3_path, biounit), train_path])
-    for biounit in valid_biounits:
-        subprocess.run(['aws', 's3', 'cp', os.path.join(s3_path, biounit), valid_path])
-    for biounit in test_biounits:
-        subprocess.run(['aws', 's3', 'cp', os.path.join(s3_path, biounit), test_path])
+    print('Moving files in the train set...')
+    for biounit in tqdm(train_biounits):
+        subprocess.run(['mv', os.path.join(dataset_path, biounit), train_path])
+    print('Done!')
+    print('Moving files in the validation set...')
+    for biounit in tqdm(valid_biounits):
+        subprocess.run(['mv', os.path.join(dataset_path, biounit), valid_path])
+    print('Done!')
+    print('Moving files in the test set...')
+    for biounit in tqdm(test_biounits):
+        subprocess.run(['mv', os.path.join(dataset_path, biounit), test_path])
+    print('Done!')
+    print('-------------------------------------')
+    print('Thanks for downloading BestProt, the most complete, user-friendly and loving protein dataset you will ever find! ;-)')
 
 
 def main():
@@ -77,7 +94,9 @@ def main():
     DATASET_FOLDER = args.local_folder
     DICT_FOLDER = os.path.join(args.local_folder, 'splits_dict')
     
+    print('Downloading dictionaries for splitting the dataset...')
     download_dataset_dicts_from_s3(DICT_FOLDER, S3_DICT_PATH)
+    print('Done!')
 
     with open(os.path.join(DICT_FOLDER, 'train.pickle'), 'rb') as f:
         train_clusters_dict = pkl.load(f)
