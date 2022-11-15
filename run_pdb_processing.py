@@ -84,7 +84,25 @@ def get_log_stats(log_file, verbose=True):
 @click.option("-n", default=None, type=int, help="The number of files to process (for debugging purposes)")
 @click.option("--force", default=False, help="When `True`, rewrite the files if they already exist")
 @click.command()
-def main(tmp_folder, output_folder, log_folder, min_length, max_length, resolution_thr, missing_ends_thr, missing_middle_thr, filter_methods, remove_redundancies, seq_identity_threshold, n, force):
+def main(
+        tmp_folder, 
+        output_folder, 
+        log_folder, 
+        min_length, 
+        max_length, 
+        resolution_thr, 
+        missing_ends_thr, 
+        missing_middle_thr, 
+        filter_methods, 
+        remove_redundancies, 
+        seq_identity_threshold, 
+        n, 
+        force,
+        split_tolerance,
+        split_database,
+        test_split,
+        valid_split,
+    ):
     """
     Download and parse PDB files that meet filtering criteria
 
