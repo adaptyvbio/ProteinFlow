@@ -376,7 +376,7 @@ def construct_dataset(dict_list, size_array, indices):
     return dataset_clusters_dict, dataset_classes_dict, single_chains_size, homomers_size, heteromers_size
 
 
-def remove_elements_from_dataset(indices, remaining_indices, chain_class, size_obj, current_size, size_array):
+def remove_elements_from_dataset(indices, remaining_indices, chain_class, size_obj, current_sizes, size_array, tolerance=.2):
 
     """
     Remove values from indices untill we get the required (size_obj) number of chains in the class of interest (chain_class)
@@ -385,16 +385,22 @@ def remove_elements_from_dataset(indices, remaining_indices, chain_class, size_o
 
     sizes = [s[chain_class] for s in size_array[indices]]
     sorted_sizes_indices = np.argsort(sizes)[::-1]
-    while current_size > size_obj:
-        current_size -= size_array[indices[sorted_sizes_indices[0]], chain_class]
+
+    while current_sizes[chain_class] > size_obj and len(sorted_sizes_indices) > 0:
+
+        if current_sizes[chain_class] - size_array[indices[sorted_sizes_indices[0]], chain_class] < (1 - tolerance) * size_obj:
+            sorted_sizes_indices = sorted_sizes_indices[1 : ]
+            continue
+        
+        current_sizes -= size_array[indices[sorted_sizes_indices[0]]]
         remaining_indices.append(indices[sorted_sizes_indices[0]])
         indices.pop(sorted_sizes_indices[0])
-        sorted_sizes_indices = sorted_sizes_indices[1 : ]
+        sorted_sizes_indices = sorted_sizes_indices[1 : ] if len(sorted_sizes_indices) > 0 else []
     
-    return indices, remaining_indices, current_size
+    return indices, remaining_indices, current_sizes[0], current_sizes[1], current_sizes[2]
 
 
-def add_elements_to_dataset(indices, remaining_indices, chain_class, size_obj, current_size, size_array):
+def add_elements_to_dataset(indices, remaining_indices, chain_class, size_obj, current_sizes, size_array, tolerance=.2):
 
     """
     Add values to indices untill we get the required (size_obj) number of chains in the class of interest (chain_class)
@@ -403,21 +409,27 @@ def add_elements_to_dataset(indices, remaining_indices, chain_class, size_obj, c
 
     sizes = [s[chain_class] for s in size_array[remaining_indices]]
     sorted_sizes_indices = np.argsort(sizes)[::-1]
-    while current_size < size_obj:
-        current_size += size_array[remaining_indices[sorted_sizes_indices[0]], chain_class]
+
+    while current_sizes[chain_class] < size_obj and len(sorted_sizes_indices) > 0:
+
+        if current_sizes[chain_class] + size_array[remaining_indices[sorted_sizes_indices[0]], chain_class] > (1 + tolerance) * size_obj:
+            sorted_sizes_indices = sorted_sizes_indices[1 : ]
+            continue
+
+        current_sizes += size_array[remaining_indices[sorted_sizes_indices[0]]]
         indices.append(remaining_indices[sorted_sizes_indices[0]])
         remaining_indices.pop(sorted_sizes_indices[0])
-        sorted_sizes_indices = sorted_sizes_indices[1 : ]
+        sorted_sizes_indices = sorted_sizes_indices[1 : ] if len(sorted_sizes_indices) > 0 else []
     
-    return indices, remaining_indices, current_size
+    return indices, remaining_indices, current_sizes[0], current_sizes[1], current_sizes[2]
 
 
 def adjust_dataset(indices, remaining_indices, dict_list, size_array, n_single_chains, n_homomers, n_heteromers, single_chains_size, homomers_size, heteromers_size, tolerance=.2):
 
     """
-    If required, remove and add values in indices so that the number of chains in each class correspond to the required numbers within a tolerance
+    If required, remove and add values in indices so that the number of chains in each class correspond to the required numbers within a tolerance.
     First remove and then add (if necessary, for each class separately).
-    In the end, we might end up with more chains than desired in the first 2 classes (and very seldomly in the third) but for a reasonable tolerance (~10-20 %), this should not happen often
+    In the end, we might end up with more chains than desired in the first 2 classes but for a reasonable tolerance (~10-20 %), this should not happen.
     """
 
     if single_chains_size > (1 + tolerance) * n_single_chains:
@@ -425,42 +437,54 @@ def adjust_dataset(indices, remaining_indices, dict_list, size_array, n_single_c
             indices,
             remaining_indices,
             single_chains_size,
-        ) = remove_elements_from_dataset(indices, remaining_indices, 0, n_single_chains, single_chains_size, size_array)
+            homomers_size,
+            heteromers_size,
+        ) = remove_elements_from_dataset(indices, remaining_indices, 0, n_single_chains, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
     
     if homomers_size > (1 + tolerance) * n_homomers:
         (
             indices,
             remaining_indices,
+            single_chains_size,
             homomers_size,
-        ) = remove_elements_from_dataset(indices, remaining_indices, 1, n_homomers, homomers_size, size_array)
+            heteromers_size,
+        ) = remove_elements_from_dataset(indices, remaining_indices, 1, n_homomers, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
 
     if heteromers_size > (1 + tolerance) * n_heteromers:
         (
             indices,
             remaining_indices,
+            single_chains_size,
+            homomers_size,
             heteromers_size,
-        ) = remove_elements_from_dataset(indices, remaining_indices, 2, n_heteromers, heteromers_size, size_array)
-
+        ) = remove_elements_from_dataset(indices, remaining_indices, 2, n_heteromers, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
+    
     if single_chains_size < (1 - tolerance) * n_single_chains:
         (
             indices,
             remaining_indices,
             single_chains_size,
-        ) = add_elements_to_dataset(indices, remaining_indices, 0, n_single_chains, single_chains_size, size_array)
+            homomers_size,
+            heteromers_size,
+        ) = add_elements_to_dataset(indices, remaining_indices, 0, n_single_chains, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
 
     if homomers_size < (1 - tolerance) * n_homomers:
         (
             indices,
             remaining_indices,
+            single_chains_size,
             homomers_size,
-        ) = add_elements_to_dataset(indices, remaining_indices, 1, n_homomers, homomers_size, size_array)
+            heteromers_size,
+        ) = add_elements_to_dataset(indices, remaining_indices, 1, n_homomers, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
 
     if heteromers_size < (1 - tolerance) * n_heteromers:
         (
             indices,
             remaining_indices,
+            single_chains_size,
+            homomers_size,
             heteromers_size,
-        ) = add_elements_to_dataset(indices, remaining_indices, 2, n_heteromers, heteromers_size, size_array)
+        ) = add_elements_to_dataset(indices, remaining_indices, 2, n_heteromers, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
 
     (
         dataset_clusters_dict,
