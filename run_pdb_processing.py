@@ -102,6 +102,7 @@ def main(
         split_database,
         test_split,
         valid_split,
+        out_split_dict_folder
     ):
     """
     Download and parse PDB files that meet filtering criteria
