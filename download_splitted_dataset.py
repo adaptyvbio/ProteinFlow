@@ -4,8 +4,7 @@ import subprocess
 import numpy as np
 import pickle as pkl
 from tqdm import tqdm
-
-
+import shutil
 
 
 def biounits_in_clusters_dict(clusters_dict):
@@ -15,7 +14,6 @@ def biounits_in_clusters_dict(clusters_dict):
     """
 
     return np.unique([c[0] for c in list(np.concatenate(list(clusters_dict.values())))])
-
 
 def download_dataset_dicts_from_s3(dict_folder_path, s3_path='s3://ml4-main-storage/bestprot_20221110_splits_dict/'):
 
@@ -34,7 +32,6 @@ def download_dataset_dicts_from_s3(dict_folder_path, s3_path='s3://ml4-main-stor
     subprocess.run(['aws', 's3', 'cp', valid_path, dict_folder_path])
     subprocess.run(['aws', 's3', 'cp', test_path, dict_folder_path])
 
-
 def download_dataset_from_s3(train_clusters_dict, valid_clusters_dict, test_clusters_dict, dataset_path='bestprot_dataset', s3_path='s3://ml4-main-storage/bestprot_20221110/'):
 
     """
@@ -51,10 +48,13 @@ def download_dataset_from_s3(train_clusters_dict, valid_clusters_dict, test_clus
     if not os.path.exists(dataset_path):
         os.makedirs(dataset_path)
     
-    print('Downloading the datset from s3...')
-    subprocess.run(['aws', 's3', 'cp', '--recursive', s3_path, dataset_path])
-    print('Done!')
-    print("We're almost there, just a tiny effort left :-)")
+    if s3_path.startswith("s3"):
+        print('Downloading the datset from s3...')
+        subprocess.run(['aws', 's3', 'cp', '--recursive', s3_path, dataset_path])
+        print('Done!')
+        print("We're almost there, just a tiny effort left :-)")
+    else:
+        shutil.move(s3_path, dataset_path)
 
     if not os.path.exists(train_path):
         os.makedirs(train_path)
@@ -78,14 +78,13 @@ def download_dataset_from_s3(train_clusters_dict, valid_clusters_dict, test_clus
     print('-------------------------------------')
     print('Thanks for downloading BestProt, the most complete, user-friendly and loving protein dataset you will ever find! ;-)')
 
-
 def main():
 
     parser = argparse.ArgumentParser(description="Download dataset from s3 instance")
     
-    parser.add_argument("--dataset_path", default="s3://ml4-main-storage/bestprot_20221110/", type=str, help="path to the dataset stored in the s3 instance.")
-    parser.add_argument("--dict_path", default="s3://ml4-main-storage/bestprot_20221110_splits_dict/", type=str, help="path to the folder with the dataset partioning information.")
-    parser.add_argument("--local_folder", default="bestprot_dataset", type=str, help="path to the folder where to store the splitted dataset.")
+    parser.add_argument("--dataset_path", default="s3://ml4-main-storage/bestprot_20221110/", type=str, help="path to the dataset, either local or in the s3 instance.")
+    parser.add_argument("--dict_path", default="s3://ml4-main-storage/bestprot_20221110_splits_dict/", type=str, help="path to the folder with the dataset partioning information, either local or in the s3 instance.")
+    parser.add_argument("--local_folder", default="bestprot_dataset", type=str, help="path to the folder where to store the splitted dataset (if dataset_path is local, the folder will be moved here).")
 
     args = parser.parse_args()
 
@@ -94,9 +93,12 @@ def main():
     DATASET_FOLDER = args.local_folder
     DICT_FOLDER = os.path.join(args.local_folder, 'splits_dict')
     
-    print('Downloading dictionaries for splitting the dataset...')
-    download_dataset_dicts_from_s3(DICT_FOLDER, S3_DICT_PATH)
-    print('Done!')
+    if S3_DICT_PATH.startswith("s3"):
+        print('Downloading dictionaries for splitting the dataset...')
+        download_dataset_dicts_from_s3(DICT_FOLDER, S3_DICT_PATH)
+        print('Done!')
+    else:
+        shutil.move(S3_DICT_PATH, DICT_FOLDER)
 
     with open(os.path.join(DICT_FOLDER, 'train.pickle'), 'rb') as f:
         train_clusters_dict = pkl.load(f)
