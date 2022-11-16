@@ -34,7 +34,7 @@ The `cluster_dict` will contain information about the MMSeqs clustering and the 
 
 To download the dataset from S3 and partition into training, validation and test folders according to the dictionaries, run this command.
 ```
-python download_splitted_dataset.py --dataset_path s3://path/to/dataset --dict_path s3://path/to/dicts/ --local_folder /local/path
+python split_dataset.py --dataset_path s3://path/to/dataset --dict_path s3://path/to/dicts/ --local_folder /local/path
 ```
 
 Alternatively, if you already have the data on your machine, just use the same command but with local paths (the data will be moved from `dataset_path` to `local_folder` and rearranged into training/test/validation).
@@ -52,19 +52,11 @@ To add a repository from github as a submodule, follow this.
 8. go to `ml-4` on your machine,
 9. `git submodule add [gitlab url]`.
 
-## Add your files
 
-```
-cd existing_repo
-git remote add origin https://gitlab.com/adaptyvbio/ml-4.git
-git branch -M main
-git push -uf origin main
-```
+## Data
 
-## data
-
-|Date    |Location|Size|Min res|Min length|Max length|ID threshold|Split|
-|--------|--------|----|-------|----------|----------|------------|-----|
+|Date    |Location|Size|Min res|Min len|Max len|ID threshold|Split|
+|--------|--------|----|-------|-------|-------|------------|-----|
 |10.11.22|[data](s3://ml4-main-storage/bestprot_20221110/) [split]("s3://ml4-main-storage/bestprot_20221110_splits_dict/")|24G|3.5|30|10000|0.9|90/5/5|
 
 
