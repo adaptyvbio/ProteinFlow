@@ -55,7 +55,7 @@ To add a repository from github as a submodule, follow this.
 
 ## Data
 
-|Date    |Location|Size|Min res|Min len|Max len|ID threshold|Split (train/val/test)|Missing thr (ends/middle)|
+|Date    |Location (S3)|Size|Min res|Min len|Max len|ID threshold|Split (train/val/test)|Missing thr (ends/middle)|
 |--------|--------|----|-------|-------|-------|------------|-----|-----------|
 |10.11.22|[data](s3://ml4-main-storage/bestprot_20221110/) [split]("s3://ml4-main-storage/bestprot_20221110_splits_dict/")|24G|3.5|30|10000|0.9|90/5/5|0.3/0.1
 
