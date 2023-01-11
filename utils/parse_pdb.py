@@ -334,25 +334,25 @@ def retrieve_fasta_chains(fasta_file):
 #     return header['resolution']
 
 
-def check_resolution(pdb_id, resolution_dict, tmp_folder, bucket):
+# def check_resolution(pdb_id, resolution_dict, tmp_folder, bucket):
 
-    """
-    Find the resolution of the PDB by first checking into the resolution dictionary and then by downloading the PDB from the web if necessary
-    """
+#     """
+#     Find the resolution of the PDB by first checking into the resolution dictionary and then by downloading the PDB from the web if necessary
+#     """
 
-    with open(resolution_dict, "rb") as f:
-        res_dict = pkl.load(f)
+#     with open(resolution_dict, "rb") as f:
+#         res_dict = pkl.load(f)
 
-    if pdb_id in res_dict.keys():
-        resolution = res_dict[pdb_id]
+#     if pdb_id in res_dict.keys():
+#         resolution = res_dict[pdb_id]
 
-    else:
-        resolution = retrieve_pdb_resolution(pdb_id, tmp_folder, bucket)
-        res_dict[pdb_id] = resolution
-        with open(resolution_dict, "wb") as f:
-            pkl.dump(res_dict, f)
+#     else:
+#         resolution = retrieve_pdb_resolution(pdb_id, tmp_folder, bucket)
+#         res_dict[pdb_id] = resolution
+#         with open(resolution_dict, "wb") as f:
+#             pkl.dump(res_dict, f)
 
-    return resolution
+#     return resolution
 
 
 def open_pdb(file_path: str, tmp_folder: str) -> Dict:
@@ -537,7 +537,6 @@ def align_pdb(
                 crd_arr[
                     seq_pos, (bb_names + side_chain[res_name]).index(atom), :
                 ] = row[["x_coord", "y_coord", "z_coord"]]
-        print(f'{crd_arr[seq_pos - 5:, 2, :]=}')
         pdb_dict[chain]["crd_bb"] = crd_arr[:, :4, :]
         pdb_dict[chain]["crd_sc"] = crd_arr[:, 4:, :]
         pdb_dict[chain]["msk"][(pdb_dict[chain]["crd_bb"] == 0).sum(-1).sum(-1) > 0] = 0
