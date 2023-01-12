@@ -6,14 +6,16 @@ import pickle as pkl
 from tqdm import tqdm
 import shutil
 
+
 def _get_s3_paths_from_tag(tag):
     """
     Get the path to the data and split dictionary folders on S3 given a tag
     """
 
-    dict_path = f's3://ml4-main-storage/bestprot_{tag}_splits_dict/'
-    data_path = f's3://ml4-main-storage/bestprot_{tag}/'
+    dict_path = f"s3://ml4-main-storage/bestprot_{tag}_splits_dict/"
+    data_path = f"s3://ml4-main-storage/bestprot_{tag}/"
     return data_path, dict_path
+
 
 def _biounits_in_clusters_dict(clusters_dict):
     """
@@ -22,23 +24,27 @@ def _biounits_in_clusters_dict(clusters_dict):
 
     return np.unique([c[0] for c in list(np.concatenate(list(clusters_dict.values())))])
 
-def _download_dataset_dicts_from_s3(dict_folder_path, s3_path='s3://ml4-main-storage/bestprot_20221110_splits_dict/'):
+
+def _download_dataset_dicts_from_s3(
+    dict_folder_path, s3_path="s3://ml4-main-storage/bestprot_20221110_splits_dict/"
+):
     """
     Download dictionaries containing database split information from s3 to a local folder
     """
 
-    train_path = os.path.join(s3_path, 'train.pickle')
-    valid_path = os.path.join(s3_path, 'valid.pickle')
-    test_path = os.path.join(s3_path, 'test.pickle')
+    train_path = os.path.join(s3_path, "train.pickle")
+    valid_path = os.path.join(s3_path, "valid.pickle")
+    test_path = os.path.join(s3_path, "test.pickle")
 
     if not os.path.exists(dict_folder_path):
         os.makedirs(dict_folder_path)
-    
-    subprocess.run(['aws', 's3', 'cp', train_path, dict_folder_path])
-    subprocess.run(['aws', 's3', 'cp', valid_path, dict_folder_path])
-    subprocess.run(['aws', 's3', 'cp', test_path, dict_folder_path])
 
-def _split_data(dataset_path='./data/bestprot_20221110/'):
+    subprocess.run(["aws", "s3", "cp", train_path, dict_folder_path])
+    subprocess.run(["aws", "s3", "cp", valid_path, dict_folder_path])
+    subprocess.run(["aws", "s3", "cp", test_path, dict_folder_path])
+
+
+def _split_data(dataset_path="./data/bestprot_20221110/"):
     """
     Rearrange files into folders according to the dataset split dictionaries at `dataset_path/splits_dict`
 
@@ -48,20 +54,20 @@ def _split_data(dataset_path='./data/bestprot_20221110/'):
         The path to the dataset folder containing pre-processed entries and a `splits_dict` folder with split dictionaries (downloaded or generated with `get_split_dictionaries`)
     """
 
-    dict_folder = os.path.join(dataset_path, 'splits_dict')
-    with open(os.path.join(dict_folder, 'train.pickle'), 'rb') as f:
+    dict_folder = os.path.join(dataset_path, "splits_dict")
+    with open(os.path.join(dict_folder, "train.pickle"), "rb") as f:
         train_clusters_dict = pkl.load(f)
-    with open(os.path.join(dict_folder, 'valid.pickle'), 'rb') as f:
+    with open(os.path.join(dict_folder, "valid.pickle"), "rb") as f:
         valid_clusters_dict = pkl.load(f)
-    with open(os.path.join(dict_folder, 'test.pickle'), 'rb') as f:
+    with open(os.path.join(dict_folder, "test.pickle"), "rb") as f:
         test_clusters_dict = pkl.load(f)
 
     train_biounits = _biounits_in_clusters_dict(train_clusters_dict)
     valid_biounits = _biounits_in_clusters_dict(valid_clusters_dict)
     test_biounits = _biounits_in_clusters_dict(test_clusters_dict)
-    train_path = os.path.join(dataset_path, 'training')
-    valid_path = os.path.join(dataset_path, 'validation')
-    test_path = os.path.join(dataset_path, 'test')
+    train_path = os.path.join(dataset_path, "training")
+    valid_path = os.path.join(dataset_path, "validation")
+    test_path = os.path.join(dataset_path, "test")
 
     if not os.path.exists(dataset_path):
         os.makedirs(dataset_path)
@@ -72,31 +78,36 @@ def _split_data(dataset_path='./data/bestprot_20221110/'):
         os.makedirs(valid_path)
     if not os.path.exists(test_path):
         os.makedirs(test_path)
-    
-    print('Moving files in the train set...')
-    for biounit in tqdm(train_biounits):
-        subprocess.run(['mv', os.path.join(dataset_path, biounit), train_path])
-    print('Done!')
-    print('Moving files in the validation set...')
-    for biounit in tqdm(valid_biounits):
-        subprocess.run(['mv', os.path.join(dataset_path, biounit), valid_path])
-    print('Done!')
-    print('Moving files in the test set...')
-    for biounit in tqdm(test_biounits):
-        subprocess.run(['mv', os.path.join(dataset_path, biounit), test_path])
-    print('Done!')
 
-def _download_dataset_from_s3(dataset_path='./data/bestprot_20221110/', s3_path='s3://ml4-main-storage/bestprot_20221110/'):
+    print("Moving files in the train set...")
+    for biounit in tqdm(train_biounits):
+        subprocess.run(["mv", os.path.join(dataset_path, biounit), train_path])
+    print("Done!")
+    print("Moving files in the validation set...")
+    for biounit in tqdm(valid_biounits):
+        subprocess.run(["mv", os.path.join(dataset_path, biounit), valid_path])
+    print("Done!")
+    print("Moving files in the test set...")
+    for biounit in tqdm(test_biounits):
+        subprocess.run(["mv", os.path.join(dataset_path, biounit), test_path])
+    print("Done!")
+
+
+def _download_dataset_from_s3(
+    dataset_path="./data/bestprot_20221110/",
+    s3_path="s3://ml4-main-storage/bestprot_20221110/",
+):
     """
     Download the pre-processed files
     """
 
     if s3_path.startswith("s3"):
-        print('Downloading the dataset from s3...')
-        subprocess.run(['aws', 's3', 'cp', '--recursive', s3_path, dataset_path])
-        print('Done!')
+        print("Downloading the dataset from s3...")
+        subprocess.run(["aws", "s3", "cp", "--recursive", s3_path, dataset_path])
+        print("Done!")
     else:
         shutil.move(s3_path, dataset_path)
+
 
 def _download_dataset(tag, local_datasets_folder="./data/"):
     """
@@ -116,12 +127,12 @@ def _download_dataset(tag, local_datasets_folder="./data/"):
     """
 
     s3_data_path, s3_dict_path = _get_s3_paths_from_tag(tag)
-    data_folder = os.path.join(local_datasets_folder, f'bestprot_{tag}')
-    dict_folder = os.path.join(local_datasets_folder, f'bestprot_{tag}', 'splits_dict')
-    
-    print('Downloading dictionaries for splitting the dataset...')
+    data_folder = os.path.join(local_datasets_folder, f"bestprot_{tag}")
+    dict_folder = os.path.join(local_datasets_folder, f"bestprot_{tag}", "splits_dict")
+
+    print("Downloading dictionaries for splitting the dataset...")
     _download_dataset_dicts_from_s3(dict_folder, s3_dict_path)
-    print('Done!')
-    
+    print("Done!")
+
     _download_dataset_from_s3(dataset_path=data_folder, s3_path=s3_data_path)
     return data_folder

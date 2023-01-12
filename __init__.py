@@ -1,5 +1,12 @@
 from utils.filter_database import _remove_database_redundancies
-from utils.process_pdb import _align_pdb, _open_pdb, PDBError, _get_pdb_file, _s3list, SIDECHAIN_ORDER 
+from utils.process_pdb import (
+    _align_pdb,
+    _open_pdb,
+    PDBError,
+    _get_pdb_file,
+    _s3list,
+    SIDECHAIN_ORDER,
+)
 from utils.cluster_and_partition import _build_dataset_partition
 from utils.split_dataset import _download_dataset, _split_data
 import os
@@ -19,8 +26,13 @@ def _clean(pdb_id, tmp_folder):
     Remove all temporary files associated with a PDB ID
     """
     for file in os.listdir(tmp_folder):
-        if file.startswith(f'{pdb_id}.'):
-            subprocess.run(["rm", os.path.join(tmp_folder, file)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if file.startswith(f"{pdb_id}."):
+            subprocess.run(
+                ["rm", os.path.join(tmp_folder, file)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
 
 def _log_exception(exception, log_file, pdb_id, tmp_folder):
     """
@@ -30,12 +42,13 @@ def _log_exception(exception, log_file, pdb_id, tmp_folder):
     _clean(pdb_id, tmp_folder)
     if isinstance(exception, PDBError):
         with open(log_file, "a") as f:
-            f.write(f'<<< {str(exception)}: {pdb_id} \n')
+            f.write(f"<<< {str(exception)}: {pdb_id} \n")
     else:
         with open(log_file, "a") as f:
-            f.write(f'<<< Unknown: {pdb_id} \n')
+            f.write(f"<<< Unknown: {pdb_id} \n")
             f.write(str(exception))
             f.write("\n")
+
 
 def _log_removed(removed, log_file):
     """
@@ -44,11 +57,12 @@ def _log_removed(removed, log_file):
 
     for pdb_id in removed:
         with open(log_file, "a") as f:
-            f.write(f'<<< Removed due to redundancy: {pdb_id} \n')
+            f.write(f"<<< Removed due to redundancy: {pdb_id} \n")
+
 
 def _get_split_dictionaries(
-    tmp_folder="./data/tmp_pdb", 
-    output_folder="./data/pdb", 
+    tmp_folder="./data/tmp_pdb",
+    output_folder="./data/pdb",
     split_tolerance=0.2,
     test_split=0.05,
     valid_split=0.05,
@@ -80,43 +94,50 @@ def _get_split_dictionaries(
         valid_classes_dict,
         test_clusters_dict,
         test_classes_dict,
-    ) = _build_dataset_partition(output_folder, tmp_folder, valid_split=valid_split, test_split=test_split, tolerance=split_tolerance)
-    with open(os.path.join(out_split_dict_folder, 'train.pickle'), 'wb') as f:
+    ) = _build_dataset_partition(
+        output_folder,
+        tmp_folder,
+        valid_split=valid_split,
+        test_split=test_split,
+        tolerance=split_tolerance,
+    )
+    with open(os.path.join(out_split_dict_folder, "train.pickle"), "wb") as f:
         pickle.dump(train_clusters_dict, f)
         pickle.dump(train_classes_dict, f)
-    with open(os.path.join(out_split_dict_folder, 'valid.pickle'), 'wb') as f:
+    with open(os.path.join(out_split_dict_folder, "valid.pickle"), "wb") as f:
         pickle.dump(valid_clusters_dict, f)
         pickle.dump(valid_classes_dict, f)
-    with open(os.path.join(out_split_dict_folder, 'test.pickle'), 'wb') as f:
+    with open(os.path.join(out_split_dict_folder, "test.pickle"), "wb") as f:
         pickle.dump(test_clusters_dict, f)
         pickle.dump(test_classes_dict, f)
 
+
 def _run_processing(
-        tmp_folder="./data/tmp_pdb", 
-        output_folder="./data/pdb", 
-        log_folder="./data/logs", 
-        min_length=30, 
-        max_length=10000, 
-        resolution_thr=3.5, 
-        missing_ends_thr=0.3, 
-        missing_middle_thr=0.1, 
-        filter_methods=True, 
-        remove_redundancies=False, 
-        seq_identity_threshold=0.9, 
-        n=None, 
-        force=False,
-        tag=None,
-        pdb_snapshot=None,
-    ):
+    tmp_folder="./data/tmp_pdb",
+    output_folder="./data/pdb",
+    log_folder="./data/logs",
+    min_length=30,
+    max_length=10000,
+    resolution_thr=3.5,
+    missing_ends_thr=0.3,
+    missing_middle_thr=0.1,
+    filter_methods=True,
+    remove_redundancies=False,
+    seq_identity_threshold=0.9,
+    n=None,
+    force=False,
+    tag=None,
+    pdb_snapshot=None,
+):
     """
     Download and parse PDB files that meet filtering criteria
 
-    The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are 
+    The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are
     the following:
-    
+
     - `'crd_bb'`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),
     - `'crd_sc'`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (in a fixed order, check `sidechain_order()`),
-    - `'msk'`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and 
+    - `'msk'`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and
         zeros to missing values,
     - `'seq'`: a string of length `L` with residue types.
 
@@ -168,7 +189,7 @@ def _run_processing(
     Returns
     -------
     log : dict
-        a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors       
+        a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
     """
 
     TMP_FOLDER = tmp_folder
@@ -191,22 +212,28 @@ def _run_processing(
     while os.path.exists(os.path.join(log_folder, f"log_{i}.txt")):
         i += 1
     LOG_FILE = os.path.join(log_folder, f"log_{i}.txt")
-    now = datetime.now() # current date and time
+    now = datetime.now()  # current date and time
     date_time = now.strftime("%m/%d/%Y, %H:%M:%S") + "\n\n"
     with open(LOG_FILE, "a") as f:
         f.write(date_time)
         if tag is not None:
-            f.write(f'tag: {tag}')
+            f.write(f"tag: {tag}")
 
     # get filtered PDB ids fro PDB API
-    pdb_ids = Attr('rcsb_entry_info.selected_polymer_entity_types').__eq__("Protein (only)") \
-        .or_('rcsb_entry_info.polymer_composition').__eq__("protein/oligosaccharide")
+    pdb_ids = (
+        Attr("rcsb_entry_info.selected_polymer_entity_types")
+        .__eq__("Protein (only)")
+        .or_("rcsb_entry_info.polymer_composition")
+        .__eq__("protein/oligosaccharide")
+    )
     # if include_na:
     #     pdb_ids = pdb_ids.or_('rcsb_entry_info.polymer_composition').in_(["protein/NA", "protein/NA/oligosaccharide"])
-    
+
     pdb_ids = pdb_ids.and_("rcsb_entry_info.resolution_combined").__le__(RESOLUTION_THR)
     if filter_methods:
-        pdb_ids = pdb_ids.and_("exptl.method").in_(["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"])
+        pdb_ids = pdb_ids.and_("exptl.method").in_(
+            ["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"]
+        )
     pdb_ids = pdb_ids.exec("assembly")
     if n is not None:
         pdbs = []
@@ -215,40 +242,52 @@ def _run_processing(
             if i == n:
                 break
         pdb_ids = pdbs
-    
-    ordered_folders = [x.key + PDB_PREFIX for x in _s3list(boto3.resource('s3').Bucket("pdbsnapshots"), "", recursive=False, list_objs=False)]
-    ordered_folders = sorted(ordered_folders, reverse=True) # a list of PDB snapshots from newest to oldest
+
+    ordered_folders = [
+        x.key + PDB_PREFIX
+        for x in _s3list(
+            boto3.resource("s3").Bucket("pdbsnapshots"),
+            "",
+            recursive=False,
+            list_objs=False,
+        )
+    ]
+    ordered_folders = sorted(
+        ordered_folders, reverse=True
+    )  # a list of PDB snapshots from newest to oldest
     if pdb_snapshot is not None:
         if pdb_snapshot not in ordered_folders:
-            raise ValueError(f"The {pdb_snapshot} PDB snapshot not found, please choose from {ordered_folders}")
+            raise ValueError(
+                f"The {pdb_snapshot} PDB snapshot not found, please choose from {ordered_folders}"
+            )
         ind = ordered_folders.index(pdb_snapshot)
         ordered_folders = ordered_folders[ind:]
 
     def process_f(pdb_id, show_error=False, force=True):
         try:
             pdb_id = pdb_id.lower()
-            id, biounit = pdb_id.split('-')
-            target_file = os.path.join(OUTPUT_FOLDER, pdb_id + '.pickle')
+            id, biounit = pdb_id.split("-")
+            target_file = os.path.join(OUTPUT_FOLDER, pdb_id + ".pickle")
             if not force and os.path.exists(target_file):
                 raise PDBError("File already exists")
-            pdb_file = f'{id}.pdb{biounit}.gz'
+            pdb_file = f"{id}.pdb{biounit}.gz"
             # download
             local_path = _get_pdb_file(
-                pdb_file, 
-                boto3.resource('s3').Bucket("pdbsnapshots"), 
-                tmp_folder=TMP_FOLDER, 
-                folders=ordered_folders
+                pdb_file,
+                boto3.resource("s3").Bucket("pdbsnapshots"),
+                tmp_folder=TMP_FOLDER,
+                folders=ordered_folders,
             )
             # parse
             pdb_dict = _open_pdb(
-                local_path, 
+                local_path,
                 tmp_folder=TMP_FOLDER,
             )
             # filter and convert
             pdb_dict = _align_pdb(
-                pdb_dict, 
-                min_length=MIN_LENGTH, 
-                max_length=MAX_LENGTH, 
+                pdb_dict,
+                min_length=MIN_LENGTH,
+                max_length=MAX_LENGTH,
                 max_missing_ends=MISSING_ENDS_THR,
                 max_missing_middle=MISSING_MIDDLE_THR,
             )
@@ -265,31 +304,38 @@ def _run_processing(
     # process_f("1a1q-3", show_error=True, force=force)
 
     _ = p_map(lambda x: process_f(x, force=force), pdb_ids)
-    
+
     stats = get_error_summary(LOG_FILE, verbose=False)
     while "<<< PDB file not found" in stats:
         with open(LOG_FILE, "r") as f:
-            lines = [x for x in f.readlines() if not x.startswith("<<< PDB file not found")]
+            lines = [
+                x for x in f.readlines() if not x.startswith("<<< PDB file not found")
+            ]
         os.remove(LOG_FILE)
-        with open(f'{LOG_FILE}_tmp', "a") as f:
+        with open(f"{LOG_FILE}_tmp", "a") as f:
             for line in lines:
                 f.write(line)
         _ = p_map(lambda x: process_f(x, force=force), stats["<<< PDB file not found"])
         stats = get_error_summary(LOG_FILE, verbose=False)
-    if os.path.exists(f'{LOG_FILE}_tmp'):
+    if os.path.exists(f"{LOG_FILE}_tmp"):
         with open(LOG_FILE, "r") as f:
-            lines = [x for x in f.readlines() if not x.startswith("<<< PDB file not found")]
+            lines = [
+                x for x in f.readlines() if not x.startswith("<<< PDB file not found")
+            ]
         os.remove(LOG_FILE)
-        with open(f'{LOG_FILE}_tmp', "a") as f:
+        with open(f"{LOG_FILE}_tmp", "a") as f:
             for line in lines:
                 f.write(line)
-        os.rename(f'{LOG_FILE}_tmp', LOG_FILE)
+        os.rename(f"{LOG_FILE}_tmp", LOG_FILE)
 
     if remove_redundancies:
-        removed = _remove_database_redundancies(OUTPUT_FOLDER, seq_identity_threshold=seq_identity_threshold)
+        removed = _remove_database_redundancies(
+            OUTPUT_FOLDER, seq_identity_threshold=seq_identity_threshold
+        )
         _log_removed(removed, LOG_FILE)
-    
+
     return get_error_summary(LOG_FILE)
+
 
 def sidechain_order():
     """
@@ -298,11 +344,12 @@ def sidechain_order():
     Returns
     -------
     order_dict : dict
-        a dictionary where keys are 3-letter aminoacid codes and values are lists of atom names (in PDB format) that correspond to 
+        a dictionary where keys are 3-letter aminoacid codes and values are lists of atom names (in PDB format) that correspond to
         coordinates in the `'crd_sc'` array generated by the `run_processing` function
     """
-    
+
     return SIDECHAIN_ORDER
+
 
 def get_error_summary(log_file, verbose=True):
     """
@@ -325,12 +372,13 @@ def get_error_summary(log_file, verbose=True):
     with open(log_file, "r") as f:
         for line in f.readlines():
             if line.startswith("<<<"):
-                stats[line.split(':')[0]].append(line.split(":")[-1].strip())
+                stats[line.split(":")[0]].append(line.split(":")[-1].strip())
     keys = sorted(stats.keys(), key=lambda x: stats[x], reverse=True)
     if verbose:
         for key in keys:
-            print(f'{key}: {len(stats[key])}')
+            print(f"{key}: {len(stats[key])}")
     return stats
+
 
 def download_data(tag, local_datasets_folder="./data"):
     """
@@ -343,39 +391,42 @@ def download_data(tag, local_datasets_folder="./data"):
     local_datasets_folder : str, default "./data"
         the path to the folder that will store bestprot datasets, logs and temporary files
     """
-    
+
     data_path = _download_dataset(tag, local_datasets_folder)
     print("We're almost there, just a tiny effort left :-)")
     _split_data(data_path)
-    print('-------------------------------------')
-    print('Thanks for downloading BestProt, the most complete, user-friendly and loving protein dataset you will ever find! ;-)')
+    print("-------------------------------------")
+    print(
+        "Thanks for downloading BestProt, the most complete, user-friendly and loving protein dataset you will ever find! ;-)"
+    )
+
 
 def generate_data(
-        tag,
-        local_datasets_folder="./data",
-        min_length=30, 
-        max_length=10000, 
-        resolution_thr=3.5, 
-        missing_ends_thr=0.3, 
-        missing_middle_thr=0.1, 
-        filter_methods=True, 
-        remove_redundancies=False, 
-        seq_identity_threshold=0.9, 
-        n=None, 
-        force=False,
-        split_tolerance=0.2,
-        test_split=0.05,
-        valid_split=0.05,
-    ):
+    tag,
+    local_datasets_folder="./data",
+    min_length=30,
+    max_length=10000,
+    resolution_thr=3.5,
+    missing_ends_thr=0.3,
+    missing_middle_thr=0.1,
+    filter_methods=True,
+    remove_redundancies=False,
+    seq_identity_threshold=0.9,
+    n=None,
+    force=False,
+    split_tolerance=0.2,
+    test_split=0.05,
+    valid_split=0.05,
+):
     """
     Download and parse PDB files that meet filtering criteria
 
-    The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are 
+    The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are
     the following:
-    
+
     - `'crd_bb'`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),
     - `'crd_sc'`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (in a fixed order, check `sidechain_order()`),
-    - `'msk'`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and 
+    - `'msk'`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and
         zeros to missing values,
     - `'seq'`: a string of length `L` with residue types.
 
@@ -419,33 +470,33 @@ def generate_data(
     Returns
     -------
     log : dict
-        a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors       
+        a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
 
     """
-    tmp_folder=os.path.join(local_datasets_folder, "tmp")
-    output_folder=os.path.join(local_datasets_folder, f"bestprot_{tag}")
-    log_folder=os.path.join(local_datasets_folder, "logs")
+    tmp_folder = os.path.join(local_datasets_folder, "tmp")
+    output_folder = os.path.join(local_datasets_folder, f"bestprot_{tag}")
+    log_folder = os.path.join(local_datasets_folder, "logs")
     out_split_dict_folder = os.path.join(output_folder, "split_dicts")
 
     log_dict = _run_processing(
-        tmp_folder=tmp_folder, 
-        output_folder=output_folder, 
-        log_folder=log_folder, 
-        min_length=min_length, 
-        max_length=max_length, 
-        resolution_thr=resolution_thr, 
-        missing_ends_thr=missing_ends_thr, 
-        missing_middle_thr=missing_middle_thr, 
-        filter_methods=filter_methods, 
-        remove_redundancies=remove_redundancies, 
-        seq_identity_threshold=seq_identity_threshold, 
-        n=n, 
+        tmp_folder=tmp_folder,
+        output_folder=output_folder,
+        log_folder=log_folder,
+        min_length=min_length,
+        max_length=max_length,
+        resolution_thr=resolution_thr,
+        missing_ends_thr=missing_ends_thr,
+        missing_middle_thr=missing_middle_thr,
+        filter_methods=filter_methods,
+        remove_redundancies=remove_redundancies,
+        seq_identity_threshold=seq_identity_threshold,
+        n=n,
         force=force,
         tag=tag,
     )
     _get_split_dictionaries(
-        tmp_folder=tmp_folder, 
-        output_folder=output_folder, 
+        tmp_folder=tmp_folder,
+        output_folder=output_folder,
         split_tolerance=split_tolerance,
         test_split=test_split,
         valid_split=valid_split,

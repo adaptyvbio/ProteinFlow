@@ -63,6 +63,7 @@ S3Obj = namedtuple("S3Obj", ["key", "mtime", "size", "ETag"])
 class PDBError(ValueError):
     pass
 
+
 def _s3list(
     bucket,
     path,
@@ -178,7 +179,11 @@ def _get_pdb_file(pdb_file, bucket, tmp_folder, folders):
     pdb_id = id.split(".")[0]
     biounit = id.split(".")[1][3]
     local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}.pdb.gz")
-    for folder in folders: # go over database snapshots in case the file is not found in the latest one
+    for (
+        folder
+    ) in (
+        folders
+    ):  # go over database snapshots in case the file is not found in the latest one
         file = folder + pdb_file
         try:
             bucket.download_file(file, local_path)
@@ -206,7 +211,7 @@ def download_fasta(pdbcode, biounit, datadir):
     file_path : str
         the full path to the downloaded PDB file or None if something went wrong
     """
-     
+
     downloadurl = "https://www.rcsb.org/fasta/entry/"
     pdbfn = pdbcode + "/download"
     outfnm = os.path.join(datadir, f"{pdbcode}-{biounit}.fasta")
@@ -219,6 +224,7 @@ def download_fasta(pdbcode, biounit, datadir):
     except Exception as err:
         # print(str(err), file=sys.stderr)
         return None, err
+
 
 def _retrieve_author_chain(chain):
     """
@@ -264,7 +270,7 @@ def _retrieve_fasta_chains(fasta_file):
             out_dict[chain] = seq
 
     return out_dict
-    
+
 
 def _open_pdb(file_path: str, tmp_folder: str) -> Dict:
     """
@@ -426,7 +432,7 @@ def _align_pdb(
         crd_arr = np.zeros((len(aligned_seq), 14, 3))
         seq_pos = -1
         pdb_pos = None
-        
+
         for row_i, row in chain_crd.iterrows():
             res_num = row["residue_number"]
             res_name = row["residue_name"]
@@ -449,6 +455,8 @@ def _align_pdb(
         pdb_dict[chain]["crd_bb"] = crd_arr[:, :4, :]
         pdb_dict[chain]["crd_sc"] = crd_arr[:, 4:, :]
         pdb_dict[chain]["msk"][(pdb_dict[chain]["crd_bb"] == 0).sum(-1).sum(-1) > 0] = 0
-        if (pdb_dict[chain]["msk"][start: end] == 0).sum() > max_missing_middle * (end - start):
+        if (pdb_dict[chain]["msk"][start:end] == 0).sum() > max_missing_middle * (
+            end - start
+        ):
             raise PDBError("Too many missing values in the middle (backbone atoms")
     return pdb_dict
