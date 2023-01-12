@@ -10,8 +10,10 @@ from tqdm import tqdm
 from collections import defaultdict
 
 
-
-def unique_chains(seqs_list):
+def _unique_chains(seqs_list):
+    """
+    Get unique chains
+    """
 
     new_seqs_list = [seqs_list[0]]
     chains = [new_seqs_list[0][0]]
@@ -24,8 +26,7 @@ def unique_chains(seqs_list):
     return new_seqs_list
 
 
-def merge_chains(seqs_dict_):
-
+def _merge_chains(seqs_dict_):
     """
     Look into the chains of each PDB and regroup redundancies (at 90% sequence identity)
     """
@@ -39,7 +40,7 @@ def merge_chains(seqs_dict_):
             pdbs_to_delete.append(pdb)
             continue
 
-        seqs_dict[pdb] = unique_chains(seqs_dict[pdb])
+        seqs_dict[pdb] = _unique_chains(seqs_dict[pdb])
         groups, ref_seqs, indexes = [], [], []
 
         for k in range(len(seqs_dict[pdb])):
@@ -71,8 +72,7 @@ def merge_chains(seqs_dict_):
     return seqs_dict
 
 
-def load_pdbs(dir):
-
+def _load_pdbs(dir):
     """
     Load biounits and group their sequences by PDB and similarity (90%)
     """
@@ -90,8 +90,7 @@ def load_pdbs(dir):
     return seqs_dict
 
 
-def write_fasta(fasta_path, merged_seqs_dict):
-
+def _write_fasta(fasta_path, merged_seqs_dict):
     """
     Write a fasta file containing all the sequences contained in the merged_seqs_dict dictionary
     """
@@ -104,22 +103,22 @@ def write_fasta(fasta_path, merged_seqs_dict):
                 f.write(seq + '\n')
 
 
-def run_mmseqs2(fasta_file, tmp_folder):
-
+def _run_mmseqs2(fasta_file, tmp_folder):
     """
     Run the MMSeqs2 command with the parameters we want
-    Results are stored in the tmp_folder/MMSeqs2 directory
+
+    Results are stored in the tmp_folder/MMSeqs2 directory.
     """
 
     os.makedirs(os.path.join(tmp_folder, 'MMSeqs2_results'))
     subprocess.run(['mmseqs', 'easy-cluster', fasta_file, os.path.join(tmp_folder, 'MMSeqs2_results/clusterRes'), os.path.join(tmp_folder, 'MMSeqs2_results/tmp'), '--min-seq-id', '0.3'])
 
 
-def read_clusters(cluster_file_fasta):
-
+def _read_clusters(cluster_file_fasta):
     """
-    Read the output from MMSeqs2 and produces 2 dictionaries that store the clusters information.
-    In cluster_dict, keys are the full names (pdb + chains) whereas in cluster_pdb_dict, keys are just the PDB ids (so less clusters but bigger)
+    Read the output from MMSeqs2 and produces 2 dictionaries that store the clusters information
+
+    In cluster_dict, keys are the full names (pdb + chains) whereas in cluster_pdb_dict, keys are just the PDB ids (so less clusters but bigger).
     """
 
     with open(cluster_file_fasta, 'r') as f:
@@ -149,10 +148,10 @@ def read_clusters(cluster_file_fasta):
     return cluster_dict, cluster_pdb_dict
 
 
-def make_graph(cluster_pdb_dict):
-
+def _make_graph(cluster_pdb_dict):
     """
-    Produces a graph that relates clusters together.
+    Produces a graph that relates clusters together
+
     Connections represent a PDB shared by 2 clusters. The more shared PDBs, the stronger the connection.
     """
 
@@ -173,8 +172,7 @@ def make_graph(cluster_pdb_dict):
     return graph
 
 
-def retrieve_seqs_names_list(merged_seqs_dict):
-
+def _retrieve_seqs_names_list(merged_seqs_dict):
     """
     Retrieve all the sequences names that are contained in the merged_seqs_dict (same names as in the fasta file in input to MMSeqs2)
     """
@@ -187,8 +185,7 @@ def retrieve_seqs_names_list(merged_seqs_dict):
     return seqs_names
 
 
-def create_pdb_seqs_dict(seqs_names_list):
-
+def _create_pdb_seqs_dict(seqs_names_list):
     """
     Return a dictionary that has the PDB ids as keys and the list of all the chain names that correspond to this PDB
     """
@@ -200,8 +197,7 @@ def create_pdb_seqs_dict(seqs_names_list):
     return pdb_seqs_dict
 
 
-def find_correspondances(files, dataset_dir):
-
+def _find_correspondances(files, dataset_dir):
     """
     Return a dictionary that contains all the biounits in the database (keys) and the list of all the chains that are in these biounits (values)
     """
@@ -217,8 +213,7 @@ def find_correspondances(files, dataset_dir):
     return correspondances
 
 
-def check_for_heteromers(grouped_seqs, biounit_chains):
-
+def _check_for_heteromers(grouped_seqs, biounit_chains):
     """
     True if the chain names contained in grouped_seqs correspond to at least 2 different sequences
     """
@@ -228,8 +223,7 @@ def check_for_heteromers(grouped_seqs, biounit_chains):
     return np.max(chain_seqs) != np.min(chain_seqs)
 
 
-def divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
-
+def _divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
     """
     Divide all the biounit chains into 3 groups: single chains, homomers and heteromers, depending on the other chains present or not in the biounit
     """
@@ -255,7 +249,7 @@ def divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
         
         elif len(seqs) == 1:
 
-            correspondances = find_correspondances(file_names, dataset_dir)
+            correspondances = _find_correspondances(file_names, dataset_dir)
             for biounit in correspondances.keys():
                 if len(correspondances[biounit]) == 1:
                     single_chains.append((biounit, correspondances[biounit][0]))
@@ -265,11 +259,11 @@ def divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
         
         else:
 
-            correspondances = find_correspondances(file_names, dataset_dir)
+            correspondances = _find_correspondances(file_names, dataset_dir)
             for biounit in correspondances.keys():
                 if len(correspondances[biounit]) == 1:
                     single_chains.append((biounit, correspondances[biounit][0]))
-                elif check_for_heteromers(seqs, correspondances[biounit]):
+                elif _check_for_heteromers(seqs, correspondances[biounit]):
                     for chain in correspondances[biounit]:
                         heteromers.append((biounit, chain))
                 else:
@@ -279,11 +273,11 @@ def divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
     return single_chains, homomers, heteromers
 
 
-def find_chains_in_graph(graph, clusters_dict, biounit_chains_array, pdbs_array, chains_array):
-
+def _find_chains_in_graph(graph, clusters_dict, biounit_chains_array, pdbs_array, chains_array):
     """
-    Find all the biounit chains present in a given graph or subgraph.
-    Return a dictionary for which each key is a cluster name (merged chains name) and the values are all the biounit chains contained in this cluster
+    Find all the biounit chains present in a given graph or subgraph
+
+    Return a dictionary for which each key is a cluster name (merged chains name) and the values are all the biounit chains contained in this cluster.
     """
 
     res_dict = {}
@@ -296,12 +290,12 @@ def find_chains_in_graph(graph, clusters_dict, biounit_chains_array, pdbs_array,
     return res_dict
 
 
-def find_repartition(chains_dict, homomers, heteromers):
-
+def _find_repartition(chains_dict, homomers, heteromers):
     """
     Return a dictionary similar to the one created by find_chains_in_graph, with an additional level of classification for single chains, homomers and heteromers
-    Dictionary structure : {'single_chains' : {cluster_name : [biounit chains]}, 'homomers' : {cluster_name : [biounit chains]}, 'heteromers' : {cluster_name : [biounit chains]}}
-    Additionaly return the number of chains in each class (single chains, ...)
+
+    Dictionary structure : `{'single_chains' : {cluster_name : [biounit chains]}, 'homomers' : {cluster_name : [biounit chains]}, 'heteromers' : {cluster_name : [biounit chains]}}`.
+    Additionaly return the number of chains in each class (single chains, ...).
     """
 
     classes_dict = {'single_chains' : defaultdict(lambda : []), 'homomers' : defaultdict(lambda : []), 'heteromers' : defaultdict(lambda : [])}
@@ -332,30 +326,33 @@ def find_repartition(chains_dict, homomers, heteromers):
     return classes_dict, n_single_chains, n_homomers, n_heteromers
 
 
-def find_subgraphs_infos(subgraphs, clusters_dict, biounit_chains_array, pdbs_array, chains_array, homomers, heteromers):
-
+def _find_subgraphs_infos(subgraphs, clusters_dict, biounit_chains_array, pdbs_array, chains_array, homomers, heteromers):
     """
-    Given a list of subgraphs, return a list of dictionaries and an array of sizes of the same length.
-    Dictionaries are the chains_dict and classes_dict corresponding to each subgraph, returned by the find_chains_in_graph and find_repartition functions respectively
-    The array of sizes is of shape (len(subgraph), 3). It gives the number of single chains, homomers and heteromers present in each subgraph
+    Given a list of subgraphs, return a list of dictionaries and an array of sizes of the same length
+
+    Dictionaries are the `chains_dict` and `classes_dict` corresponding to each subgraph, returned by the `find_chains_in_graph` 
+    and `find_repartition` functions respectively. The array of sizes is of shape (len(subgraph), 3). It gives the number of single chains, 
+    homomers and heteromers present in each subgraph.
     """
 
     size_array = np.zeros((len(subgraphs), 3))
     dict_list = []
     for k, subgraph in tqdm(enumerate(subgraphs)):
-        chains_dict = find_chains_in_graph(subgraph, clusters_dict, biounit_chains_array, pdbs_array, chains_array)
-        classes_dict, n_single_chains, n_homomers, n_heteromers = find_repartition(chains_dict, homomers, heteromers)
+        chains_dict = _find_chains_in_graph(subgraph, clusters_dict, biounit_chains_array, pdbs_array, chains_array)
+        classes_dict, n_single_chains, n_homomers, n_heteromers = _find_repartition(chains_dict, homomers, heteromers)
         size_array[k] = np.array([n_single_chains, n_homomers, n_heteromers])
         dict_list.append((chains_dict, classes_dict))
     
     return dict_list, size_array, int(np.sum(size_array[:, 0])), int(np.sum(size_array[:, 1])), int(np.sum(size_array[:, 2]))
 
 
-def construct_dataset(dict_list, size_array, indices):
-
+def _construct_dataset(dict_list, size_array, indices):
     """
-    Given the dict_list and size_array returned by find_subgraphs_info, return the 2 dictionaries (chains_dict and classes_dict) corresponding to the graph encompassing all the subgraphs indicated by indices
-    Additionally return the number of single chains, homomers and heteromers in this supergraph 
+    Get a supergraph containing all subgraphs indicated by `indices`
+
+    Given the `dict_list` and `size_array` returned by `find_subgraphs_info`, return the 2 dictionaries (`chains_dict` and `classes_dict`) 
+    corresponding to the graph encompassing all the subgraphs indicated by indices.
+    Additionally return the number of single chains, homomers and heteromers in this supergraph.
     """
 
     dataset_clusters_dict = {}
@@ -376,11 +373,11 @@ def construct_dataset(dict_list, size_array, indices):
     return dataset_clusters_dict, dataset_classes_dict, single_chains_size, homomers_size, heteromers_size
 
 
-def remove_elements_from_dataset(indices, remaining_indices, chain_class, size_obj, current_sizes, size_array, tolerance=.2):
-
+def _remove_elements_from_dataset(indices, remaining_indices, chain_class, size_obj, current_sizes, size_array, tolerance=.2):
     """
-    Remove values from indices untill we get the required (size_obj) number of chains in the class of interest (chain_class)
-    Parameter chain_class corresponds to the single chain (0), homomer (1) or heteromer (2) class
+    Remove values from indices untill we get the required (`size_obj`) number of chains in the class of interest (`chain_class`)
+
+    Parameter `chain_class` corresponds to the single chain (0), homomer (1) or heteromer (2) class.
     """
 
     sizes = [s[chain_class] for s in size_array[indices]]
@@ -400,11 +397,11 @@ def remove_elements_from_dataset(indices, remaining_indices, chain_class, size_o
     return indices, remaining_indices, current_sizes[0], current_sizes[1], current_sizes[2]
 
 
-def add_elements_to_dataset(indices, remaining_indices, chain_class, size_obj, current_sizes, size_array, tolerance=.2):
-
+def _add_elements_to_dataset(indices, remaining_indices, chain_class, size_obj, current_sizes, size_array, tolerance=.2):
     """
-    Add values to indices untill we get the required (size_obj) number of chains in the class of interest (chain_class)
-    Parameter chain_class corresponds to the single chain (0), homomer (1) or heteromer (2) class
+    Add values to indices untill we get the required (`size_obj`) number of chains in the class of interest (`chain_class`)
+
+    Parameter `chain_class` corresponds to the single chain (0), homomer (1) or heteromer (2) class.
     """
 
     sizes = [s[chain_class] for s in size_array[remaining_indices]]
@@ -424,10 +421,10 @@ def add_elements_to_dataset(indices, remaining_indices, chain_class, size_obj, c
     return indices, remaining_indices, current_sizes[0], current_sizes[1], current_sizes[2]
 
 
-def adjust_dataset(indices, remaining_indices, dict_list, size_array, n_single_chains, n_homomers, n_heteromers, single_chains_size, homomers_size, heteromers_size, tolerance=.2):
-
+def _adjust_dataset(indices, remaining_indices, dict_list, size_array, n_single_chains, n_homomers, n_heteromers, single_chains_size, homomers_size, heteromers_size, tolerance=.2):
     """
-    If required, remove and add values in indices so that the number of chains in each class correspond to the required numbers within a tolerance.
+    If required, remove and add values in indices so that the number of chains in each class correspond to the required numbers within a tolerance
+
     First remove and then add (if necessary, for each class separately).
     In the end, we might end up with more chains than desired in the first 2 classes but for a reasonable tolerance (~10-20 %), this should not happen.
     """
@@ -439,7 +436,7 @@ def adjust_dataset(indices, remaining_indices, dict_list, size_array, n_single_c
             single_chains_size,
             homomers_size,
             heteromers_size,
-        ) = remove_elements_from_dataset(indices, remaining_indices, 0, n_single_chains, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
+        ) = _remove_elements_from_dataset(indices, remaining_indices, 0, n_single_chains, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
     
     if homomers_size > (1 + tolerance) * n_homomers:
         (
@@ -448,7 +445,7 @@ def adjust_dataset(indices, remaining_indices, dict_list, size_array, n_single_c
             single_chains_size,
             homomers_size,
             heteromers_size,
-        ) = remove_elements_from_dataset(indices, remaining_indices, 1, n_homomers, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
+        ) = _remove_elements_from_dataset(indices, remaining_indices, 1, n_homomers, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
 
     if heteromers_size > (1 + tolerance) * n_heteromers:
         (
@@ -457,7 +454,7 @@ def adjust_dataset(indices, remaining_indices, dict_list, size_array, n_single_c
             single_chains_size,
             homomers_size,
             heteromers_size,
-        ) = remove_elements_from_dataset(indices, remaining_indices, 2, n_heteromers, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
+        ) = _remove_elements_from_dataset(indices, remaining_indices, 2, n_heteromers, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
     
     if single_chains_size < (1 - tolerance) * n_single_chains:
         (
@@ -466,7 +463,7 @@ def adjust_dataset(indices, remaining_indices, dict_list, size_array, n_single_c
             single_chains_size,
             homomers_size,
             heteromers_size,
-        ) = add_elements_to_dataset(indices, remaining_indices, 0, n_single_chains, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
+        ) = _add_elements_to_dataset(indices, remaining_indices, 0, n_single_chains, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
 
     if homomers_size < (1 - tolerance) * n_homomers:
         (
@@ -475,7 +472,7 @@ def adjust_dataset(indices, remaining_indices, dict_list, size_array, n_single_c
             single_chains_size,
             homomers_size,
             heteromers_size,
-        ) = add_elements_to_dataset(indices, remaining_indices, 1, n_homomers, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
+        ) = _add_elements_to_dataset(indices, remaining_indices, 1, n_homomers, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
 
     if heteromers_size < (1 - tolerance) * n_heteromers:
         (
@@ -484,7 +481,7 @@ def adjust_dataset(indices, remaining_indices, dict_list, size_array, n_single_c
             single_chains_size,
             homomers_size,
             heteromers_size,
-        ) = add_elements_to_dataset(indices, remaining_indices, 2, n_heteromers, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
+        ) = _add_elements_to_dataset(indices, remaining_indices, 2, n_heteromers, np.array([single_chains_size, homomers_size, heteromers_size]), size_array, tolerance=tolerance)
 
     (
         dataset_clusters_dict,
@@ -492,14 +489,16 @@ def adjust_dataset(indices, remaining_indices, dict_list, size_array, n_single_c
         single_chains_size,
         homomers_size,
         heteromers_size,
-    ) = construct_dataset(dict_list, size_array, indices)
+    ) = _construct_dataset(dict_list, size_array, indices)
     return dataset_clusters_dict, dataset_classes_dict, single_chains_size, homomers_size, heteromers_size, remaining_indices
 
 
-def fill_dataset(dict_list, size_array, n_samples, n_single_chains, n_homomers, n_heteromers, remaining_indices, n_max_iter=50, tolerance=.2):
-    
+def _fill_dataset(dict_list, size_array, n_samples, n_single_chains, n_homomers, n_heteromers, remaining_indices, n_max_iter=50, tolerance=.2):
     """
-    Given a list of indices to choose from (remaining_indices), choose a list of subgraphs to construct a dataset containing the required number of biounits for each class (single chains, ...) within a tolerance.
+    Construct a dataset from subgraphs indicated by `indices`
+
+    Given a list of indices to choose from (`remaining_indices`), choose a list of subgraphs to construct a dataset containing the required number of
+    biounits for each class (single chains, ...) within a tolerance.
     Return the same outputs as the construct_dataset function, as long as the list of remaining indices after selection.
     """
 
@@ -517,7 +516,7 @@ def fill_dataset(dict_list, size_array, n_samples, n_single_chains, n_homomers, 
             single_chains_size,
             homomers_size,
             heteromers_size,
-        ) = construct_dataset(dict_list, size_array, indices)
+        ) = _construct_dataset(dict_list, size_array, indices)
         distribution_satisfied = single_chains_size > (1 - tolerance) * n_single_chains and single_chains_size < (1 + tolerance) * n_single_chains and homomers_size > (1 - tolerance) * n_homomers and homomers_size < (1 + tolerance) * n_homomers and heteromers_size > (1 - tolerance) * n_heteromers and heteromers_size < (1 + tolerance) * n_heteromers
     
     if not distribution_satisfied:
@@ -528,7 +527,7 @@ def fill_dataset(dict_list, size_array, n_samples, n_single_chains, n_homomers, 
             homomers_size,
             heteromers_size,
             remaining_indices,
-        ) = adjust_dataset(
+        ) = _adjust_dataset(
                             indices,
                             [i for i in remaining_indices if i not in indices],
                             dict_list,
@@ -548,8 +547,7 @@ def fill_dataset(dict_list, size_array, n_samples, n_single_chains, n_homomers, 
     return dataset_clusters_dict, dataset_classes_dict, remaining_indices, single_chains_size, homomers_size, heteromers_size
 
 
-def split_dataset(graph, clusters_dict, merged_seqs_dict, dataset_dir, valid_split=.05, test_split=.05, tolerance=.2):
-
+def _split_dataset(graph, clusters_dict, merged_seqs_dict, dataset_dir, valid_split=.05, test_split=.05, tolerance=.2):
     """
     Given a graph representing connections between MMSeqs2 clusters, split the dataset between train, validation and test
 
@@ -563,19 +561,19 @@ def split_dataset(graph, clusters_dict, merged_seqs_dict, dataset_dir, valid_spl
         the dictionary containing all the merged (by similarity and PDB id) chains organized by cluster
     dataset_dir : str
         the path to the dataset
-    valid_split : float in ]0, 1[, default 0.05
+    valid_split : float, default 0.05
         the validation split ratio
-    test_split : float in ]0, 1[, default 0.05
+    test_split : float, default 0.05
         the test split ratio
     
-    Output
-    ------
+    Returns
+    -------
     train_clusters_dict : dict
         the dictionary containing all the clusters (keys) and the biounit chains they contain for the training dataset
-        structure : {cluster_id : [(biounit_file_name, chain), (..., ...), ...]}
+        structure : `{cluster_id : [(biounit_file_name, chain), (..., ...), ...]}`
     train_classes_dict : dict
         the same dictionary as train_cluster_dict with an additional level of classification (by single chains, homomers, heteromers)
-        structure : {'single_chains' : train_cluster_dict_like_dict, 'homomers' : train_cluster_dict_like_dict, 'heteromers' : train_cluster_dict_like_dict}
+        structure : `{'single_chains' : train_cluster_dict_like_dict, 'homomers' : train_cluster_dict_like_dict, 'heteromers' : train_cluster_dict_like_dict}`
     valid_clusters_dict : dict
         see train_clusters_dict but for validation set
     valid_classes_dict : dict
@@ -584,19 +582,19 @@ def split_dataset(graph, clusters_dict, merged_seqs_dict, dataset_dir, valid_spl
         see train_clusters_dict but for test set
     test_classes_dict : dict
         see train_classes_dict but for test set
-    single_chains : list of str
-        the list of all biounit chains that are in a single chain state (in their biounit)
-    homomers : list of str
-        the list of all biounit chains that are in a homomeric state (in their biounit)
-    heteromers : list of str
-        the list of all biounit chains that are in a heteromeric state (in their biounit)
+    single_chains : list
+        the list of all biounit chains (string names) that are in a single chain state (in their biounit)
+    homomers : list
+        the list of all biounit chains (string names) that are in a homomeric state (in their biounit)
+    heteromers : list
+        the list of all biounit chains (string names) that are in a heteromeric state (in their biounit)
     """
 
     subgraphs = np.array([graph.subgraph(c) for c in sorted(nx.connected_components(graph), key=len, reverse=True)], dtype=object)
     remaining_indices = list(np.arange(1, len(subgraphs)))
-    seqs_names_list = retrieve_seqs_names_list(merged_seqs_dict)
-    pdb_seqs_dict = create_pdb_seqs_dict(seqs_names_list)
-    single_chains, homomers, heteromers = divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir)
+    seqs_names_list = _retrieve_seqs_names_list(merged_seqs_dict)
+    pdb_seqs_dict = _create_pdb_seqs_dict(seqs_names_list)
+    single_chains, homomers, heteromers = _divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir)
     biounit_chains_array = np.array(single_chains + homomers + heteromers)
     pdbs_array = np.array([c[0][ : 4] for c in biounit_chains_array])
     chains_array = np.array([c[1] for c in biounit_chains_array])
@@ -607,7 +605,7 @@ def split_dataset(graph, clusters_dict, merged_seqs_dict, dataset_dir, valid_spl
         n_single_chains,
         n_homomers,
         n_heteromers
-    ) = find_subgraphs_infos(
+    ) = _find_subgraphs_infos(
                                 subgraphs,
                                 clusters_dict,
                                 biounit_chains_array,
@@ -628,7 +626,7 @@ def split_dataset(graph, clusters_dict, merged_seqs_dict, dataset_dir, valid_spl
         n_single_chains_valid,
         n_homomers_valid,
         n_heteromers_valid,
-    ) = fill_dataset(
+    ) = _fill_dataset(
                         dict_list,
                         size_array,
                         n_samples_valid,
@@ -646,7 +644,7 @@ def split_dataset(graph, clusters_dict, merged_seqs_dict, dataset_dir, valid_spl
         n_single_chains_test,
         n_homomers_test,
         n_heteromers_test,
-    ) = fill_dataset(
+    ) = _fill_dataset(
                         dict_list,
                         size_array,
                         n_samples_test,
@@ -664,7 +662,7 @@ def split_dataset(graph, clusters_dict, merged_seqs_dict, dataset_dir, valid_spl
         n_single_chains_train,
         n_homomers_train,
         n_heteromers_train,
-    ) = construct_dataset(dict_list, size_array, remaining_indices)
+    ) = _construct_dataset(dict_list, size_array, remaining_indices)
 
     print("Classes distribution (single chain / homomer / heteromer):")
     print("Train set:", int(n_single_chains_train), '/', int(n_homomers_train), '/', int(n_heteromers_train))
@@ -674,10 +672,9 @@ def split_dataset(graph, clusters_dict, merged_seqs_dict, dataset_dir, valid_spl
     return train_clusters_dict, train_classes_dict, valid_clusters_dict, valid_classes_dict, test_clusters_dict, test_classes_dict, single_chains, homomers, heteromers
 
 
-def build_dataset_partition(dataset_dir, tmp_folder, valid_split=.05, test_split=.05, tolerance=.2):
-
+def _build_dataset_partition(dataset_dir, tmp_folder, valid_split=.05, test_split=.05, tolerance=.2):
     """
-    Build training, validation and test sets from a curated dataset of biounit, using MMSeqs2 for clustering.
+    Build training, validation and test sets from a curated dataset of biounit, using MMSeqs2 for clustering
 
     Parameters
     ----------
@@ -707,19 +704,19 @@ def build_dataset_partition(dataset_dir, tmp_folder, valid_split=.05, test_split
     """
 
     # retrieve all sequences and create a merged_seqs_dict
-    seqs_dict = load_pdbs(dataset_dir)
-    merged_seqs_dict = merge_chains(seqs_dict)
+    seqs_dict = _load_pdbs(dataset_dir)
+    merged_seqs_dict = _merge_chains(seqs_dict)
 
     # write sequences to a fasta file for clustering with MMSeqs2, run MMSeqs2 and delete the fasta file
     fasta_file = os.path.join(tmp_folder, 'all_seqs.fasta')
-    write_fasta(fasta_file, merged_seqs_dict)
-    run_mmseqs2(fasta_file, tmp_folder)
+    _write_fasta(fasta_file, merged_seqs_dict)
+    _run_mmseqs2(fasta_file, tmp_folder)
     subprocess.run(['rm', fasta_file])
 
     # retrieve MMSeqs2 clusters and build a graph with these clusters
-    clusters_dict, clusters_pdb_dict = read_clusters(os.path.join('MMSeqs2_results/clusterRes_all_seqs.fasta'))
+    clusters_dict, clusters_pdb_dict = _read_clusters(os.path.join('MMSeqs2_results/clusterRes_all_seqs.fasta'))
     subprocess.run(['rm', '-r', os.path.join(tmp_folder, 'MMSeqs2_results')])
-    graph = make_graph(clusters_pdb_dict)
+    graph = _make_graph(clusters_pdb_dict)
 
     # perform the splitting into train, validation and tesst sets
     (
@@ -730,6 +727,6 @@ def build_dataset_partition(dataset_dir, tmp_folder, valid_split=.05, test_split
         test_clusters_dict,
         test_classes_dict,
         _, _, _,
-    ) = split_dataset(graph, clusters_dict, merged_seqs_dict, dataset_dir, valid_split=valid_split, test_split=test_split, tolerance=tolerance)
+    ) = _split_dataset(graph, clusters_dict, merged_seqs_dict, dataset_dir, valid_split=valid_split, test_split=test_split, tolerance=tolerance)
 
     return train_clusters_dict, train_classes_dict, valid_clusters_dict, valid_classes_dict, test_clusters_dict, test_classes_dict

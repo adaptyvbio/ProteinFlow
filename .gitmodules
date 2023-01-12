@@ -1,6 +1,0 @@
-[submodule "rcsbsearch"]
-	path = rcsbsearch
-	url = https://github.com/sbliven/rcsbsearch
-[submodule "proteinmpnn"]
-	path = proteinmpnn
-	url = https://gitlab.com/adaptyvbio/proteinmpnn

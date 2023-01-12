@@ -7,8 +7,7 @@ from tqdm import tqdm
 from collections import Counter
 
 
-def open_pdb(file):
-
+def _open_pdb(file):
     """
     Open a PDB file in the pickle format that follows the dwnloading and processing of the database
     """
@@ -17,8 +16,7 @@ def open_pdb(file):
         return pkl.load(f)
 
 
-def compare_identity(seq, seqs, threshold):
-
+def _compare_identity(seq, seqs, threshold):
     """
     Assess whether a sequence is in a list of sequences (in the sense that it shares at least 90% to one of the sequences in the list)
     """
@@ -30,30 +28,28 @@ def compare_identity(seq, seqs, threshold):
     return False
 
 
-def compare_seqs(seqs1, seqs2, threshold):
-
+def _compare_seqs(seqs1, seqs2, threshold):
     """
     Assess whether 2 lists of sequences contain exactly the same set of sequences
     """
 
     for seq in seqs1:
-        if not compare_identity(seq, seqs1, threshold):
+        if not _compare_identity(seq, seqs1, threshold):
             return False
 
     for seq in seqs2:
-        if not compare_identity(seq, seqs2, threshold):
+        if not _compare_identity(seq, seqs2, threshold):
             return False
 
     return True
 
 
-def check_biounits(biounits_list, threshold):
-
+def _check_biounits(biounits_list, threshold):
     """
-    Return the indexes of the redundant biounits within the list of files given by 'biounits_list'
+    Return the indexes of the redundant biounits within the list of files given by `biounits_list`
     """
 
-    biounits = [open_pdb(b) for b in biounits_list]
+    biounits = [_open_pdb(b) for b in biounits_list]
     indexes = []
 
     for k, b1 in enumerate(biounits):
@@ -66,17 +62,17 @@ def check_biounits(biounits_list, threshold):
                     continue
 
                 b2_seqs = [b2[chain]["seq"] for chain in b2.keys()]
-                if compare_seqs(b1_seqs, b2_seqs, threshold):
+                if _compare_seqs(b1_seqs, b2_seqs, threshold):
                     indexes.append(k + l + 1)
 
     return indexes
 
 
-def remove_database_redundancies(dir, seq_identity_threshold=0.9):
-
+def _remove_database_redundancies(dir, seq_identity_threshold=0.9):
     """
-    Remove all biounits in the database that are copies to another biounits in terms of sequence.
-    Sequence identity is definded by the 'seq_identity_threshold' parameter for robust detection of sequence similarity (missing residues, point mutations, ...)
+    Remove all biounits in the database that are copies to another biounits in terms of sequence
+
+    Sequence identity is definded by the 'seq_identity_threshold' parameter for robust detection of sequence similarity (missing residues, point mutations, ...).
 
     Parameters
     ----------
@@ -87,7 +83,8 @@ def remove_database_redundancies(dir, seq_identity_threshold=0.9):
 
     Returns
     -------
-    None
+    total_removed : int
+        the total number of removed biounits
     """
 
     all_files = np.array(os.listdir(dir))
@@ -100,7 +97,7 @@ def remove_database_redundancies(dir, seq_identity_threshold=0.9):
         biounits_list = np.array(
             [os.path.join(dir, file) for file in all_files[all_pdbs == pdb]]
         )
-        redundancies = check_biounits(biounits_list, seq_identity_threshold)
+        redundancies = _check_biounits(biounits_list, seq_identity_threshold)
         if redundancies != []:
             for k in redundancies:
                 total_removed.append(os.path.basename(biounits_list[k]).split(".")[0])

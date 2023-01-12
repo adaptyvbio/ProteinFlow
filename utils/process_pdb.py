@@ -2,29 +2,16 @@ from Bio import pairwise2
 import numpy as np
 from typing import Dict
 import subprocess
-import gzip
-import shutil
 import urllib.request
 import os
-import re
 import numpy as np
-import pickle as pkl
-from Bio.Seq import Seq
-from Bio.PDB import PDBParser
-from Bio.PDB.PDBIO import PDBIO
-from Bio.PDB.PDBIO import Select
-from Bio.PDB.parse_pdb_header import parse_pdb_header
 from biopandas.pdb import PandasPdb
 import os
-import boto3
 from collections import namedtuple
 from operator import attrgetter
 
 
-S3Obj = namedtuple("S3Obj", ["key", "mtime", "size", "ETag"])
-
-
-side_chain = {
+SIDECHAIN_ORDER = {
     "CYS": ["CB", "SG"],
     "ASP": ["CB", "CG", "OD1", "OD2"],
     "SER": ["CB", "OG"],
@@ -46,6 +33,7 @@ side_chain = {
     "TYR": ["CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ", "OH"],
     "MET": ["CB", "CG", "SD", "CE"],
 }
+BACKBONE_ORDER = ["N", "C", "CA", "O"]
 
 d3to1 = {
     "CYS": "C",
@@ -69,23 +57,13 @@ d3to1 = {
     "TYR": "Y",
     "MET": "M",
 }
-
-bb_names = ["N", "C", "CA", "O"]
+S3Obj = namedtuple("S3Obj", ["key", "mtime", "size", "ETag"])
 
 
 class PDBError(ValueError):
     pass
 
-
-class SelectHeavyAtoms(Select):
-    def accept_residue(self, residue):
-        return residue.id[0] == " "
-
-    def accet_atom(self, atom):
-        return atom.id[0] != "H"
-
-
-def s3list(
+def _s3list(
     bucket,
     path,
     start=None,
@@ -191,7 +169,7 @@ def s3list(
             yield p
 
 
-def get_pdb_file(pdb_file, bucket, tmp_folder, folders):
+def _get_pdb_file(pdb_file, bucket, tmp_folder, folders):
     """
     Download the file from S3 and return the local path where it was saved
     """
@@ -212,13 +190,23 @@ def get_pdb_file(pdb_file, bucket, tmp_folder, folders):
 
 def download_fasta(pdbcode, biounit, datadir):
     """
-    Downloads a fasta file from the Internet and saves it in a data directory.
-    For informations about the download url, cf `https://www.rcsb.org/pages/download/http#structures`
-    :param pdbcode: The standard PDB ID e.g. '3ICB' or '3icb'
-    :param datadir: The directory where the downloaded file will be saved
-    :return: the full path to the downloaded PDB file or None if something went wrong
-    """
+    Downloads a fasta file from the Internet and saves it in a data directory
 
+    For informations about the download url, cf `https://www.rcsb.org/pages/download/http#structures`
+
+    Parameters
+    ----------
+    pdbcode : str
+        The standard PDB ID e.g. '3ICB' or '3icb'
+    datadir : str
+        The directory where the downloaded file will be saved
+
+    Returns
+    -------
+    file_path : str
+        the full path to the downloaded PDB file or None if something went wrong
+    """
+     
     downloadurl = "https://www.rcsb.org/fasta/entry/"
     pdbfn = pdbcode + "/download"
     outfnm = os.path.join(datadir, f"{pdbcode}-{biounit}.fasta")
@@ -232,40 +220,7 @@ def download_fasta(pdbcode, biounit, datadir):
         # print(str(err), file=sys.stderr)
         return None, err
 
-
-def validate(seq, alphabet="dna"):
-
-    """
-    Check that a given sequence contains only proteic residues
-    """
-
-    alphabets = {
-        "dna": re.compile("^[acgtn]*$", re.I),
-        "protein": re.compile("^[acdefghiklmnpqrstvwy]*$", re.I),
-    }
-
-    return alphabets[alphabet].search(seq) is not None
-
-
-def detect_non_proteins(fasta_file):
-
-    """
-    Detect if a fasta contains residues that do not belong to a protein (DNA, RNA, non-canonical amino acids, ...)
-    """
-
-    with open(fasta_file, "r") as f:
-
-        seq = Seq(
-            "".join(
-                [line.replace("\n", "") for line in f.readlines() if line[0] != ">"]
-            )
-        )
-
-    return validate(str(seq), "dna") or not validate(str(seq), "protein")
-
-
-def retrieve_author_chain(chain):
-
+def _retrieve_author_chain(chain):
     """
     Retrieve the (author) chain names present in the chain section (delimited by '|' chars) of a header line in a fasta file
     """
@@ -276,8 +231,7 @@ def retrieve_author_chain(chain):
     return chain
 
 
-def retrieve_chain_names(entry):
-
+def _retrieve_chain_names(entry):
     """
     Retrieve the (author) chain names present in one header line of a fasta file (line that begins with '>')
     """
@@ -285,13 +239,12 @@ def retrieve_chain_names(entry):
     entry = entry.split("|")[1]
 
     if "Chains" in entry:
-        return [retrieve_author_chain(e) for e in entry[7:].split(", ")]
+        return [_retrieve_author_chain(e) for e in entry[7:].split(", ")]
 
-    return [retrieve_author_chain(entry[6:])]
+    return [_retrieve_author_chain(entry[6:])]
 
 
-def retrieve_fasta_chains(fasta_file):
-
+def _retrieve_fasta_chains(fasta_file):
     """
     Return a dictionary containing all the (author) chains in a fasta file (keys) and their corresponding sequence
     """
@@ -307,55 +260,13 @@ def retrieve_fasta_chains(fasta_file):
 
     out_dict = {}
     for name, seq in zip(names, seqs):
-        for chain in retrieve_chain_names(name):
+        for chain in _retrieve_chain_names(name):
             out_dict[chain] = seq
 
     return out_dict
+    
 
-
-# def retrieve_pdb_resolution(pdb_id, tmp_folder, bucket):
-
-#     """
-#     Find the resolution of the PDB by downloading the PDB from the web
-#     """
-
-#     pdb_file = 'pdb' + pdb_id + '.ent.gz'
-#     pdb_unzipped = os.path.join(tmp_folder, pdb_id + '_full' + '.pdb')
-#     download_path = '20220103/pub/pdb/data/structures/all/pdb/' + pdb_file
-#     local_path = get_pdb_file(download_path, bucket=bucket, tmp_folder=tmp_folder)
-
-#     with gzip.open(local_path, 'rb') as f_in:
-#         with open(pdb_unzipped, 'wb') as f_out:
-#             shutil.copyfileobj(f_in, f_out)
-
-#     os.remove(local_path)
-#     header = parse_pdb_header(pdb_unzipped)
-#     os.remove(pdb_unzipped)
-#     return header['resolution']
-
-
-# def check_resolution(pdb_id, resolution_dict, tmp_folder, bucket):
-
-#     """
-#     Find the resolution of the PDB by first checking into the resolution dictionary and then by downloading the PDB from the web if necessary
-#     """
-
-#     with open(resolution_dict, "rb") as f:
-#         res_dict = pkl.load(f)
-
-#     if pdb_id in res_dict.keys():
-#         resolution = res_dict[pdb_id]
-
-#     else:
-#         resolution = retrieve_pdb_resolution(pdb_id, tmp_folder, bucket)
-#         res_dict[pdb_id] = resolution
-#         with open(resolution_dict, "wb") as f:
-#             pkl.dump(res_dict, f)
-
-#     return resolution
-
-
-def open_pdb(file_path: str, tmp_folder: str) -> Dict:
+def _open_pdb(file_path: str, tmp_folder: str) -> Dict:
     """
     Read a PDB file and parse it into a dictionary if it meets criteria
 
@@ -380,7 +291,6 @@ def open_pdb(file_path: str, tmp_folder: str) -> Dict:
     ------
     pdb_dict : Dict
         the parsed dictionary
-
     """
 
     pdb, biounit = os.path.basename(file_path).split("-")
@@ -389,7 +299,7 @@ def open_pdb(file_path: str, tmp_folder: str) -> Dict:
     # download fasta and check if it contains only proteins
     fasta_path = download_fasta(pdb, biounit, tmp_folder)
     try:
-        seqs_dict = retrieve_fasta_chains(fasta_path)
+        seqs_dict = _retrieve_fasta_chains(fasta_path)
     except FileNotFoundError:
         raise PDBError("Fasta file not found")
 
@@ -417,7 +327,7 @@ def open_pdb(file_path: str, tmp_folder: str) -> Dict:
     return out_dict
 
 
-def align_pdb(
+def _align_pdb(
     pdb_dict: Dict,
     min_length: int = 30,
     max_length: int = None,
@@ -449,13 +359,12 @@ def align_pdb(
     max_length : int, optional
         the maximum number of residues per chain
 
-
     Returns
     -------
     pdb_dict : Dict | None
         the parsed dictionary or `None`, if the criteria are not met
-
     """
+
     crd = pdb_dict["crd_raw"]
     fasta = pdb_dict["fasta"]
     pdb_dict = {}
@@ -529,13 +438,13 @@ def align_pdb(
                     seq_pos += 1
                 if d3to1[res_name] != aligned_seq[seq_pos]:
                     raise PDBError("Alignment issue in processing")
-            if atom not in bb_names + side_chain[res_name]:
+            if atom not in BACKBONE_ORDER + SIDECHAIN_ORDER[res_name]:
                 if atom in ["OXT"] or atom.startswith("H"):  # extra oxygen or hydrogen
                     continue
                 raise PDBError(f"Unexpected atoms ({atom})")
             else:
                 crd_arr[
-                    seq_pos, (bb_names + side_chain[res_name]).index(atom), :
+                    seq_pos, (BACKBONE_ORDER + SIDECHAIN_ORDER[res_name]).index(atom), :
                 ] = row[["x_coord", "y_coord", "z_coord"]]
         pdb_dict[chain]["crd_bb"] = crd_arr[:, :4, :]
         pdb_dict[chain]["crd_sc"] = crd_arr[:, 4:, :]
