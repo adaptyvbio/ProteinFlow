@@ -7,7 +7,7 @@ from bestprot.utils.process_pdb import (
     _s3list,
     SIDECHAIN_ORDER,
 )
-from bestprot.utils.cluster_and_partition import _build_dataset_partition
+from bestprot.utils.cluster_and_partition import _build_dataset_partition, _check_mmseqs
 from bestprot.utils.split_dataset import _download_dataset, _split_data
 import os
 import pickle
@@ -473,6 +473,7 @@ def generate_data(
         a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
 
     """
+    _check_mmseqs()
     tmp_folder = os.path.join(local_datasets_folder, "tmp")
     output_folder = os.path.join(local_datasets_folder, f"bestprot_{tag}")
     log_folder = os.path.join(local_datasets_folder, "logs")

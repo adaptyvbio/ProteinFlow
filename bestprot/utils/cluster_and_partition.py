@@ -481,6 +481,18 @@ def _remove_elements_from_dataset(
     )
 
 
+def _check_mmseqs():
+    """
+    Raise an error if MMseqs2 is not installed
+    """
+
+    devnull = open(os.devnull,"w")
+    retval = subprocess.call(["mmseqs", "--help"],stdout=devnull,stderr=subprocess.STDOUT)
+    devnull.close()
+    if retval != 0:
+        raise RuntimeError("Please install the mmseqs2 library following the instructions at https://github.com/soedinglab/MMseqs2")
+
+
 def _add_elements_to_dataset(
     indices,
     remaining_indices,
@@ -500,7 +512,6 @@ def _add_elements_to_dataset(
     sorted_sizes_indices = np.argsort(sizes)[::-1]
 
     while current_sizes[chain_class] < size_obj and len(sorted_sizes_indices) > 0:
-        print(f'{len(sorted_sizes_indices)=}, {len(remaining_indices)=}, {len(size_array)=}, {len(current_sizes)=}')
         if (
             current_sizes[chain_class]
             + size_array[remaining_indices[sorted_sizes_indices[0]], chain_class]
