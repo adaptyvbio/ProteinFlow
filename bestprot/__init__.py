@@ -1,5 +1,5 @@
-from utils.filter_database import _remove_database_redundancies
-from utils.process_pdb import (
+from bestprot.utils.filter_database import _remove_database_redundancies
+from bestprot.utils.process_pdb import (
     _align_pdb,
     _open_pdb,
     PDBError,
@@ -7,17 +7,15 @@ from utils.process_pdb import (
     _s3list,
     SIDECHAIN_ORDER,
 )
-from utils.cluster_and_partition import _build_dataset_partition
-from utils.split_dataset import _download_dataset, _split_data
+from bestprot.utils.cluster_and_partition import _build_dataset_partition
+from bestprot.utils.split_dataset import _download_dataset, _split_data
 import os
 import pickle
-import click
 from collections import defaultdict
 import boto3
 from p_tqdm import p_map
 from rcsbsearch import Attr
-from utils.filter_database import _remove_database_redundancies
-import datetime
+from datetime import datetime
 import subprocess
 
 
@@ -66,7 +64,7 @@ def _get_split_dictionaries(
     split_tolerance=0.2,
     test_split=0.05,
     valid_split=0.05,
-    out_split_dict_folder="./data/dataset_splits_dicts",
+    out_split_dict_folder="./data/dataset_splits_dict",
 ):
     """
     Split preprocessed data into training, validation and test
@@ -83,10 +81,11 @@ def _get_split_dictionaries(
         The percentage of chains to put in the test set (default 5%)
     valid_split : float, default 0.05
         The percentage of chains to put in the validation set (default 5%)
-    out_split_dict_folder : str, default "./data/dataset_splits_dicts"
+    out_split_dict_folder : str, default "./data/dataset_splits_dict"
         The folder where the dictionaries containing the train/validation/test splits information will be saved"
     """
 
+    os.makedirs(out_split_dict_folder, exist_ok=True)
     (
         train_clusters_dict,
         train_classes_dict,
@@ -179,7 +178,7 @@ def _run_processing(
         The percentage of chains to put in the test set (default 5%)
     valid_split : float, default 0.05
         The percentage of chains to put in the validation set (default 5%)
-    out_split_dict_folder : str, default "./data/dataset_splits_dicts"
+    out_split_dict_folder : str, default "./data/dataset_splits_dict"
         The folder where the dictionaries containing the train/validation/test splits information will be saved"
     tag : str, optional
         A tag to add to the log file
@@ -417,6 +416,7 @@ def generate_data(
     split_tolerance=0.2,
     test_split=0.05,
     valid_split=0.05,
+    pdb_snapshot=None,
 ):
     """
     Download and parse PDB files that meet filtering criteria
@@ -464,7 +464,7 @@ def generate_data(
         The percentage of chains to put in the test set (default 5%)
     valid_split : float, default 0.05
         The percentage of chains to put in the validation set (default 5%)
-    out_split_dict_folder : str, default "./data/dataset_splits_dicts"
+    out_split_dict_folder : str, default "./data/dataset_splits_dict"
         The folder where the dictionaries containing the train/validation/test splits information will be saved"
 
     Returns
@@ -476,7 +476,7 @@ def generate_data(
     tmp_folder = os.path.join(local_datasets_folder, "tmp")
     output_folder = os.path.join(local_datasets_folder, f"bestprot_{tag}")
     log_folder = os.path.join(local_datasets_folder, "logs")
-    out_split_dict_folder = os.path.join(output_folder, "split_dicts")
+    out_split_dict_folder = os.path.join(output_folder, "splits_dict")
 
     log_dict = _run_processing(
         tmp_folder=tmp_folder,
@@ -493,6 +493,7 @@ def generate_data(
         n=n,
         force=force,
         tag=tag,
+        pdb_snapshot=pdb_snapshot,
     )
     _get_split_dictionaries(
         tmp_folder=tmp_folder,
