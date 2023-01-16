@@ -33,14 +33,14 @@ from bestprot import generate_data
     help="The maximum fraction of missing residues in the middle (after missing ends are disregarded)",
 )
 @click.option(
-    "--filter_methods",
-    default=True,
-    help="If `True`, only files obtained with X-ray or EM will be processed",
+    "--not_filter_methods",
+    is_flag=True,
+    help="Unless this flag is used, only files obtained with X-ray or EM will be processed",
 )
 @click.option(
-    "--remove_redundancies",
-    default=False,
-    help="If `True`, removes biounits that are doubles of others sequence wise",
+    "--not_remove_redundancies",
+    is_flag=True,
+    help="Unless this flag is used, removes biounits that are doubles of others sequence wise",
 )
 @click.option(
     "--seq_identity_threshold",
