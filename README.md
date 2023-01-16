@@ -1,57 +1,41 @@
-# ml-4
-Equivariant NN for generative sequence and structure antibody co-design
+# BestProt
+This is a python library for handling the BestProt data processing pipeline.
 
-## Generating data
-In order to download and process PDB files, first install the neccessary requirements;
+## Installation
+Recommended: create a new `conda` environment and install `bestprot` and `mmseqs`. Note that the python version has to be between 3.8 and 3.10.
 ```
-git clone https://gitlab.com/adaptyvbio/ml-4
+git clone https://gitlab.com/adaptyvbio/ml-4/-/tree/library
 cd ml-4
-git submodule init
-git submodule update
-conda create -y --name data python=3.9
-conda activate data
-python -m pip install -e rcsbsearch/ 
-python -m pip install -r requirements.txt
+conda create --name bestprot -y python=3.9
+conda activate bestprot
+conda install -c conda-forge -c bioconda mmseqs2
+python -m pip install -e .
 ```
 
-Then you can run `run_pdb_processing.py`.
+## Usage
+### Downloading pre-computed datasets
+We have run the pipeline and saved the results at an AWS S3 server. You can download the resulting dataset with `bestprot`.
 ```
-conda activate data
-python run_pdb_processing.py --min_length 30 --resolution_thr 3.5
-```
-
-See `python run_pdb_processing.py --help` for a full list of parameters and a description of the file format.
-
-This will generate pickled files for the data (one per biounit), as well as clustering dictionaries. The clustering dictionaries 
-are called `train.pickle`, `valid.pickle` and `test.pickle`. Read them like this.
-```
-with open("train.pickle", "rb") as f:
-    cluster_dict = pickle.load(f)
-    class_dict = pickle.load(f)
+download_bestprot --tag 20221110 
 ```
 
-The `cluster_dict` will contain information about the MMSeqs clustering and the `class_dict` about the distribution over single chains, homomers and heteromers for each subset.
-
-To download the dataset from S3 and partition into training, validation and test folders according to the dictionaries, run this command.
+### Running the pipeline
+You can also run `bestprot` with your own parameters.
 ```
-python split_dataset.py --dataset_path s3://path/to/dataset --dict_path s3://path/to/dicts/ --local_folder /local/path
+generate_bestprot --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods
 ```
+See the docs (or `generate_bestrot --help`) for the full list of parameters.
 
-Alternatively, if you already have the data on your machine, just use the same command but with local paths (the data will be moved from `dataset_path` to `local_folder` and rearranged into training/test/validation).
+### Using the data
+The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:
+- `'crd_bb'`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),
+- `'crd_sc'`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (check `bestprot.sidechain_order()` for the order of atoms),
+- `'msk'`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and
+    zeros to missing values,
+- `'seq'`: a string of length `L` with residue types.
 
-## Submodules
-
-To add a repository from github as a submodule, follow this.
-1. `git clone [github url]`,
-2. `cd [repo name]`,
-3. `git remote rename origin upstream`,
-4. create a new project at https://gitlab.com/adaptyvbio (be sure to uncheck the README option),
-5. `git remote add origin [gitlab url]`,
-6. `git push -u origin --all`,
-7. `git push -u origin --tags`,
-8. go to `ml-4` on your machine,
-9. `git submodule add [gitlab url]`.
-
+Once you've downloaded or generated your data, you can use our `ProteinDataset` or `ProteinLoader` classes 
+for convenient processing. 
 
 ## Data
 
