@@ -1,8 +1,8 @@
 test.ipynb
-utils/__pycache__/
 sidechainnet_data/
 data/
 .vscode/
 log*
 *egg-info
-bestprot/__pycache__/
+*/__pycache__/
+*/*/__pycache__/
