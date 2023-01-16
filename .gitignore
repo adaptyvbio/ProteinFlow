@@ -5,4 +5,4 @@ data/
 .vscode/
 log*
 *egg-info
-__pycache__/
+bestprot/__pycache__/
