@@ -9,14 +9,148 @@ from bestprot.utils.process_pdb import (
 )
 from bestprot.utils.cluster_and_partition import _build_dataset_partition, _check_mmseqs
 from bestprot.utils.split_dataset import _download_dataset, _split_data
+
 import os
 import pickle
 from collections import defaultdict
-import boto3
-from p_tqdm import p_map
 from rcsbsearch import Attr
 from datetime import datetime
 import subprocess
+import torch
+from torch.utils.data import Dataset
+import numpy as np
+import random
+import os
+import pickle
+from p_tqdm import p_map
+from collections import defaultdict
+from tqdm import tqdm
+from copy import deepcopy
+import pandas as pd
+from numpy import linalg
+from einops import rearrange
+
+
+MAIN_ATOMS = {
+    "GLY": None,
+    "ALA": 0,
+    "VAL": 0,
+    "LEU": 1,
+    "ILE": 1,
+    "MET": 2,
+    "PRO": 1,
+    "TRP": 5,
+    "PHE": 6,
+    "TYR": 7,
+    "CYS": 1,
+    "SER": 1,
+    "THR": 1,
+    "ASN": 1,
+    "GLN": 2,
+    "HIS": 2,
+    "LYS": 3,
+    "ARG": 4,
+    "ASP": 1,
+    "GLU": 2,
+}
+D3TO1 = {
+    "CYS": "C",
+    "ASP": "D",
+    "SER": "S",
+    "GLN": "Q",
+    "LYS": "K",
+    "ILE": "I",
+    "PRO": "P",
+    "THR": "T",
+    "PHE": "F",
+    "ASN": "N",
+    "GLY": "G",
+    "HIS": "H",
+    "LEU": "L",
+    "ARG": "R",
+    "TRP": "W",
+    "ALA": "A",
+    "VAL": "V",
+    "GLU": "E",
+    "TYR": "Y",
+    "MET": "M",
+}
+ALPHABET = "-ACDEFGHIKLMNPQRSTVWY"
+
+FEATURES_DICT = defaultdict(lambda: defaultdict(lambda: 0))
+FEATURES_DICT["hydropathy"].update(
+    {
+        "-": 0,
+        "I": 4.5,
+        "V": 4.2,
+        "L": 3.8,
+        "F": 2.8,
+        "C": 2.5,
+        "M": 1.9,
+        "A": 1.8,
+        "W": -0.9,
+        "G": -0.4,
+        "T": -0.7,
+        "S": -0.8,
+        "Y": -1.3,
+        "P": -1.6,
+        "H": -3.2,
+        "N": -3.5,
+        "D": -3.5,
+        "Q": -3.5,
+        "E": -3.5,
+        "K": -3.9,
+        "R": -4.5,
+    }
+)
+FEATURES_DICT["volume"].update(
+    {
+        "-": 0,
+        "G": 60.1,
+        "A": 88.6,
+        "S": 89.0,
+        "C": 108.5,
+        "D": 111.1,
+        "P": 112.7,
+        "N": 114.1,
+        "T": 116.1,
+        "E": 138.4,
+        "V": 140.0,
+        "Q": 143.8,
+        "H": 153.2,
+        "M": 162.9,
+        "I": 166.7,
+        "L": 166.7,
+        "K": 168.6,
+        "R": 173.4,
+        "F": 189.9,
+        "Y": 193.6,
+        "W": 227.8,
+    }
+)
+FEATURES_DICT["charge"].update(
+    {
+        **{"R": 1, "K": 1, "D": -1, "E": -1, "H": 0.1},
+        **{x: 0 for x in "ABCFGIJLMNOPQSTUVWXYZ-"},
+    }
+)
+FEATURES_DICT["polarity"].update(
+    {**{x: 1 for x in "RNDQEHKSTY"}, **{x: 0 for x in "ACGILMFPWV-"}}
+)
+FEATURES_DICT["acceptor"].update(
+    {**{x: 1 for x in "DENQHSTY"}, **{x: 0 for x in "RKWACGILMFPV-"}}
+)
+FEATURES_DICT["donor"].update(
+    {**{x: 1 for x in "RKWNQHSTY"}, **{x: 0 for x in "DEACGILMFPV-"}}
+)
+PMAP = lambda x: [
+    FEATURES_DICT["hydropathy"][x] / 5,
+    FEATURES_DICT["volume"][x] / 200,
+    FEATURES_DICT["charge"][x],
+    FEATURES_DICT["polarity"][x],
+    FEATURES_DICT["acceptor"][x],
+    FEATURES_DICT["donor"][x],
+]
 
 
 def _clean(pdb_id, tmp_folder):
@@ -507,3 +641,359 @@ def generate_data(
 
     _split_data(output_folder)
     return log_dict
+
+
+class ProteinDataset(Dataset):
+    """
+    Dataset to load BestProt data
+
+    Saves the model input tensors as pickle files in `features_folder`. When `clustering_dict_path` is provided,
+    at each iteration a random bionit from a cluster is sampled.
+
+    Returns dictionaries with the following keys and values (all values are `torch` tensors):
+    - `'X'`: 3D coordinates of N, C, Ca, O (shape `(total_L, 4, 3)`),
+    - `'S'`: sequence indices (shape `(total_L)`),
+    - `'mask'`: residue mask (0 where coordinates are missing, 1 otherwise) (shape `(total_L)`),
+    - `'residue_idx'`: residue indices (from 0 to length of sequence, +100 where chains change) (shape `(total_L)`),
+    - `'chain_encoding_all'`: chain indices (shape `(total_L)`),
+    - `'chain_id`': the chain id to mask.
+
+    You can also choose to include additional features (set in the `node_features_type` parameter):
+    - `'sidechain_orientation'`: a unit vector in the direction of the sidechain (shape `(total_L, 3)`),
+    - `'dihedral'`: the dihedral angles (shape `(total_L, 2)`),
+    - `'chemical'`: hydropathy, volume, charge, polarity, acceptor/donor features (shape `(total_L, 6)`).
+    """
+
+    def __init__(
+        self,
+        dataset_folder,
+        features_folder,
+        clustering_dict_path=None,
+        max_length=None,
+        rewrite=False,
+        use_fraction=1,
+        load_to_ram=False,
+        debug=False,
+        interpolate="none",
+        node_features_type="zeros",
+        debug_file_path=None,
+    ):
+        """
+        Parameters
+        ----------
+        dataset_folder : str
+            the path to the folder with BestProt format input files (assumes that files are named {biounit_id}.pickle)
+        features_folder : str
+            the path to the folder where the ProteinMPNN features will be saved
+        clustering_dict_path : str, optional
+            path to the pickled clustering dictionary (keys are cluster ids, values are (biounit id, chain id) tuples)
+        max_length : int, optional
+            entries with total length of chains larger than `max_length` will be disregarded
+        rewrite : bool, default False
+            if `False`, existing feature files are not overwritten
+        use_fraction : float, default 1
+            the fraction of the clusters to use (first N in alphabetic order)
+        load_to_ram : bool, default False
+            if `True`, the data will be stored in RAM (use with caution! if RAM isn't big enough the machine might crash)
+        debug : bool, default False
+            only process 1000 files
+        interpolate : {"none", "only_middle", "all"}
+            `"none"` for no interpolation, `"only_middle"` for only linear interpolation in the middle, `"all"` for linear interpolation + ends generation
+        node_features_type : {"zeros", "dihedral", "sidechain", "chemical", or combinations with "+"}
+            the type of node features, e.g. "dihedral" or "sidechain+chemical"
+        debug_file_path : str, optional
+            if not `None`, open this single file instead of loading the dataset
+        """
+
+        alphabet = ALPHABET
+        self.alphabet_dict = defaultdict(lambda: 0)
+        for i, letter in enumerate(alphabet):
+            self.alphabet_dict[letter] = i
+        self.alphabet_dict["X"] = 0
+        self.files = {}  # file path by biounit id
+        self.loaded = None
+        self.dataset_folder = dataset_folder
+        self.features_folder = features_folder
+        self.feature_types = node_features_type.split("+")
+
+        if debug_file_path is not None:
+            self.dataset_folder = os.path.dirname(debug_file_path)
+            debug_file_path = os.path.basename(debug_file_path)
+
+        self.main_atom_dict = defaultdict(lambda: None)
+        d1to3 = {v: k for k, v in D3TO1.items()}
+        for i, letter in enumerate(alphabet):
+            if i == 0:
+                continue
+            self.main_atom_dict[i] = MAIN_ATOMS[d1to3[letter]]
+
+        # create feature folder if it does not exist
+        if not os.path.exists(self.features_folder):
+            os.makedirs(self.features_folder)
+
+        self.interpolate = interpolate
+        # generate the feature files
+        print("Processing files...")
+        if debug_file_path is None:
+            to_process = os.listdir(dataset_folder)
+        else:
+            to_process = [debug_file_path]
+        if debug:
+            to_process = to_process[:1000]
+        # output_tuples = [self._process(x, rewrite=rewrite) for x in tqdm(to_process)]
+        output_tuples = p_map(lambda x: self._process(x, rewrite=rewrite), to_process)
+        # save the file names
+        for id, filename in output_tuples:
+            self.files[id] = filename
+        # filter by length
+        if max_length is not None:
+            to_remove = []
+            for id, file in self.files.items():
+                with open(file, "rb") as f:
+                    data = pickle.load(f)
+                    if len(data["S"]) > max_length:
+                        to_remove.append(id)
+            for id in to_remove:
+                self.files.pop(id)
+        # load the clusters
+        if clustering_dict_path is not None:
+            with open(clustering_dict_path, "rb") as f:
+                self.clusters = pickle.load(f)  # list of biounit ids by cluster id
+            for key in list(self.clusters.keys()):
+                self.clusters[key] = [
+                    [x[0].split(".")[0], x[1]]
+                    for x in self.clusters[key]
+                    if x[0].split(".")[0] in self.files
+                ]
+                if len(self.clusters[key]) == 0:
+                    self.clusters.pop(key)
+            self.data = list(self.clusters.keys())
+        else:
+            self.clusters = None
+            self.data = list(self.files.keys())
+        # create a smaller datset if necessary
+        if use_fraction < 1:
+            self.data = sorted(self.data)[: int(len(self.data) * use_fraction)]
+        if load_to_ram:
+            print("Loading to RAM...")
+            self.loaded = {}
+            if self.clusters is None:
+                for id in tqdm(self.data):
+                    with open(self.files[id], "rb") as f:
+                        self.loaded[id] = pickle.load(f)
+            else:
+                pbar = tqdm(total=sum([len(self.clusters[x]) for x in self.data]))
+                for cluster in self.data:
+                    for id_tuple in self.clusters[cluster]:
+                        with open(self.files[id_tuple[0]], "rb") as f:
+                            self.loaded[id_tuple[0]] = pickle.load(f)
+                            pbar.update(1)
+                pbar.close()
+
+    def _interpolate(self, crd_i, mask_i):
+        """
+        Fill in missing values in the middle with linear interpolation and (if fill_ends is true) build an initialization for the ends
+
+        For the ends, the first 10 residues are 3.6 A apart from each other on a straight line from the last known value away from the center.
+        Next they are 3.6 A apart in a random direction.
+        """
+
+        if self.interpolate in ["all", "only_middle"]:
+            crd_i[(1 - mask_i).astype(bool)] = np.nan
+            df = pd.DataFrame(crd_i.reshape((crd_i.shape[0], -1)))
+            crd_i = df.interpolate(limit_area="inside").values.reshape(crd_i.shape)
+        if self.interpolate == "all":
+            non_nans = np.where(~np.isnan(crd_i[:, 0, 0]))[0]
+            known_start = non_nans[0]
+            known_end = non_nans[-1] + 1
+            if known_end < len(crd_i) or known_start > 0:
+                center = crd_i[non_nans, 2, :].mean(0)
+                if known_start > 0:
+                    direction = crd_i[known_start, 2, :] - center
+                    direction = direction / linalg.norm(direction)
+                    for i in range(0, min(known_start, 10)):
+                        crd_i[known_start - i - 1] = (
+                            crd_i[known_start - i] + direction * 3.6
+                        )
+                    for i in range(min(known_start, 10), known_start):
+                        v = np.random.rand(3)
+                        v = v / linalg.norm(v)
+                        crd_i[known_start - i - 1] = crd_i[known_start - i] + v * 3.6
+                if known_end < len(crd_i):
+                    to_add = len(crd_i) - known_end
+                    direction = crd_i[known_end - 1, 2, :] - center
+                    direction = direction / linalg.norm(direction)
+                    for i in range(0, min(to_add, 10)):
+                        crd_i[known_end + i] = (
+                            crd_i[known_end + i - 1] + direction * 3.6
+                        )
+                    for i in range(min(to_add, 10), to_add):
+                        v = np.random.rand(3)
+                        v = v / linalg.norm(v)
+                        crd_i[known_end + i] = crd_i[known_end + i - 1] + v * 3.6
+            mask_i = np.ones(mask_i.shape)
+        if self.interpolate in ["only_middle"]:
+            nan_mask = np.isnan(crd_i)  # in the middle the nans have been interpolated
+            mask_i[~np.isnan(crd_i[:, 0, 0])] = 1
+            crd_i[nan_mask] = 0
+        if self.interpolate == "zeros":
+            non_nans = np.where(mask_i != 0)[0]
+            known_start = non_nans[0]
+            known_end = non_nans[-1] + 1
+            mask_i[known_start:known_end] = 1
+        return crd_i, mask_i
+
+    def _dihedral_angle(self, crd, msk):
+        """Praxeolitic formula
+        1 sqrt, 1 cross product"""
+        p0 = crd[..., 0, :]
+        p1 = crd[..., 1, :]
+        p2 = crd[..., 2, :]
+        p3 = crd[..., 3, :]
+
+        b0 = -1.0 * (p1 - p0)
+        b1 = p2 - p1
+        b2 = p3 - p2
+
+        b1 /= np.expand_dims(np.linalg.norm(b1, axis=-1), -1) + 1e-7
+
+        v = b0 - np.expand_dims(np.einsum("bi,bi->b", b0, b1), -1) * b1
+        w = b2 - np.expand_dims(np.einsum("bi,bi->b", b2, b1), -1) * b1
+
+        x = np.einsum("bi,bi->b", v, w)
+        y = np.einsum("bi,bi->b", np.cross(b1, v), w)
+        dh = np.degrees(np.arctan2(y, x))
+        dh[1 - msk] = 0
+        return dh
+
+    def _dihedral(self, crd, msk):
+        angles = []
+        # N, C, Ca, O
+        # psi
+        p = crd[:-1, [0, 2, 1], :]
+        p = np.concatenate([p, crd[1:, [0], :]], 1)
+        p = np.pad(p, ((0, 1), (0, 0), (0, 0)))
+        angles.append(self._dihedral_angle(p, msk))
+        # phi
+        p = crd[:-1, [1], :]
+        p = np.concatenate([p, crd[1:, [0, 2, 1]]], 1)
+        p = np.pad(p, ((1, 0), (0, 0), (0, 0)))
+        angles.append(self._dihedral_angle(p, msk))
+        angles = np.stack(angles, -1)
+        return angles
+
+    def _sidechain(self, crd_sc, crd_bb, S):
+        orientation = np.zeros((crd_sc.shape[0], 3))
+        for i in range(1, 21):
+            if self.main_atom_dict[i] is not None:
+                orientation[S == i] = (
+                    crd_sc[S == i, self.main_atom_dict[i], :] - crd_bb[S == i, 2, :]
+                )
+            else:
+                S_mask = S == i
+                orientation[S_mask] = np.random.rand(*orientation[S_mask].shape)
+        orientation /= (np.expand_dims(linalg.norm(orientation, axis=-1), -1) + 1e-7)
+        return orientation
+
+    def _chemical(self, seq):
+        features = np.array([PMAP(x) for x in seq])
+        return features
+
+    def _process(self, filename, rewrite=False):
+        """
+        Process a BestProt file and save it as ProteinMPNN features
+        """
+
+        input_file = os.path.join(self.dataset_folder, filename)
+        output_file = os.path.join(self.features_folder, filename)
+        if not rewrite and os.path.exists(output_file):
+            pass
+        else:
+            try:
+                with open(input_file, "rb") as f:
+                    data = pickle.load(f)
+            except:
+                print(f'{input_file=}')
+            chains = sorted(data.keys())
+            X = []
+            S = []
+            mask = []
+            mask_original = []
+            chain_encoding_all = []
+            residue_idx = []
+            node_features = defaultdict(lambda: [])
+            last_idx = 0
+            chain_dict = {}
+
+            for chain_i, chain in enumerate(chains):
+
+                seq = torch.tensor([self.alphabet_dict[x] for x in data[chain]["seq"]])
+                S.append(seq)
+                crd_i = data[chain]["crd_bb"]
+                mask_i = data[chain]["msk"]
+                mask_original.append(deepcopy(mask_i))
+                if self.interpolate != "none":
+                    crd_i, mask_i = self._interpolate(crd_i, mask_i)
+                if self.use_sidechain_orientation and not ("mpnn" in self.encoder_type and "mpnn" in self.decoder_type):
+                    sidechain_vec = rearrange(self._sidechain(data[chain]["crd_sc"], crd_i, seq), 'n d -> n () d')
+                    X.append(np.concatenate([crd_i, sidechain_vec], -2))
+                else:
+                    X.append(crd_i)
+                mask.append(mask_i)
+                residue_idx.append(torch.arange(len(data[chain]["seq"])) + last_idx)
+                last_idx = residue_idx[-1][-1] + 100
+                chain_encoding_all.append(torch.ones(len(data[chain]["seq"])) * chain_i)
+                chain_dict[chain] = chain_i
+                if "dihedral" in self.feature_types:
+                    node_features["dihedral"].append(self._dihedral(crd_i, mask_i))
+                if "sidechain_orientation" in self.feature_types:
+                    node_features["sidechain_orientation"].append(self._sidechain(data[chain]["crd_sc"], crd_i, seq))
+                if "chemical" in self.feature_types:
+                    node_features["chemical"].append(self._chemical(data[chain]["seq"]))
+
+            out = {}
+            out["X"] = torch.from_numpy(np.concatenate(X, 0))
+            out["S"] = torch.cat(S)
+            out["mask"] = torch.from_numpy(np.concatenate(mask))
+            out["mask_original"] = torch.from_numpy(np.concatenate(mask_original))
+            out["chain_encoding_all"] = torch.cat(chain_encoding_all)
+            out["residue_idx"] = torch.cat(residue_idx)
+            out["chain_dict"] = chain_dict
+            for key, value_list in node_features.items():
+                out[key] = torch.cat(value_list, 0)
+            with open(output_file, "wb") as f:
+                pickle.dump(out, f)
+        return (
+            os.path.basename(filename).split(".")[0],
+            output_file,
+        )
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        chain_id = None
+        if self.clusters is None:
+            id = self.data[idx]  # data is already filtered by length
+            chain_id = None
+        else:
+            cluster = self.data[idx]
+            id = None
+            while id not in self.files:  # some IDs can be filtered out by length
+                chain_n = random.randint(0, len(self.clusters[cluster]) - 1)
+                id, chain_id = self.clusters[cluster][
+                    chain_n
+                ]  # get id and chain from cluster
+        if self.loaded is None:
+            file = self.files[id]
+            with open(file, "rb") as f:
+                data = pickle.load(f)
+        else:
+            data = deepcopy(self.loaded[id])
+        if chain_id is None:
+            chain_id = random.choice(list(data["chain_dict"].values()))
+        else:
+            chain_id = data["chain_dict"][chain_id]
+        data["chain_id"] = chain_id
+        data.pop("chain_dict")
+        return data

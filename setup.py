@@ -23,6 +23,9 @@ setup(
         "boto3>=1.25.3",
         "p_tqdm>=1.4.0",
         "networkx==2.8.8",
+        "einops>=0.6.0",
+        "pandas>=1.5.2",
+        "torch>=1.13.1",
         "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch.git#dbdfe3880cc88b0ce57163987db613d579400c8e"
     ],
     author = "Adaptyv Biosystems",
