@@ -17,7 +17,7 @@ from rcsbsearch import Attr
 from datetime import datetime
 import subprocess
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 import numpy as np
 import random
 import os
@@ -846,6 +846,7 @@ class ProteinDataset(Dataset):
     def _dihedral_angle(self, crd, msk):
         """Praxeolitic formula
         1 sqrt, 1 cross product"""
+
         p0 = crd[..., 0, :]
         p1 = crd[..., 1, :]
         p2 = crd[..., 2, :]
@@ -867,6 +868,10 @@ class ProteinDataset(Dataset):
         return dh
 
     def _dihedral(self, crd, msk):
+        """
+        Dihedral angles
+        """
+
         angles = []
         # N, C, Ca, O
         # psi
@@ -883,6 +888,10 @@ class ProteinDataset(Dataset):
         return angles
 
     def _sidechain(self, crd_sc, crd_bb, S):
+        """
+        Sidechain orientation (defined by the 'main atoms' in the `main_atom_dict` dictionary)
+        """
+
         orientation = np.zeros((crd_sc.shape[0], 3))
         for i in range(1, 21):
             if self.main_atom_dict[i] is not None:
@@ -896,6 +905,10 @@ class ProteinDataset(Dataset):
         return orientation
 
     def _chemical(self, seq):
+        """
+        Chemical features (hydropathy, volume, charge, polarity, acceptor/donor)
+        """
+        
         features = np.array([PMAP(x) for x in seq])
         return features
 
@@ -997,3 +1010,96 @@ class ProteinDataset(Dataset):
         data["chain_id"] = chain_id
         data.pop("chain_dict")
         return data
+
+
+class PadCollate:
+    """
+    a variant of collate_fn that pads according to the longest sequence in
+    a batch of sequences
+    """
+
+    def pad_collate(self, batch):
+        # find longest sequence
+        out = {}
+        max_len = max(map(lambda x: x["S"].shape[0], batch))
+
+        # pad according to max_len
+        to_pad = [max_len - b["S"].shape[0] for b in batch]
+        for key in batch[0].keys():
+            if key in ["chain_id", "chain_dict"]:
+                continue
+            out[key] = torch.stack(
+                [
+                    torch.cat([b[key], torch.zeros((pad, *b[key].shape[1:]))], 0)
+                    for b, pad in zip(batch, to_pad)
+                ],
+                0,
+            )
+        out["chain_id"] = torch.tensor([b["chain_id"] for b in batch])
+        return out
+
+    def __call__(self, batch):
+        return self.pad_collate(batch)
+
+
+class ProteinLoader(DataLoader):
+    """
+    A subclass of `torch.data.utils.DataLoader` tuned for the BestProt dataset
+
+    Creates and iterates over an instance of `ProteinDataset`.
+    """
+
+    def __init__(
+        self,
+        dataset_folder,
+        features_folder,
+        clustering_dict_path=None,
+        max_length=None,
+        rewrite=False,
+        use_fraction=1,
+        load_to_ram=False,
+        debug=False,
+        interpolate="none",
+        node_features_type="zeros",
+        batch_size=4,
+    ) -> None:
+        """
+        Parameters
+        ----------
+        dataset_folder : str
+            the path to the folder with BestProt format input files (assumes that files are named {biounit_id}.pickle)
+        features_folder : str
+            the path to the folder where the ProteinMPNN features will be saved
+        clustering_dict_path : str, optional
+            path to the pickled clustering dictionary (keys are cluster ids, values are (biounit id, chain id) tuples)
+        max_length : int, optional
+            entries with total length of chains larger than `max_length` will be disregarded
+        rewrite : bool, default False
+            if `False`, existing feature files are not overwritten
+        use_fraction : float, default 1
+            the fraction of the clusters to use (first N in alphabetic order)
+        load_to_ram : bool, default False
+            if `True`, the data will be stored in RAM (use with caution! if RAM isn't big enough the machine might crash)
+        debug : bool, default False
+            only process 1000 files
+        interpolate : {"none", "only_middle", "all"}
+            `"none"` for no interpolation, `"only_middle"` for only linear interpolation in the middle, `"all"` for linear interpolation + ends generation
+        node_features_type : {"zeros", "dihedral", "sidechain", "chemical", or combinations with "+"}
+            the type of node features, e.g. "dihedral" or "sidechain+chemical"
+        batch_size : int, default 4
+            the batch size
+        """
+
+        dataset = ProteinDataset(
+            dataset_folder=dataset_folder,
+            features_folder=features_folder,
+            clustering_dict_path=clustering_dict_path,
+            max_length=max_length,
+            rewrite=rewrite,
+            use_fraction=use_fraction,
+            load_to_ram=load_to_ram,
+            debug=debug,
+            interpolate=interpolate,
+            node_features_type=node_features_type,
+        )
+        super().__init__(dataset, collate_fn=PadCollate(), batch_size=batch_size)
