@@ -35,6 +35,7 @@ setup(
         "console_scripts": [
             "generate_bestprot = bestprot.scripts.generate_data:main",
             "download_bestprot = bestprot.scripts.download_data:main",
+            "split_bestprot = bestprot.scripts.split_data:main"
         ]
     },
     python_requires=">=3.8,<3.10",

@@ -79,7 +79,12 @@ from bestprot import generate_data
     "--pdb_snapshot",
     help="The pdb snapshot folder to load",
 )
-@click.command()
+@click.option(
+    "--skip_splitting",
+    is_flag=True,
+    help="Use this flag to skip splitting the data"
+)
+@click.command(help="Generate a new BestProt dataset")
 def main(**kwargs):
     generate_data(**kwargs)
 
