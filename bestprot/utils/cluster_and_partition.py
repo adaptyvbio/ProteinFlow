@@ -489,7 +489,7 @@ def _check_mmseqs():
     retval = subprocess.call(["mmseqs", "--help"],stdout=devnull,stderr=subprocess.STDOUT)
     devnull.close()
     if retval != 0:
-        raise RuntimeError("Please install the MMseqs2 library following the instructions at https://github.com/soedinglab/MMseqs2")
+        raise RuntimeError("Please install the MMseqs2 library following the instructions at https://github.com/soedinglab/MMseqs2 (recommended: conda)")
 
 
 def _add_elements_to_dataset(

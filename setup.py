@@ -26,7 +26,7 @@ setup(
         "einops>=0.6.0",
         "pandas>=1.5.2",
         "torch>=1.13.1",
-        "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch.git#dbdfe3880cc88b0ce57163987db613d579400c8e"
+        "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
     ],
     author = "Adaptyv Biosystems",
     author_email = "contact@adaptyvbio.com",
@@ -37,6 +37,7 @@ setup(
             "download_bestprot = bestprot.scripts.download_data:main",
         ]
     },
+    python_requires=">=3.8",
 )
 
 # setup(
