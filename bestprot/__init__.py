@@ -535,6 +535,54 @@ def download_data(tag, local_datasets_folder="./data"):
     )
 
 
+def split_data(
+    tag,
+    local_datasets_folder="./data",
+    split_tolerance=0.2,
+    test_split=0.05,
+    valid_split=0.05,
+):
+    """
+    Split `bestprot` entry files into training, test and validation.
+
+    ...
+
+    Parameters
+    ----------
+    tag : str
+        the name of the dataset to load
+    local_datasets_folder : str, default "./data"
+        the path to the folder that will store bestprot datasets, logs and temporary files
+    split_tolerance : float, default 0.2
+        The tolerance on the split ratio (default 20%)
+    test_split : float, default 0.05
+        The percentage of chains to put in the test set (default 5%)
+    valid_split : float, default 0.05
+        The percentage of chains to put in the validation set (default 5%)
+
+    Returns
+    -------
+    log : dict
+        a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
+    """
+
+    _check_mmseqs()
+    tmp_folder = os.path.join(local_datasets_folder, "tmp")
+    output_folder = os.path.join(local_datasets_folder, f"bestprot_{tag}")
+    out_split_dict_folder = os.path.join(output_folder, "splits_dict")
+
+    _get_split_dictionaries(
+        tmp_folder=tmp_folder,
+        output_folder=output_folder,
+        split_tolerance=split_tolerance,
+        test_split=test_split,
+        valid_split=valid_split,
+        out_split_dict_folder=out_split_dict_folder,
+    )
+
+    _split_data(output_folder)
+
+
 def generate_data(
     tag,
     local_datasets_folder="./data",
@@ -543,8 +591,9 @@ def generate_data(
     resolution_thr=3.5,
     missing_ends_thr=0.3,
     missing_middle_thr=0.1,
-    filter_methods=True,
-    remove_redundancies=False,
+    not_filter_methods=False,
+    not_remove_redundancies=False,
+    skip_splitting=False,
     seq_identity_threshold=0.9,
     n=None,
     force=False,
@@ -582,11 +631,13 @@ def generate_data(
     missing_ends_thr : float, default 0.3
         The maximum fraction of missing residues at the ends
     missing_middle_thr : float, default 0.1
-        The maximum fraction of missing residues in the middle (after missing ends are disregarded)
-    filter_methods : bool, default True
-        If `True`, only files obtained with X-ray or EM will be processed
-    remove_redundancies : bool, default False
-        If 'True', removes biounits that are doubles of others sequence wise
+        The maximum fraction of missing values in the middle (after missing ends are disregarded)
+    not_filter_methods : bool, default False
+        If `False`, only files obtained with X-ray or EM will be processed
+    not_remove_redundancies : bool, default False
+        If 'False', removes biounits that are doubles of others sequence wise
+    skip_splitting : bool, default False
+        if `True`, skip the split dictionary creation and the file moving steps
     seq_identity_threshold : float, default 0.9
         The threshold upon which sequences are considered as one and the same (default: 90%)
     n : int, default None
@@ -599,8 +650,6 @@ def generate_data(
         The percentage of chains to put in the test set (default 5%)
     valid_split : float, default 0.05
         The percentage of chains to put in the validation set (default 5%)
-    out_split_dict_folder : str, default "./data/dataset_splits_dict"
-        The folder where the dictionaries containing the train/validation/test splits information will be saved"
 
     Returns
     -------
@@ -609,6 +658,8 @@ def generate_data(
 
     """
     _check_mmseqs()
+    filter_methods = not not_filter_methods
+    remove_redundancies = not not_remove_redundancies
     tmp_folder = os.path.join(local_datasets_folder, "tmp")
     output_folder = os.path.join(local_datasets_folder, f"bestprot_{tag}")
     log_folder = os.path.join(local_datasets_folder, "logs")
@@ -631,16 +682,17 @@ def generate_data(
         tag=tag,
         pdb_snapshot=pdb_snapshot,
     )
-    _get_split_dictionaries(
-        tmp_folder=tmp_folder,
-        output_folder=output_folder,
-        split_tolerance=split_tolerance,
-        test_split=test_split,
-        valid_split=valid_split,
-        out_split_dict_folder=out_split_dict_folder,
-    )
+    if not skip_splitting:
+        _get_split_dictionaries(
+            tmp_folder=tmp_folder,
+            output_folder=output_folder,
+            split_tolerance=split_tolerance,
+            test_split=test_split,
+            valid_split=valid_split,
+            out_split_dict_folder=out_split_dict_folder,
+        )
 
-    _split_data(output_folder)
+        _split_data(output_folder)
     return log_dict
 
 
@@ -700,7 +752,7 @@ class ProteinDataset(Dataset):
     def __init__(
         self,
         dataset_folder,
-        features_folder,
+        features_folder="./data/tmp/",
         clustering_dict_path=None,
         max_length=None,
         rewrite=False,
