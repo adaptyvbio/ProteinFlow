@@ -29,6 +29,7 @@ from copy import deepcopy
 import pandas as pd
 from numpy import linalg
 from einops import rearrange
+import boto3
 
 
 MAIN_ATOMS = {
@@ -641,6 +642,37 @@ def generate_data(
 
     _split_data(output_folder)
     return log_dict
+
+
+def check_download_tags():
+    """
+    Get a list of tags available for downloading
+
+    Returns
+    -------
+    tags : list
+        a list of tag names
+    """
+
+    folders = _s3list(
+        boto3.resource("s3").Bucket("ml4-main-storage"),
+        "",
+        recursive=False,
+        list_objs=False,
+    )
+    tags_dict = defaultdict(lambda: [])
+    for folder in folders:
+        folder = folder.key
+        if not folder.startswith("bestprot_"):
+            print('continue')
+            continue
+        tag = folder[len("bestprot_"):]
+        if tag.endswith("_splits_dict/"):
+            tag = tag[: - len("_splits_dict/")]
+        else:
+            tag = tag.strip("/")
+        tags_dict[tag].append(folder)
+    return [x for x, v in tags_dict.items() if len(v) == 2]
 
 
 class ProteinDataset(Dataset):
