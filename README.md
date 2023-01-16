@@ -26,6 +26,9 @@ generate_bestprot --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_fil
 ```
 See the docs (or `generate_bestrot --help`) for the full list of parameters.
 
+### Splitting
+
+
 ### Using the data
 The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:
 - `'crd_bb'`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),

@@ -514,7 +514,7 @@ def get_error_summary(log_file, verbose=True):
     return stats
 
 
-def download_data(tag, local_datasets_folder="./data"):
+def download_data(tag, local_datasets_folder="./data", skip_splitting=False):
     """
     Download a pre-computed dataset with train/test/validation splits
 
@@ -524,12 +524,15 @@ def download_data(tag, local_datasets_folder="./data"):
         the name of the dataset to load
     local_datasets_folder : str, default "./data"
         the path to the folder that will store bestprot datasets, logs and temporary files
+    skip_splitting : bool, default False
+        if `True`, skip the split dictionary creation and the file moving steps
     """
 
     data_path = _download_dataset(tag, local_datasets_folder)
-    print("We're almost there, just a tiny effort left :-)")
-    _split_data(data_path)
-    print("-------------------------------------")
+    if not skip_splitting:
+        print("We're almost there, just a tiny effort left :-)")
+        _split_data(data_path)
+        print("-------------------------------------")
     print(
         "Thanks for downloading BestProt, the most complete, user-friendly and loving protein dataset you will ever find! ;-)"
     )
