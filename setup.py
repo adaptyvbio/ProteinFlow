@@ -37,7 +37,7 @@ setup(
             "download_bestprot = bestprot.scripts.download_data:main",
         ]
     },
-    python_requires=">=3.8",
+    python_requires=">=3.8,<3.10",
 )
 
 # setup(
