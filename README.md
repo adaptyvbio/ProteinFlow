@@ -27,7 +27,10 @@ generate_bestprot --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_fil
 See the docs (or `generate_bestrot --help`) for the full list of parameters.
 
 ### Splitting
-
+By default, both `generate_bestprot` and `download_bestprot` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `split_bestprot` command.
+```
+split_bestprot --tag new --
+```
 
 ### Using the data
 The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:

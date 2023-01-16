@@ -10,6 +10,7 @@ from bestprot.utils.process_pdb import (
 from bestprot.utils.cluster_and_partition import _build_dataset_partition, _check_mmseqs
 from bestprot.utils.split_dataset import _download_dataset, _split_data
 
+import warnings
 import os
 import pickle
 from collections import defaultdict
@@ -544,6 +545,7 @@ def split_data(
     split_tolerance=0.2,
     test_split=0.05,
     valid_split=0.05,
+    ignore_existing=False,
 ):
     """
     Split `bestprot` entry files into training, test and validation.
@@ -562,6 +564,8 @@ def split_data(
         The percentage of chains to put in the test set (default 5%)
     valid_split : float, default 0.05
         The percentage of chains to put in the validation set (default 5%)
+    ignore_existing : bool, default False
+        If `True`, overwrite existing dictionaries for this tag; otherwise, load the existing dictionary
 
     Returns
     -------
@@ -573,15 +577,21 @@ def split_data(
     tmp_folder = os.path.join(local_datasets_folder, "tmp")
     output_folder = os.path.join(local_datasets_folder, f"bestprot_{tag}")
     out_split_dict_folder = os.path.join(output_folder, "splits_dict")
+    exists = False
 
-    _get_split_dictionaries(
-        tmp_folder=tmp_folder,
-        output_folder=output_folder,
-        split_tolerance=split_tolerance,
-        test_split=test_split,
-        valid_split=valid_split,
-        out_split_dict_folder=out_split_dict_folder,
-    )
+    if os.path.exists(out_split_dict_folder):
+        if not ignore_existing:
+            warnings.warn(f"Found an existing dictionary for tag {tag}. BestProt will load it and ignore the parameters! Run with --ignore_existing to overwrite.")
+            exists = True
+    if not exists:
+        _get_split_dictionaries(
+            tmp_folder=tmp_folder,
+            output_folder=output_folder,
+            split_tolerance=split_tolerance,
+            test_split=test_split,
+            valid_split=valid_split,
+            out_split_dict_folder=out_split_dict_folder,
+        )
 
     _split_data(output_folder)
 

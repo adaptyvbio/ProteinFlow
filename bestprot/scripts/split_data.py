@@ -12,6 +12,11 @@ from bestprot import split_data
     help="The folder where bestprot datasets, temporary files and logs will be stored"
 )
 @click.option(
+    "--ignore_existing",
+    is_flag=True,
+    help="Unless this flag is used, bestprot will not overwrite existing split dictionaries for this tag and will load them instead"
+)
+@click.option(
     "--valid_split",
     default=0.05,
     type=float,
