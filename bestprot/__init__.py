@@ -656,7 +656,8 @@ class ProteinDataset(Dataset):
     - `'mask'`: residue mask (0 where coordinates are missing, 1 otherwise) (shape `(total_L)`),
     - `'residue_idx'`: residue indices (from 0 to length of sequence, +100 where chains change) (shape `(total_L)`),
     - `'chain_encoding_all'`: chain indices (shape `(total_L)`),
-    - `'chain_id`': the chain id to mask.
+    - `'chain_id`': a sampled chain index,
+    - `'chain_dict'`: a dictionary of chain ids (keys are chain ids, e.g. `'A'`, values are the indices used in `'chain_id'` and `'chain_encoding_all'` objects)
 
     You can also choose to include additional features (set in the `node_features_type` parameter):
     - `'sidechain_orientation'`: a unit vector in the direction of the sidechain (shape `(total_L, 3)`),
@@ -908,7 +909,7 @@ class ProteinDataset(Dataset):
         """
         Chemical features (hydropathy, volume, charge, polarity, acceptor/donor)
         """
-        
+
         features = np.array([PMAP(x) for x in seq])
         return features
 
@@ -947,11 +948,7 @@ class ProteinDataset(Dataset):
                 mask_original.append(deepcopy(mask_i))
                 if self.interpolate != "none":
                     crd_i, mask_i = self._interpolate(crd_i, mask_i)
-                if self.use_sidechain_orientation and not ("mpnn" in self.encoder_type and "mpnn" in self.decoder_type):
-                    sidechain_vec = rearrange(self._sidechain(data[chain]["crd_sc"], crd_i, seq), 'n d -> n () d')
-                    X.append(np.concatenate([crd_i, sidechain_vec], -2))
-                else:
-                    X.append(crd_i)
+                X.append(crd_i)
                 mask.append(mask_i)
                 residue_idx.append(torch.arange(len(data[chain]["seq"])) + last_idx)
                 last_idx = residue_idx[-1][-1] + 100
@@ -973,7 +970,7 @@ class ProteinDataset(Dataset):
             out["residue_idx"] = torch.cat(residue_idx)
             out["chain_dict"] = chain_dict
             for key, value_list in node_features.items():
-                out[key] = torch.cat(value_list, 0)
+                out[key] = torch.from_numpy(np.concatenate(value_list))
             with open(output_file, "wb") as f:
                 pickle.dump(out, f)
         return (
@@ -1046,7 +1043,8 @@ class ProteinLoader(DataLoader):
     """
     A subclass of `torch.data.utils.DataLoader` tuned for the BestProt dataset
 
-    Creates and iterates over an instance of `ProteinDataset`.
+    Creates and iterates over an instance of `ProteinDataset`, omitting the `'chain_dict'` keys. 
+    See the `ProteinDataset` docs for more information.
     """
 
     def __init__(
@@ -1085,7 +1083,7 @@ class ProteinLoader(DataLoader):
         interpolate : {"none", "only_middle", "all"}
             `"none"` for no interpolation, `"only_middle"` for only linear interpolation in the middle, `"all"` for linear interpolation + ends generation
         node_features_type : {"zeros", "dihedral", "sidechain", "chemical", or combinations with "+"}
-            the type of node features, e.g. "dihedral" or "sidechain+chemical"
+            the type of node features, e.g. `"dihedral"` or `"sidechain+chemical"`
         batch_size : int, default 4
             the batch size
         """
