@@ -468,9 +468,8 @@ def _remove_elements_from_dataset(
         current_sizes -= size_array[indices[sorted_sizes_indices[0]]]
         remaining_indices.append(indices[sorted_sizes_indices[0]])
         indices.pop(sorted_sizes_indices[0])
-        sorted_sizes_indices = (
-            sorted_sizes_indices[1:] if len(sorted_sizes_indices) > 0 else []
-        )
+        sizes = [s[chain_class] for s in size_array[indices]]
+        sorted_sizes_indices = np.argsort(sizes)[::-1]
 
     return (
         indices,
@@ -523,9 +522,8 @@ def _add_elements_to_dataset(
         current_sizes += size_array[remaining_indices[sorted_sizes_indices[0]]].astype(int)
         indices.append(remaining_indices[sorted_sizes_indices[0]])
         remaining_indices.pop(sorted_sizes_indices[0])
-        sorted_sizes_indices = (
-            sorted_sizes_indices[1:] if len(sorted_sizes_indices) > 0 else []
-        )
+        sizes = [s[chain_class] for s in size_array[remaining_indices]]
+        sorted_sizes_indices = np.argsort(sizes)[::-1]
 
     return (
         indices,
