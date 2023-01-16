@@ -29,7 +29,7 @@ See the docs (or `generate_bestrot --help`) for the full list of parameters.
 ### Splitting
 By default, both `generate_bestprot` and `download_bestprot` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `split_bestprot` command.
 ```
-split_bestprot --tag new --
+split_bestprot --tag new --valid_split 0.1 --test_split 0
 ```
 
 ### Using the data
@@ -40,8 +40,14 @@ The output files are pickled nested dictionaries where first-level keys are chai
     zeros to missing values,
 - `'seq'`: a string of length `L` with residue types.
 
-Once you've downloaded or generated your data, you can use our `ProteinDataset` or `ProteinLoader` classes 
+Once your data is ready, you can use our `ProteinDataset` or `ProteinLoader` classes 
 for convenient processing. 
+```python
+from bestprot import ProteinLoader
+train_loader = ProteinLoader("./data/bestprot_new/training", batch_size=8)
+for batch in train_loader:
+    ...
+```
 
 ## Data
 
