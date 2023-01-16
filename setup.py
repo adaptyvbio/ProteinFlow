@@ -31,6 +31,12 @@ setup(
     author = "Adaptyv Biosystems",
     author_email = "contact@adaptyvbio.com",
     description = ("A library for running the BestProt protein data processing pipeline."),
+    entry_points={
+        "console_scripts": [
+            "generate_bestprot = bestprot.scripts.generate_data:main",
+            "download_bestprot = bestprot.scripts.download_data:main",
+        ]
+    },
 )
 
 # setup(
