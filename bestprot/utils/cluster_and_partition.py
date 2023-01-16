@@ -761,7 +761,15 @@ def _split_dataset(
     tolerance=0.2,
 ):
     """
-    Given a graph representing connections between MMSeqs2 clusters, split the dataset between train, validation and test
+    Given a graph representing connections between MMSeqs2 clusters, split the dataset between train, validation and test sets.
+    Each onnected component of the graph is considered as a group.
+    Then, groups are splitted into the 3 sets so that each set has the right amount of biounits.
+    It has been observed that the biggest group represents about 15-20 % of all the biounits and thus it is automatically assigned to the train set.
+    It is difficult to have the exact ratio of biounits in each set since biounits are manipulated by groups.
+    However, within an acceptable tolerance (default 20 % of the split ratio - but in theory it can be smaller), the split ratios are respected.
+    The process first try to randomly assign the groups to a set.
+    If after 50 trials the partition fails to comply to the requirements, the last partition is kept and small adjustements are made by moving groups from sets one by one untill the ratios are approximately respected.
+    Note that for very small datasets (around 250 biounits), this method will probably fail. But it also does not make much sense to use it for so few data.
 
     Parameters
     ----------
