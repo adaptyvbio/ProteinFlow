@@ -699,6 +699,7 @@ def _fill_dataset(
     while not distribution_satisfied and n_iter < n_max_iter:
 
         n_iter += 1
+        #print("debug:", len(remaining_indices), n_samples)
         indices = rd.sample(remaining_indices, n_samples)
         (
             dataset_clusters_dict,
@@ -1020,3 +1021,4 @@ def _build_dataset_partition(
         test_clusters_dict,
         test_classes_dict,
     )
+
