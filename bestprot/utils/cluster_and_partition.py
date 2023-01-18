@@ -699,7 +699,6 @@ def _fill_dataset(
     while not distribution_satisfied and n_iter < n_max_iter:
 
         n_iter += 1
-        #print("debug:", len(remaining_indices), n_samples)
         indices = rd.sample(remaining_indices, n_samples)
         (
             dataset_clusters_dict,
@@ -852,9 +851,7 @@ def _split_dataset(
     n_single_chains_test, n_homomers_test, n_heteromers_test = test_split * np.array(
         [n_single_chains, n_homomers, n_heteromers]
     )
-    n_samples_valid, n_samples_test = int(valid_split * len(subgraphs)), int(
-        test_split * len(subgraphs)
-    )
+    n_samples_valid, n_samples_test = int(valid_split * len(subgraphs)), int(test_split * len(subgraphs))
 
     (
         valid_clusters_dict,
