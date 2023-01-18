@@ -545,6 +545,9 @@ def _adjust_dataset(
     single_chains_size,
     homomers_size,
     heteromers_size,
+    sc_available,
+    hm_available,
+    ht_available,
     tolerance=0.2,
 ):
     """
@@ -554,7 +557,7 @@ def _adjust_dataset(
     In the end, we might end up with more chains than desired in the first 2 classes but for a reasonable tolerance (~10-20 %), this should not happen.
     """
 
-    if single_chains_size > (1 + tolerance) * n_single_chains:
+    if single_chains_size > (1 + tolerance) * n_single_chains and sc_available:
         (
             indices,
             remaining_indices,
@@ -571,7 +574,7 @@ def _adjust_dataset(
             tolerance=tolerance,
         )
 
-    if homomers_size > (1 + tolerance) * n_homomers:
+    if homomers_size > (1 + tolerance) * n_homomers and hm_available:
         (
             indices,
             remaining_indices,
@@ -588,7 +591,7 @@ def _adjust_dataset(
             tolerance=tolerance,
         )
 
-    if heteromers_size > (1 + tolerance) * n_heteromers:
+    if heteromers_size > (1 + tolerance) * n_heteromers and ht_available:
         (
             indices,
             remaining_indices,
@@ -605,7 +608,7 @@ def _adjust_dataset(
             tolerance=tolerance,
         )
 
-    if single_chains_size < (1 - tolerance) * n_single_chains:
+    if single_chains_size < (1 - tolerance) * n_single_chains and sc_available:
         (
             indices,
             remaining_indices,
@@ -622,7 +625,7 @@ def _adjust_dataset(
             tolerance=tolerance,
         )
 
-    if homomers_size < (1 - tolerance) * n_homomers:
+    if homomers_size < (1 - tolerance) * n_homomers and hm_available:
         (
             indices,
             remaining_indices,
@@ -639,7 +642,7 @@ def _adjust_dataset(
             tolerance=tolerance,
         )
 
-    if heteromers_size < (1 - tolerance) * n_heteromers:
+    if heteromers_size < (1 - tolerance) * n_heteromers and ht_available:
         (
             indices,
             remaining_indices,
@@ -673,6 +676,18 @@ def _adjust_dataset(
     )
 
 
+def test_availability(
+    size_array,
+    n_samples,
+):
+    """
+    Test if there are enough groups in each class to construct a dataset with the required number of samples
+    """
+
+    present = np.sum(size_array != 0, axis=0)
+    return present[0] > n_samples, present[1] > n_samples, present[2] > n_samples
+
+
 def _fill_dataset(
     dict_list,
     size_array,
@@ -693,6 +708,9 @@ def _fill_dataset(
     """
 
     single_chains_size, homomers_size, heteromers_size = 0, 0, 0
+    sc_available, hm_available, ht_available = test_availability(
+        size_array, n_samples
+    ) # rule of thumb to estimate if it is logical to try to fill the dataset with a given class
     distribution_satisfied = False
     n_iter = 0
 
@@ -708,12 +726,12 @@ def _fill_dataset(
             heteromers_size,
         ) = _construct_dataset(dict_list, size_array, indices)
         distribution_satisfied = (
-            single_chains_size > (1 - tolerance) * n_single_chains
-            and single_chains_size < (1 + tolerance) * n_single_chains
-            and homomers_size > (1 - tolerance) * n_homomers
-            and homomers_size < (1 + tolerance) * n_homomers
-            and heteromers_size > (1 - tolerance) * n_heteromers
-            and heteromers_size < (1 + tolerance) * n_heteromers
+            (single_chains_size > (1 - tolerance) * n_single_chains or not sc_available)
+            and (single_chains_size < (1 + tolerance) * n_single_chains or not sc_available)
+            and (homomers_size > (1 - tolerance) * n_homomers or not hm_available)
+            and (homomers_size < (1 + tolerance) * n_homomers or not hm_available)
+            and (heteromers_size > (1 - tolerance) * n_heteromers or not ht_available)
+            and (heteromers_size < (1 + tolerance) * n_heteromers or not ht_available)
         )
 
     if not distribution_satisfied:
@@ -735,6 +753,9 @@ def _fill_dataset(
             single_chains_size,
             homomers_size,
             heteromers_size,
+            sc_available,
+            hm_available,
+            ht_available,
             tolerance=tolerance,
         )
     else:
