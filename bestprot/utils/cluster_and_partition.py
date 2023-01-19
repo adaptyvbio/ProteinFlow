@@ -147,11 +147,11 @@ def _read_clusters(cluster_file_fasta):
 
         for line in f.readlines():
             if line[0] == ">" and found_header:
-                cluster_name = line[1:-2]
-                sequence_name = line[1:-2]
+                cluster_name = line[1:-1]
+                sequence_name = line[1:-1]
 
             elif line[0] == ">":
-                sequence_name = line[1:-2]
+                sequence_name = line[1:-1]
                 found_header = True
 
             else:
@@ -303,7 +303,7 @@ def _find_chains_in_graph(
     """
 
     res_dict = {}
-    for node in graph:
+    for k, node in enumerate(graph):
         grouped_chains = clusters_dict[node]
         split_chains = np.concatenate(
             [
@@ -319,6 +319,7 @@ def _find_chains_in_graph(
                 for pdb, chain in split_chains
             ]
         )
+        
         res_dict[node] = biounits_chains
 
     return res_dict
