@@ -16,3 +16,4 @@ pytest:
     - conda run -n bestprot python -m pip install awscli
   script:
     - python -m pytest .
+
