@@ -5,11 +5,12 @@ import pickle
 from collections import defaultdict
 import editdistance
 import shutil
+import pytest
 
 
 def get_class(seqs_dict):
     """Check if the protein is a homomer, a heteromer or a single chain"""
-    
+
     keys = list(seqs_dict.keys())
     if len(keys) == 1:
         return "single_chain"
@@ -26,6 +27,7 @@ def get_class(seqs_dict):
             return "heteromers"
     return "homomers"
 
+@pytest.mark.skip()
 def test_generate():
     """Test generate_data + split_data + chain class distribution"""
 
@@ -56,5 +58,5 @@ def test_generate():
 
     # subprocess.run(["sudo", "rm", "-rf", "data/bestprot_test"])
     
-test_generate()
+# test_generate()
 

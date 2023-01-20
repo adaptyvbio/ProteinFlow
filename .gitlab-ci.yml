@@ -1,0 +1,17 @@
+stages:
+  - test
+
+pytest:
+  stage: test
+  # only:
+  #   - merge_requests
+  image: 
+    name: python:3.9
+  before_script:
+    - conda create --name bestprot -y python=3.9
+    - conda activate bestprot
+    - conda install -c conda-forge -c bioconda mmseqs2
+    - python -m pip install -e .
+    - python -m pip install pytest
+  script:
+    - python -m pytest .
