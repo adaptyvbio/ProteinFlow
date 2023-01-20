@@ -447,6 +447,7 @@ def _run_processing(
                 _log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER)
 
     # process_f("1a1q-3", show_error=True, force=force)
+    assert len(pdb_ids) == len(set(pdb_ids))
 
     _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), pdb_ids)
 
@@ -553,6 +554,7 @@ def generate_data(
     test_split=0.05,
     valid_split=0.05,
     pdb_snapshot=None,
+    load_live=False,
 ):
     """
     Download and parse PDB files that meet filtering criteria
@@ -602,6 +604,10 @@ def generate_data(
         The percentage of chains to put in the test set (default 5%)
     valid_split : float, default 0.05
         The percentage of chains to put in the validation set (default 5%)
+    pdb_snapshot : str, optional
+        the PDB snapshot to use, by default the latest is used
+    load_live : bool, default False
+        if `True`, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to `False` if `pdb_snapshot` is not `None`)
 
     Returns
     -------
@@ -633,6 +639,7 @@ def generate_data(
         force=force,
         tag=tag,
         pdb_snapshot=pdb_snapshot,
+        load_live=load_live,
     )
     if not skip_splitting:
         _get_split_dictionaries(

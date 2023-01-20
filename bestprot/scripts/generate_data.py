@@ -77,12 +77,18 @@ from bestprot import generate_data
 )
 @click.option(
     "--pdb_snapshot",
+    type=str,
     help="The pdb snapshot folder to load",
 )
 @click.option(
     "--skip_splitting",
     is_flag=True,
     help="Use this flag to skip splitting the data"
+)
+@click.option(
+    "--load_live",
+    is_flag=True,
+    help="Load the files that are not in the latest PDB snapshot from the PDB FTP server (disregarded if pdb_snapshot is not none)"
 )
 @click.command(help="Generate a new BestProt dataset")
 def main(**kwargs):

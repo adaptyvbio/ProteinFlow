@@ -184,19 +184,21 @@ def _get_pdb_file(pdb_file, bucket, tmp_folder, folders, load_live=False):
         folder
     ) in (
         folders
-    ):  # go over database snapshots in case the file is not found in the latest one
+    ):  # go over earlier database snapshots in case the file is not found
         file = folder + pdb_file
         try:
             bucket.download_file(file, local_path)
             return local_path
         except:
-            if load_live:
-                try:
-                    url = f"https://files.rcsb.org/download/{pdb_id}.pdb{biounit}.gz"
-                    response = requests.get(url)
-                    open(local_path, "wb").write(response.content)
-                except:
-                    pass
+            pass
+    if load_live:
+        print(f'EXCEPT {pdb_id} {biounit}')
+        try:
+            url = f"https://files.rcsb.org/download/{pdb_id}.pdb{biounit}.gz"
+            response = requests.get(url)
+            open(local_path, "wb").write(response.content)
+        except:
+            pass
     raise PDBError(f"Could not download")
 
 
