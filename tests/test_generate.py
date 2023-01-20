@@ -8,6 +8,8 @@ import shutil
 
 
 def get_class(seqs_dict):
+    """Check if the protein is a homomer, a heteromer or a single chain"""
+    
     keys = list(seqs_dict.keys())
     if len(keys) == 1:
         return "single_chain"
@@ -25,6 +27,8 @@ def get_class(seqs_dict):
     return "homomers"
 
 def test_generate():
+    """Test generate_data + split_data + chain class distribution"""
+
     if os.path.exists("./data/bestprot_test"):
         shutil.rmtree("./data/bestprot_test")
     generate_data(tag="test", skip_splitting=True, n=100)

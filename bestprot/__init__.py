@@ -708,7 +708,8 @@ class ProteinDataset(Dataset):
 
     - `'X'`: 3D coordinates of N, C, Ca, O, `(total_L, 4, 3)`,
     - `'S'`: sequence indices (shape `(total_L)`),
-    - `'mask'`: residue mask (0 where coordinates are missing, 1 otherwise), `(total_L)`,
+    - `'mask'`: residue mask (0 where coordinates are missing, 1 otherwise; with interpolation 0s are replaced with 1s), `(total_L)`,
+    - `'mask_original'`: residue mask (0 where coordinates are missing, 1 otherwise; not changed with interpolation), `(total_L)`,
     - `'residue_idx'`: residue indices (from 0 to length of sequence, +100 where chains change), `(total_L)`,
     - `'chain_encoding_all'`: chain indices, `(total_L)`,
     - `'chain_id`': a sampled chain index,
@@ -1076,7 +1077,7 @@ class ProteinLoader(DataLoader):
     def __init__(
         self,
         dataset_folder,
-        features_folder,
+        features_folder="./data/tmp/",
         clustering_dict_path=None,
         max_length=None,
         rewrite=False,
