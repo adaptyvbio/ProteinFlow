@@ -7,7 +7,6 @@ setup(
     version='0.0.1',
     packages=find_packages(),
     install_requires=[
-        "sidechainnet>=0.7.6",
         "numpy>=1.23.4",
         "editdistance>=0.6.0",
         "Biopython>=1.79",

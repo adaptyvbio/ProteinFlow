@@ -1,5 +1,4 @@
 import os
-import argparse
 import subprocess
 import numpy as np
 import pickle as pkl

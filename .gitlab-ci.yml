@@ -8,12 +8,11 @@ pytest:
   image: 
     name: continuumio/miniconda3:latest
   before_script:
-    - conda create --name bestprot -y python=3.9.15
-    - source activate bestprot
-    - conda install -c conda-forge -c bioconda mmseqs2
-    - python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
-    - python --version
-    - python -m pip install -e .
-    - python -m pip install pytest
+    - conda create --name bestprot -y python=3.9
+    - conda install -n bestprot -c conda-forge -c bioconda mmseqs2
+    - conda run -n bestprot python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
+    - conda run -n bestprot python -m pip install -e .
+    - conda run -n bestprot python -m pip install pytest
+    - conda run -n bestprot python -m pip install awscli
   script:
     - python -m pytest .
