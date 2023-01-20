@@ -4,6 +4,7 @@ from bestprot import download_data
 
 @click.option(
     "--tag",
+    default="test",
     help="The name of the dataset",
 )
 @click.option(

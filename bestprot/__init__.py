@@ -1,16 +1,3 @@
-"""
-`bestprot` is a very cool library.
-
-## Processing pipeline
-...
-
-## Pre-computed data
-...
-
-## Handling data
-...
-"""
-
 __pdoc__ = {"utils": False, "scripts": False}
 __docformat__ = "numpy"
 

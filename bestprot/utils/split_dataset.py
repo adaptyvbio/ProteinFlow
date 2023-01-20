@@ -65,8 +65,8 @@ def _split_data(dataset_path="./data/bestprot_20221110/"):
     train_biounits = _biounits_in_clusters_dict(train_clusters_dict)
     valid_biounits = _biounits_in_clusters_dict(valid_clusters_dict)
     test_biounits = _biounits_in_clusters_dict(test_clusters_dict)
-    train_path = os.path.join(dataset_path, "training")
-    valid_path = os.path.join(dataset_path, "validation")
+    train_path = os.path.join(dataset_path, "train")
+    valid_path = os.path.join(dataset_path, "valid")
     test_path = os.path.join(dataset_path, "test")
 
     if not os.path.exists(dataset_path):

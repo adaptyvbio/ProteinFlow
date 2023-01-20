@@ -443,7 +443,7 @@ def _align_pdb(
                 while aligned_seq[seq_pos] == "-" and seq_pos < len(aligned_seq) - 1:
                     seq_pos += 1
                 if d3to1[res_name] != aligned_seq[seq_pos]:
-                    raise PDBError("Alignment issue in processing")
+                    raise PDBError("Incorrect alignment")
             if atom not in BACKBONE_ORDER + SIDECHAIN_ORDER[res_name]:
                 if atom in ["OXT"] or atom.startswith("H"):  # extra oxygen or hydrogen
                     continue
