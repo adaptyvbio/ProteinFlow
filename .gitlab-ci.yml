@@ -11,6 +11,7 @@ pytest:
     - conda create --name bestprot -y python=3.9
     - source activate bestprot
     - conda install -c conda-forge -c bioconda mmseqs2
+    - python --version
     - python -m pip install -e .
     - python -m pip install pytest
   script:
