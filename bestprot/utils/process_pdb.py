@@ -9,6 +9,7 @@ from biopandas.pdb import PandasPdb
 import os
 from collections import namedtuple
 from operator import attrgetter
+import requests
 
 
 SIDECHAIN_ORDER = {
@@ -170,7 +171,7 @@ def _s3list(
             yield p
 
 
-def _get_pdb_file(pdb_file, bucket, tmp_folder, folders):
+def _get_pdb_file(pdb_file, bucket, tmp_folder, folders, load_live=False):
     """
     Download the file from S3 and return the local path where it was saved
     """
@@ -189,7 +190,13 @@ def _get_pdb_file(pdb_file, bucket, tmp_folder, folders):
             bucket.download_file(file, local_path)
             return local_path
         except:
-            continue
+            if load_live:
+                try:
+                    url = f"https://files.rcsb.org/download/{pdb_id}.pdb{biounit}.gz"
+                    response = requests.get(url)
+                    open(local_path, "wb").write(response.content)
+                except:
+                    pass
     raise PDBError(f"Could not download")
 
 

@@ -266,6 +266,7 @@ def _run_processing(
     force=False,
     tag=None,
     pdb_snapshot=None,
+    load_live=False,
 ):
     """
     Download and parse PDB files that meet filtering criteria
@@ -302,7 +303,7 @@ def _run_processing(
     filter_methods : bool, default True
         If `True`, only files obtained with X-ray or EM will be processed
     remove_redundancies : bool, default False
-        If 'True', removes biounits that are doubles of others sequence wise
+        If `True`, removes biounits that are doubles of others sequence wise
     seq_identity_threshold : float, default 0.9
         The threshold upon which sequences are considered as one and the same (default: 90%)
     n : int, default None
@@ -318,11 +319,13 @@ def _run_processing(
     valid_split : float, default 0.05
         The percentage of chains to put in the validation set (default 5%)
     out_split_dict_folder : str, default "./data/dataset_splits_dict"
-        The folder where the dictionaries containing the train/validation/test splits information will be saved"
+        The folder where the dictionaries containing the train/validation/test splits information will be saved
     tag : str, optional
         A tag to add to the log file
     pdb_snapshot : str, optional
-        the PDB snapshot to use
+        the PDB snapshot to use, by default the latest is used
+    load_live : bool, default False
+        if `True`, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to `False` if `pdb_snapshot` is not `None`)
 
     Returns
     -------
@@ -345,6 +348,9 @@ def _run_processing(
         os.mkdir(OUTPUT_FOLDER)
     if not os.path.exists(log_folder):
         os.mkdir(log_folder)
+
+    if pdb_snapshot is not None:
+        load_live = False
 
     i = 0
     while os.path.exists(os.path.join(log_folder, f"log_{i}.txt")):
@@ -401,7 +407,7 @@ def _run_processing(
         ind = ordered_folders.index(pdb_snapshot)
         ordered_folders = ordered_folders[ind:]
 
-    def process_f(pdb_id, show_error=False, force=True):
+    def process_f(pdb_id, show_error=False, force=True, load_live=False):
         try:
             pdb_id = pdb_id.lower()
             id, biounit = pdb_id.split("-")
@@ -415,6 +421,7 @@ def _run_processing(
                 boto3.resource("s3").Bucket("pdbsnapshots"),
                 tmp_folder=TMP_FOLDER,
                 folders=ordered_folders,
+                load_live=load_live,
             )
             # parse
             pdb_dict = _open_pdb(
@@ -441,7 +448,7 @@ def _run_processing(
 
     # process_f("1a1q-3", show_error=True, force=force)
 
-    _ = p_map(lambda x: process_f(x, force=force), pdb_ids)
+    _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), pdb_ids)
 
     stats = get_error_summary(LOG_FILE, verbose=False)
     while "<<< PDB file not found" in stats:
