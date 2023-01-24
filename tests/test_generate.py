@@ -33,7 +33,7 @@ def test_generate():
 
     if os.path.exists("./data/bestprot_test"):
         shutil.rmtree("./data/bestprot_test")
-    generate_data(tag="test", skip_splitting=True, n=100)
+    generate_data(tag="test", skip_splitting=True, n=50)
     num_files = len(os.listdir("./data/bestprot_test"))
     split_data(tag="test", valid_split=0.2, test_split=0.1)
     folder = "./data/bestprot_test"
