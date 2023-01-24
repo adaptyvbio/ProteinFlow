@@ -12,6 +12,7 @@ from bestprot.utils.process_pdb import (
 )
 from bestprot.utils.cluster_and_partition import _build_dataset_partition, _check_mmseqs
 from bestprot.utils.split_dataset import _download_dataset, _split_data
+from bestprot.utils.biotite_sse import _annotate_sse
 
 import warnings
 import os
@@ -984,6 +985,16 @@ class ProteinDataset(Dataset):
         features = np.array([_PMAP(x) for x in seq])
         return features
 
+    def _sse(self, X):
+        """
+        Secondary structure features
+        """
+
+        sse_map = {"c": [0, 0, 1], "b": [0, 1, 0], "a": [1, 0, 0], "": [0, 0, 0]}
+        sse = _annotate_sse(X)
+        sse = np.array([sse_map[x] for x in sse])
+        return sse
+
     def _process(self, filename, rewrite=False):
         """
         Process a BestProt file and save it as ProteinMPNN features
@@ -1031,6 +1042,8 @@ class ProteinDataset(Dataset):
                     node_features["sidechain_orientation"].append(self._sidechain(data[chain]["crd_sc"], crd_i, seq))
                 if "chemical" in self.feature_types:
                     node_features["chemical"].append(self._chemical(data[chain]["seq"]))
+                if "secondary_structure" in self.feature_types:
+                    node_features["secondary_structure"].append(self._sse(data[chain]["crd_bb"]))
 
             out = {}
             out["X"] = torch.from_numpy(np.concatenate(X, 0))
