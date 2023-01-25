@@ -778,6 +778,10 @@ class ProteinDataset(Dataset):
             the type of node features, e.g. "dihedral" or "sidechain+chemical"
         debug_file_path : str, optional
             if not `None`, open this single file instead of loading the dataset
+        entry_type : {"biounit", "chain", "pair"}
+            the type of entries to generate (`"biounit"` for biounit-level, `"chain"` for chain-level, `"pair"` for chain-chain pairs)
+        classes_to_exclude : list of str, optional
+            a list of classes to exclude from the dataset (select from `"single_chains"`, `"heteromers"`, `"homomers"`)
         """
 
         alphabet = ALPHABET
@@ -1179,6 +1183,10 @@ class ProteinLoader(DataLoader):
             the type of node features, e.g. `"dihedral"` or `"sidechain+chemical"`
         batch_size : int, default 4
             the batch size
+        entry_type : {"biounit", "chain", "pair"}
+            the type of entries to generate (`"biounit"` for biounit-level, `"chain"` for chain-level, `"pair"` for chain-chain pairs)
+        classes_to_exclude : list of str, optional
+            a list of classes to exclude from the dataset (select from `"single_chains"`, `"heteromers"`, `"homomers"`)
         """
 
         dataset = ProteinDataset(
