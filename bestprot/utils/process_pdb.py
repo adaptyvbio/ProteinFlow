@@ -10,6 +10,7 @@ import os
 from collections import namedtuple
 from operator import attrgetter
 import requests
+from Bio.PDB.parse_pdb_header import parse_pdb_header
 
 
 SIDECHAIN_ORDER = {
@@ -324,6 +325,11 @@ def _open_pdb(file_path: str, tmp_folder: str) -> Dict:
     except FileNotFoundError:
         raise PDBError("PDB file not found")
     out_dict["crd_raw"] = p
+
+    # # add metadata
+    # metadata = parse_pdb_header(file_path)
+    # for key in ["structure_method"]:
+    #     out_dict[key] = metadata.get(key)
 
     # retrieve sequences that are relevant for this PDB from the fasta file
     chains = np.unique(p["chain_id"].values)

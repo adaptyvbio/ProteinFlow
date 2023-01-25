@@ -362,7 +362,7 @@ def _run_processing(
     with open(LOG_FILE, "a") as f:
         f.write(date_time)
         if tag is not None:
-            f.write(f"tag: {tag}")
+            f.write(f"tag: {tag} \n\n")
 
     # get filtered PDB ids fro PDB API
     pdb_ids = (
@@ -779,7 +779,8 @@ class ProteinDataset(Dataset):
         debug_file_path : str, optional
             if not `None`, open this single file instead of loading the dataset
         entry_type : {"biounit", "chain", "pair"}
-            the type of entries to generate (`"biounit"` for biounit-level, `"chain"` for chain-level, `"pair"` for chain-chain pairs)
+            the type of entries to generate (`"biounit"` for biounit-level complexes, `"chain"` for chain-level, `"pair"` 
+            for chain-chain pairs (all pairs that are seen in the same biounit))
         classes_to_exclude : list of str, optional
             a list of classes to exclude from the dataset (select from `"single_chains"`, `"heteromers"`, `"homomers"`)
         """
