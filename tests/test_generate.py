@@ -31,12 +31,12 @@ def get_class(seqs_dict):
 def test_generate():
     """Test generate_data + split_data + chain class distribution"""
 
-    if os.path.exists("./data/bestprot_test"):
-        shutil.rmtree("./data/bestprot_test")
-    generate_data(tag="test", skip_splitting=True, n=50)
-    num_files = len(os.listdir("./data/bestprot_test"))
-    split_data(tag="test", valid_split=0.2, test_split=0.1)
     folder = "./data/bestprot_test"
+    if os.path.exists(folder):
+        shutil.rmtree(folder)
+    generate_data(tag="test", skip_splitting=True, n=50)
+    num_files = len(os.listdir(folder))
+    split_data(tag="test", valid_split=0.2, test_split=0.1)
     assert os.path.exists(folder)
     assert len(os.listdir(folder)) == 4
     num_files_split = 0
@@ -60,6 +60,6 @@ def test_generate():
                     class_files.add(file)
             assert classes[c] == len(class_files)
     assert num_files == num_files_split
-    shutil.rmtree("./data/bestprot_test")
+    shutil.rmtree(folder)
     
 # test_generate()

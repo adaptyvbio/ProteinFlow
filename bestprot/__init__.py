@@ -33,8 +33,8 @@ from tqdm import tqdm
 from copy import deepcopy
 import pandas as pd
 from numpy import linalg
-from einops import rearrange
 import boto3
+from itertools import combinations
 
 
 MAIN_ATOMS = {
@@ -750,6 +750,8 @@ class ProteinDataset(Dataset):
         interpolate="none",
         node_features_type="zeros",
         debug_file_path=None,
+        entry_type="biounit", # biounit, chain, pair
+        classes_to_exclude=None, # heteromers, homomers, single_chains
     ):
         """
         Parameters
@@ -783,11 +785,12 @@ class ProteinDataset(Dataset):
         for i, letter in enumerate(alphabet):
             self.alphabet_dict[letter] = i
         self.alphabet_dict["X"] = 0
-        self.files = {}  # file path by biounit id
+        self.files = defaultdict(lambda: defaultdict(list))  # file path by biounit id
         self.loaded = None
         self.dataset_folder = dataset_folder
         self.features_folder = features_folder
         self.feature_types = node_features_type.split("+")
+        self.entry_type = entry_type
 
         if debug_file_path is not None:
             self.dataset_folder = os.path.dirname(debug_file_path)
@@ -814,29 +817,57 @@ class ProteinDataset(Dataset):
         if debug:
             to_process = to_process[:1000]
         # output_tuples = [self._process(x, rewrite=rewrite) for x in tqdm(to_process)]
-        output_tuples = p_map(lambda x: self._process(x, rewrite=rewrite), to_process)
+        output_tuples_list = p_map(lambda x: self._process(x, rewrite=rewrite), to_process)
         # save the file names
-        for id, filename in output_tuples:
-            self.files[id] = filename
+        for output_tuples in output_tuples_list:
+            for id, filename, chain_set in output_tuples:
+                for chain in chain_set:
+                    self.files[id][chain].append(filename)
         # filter by length
+        seen = set()
         if max_length is not None:
             to_remove = []
-            for id, file in self.files.items():
-                with open(file, "rb") as f:
-                    data = pickle.load(f)
-                    if len(data["S"]) > max_length:
-                        to_remove.append(id)
-            for id in to_remove:
-                self.files.pop(id)
+            for id, chain_dict in self.files.items():
+                for chain, file_list in chain_dict.items():
+                    for file in file_list:
+                        if file in seen:
+                            continue
+                        seen.add(file)
+                        with open(file, "rb") as f:
+                            data = pickle.load(f)
+                            if len(data["S"]) > max_length:
+                                to_remove.append((id, chain, file))
+            for id, chain, file in to_remove:
+                self.files[id][chain].remove(file)
+                if len(self.files[id][chain]) == 0:
+                    self.files[id].pop(chain)
+                if len(self.files[id]) == 0:
+                    self.files.pop(id)
         # load the clusters
+        if classes_to_exclude is None:
+            classes_to_exclude = []
+        elif clustering_dict_path is None:
+            raise ValueError(
+                "classes_to_exclude is not None, but clustering_dict_path is None"
+            )
         if clustering_dict_path is not None:
+            if entry_type == "pair":
+                classes_to_exclude = set(classes_to_exclude)
+                classes_to_exclude.add("single_chains")
+                classes_to_exclude = list(classes_to_exclude)
             with open(clustering_dict_path, "rb") as f:
                 self.clusters = pickle.load(f)  # list of biounit ids by cluster id
+                classes = pickle.load(f)
+            to_exclude = set()
+            for c in classes_to_exclude:
+                for key, id_arr in classes.get(c, {}).items():
+                    for id, _ in id_arr:
+                        to_exclude.add(id)
             for key in list(self.clusters.keys()):
                 self.clusters[key] = [
                     [x[0].split(".")[0], x[1]]
                     for x in self.clusters[key]
-                    if x[0].split(".")[0] in self.files
+                    if x[0].split(".")[0] in self.files and x[0].split(".")[0] not in to_exclude
                 ]
                 if len(self.clusters[key]) == 0:
                     self.clusters.pop(key)
@@ -850,18 +881,15 @@ class ProteinDataset(Dataset):
         if load_to_ram:
             print("Loading to RAM...")
             self.loaded = {}
-            if self.clusters is None:
-                for id in tqdm(self.data):
-                    with open(self.files[id], "rb") as f:
-                        self.loaded[id] = pickle.load(f)
-            else:
-                pbar = tqdm(total=sum([len(self.clusters[x]) for x in self.data]))
-                for cluster in self.data:
-                    for id_tuple in self.clusters[cluster]:
-                        with open(self.files[id_tuple[0]], "rb") as f:
-                            self.loaded[id_tuple[0]] = pickle.load(f)
-                            pbar.update(1)
-                pbar.close()
+            seen = set()
+            for id in self.files:
+                for chain, file_list in self.files[id].items():
+                    for file in file_list:
+                        if file in seen:
+                            continue
+                        seen.add(file)
+                        with open(file, "rb") as f:
+                            self.loaded[file] = pickle.load(f)
 
     def _interpolate(self, crd_i, mask_i):
         """
@@ -1001,16 +1029,33 @@ class ProteinDataset(Dataset):
         """
 
         input_file = os.path.join(self.dataset_folder, filename)
-        output_file = os.path.join(self.features_folder, filename)
-        if not rewrite and os.path.exists(output_file):
-            pass
+        no_extension_name = filename.split(".")[0]
+        try:
+            with open(input_file, "rb") as f:
+                data = pickle.load(f)
+        except:
+            print(f'{input_file=}')
+        chains = sorted(data.keys())
+        if self.entry_type == "biounit":
+            chain_sets = [chains]
+        elif self.entry_type == "chain":
+            chain_sets = [[x] for x in chains]
+        elif self.entry_type == "pair":
+            chain_sets = list(combinations(chains, 2))
         else:
-            try:
-                with open(input_file, "rb") as f:
-                    data = pickle.load(f)
-            except:
-                print(f'{input_file=}')
-            chains = sorted(data.keys())
+            raise RuntimeError("Unknown entry type, please choose from ['biounit', 'chain', 'pair']")
+        output_names = []
+        for chains_i, chain_set in enumerate(chain_sets):
+            output_file = os.path.join(self.features_folder, no_extension_name + f"_{chains_i}.pickle")
+            output_names.append(
+                (
+                    os.path.basename(no_extension_name),
+                    output_file,
+                    chain_set
+                )
+            )
+            if os.path.exists(output_file) and not rewrite:
+                continue
             X = []
             S = []
             mask = []
@@ -1021,8 +1066,7 @@ class ProteinDataset(Dataset):
             last_idx = 0
             chain_dict = {}
 
-            for chain_i, chain in enumerate(chains):
-
+            for chain_i, chain in enumerate(chain_set):
                 seq = torch.tensor([self.alphabet_dict[x] for x in data[chain]["seq"]])
                 S.append(seq)
                 crd_i = data[chain]["crd_bb"]
@@ -1057,10 +1101,7 @@ class ProteinDataset(Dataset):
                 out[key] = torch.from_numpy(np.concatenate(value_list))
             with open(output_file, "wb") as f:
                 pickle.dump(out, f)
-        return (
-            os.path.basename(filename).split(".")[0],
-            output_file,
-        )
+        return output_names
 
     def __len__(self):
         return len(self.data)
@@ -1069,7 +1110,7 @@ class ProteinDataset(Dataset):
         chain_id = None
         if self.clusters is None:
             id = self.data[idx]  # data is already filtered by length
-            chain_id = None
+            chain_id = random.choice(list(self.files[id].keys()))
         else:
             cluster = self.data[idx]
             id = None
@@ -1078,17 +1119,13 @@ class ProteinDataset(Dataset):
                 id, chain_id = self.clusters[cluster][
                     chain_n
                 ]  # get id and chain from cluster
+        file = random.choice(self.files[id][chain_id])
         if self.loaded is None:
-            file = self.files[id]
             with open(file, "rb") as f:
                 data = pickle.load(f)
         else:
-            data = deepcopy(self.loaded[id])
-        if chain_id is None:
-            chain_id = random.choice(list(data["chain_dict"].values()))
-        else:
-            chain_id = data["chain_dict"][chain_id]
-        data["chain_id"] = chain_id
+            data = deepcopy(self.loaded[file])
+        data["chain_id"] = data["chain_dict"][chain_id]
         data.pop("chain_dict")
         return data
 
@@ -1114,6 +1151,8 @@ class ProteinLoader(DataLoader):
         interpolate="none",
         node_features_type="zeros",
         batch_size=4,
+        entry_type="biounit", # biounit, chain, pair
+        classes_to_exclude=None,
     ) -> None:
         """
         Parameters
@@ -1153,6 +1192,8 @@ class ProteinLoader(DataLoader):
             debug=debug,
             interpolate=interpolate,
             node_features_type=node_features_type,
+            entry_type=entry_type,
+            classes_to_exclude=classes_to_exclude,
         )
         super().__init__(dataset, collate_fn=_PadCollate(), batch_size=batch_size)
 
