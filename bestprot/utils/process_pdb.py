@@ -6,6 +6,7 @@ import urllib.request
 import os
 import numpy as np
 from biopandas.pdb import PandasPdb
+from biopandas.mmcif import PandasMmcif
 import os
 from collections import namedtuple
 from operator import attrgetter
@@ -172,35 +173,40 @@ def _s3list(
             yield p
 
 
-def _get_pdb_file(pdb_file, bucket, tmp_folder, folders, load_live=False):
+def _get_structure_file(pdb_id, biounit, bucket, tmp_folder, folders, load_live=False):
     """
     Download the file from S3 and return the local path where it was saved
     """
 
-    id = os.path.basename(pdb_file)
-    pdb_id = id.split(".")[0]
-    biounit = id.split(".")[1][3]
-    local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}.pdb.gz")
+    pdb_file = f"{pdb_id}.pdb{biounit}.gz"
+    cif_file = f"{pdb_id}-assembly{biounit}.cif.gz"
+    PDB_PREFIX = "pub/pdb/data/biounit/PDB/all/"
+    CIF_PREFIX = "pub/pdb/data/biounit/mmCIF/all/"
+    extensions = [".pdb.gz", ".cif.gz"]
     for (
         folder
     ) in (
         folders
     ):  # go over earlier database snapshots in case the file is not found
-        file = folder + pdb_file
-        try:
-            bucket.download_file(file, local_path)
-            return local_path
-        except:
-            pass
+        filepaths = [folder + PDB_PREFIX + pdb_file, folder + CIF_PREFIX + cif_file]
+        for file, extension in zip(filepaths, extensions):
+            local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + extension
+            try:
+                bucket.download_file(file, local_path)
+                return local_path
+            except:
+                pass
     if load_live:
-        print(f'EXCEPT {pdb_id} {biounit}')
-        try:
-            url = f"https://files.rcsb.org/download/{pdb_id}.pdb{biounit}.gz"
-            response = requests.get(url)
-            open(local_path, "wb").write(response.content)
-        except:
-            pass
-    raise PDBError(f"Could not download")
+        for file, extension in zip([pdb_file, cif_file], extensions):
+            local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + extension
+            try:
+                url = f"https://files.rcsb.org/download/{file}"
+                response = requests.get(url)
+                open(local_path, "wb").write(response.content)
+                return local_path
+            except:
+                pass
+    raise PDBError(f"Could not download structure file")
 
 
 def download_fasta(pdbcode, biounit, datadir):
@@ -297,7 +303,7 @@ def _open_pdb(file_path: str, tmp_folder: str) -> Dict:
     Parameters
     ----------
     file_path : str
-        the path to the .pdb{i}.gz file (i is a positive integer)
+        the path to the .pdb.gz file
     tmp_folder : str
         the path to the temporary data folder
     thr_resolution : float, default 3.5
@@ -309,7 +315,10 @@ def _open_pdb(file_path: str, tmp_folder: str) -> Dict:
         the parsed dictionary
     """
 
-    pdb, biounit = os.path.basename(file_path).split("-")
+    cif = (file_path.endswith("cif.gz"))
+    pdb, biounit = os.path.basename(file_path).split('.')[0].split("-")
+    if cif:
+        biounit = biounit[len("assembly"):]
     out_dict = {}
 
     # download fasta and check if it contains only proteins
@@ -321,9 +330,12 @@ def _open_pdb(file_path: str, tmp_folder: str) -> Dict:
 
     # load coordinates in a nice format
     try:
-        p = PandasPdb().read_pdb(file_path).df["ATOM"]
+        if cif:
+            p = PandasMmcif().read_mmcif(file_path).df["ATOM"]
+        else:
+            p = PandasPdb().read_pdb(file_path).df["ATOM"]
     except FileNotFoundError:
-        raise PDBError("PDB file not found")
+        raise PDBError("PDB / mmCIF file not found")
     out_dict["crd_raw"] = p
 
     # # add metadata

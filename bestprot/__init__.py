@@ -6,7 +6,7 @@ from bestprot.utils.process_pdb import (
     _align_pdb,
     _open_pdb,
     PDBError,
-    _get_pdb_file,
+    _get_structure_file,
     _s3list,
     SIDECHAIN_ORDER,
 )
@@ -336,7 +336,6 @@ def _run_processing(
 
     TMP_FOLDER = tmp_folder
     OUTPUT_FOLDER = output_folder
-    PDB_PREFIX = "pub/pdb/data/biounit/PDB/all/"
     MIN_LENGTH = min_length
     MAX_LENGTH = max_length
     RESOLUTION_THR = resolution_thr
@@ -389,7 +388,7 @@ def _run_processing(
         pdb_ids = pdbs
 
     ordered_folders = [
-        x.key + PDB_PREFIX
+        x.key
         for x in _s3list(
             boto3.resource("s3").Bucket("pdbsnapshots"),
             "",
@@ -415,10 +414,10 @@ def _run_processing(
             target_file = os.path.join(OUTPUT_FOLDER, pdb_id + ".pickle")
             if not force and os.path.exists(target_file):
                 raise PDBError("File already exists")
-            pdb_file = f"{id}.pdb{biounit}.gz"
             # download
-            local_path = _get_pdb_file(
-                pdb_file,
+            local_path = _get_structure_file(
+                id,
+                biounit,
                 boto3.resource("s3").Bucket("pdbsnapshots"),
                 tmp_folder=TMP_FOLDER,
                 folders=ordered_folders,
