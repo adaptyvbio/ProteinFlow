@@ -1,4 +1,4 @@
-from Bio import pairwise2
+from Bio.Align import PairwiseAligner
 import numpy as np
 from typing import Dict
 import subprocess
@@ -428,9 +428,12 @@ def _align_pdb(
             max_missing_ends + max_missing_middle
         ):
             raise PDBError("Too many missing values in total")
-        aligned_seq, fasta_seq, *_ = pairwise2.align.globalms(
-            pdb_seq, fasta[chain], 2, -10, -0.5, -0.1
-        )[0]
+        aligner = PairwiseAligner()
+        aligner.match_score = 2
+        aligner.mismatch_score = -10
+        aligner.open_gap_score = -0.5
+        aligner.extend_gap_score = -0.1
+        aligned_seq, fasta_seq = aligner.align(pdb_seq, fasta[chain])[0]
         if "-" in fasta_seq:
             raise PDBError("Incorrect alignment")
         if "".join([x for x in aligned_seq if x != "-"]) != pdb_seq:

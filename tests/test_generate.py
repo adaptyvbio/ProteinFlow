@@ -62,4 +62,4 @@ def test_generate():
     assert num_files == num_files_split
     shutil.rmtree(folder)
     
-test_generate()
+# test_generate()
