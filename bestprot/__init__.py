@@ -3,8 +3,8 @@ __docformat__ = "numpy"
 
 from bestprot.utils.filter_database import _remove_database_redundancies
 from bestprot.utils.process_pdb import (
-    _align_pdb,
-    _open_pdb,
+    _align_structure,
+    _open_structure,
     PDBError,
     _get_structure_file,
     _s3list,
@@ -14,6 +14,7 @@ from bestprot.utils.cluster_and_partition import _build_dataset_partition, _chec
 from bestprot.utils.split_dataset import _download_dataset, _split_data
 from bestprot.utils.biotite_sse import _annotate_sse
 
+import traceback
 import warnings
 import os
 import pickle
@@ -184,7 +185,7 @@ def _log_exception(exception, log_file, pdb_id, tmp_folder):
     else:
         with open(log_file, "a") as f:
             f.write(f"<<< Unknown: {pdb_id} \n")
-            f.write(str(exception))
+            f.write(traceback.format_exc())
             f.write("\n")
 
 
@@ -363,7 +364,7 @@ def _run_processing(
         if tag is not None:
             f.write(f"tag: {tag} \n\n")
 
-    # get filtered PDB ids fro PDB API
+    # get filtered PDB ids from PDB API
     pdb_ids = (
         Attr("rcsb_entry_info.selected_polymer_entity_types")
         .__eq__("Protein (only)")
@@ -373,7 +374,8 @@ def _run_processing(
     # if include_na:
     #     pdb_ids = pdb_ids.or_('rcsb_entry_info.polymer_composition').in_(["protein/NA", "protein/NA/oligosaccharide"])
 
-    pdb_ids = pdb_ids.and_("rcsb_entry_info.resolution_combined").__le__(RESOLUTION_THR)
+    if RESOLUTION_THR is not None:
+        pdb_ids = pdb_ids.and_("rcsb_entry_info.resolution_combined").__le__(RESOLUTION_THR)
     if filter_methods:
         pdb_ids = pdb_ids.and_("exptl.method").in_(
             ["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"]
@@ -424,12 +426,12 @@ def _run_processing(
                 load_live=load_live,
             )
             # parse
-            pdb_dict = _open_pdb(
+            pdb_dict = _open_structure(
                 local_path,
                 tmp_folder=TMP_FOLDER,
             )
             # filter and convert
-            pdb_dict = _align_pdb(
+            pdb_dict = _align_structure(
                 pdb_dict,
                 min_length=MIN_LENGTH,
                 max_length=MAX_LENGTH,
@@ -452,21 +454,22 @@ def _run_processing(
     _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), pdb_ids)
 
     stats = get_error_summary(LOG_FILE, verbose=False)
-    while "<<< PDB file not found" in stats:
+    not_found_error = "<<< PDB / mmCIF file downloaded but not found"
+    while not_found_error in stats:
         with open(LOG_FILE, "r") as f:
             lines = [
-                x for x in f.readlines() if not x.startswith("<<< PDB file not found")
+                x for x in f.readlines() if not x.startswith(not_found_error)
             ]
         os.remove(LOG_FILE)
         with open(f"{LOG_FILE}_tmp", "a") as f:
             for line in lines:
                 f.write(line)
-        _ = p_map(lambda x: process_f(x, force=force), stats["<<< PDB file not found"])
+        _ = p_map(lambda x: process_f(x, force=force), stats[not_found_error])
         stats = get_error_summary(LOG_FILE, verbose=False)
     if os.path.exists(f"{LOG_FILE}_tmp"):
         with open(LOG_FILE, "r") as f:
             lines = [
-                x for x in f.readlines() if not x.startswith("<<< PDB file not found")
+                x for x in f.readlines() if not x.startswith(not_found_error)
             ]
         os.remove(LOG_FILE)
         with open(f"{LOG_FILE}_tmp", "a") as f:
