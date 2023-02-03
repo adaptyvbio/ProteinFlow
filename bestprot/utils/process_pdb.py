@@ -11,7 +11,7 @@ import os
 from collections import namedtuple
 from operator import attrgetter
 import requests
-from Bio.PDB.parse_pdb_header import parse_pdb_header
+import warnings
 
 
 SIDECHAIN_ORDER = {
@@ -328,10 +328,26 @@ def _open_structure(file_path: str, tmp_folder: str) -> Dict:
 
     # load coordinates in a nice format
     try:
-        if cif:
-            p = CustomMmcif().read_mmcif(file_path).get_model(1)
-        else:
-            p = PandasPdb().read_pdb(file_path).get_model(1)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            if cif:
+                p = CustomMmcif().read_mmcif(file_path).get_model(1)
+                p.df["ATOM"].rename(
+                    {
+                        "label_asym_id": "chain_id", 
+                        "label_comp_id": "residue_name", 
+                        "label_seq_id": "residue_number",
+                        "label_atom_id": "atom_name",
+                        "group_PDB": "record_name",
+                        "Cartn_x": "x_coord",
+                        "Cartn_y": "y_coord",
+                        "Cartn_z": "z_coord",
+                    }, 
+                    axis=1, 
+                    inplace=True
+                )
+            else:
+                p = PandasPdb().read_pdb(file_path).get_model(1)
     except FileNotFoundError:
         raise PDBError("PDB / mmCIF file downloaded but not found")
     out_dict["crd_raw"] = p.df["ATOM"]
