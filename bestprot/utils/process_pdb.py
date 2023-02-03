@@ -343,7 +343,7 @@ def _open_structure(file_path: str, tmp_folder: str) -> Dict:
     #     out_dict[key] = metadata.get(key)
 
     # retrieve sequences that are relevant for this PDB from the fasta file
-    chains = np.unique(p["chain_id"].values)
+    chains = np.unique(p.df["ATOM"]["chain_id"].values)
 
     if not set(chains).issubset(set(list(seqs_dict.keys()))):
         raise PDBError("Some chains in the PDB do not appear in the fasta file")
@@ -355,7 +355,6 @@ def _open_structure(file_path: str, tmp_folder: str) -> Dict:
             subprocess.run(
                 ["rm", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
             )
-
     return out_dict
 
 
@@ -399,6 +398,7 @@ def _align_structure(
 
     crd = pdb_dict["crd_raw"]
     fasta = pdb_dict["fasta"]
+    seq_df = pdb_dict["seq_df"]
     pdb_dict = {}
     crd = crd[crd["record_name"] == "ATOM"]
 
@@ -412,36 +412,33 @@ def _align_structure(
         pdb_dict[chain] = {}
         chain_crd = crd[crd["chain_id"] == chain].reset_index()
 
-        # align fasta and pdb and check criteria
-        pdb_seq = "".join(crd["seq_df"][crd["seq_df"]["chain_id"] == chain]["residue_name"])
-        if len(pdb_seq) / len(fasta[chain]) < 1 - (
+        if len(chain_crd) / len(fasta[chain]) < 1 - (
             max_missing_ends + max_missing_middle
         ):
             raise PDBError("Too many missing values in total")
+
+        # align fasta and pdb and check criteria)
+        pdb_seq = "".join(seq_df[seq_df["chain_id"] == chain]["residue_name"])
         aligner = PairwiseAligner()
         aligner.match_score = 2
         aligner.mismatch_score = -10
         aligner.open_gap_score = -0.5
         aligner.extend_gap_score = -0.1
         aligned_seq, fasta_seq = aligner.align(pdb_seq, fasta[chain])[0]
+        aligned_seq_arr = np.array(list(aligned_seq))
         if "-" in fasta_seq:
             raise PDBError("Incorrect alignment")
         if "".join([x for x in aligned_seq if x != "-"]) != pdb_seq:
             raise PDBError("Incorrect alignment")
-        start = 0
-        while aligned_seq[start] == "-":
-            start += 1
-        end = len(aligned_seq)
-        while aligned_seq[end - 1] == "-":
-            end -= 1
+        residue_numbers = np.where(aligned_seq_arr != "-")[0]
+        start = residue_numbers.min()
+        end = residue_numbers.max() + 1
         if start + (len(aligned_seq) - end) > max_missing_ends * len(aligned_seq):
             raise PDBError("Too many missing values in the ends")
-        if sum(
-            [aligned_seq[i] == "-" for i in range(start, end)]
-        ) > max_missing_middle * (end - start):
+        if (aligned_seq_arr[start: end] == "-").sum() > max_missing_middle * (end - start):
             raise PDBError("Too many missing values in the middle")
-        pdb_dict[chain]["seq"] = fasta_seq
-        pdb_dict[chain]["msk"] = (np.array(list(aligned_seq)) != "-").astype(int)
+        pdb_dict[chain]["seq"] = fasta[chain]
+        pdb_dict[chain]["msk"] = (aligned_seq_arr != "-").astype(int)
         l = sum(pdb_dict[chain]["msk"])
         if min_length is not None and l < min_length:
             raise PDBError("Sequence is too short")
@@ -449,7 +446,7 @@ def _align_structure(
             raise PDBError("Sequence is too long")
 
         # go over rows of coordinates
-        pdb_crd_arr = np.zeros((len(pdb_seq), 14, 3))
+        crd_arr = np.zeros((len(aligned_seq), 14, 3))
 
         def arr_index(row):
             atom = row["atom_name"]
@@ -462,13 +459,14 @@ def _align_structure(
                 return np.nan
 
         indices = chain_crd.apply(arr_index, axis=1)
-        if not ~(indices.isna()).all():
+        if not (~indices.isna()).all():
             raise PDBError("Unexpected atoms")
         indices = indices.astype(int)
         informative_mask = (indices != -1)
-        pdb_crd_arr[chain_crd[informative_mask]["residue_number"] - 1, indices[informative_mask]] = chain_crd[informative_mask][["x_coord", "y_coord", "z_coord"]]
-        crd_arr = np.zeros((len(aligned_seq), 14, 3))
-        crd_arr[pdb_dict[chain]["msk"] == 1] = pdb_crd_arr
+        res_indices = np.array(range(len(aligned_seq)))[aligned_seq_arr != "-"]
+        replace_dict = {x: y for x, y in zip(chain_crd["residue_number"].unique(), res_indices)}
+        chain_crd["residue_number"].replace(replace_dict, inplace=True)
+        crd_arr[chain_crd[informative_mask]["residue_number"], indices[informative_mask]] = chain_crd[informative_mask][["x_coord", "y_coord", "z_coord"]]
 
         pdb_dict[chain]["crd_bb"] = crd_arr[:, :4, :]
         pdb_dict[chain]["crd_sc"] = crd_arr[:, 4:, :]

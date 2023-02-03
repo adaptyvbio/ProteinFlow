@@ -14,6 +14,7 @@ from bestprot.utils.cluster_and_partition import _build_dataset_partition, _chec
 from bestprot.utils.split_dataset import _download_dataset, _split_data
 from bestprot.utils.biotite_sse import _annotate_sse
 
+import traceback
 import warnings
 import os
 import pickle
@@ -184,7 +185,7 @@ def _log_exception(exception, log_file, pdb_id, tmp_folder):
     else:
         with open(log_file, "a") as f:
             f.write(f"<<< Unknown: {pdb_id} \n")
-            f.write(str(exception))
+            f.write(traceback.format_exc())
             f.write("\n")
 
 
