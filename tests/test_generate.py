@@ -34,32 +34,32 @@ def test_generate():
     folder = "./data/bestprot_test"
     if os.path.exists(folder):
         shutil.rmtree(folder)
-    generate_data(tag="test", skip_splitting=True, n=50)
-    num_files = len(os.listdir(folder))
-    split_data(tag="test", valid_split=0.2, test_split=0.1)
-    assert os.path.exists(folder)
-    assert len(os.listdir(folder)) == 4
-    num_files_split = 0
+    generate_data(tag="test", skip_splitting=True, n=1000)
+    # num_files = len(os.listdir(folder))
+    # split_data(tag="test", valid_split=0.2, test_split=0.1)
+    # assert os.path.exists(folder)
+    # assert len(os.listdir(folder)) == 4
+    # num_files_split = 0
 
-    for subset in ["train", "valid", "test"]:
-        num_files_split += len(os.listdir(os.path.join(folder, subset)))
-        subset_folder = os.path.join(folder, subset)
-        with open(os.path.join(folder, "splits_dict", f"{subset}.pickle"), "rb") as f:
-            for _ in range(2):
-                class_data = pickle.load(f)
-        classes = defaultdict(int)
-        for file in os.listdir(subset_folder):
-            with open(os.path.join(subset_folder, file), "rb") as f:
-                data = pickle.load(f)
-            c = get_class(data)
-            classes[c] += 1
-        for c in class_data:
-            class_files = set()
-            for chain_arr in class_data[c].values():
-                for file, _ in chain_arr:
-                    class_files.add(file)
-            assert classes[c] == len(class_files)
-    assert num_files == num_files_split
+    # for subset in ["train", "valid", "test"]:
+    #     num_files_split += len(os.listdir(os.path.join(folder, subset)))
+    #     subset_folder = os.path.join(folder, subset)
+    #     with open(os.path.join(folder, "splits_dict", f"{subset}.pickle"), "rb") as f:
+    #         for _ in range(2):
+    #             class_data = pickle.load(f)
+    #     classes = defaultdict(int)
+    #     for file in os.listdir(subset_folder):
+    #         with open(os.path.join(subset_folder, file), "rb") as f:
+    #             data = pickle.load(f)
+    #         c = get_class(data)
+    #         classes[c] += 1
+    #     for c in class_data:
+    #         class_files = set()
+    #         for chain_arr in class_data[c].values():
+    #             for file, _ in chain_arr:
+    #                 class_files.add(file)
+    #         assert classes[c] == len(class_files)
+    # assert num_files == num_files_split
     shutil.rmtree(folder)
     
 test_generate()

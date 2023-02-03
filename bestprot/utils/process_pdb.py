@@ -6,7 +6,7 @@ import urllib.request
 import os
 import numpy as np
 from biopandas.pdb import PandasPdb
-from biopandas.mmcif import PandasMmcif
+from bestprot.utils.mmcif_fix import CustomMmcif
 import os
 from collections import namedtuple
 from operator import attrgetter
@@ -329,7 +329,7 @@ def _open_structure(file_path: str, tmp_folder: str) -> Dict:
     # load coordinates in a nice format
     try:
         if cif:
-            p = PandasMmcif().read_mmcif(file_path).get_model(1)
+            p = CustomMmcif().read_mmcif(file_path).get_model(1)
         else:
             p = PandasPdb().read_pdb(file_path).get_model(1)
     except FileNotFoundError:
