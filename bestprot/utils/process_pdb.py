@@ -14,6 +14,7 @@ import requests
 from Bio.PDB.parse_pdb_header import parse_pdb_header
 
 
+
 SIDECHAIN_ORDER = {
     "CYS": ["CB", "SG"],
     "ASP": ["CB", "CG", "OD1", "OD2"],
@@ -330,10 +331,12 @@ def _open_pdb(file_path: str, tmp_folder: str) -> Dict:
 
     # load coordinates in a nice format
     try:
-        if cif:
-            p = PandasMmcif().read_mmcif(file_path).df["ATOM"]
-        else:
-            p = PandasPdb().read_pdb(file_path).df["ATOM"]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            if cif:
+                p = CustomMmcif().read_mmcif(file_path).get_model(1)
+            else:
+                p = PandasPdb().read_pdb(file_path).get_model(1)
     except FileNotFoundError:
         raise PDBError("PDB / mmCIF file not found")
     out_dict["crd_raw"] = p
@@ -488,5 +491,5 @@ def _align_pdb(
         if (pdb_dict[chain]["msk"][start:end] == 0).sum() > max_missing_middle * (
             end - start
         ):
-            raise PDBError("Too many missing values in the middle (backbone atoms")
+            raise PDBError("Too many missing values in the middle")
     return pdb_dict

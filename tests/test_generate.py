@@ -1,6 +1,5 @@
 from bestprot import generate_data, split_data
 import os
-import subprocess
 import pickle
 from collections import defaultdict
 import editdistance
