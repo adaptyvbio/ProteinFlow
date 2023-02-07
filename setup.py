@@ -17,7 +17,7 @@ setup(
         "networkx==2.8.8",
         "einops>=0.6.0",
         "pandas>=1.5.2",
-        "torch>=1.13.1",
+        "torch>=1.10.0",
         "biotite==0.35.0",
         "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
     ],
