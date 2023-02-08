@@ -1249,6 +1249,24 @@ def get_error_summary(log_file, verbose=True):
             print(f"{key}: {len(stats[key])}")
     return stats
 
+def check_pdb_snapshots():
+    """
+    Get a list of PDB snapshots available for downloading
+
+    Returns
+    -------
+    snapshots : list
+        a list of snapshot names
+    """
+
+    folders = _s3list(
+        boto3.resource("s3").Bucket("pdbsnapshots"),
+        "",
+        recursive=False,
+        list_objs=False,
+    )
+    return [x.key.strip("/") for x in folders]
+
 def check_download_tags():
     """
     Get a list of tags available for downloading
@@ -1269,7 +1287,6 @@ def check_download_tags():
     for folder in folders:
         folder = folder.key
         if not folder.startswith("bestprot_"):
-            print('continue')
             continue
         tag = folder[len("bestprot_"):]
         if tag.endswith("_splits_dict/"):

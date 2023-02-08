@@ -27,9 +27,7 @@ setup(
     description = ("A library for running the BestProt protein data processing pipeline."),
     entry_points={
         "console_scripts": [
-            "generate_bestprot = bestprot.scripts.generate_data:main",
-            "download_bestprot = bestprot.scripts.download_data:main",
-            "split_bestprot = bestprot.scripts.split_data:main"
+            "bestprot = bestprot.scripts.bestprot_cli:cli",
         ]
     },
     python_requires=">=3.8,<3.10",

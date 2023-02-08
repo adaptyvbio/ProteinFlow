@@ -179,8 +179,12 @@ def _get_structure_file(pdb_id, biounit, bucket, tmp_folder, folders, load_live=
     Download the file from S3 and return the local path where it was saved
     """
 
-    prefixes = ["pub/pdb/data/assemblies/mmCIF/all/", "pub/pdb/data/biounit/PDB/all/", "pub/pdb/data/biounit/mmCIF/all/"]
-    types = ["cif", "pdb", "cif"]
+    prefixes = [
+        "pub/pdb/data/biounit/PDB/all/", 
+        "pub/pdb/data/biounit/mmCIF/all/", 
+        "pub/pdb/data/assemblies/mmCIF/all/",
+    ]
+    types = ["pdb", "cif", "cif"]
     filenames = {
         "cif": f"{pdb_id}-assembly{biounit}.cif.gz",
         "pdb": f"{pdb_id}.pdb{biounit}.gz"
@@ -189,7 +193,7 @@ def _get_structure_file(pdb_id, biounit, bucket, tmp_folder, folders, load_live=
         folder
     ) in (
         folders
-    ):  # go over earlier database snapshots in case the file is not found
+    ):
         for prefix, t in zip(prefixes, types):
             file = folder + prefix + filenames[t]
             local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + f'.{t}.gz'
