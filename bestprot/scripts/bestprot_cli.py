@@ -1,7 +1,7 @@
 from bestprot import check_download_tags, check_pdb_snapshots, download_data, generate_data, split_data
 import click
 
-@click.group()
+@click.group(help="A data processing pipeline for protein design ML tasks")
 def cli():
     pass
 
