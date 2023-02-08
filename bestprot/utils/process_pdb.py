@@ -179,8 +179,8 @@ def _get_structure_file(pdb_id, biounit, bucket, tmp_folder, folders, load_live=
     Download the file from S3 and return the local path where it was saved
     """
 
-    prefixes = ["pub/pdb/data/biounit/PDB/all/", "pub/pdb/data/biounit/mmCIF/all/", "pub/pdb/data/assemblies/mmCIF/all/"]
-    types = ["pdb", "cif", "cif"]
+    prefixes = ["pub/pdb/data/assemblies/mmCIF/all/", "pub/pdb/data/biounit/PDB/all/", "pub/pdb/data/biounit/mmCIF/all/"]
+    types = ["cif", "pdb", "cif"]
     filenames = {
         "cif": f"{pdb_id}-assembly{biounit}.cif.gz",
         "pdb": f"{pdb_id}.pdb{biounit}.gz"
@@ -347,12 +347,12 @@ def _open_structure(file_path: str, tmp_folder: str) -> Dict:
     #     out_dict[key] = metadata.get(key)
 
     # retrieve sequences that are relevant for this PDB from the fasta file
-    chains = np.unique(p.df["ATOM"]["chain_id"].values)
+    chains = p.df["ATOM"]["chain_id"].unique()
 
-    if not set(chains).issubset(set(list(seqs_dict.keys()))):
+    if not set([x.split('-')[0] for x in chains]).issubset(set(list(seqs_dict.keys()))):
         raise PDBError("Some chains in the PDB do not appear in the fasta file")
 
-    out_dict["fasta"] = {k: seqs_dict[k] for k in chains}
+    out_dict["fasta"] = {k: seqs_dict[k.split('-')[0]] for k in chains}
 
     for path in [file_path, fasta_path]:
         if os.path.exists(path):

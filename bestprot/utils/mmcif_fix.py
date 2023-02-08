@@ -8,7 +8,6 @@ class CustomMmcif(PandasMmcif):
         x = super().read_mmcif(path)
         x.df["ATOM"].rename(
             {
-                "label_asym_id": "chain_id", 
                 "label_comp_id": "residue_name", 
                 "label_seq_id": "residue_number",
                 "label_atom_id": "atom_name",
@@ -20,6 +19,7 @@ class CustomMmcif(PandasMmcif):
             axis=1, 
             inplace=True
         )
+        x.df["ATOM"]["chain_id"] = x.df["ATOM"]["auth_asym_id"]
         return x
 
     def amino3to1(self):
