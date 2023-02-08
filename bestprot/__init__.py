@@ -1,6 +1,7 @@
 __pdoc__ = {"utils": False, "scripts": False}
 __docformat__ = "numpy"
 
+
 from bestprot.utils.filter_database import _remove_database_redundancies
 from bestprot.utils.process_pdb import (
     _align_structure,
