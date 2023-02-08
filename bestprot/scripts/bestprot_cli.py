@@ -6,14 +6,14 @@ def cli():
     pass
 
 
-@cli.command("check_tags")
+@cli.command("check_tags", help="Print the available options for download tags")
 def check_tags():
     print("Available tags:")
     for x in check_download_tags():
         print(f"    {x}")
 
 
-@cli.command("check_snapshots")
+@cli.command("check_snapshots", help="Print the available options for PDB snapshots")
 def check_snapshots():
     print("Available snapshots:")
     for x in check_pdb_snapshots():

@@ -357,6 +357,7 @@ def _run_processing(
     while os.path.exists(os.path.join(log_folder, f"log_{i}.txt")):
         i += 1
     LOG_FILE = os.path.join(log_folder, f"log_{i}.txt")
+    print(f'Log file: {LOG_FILE} \n')
     now = datetime.now()  # current date and time
     date_time = now.strftime("%m/%d/%Y, %H:%M:%S") + "\n\n"
     with open(LOG_FILE, "a") as f:

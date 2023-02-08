@@ -14,22 +14,22 @@ python -m pip install -e .
 
 ## Usage
 ### Downloading pre-computed datasets
-We have run the pipeline and saved the results at an AWS S3 server. You can download the resulting dataset with `bestprot`.
+We have run the pipeline and saved the results at an AWS S3 server. You can download the resulting dataset with `bestprot`. Check the output of `bestprot check_tags` for a list of available tags.
 ```
-download_bestprot --tag 20221110 
+bestprot download --tag 20221110 
 ```
 
 ### Running the pipeline
-You can also run `bestprot` with your own parameters.
+You can also run `bestprot` with your own parameters. Check the output of `bestprot check_snapshots` for a list of available snapshots.
 ```
-generate_bestprot --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods
+bestprot generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods
 ```
-See the docs (or `generate_bestrot --help`) for the full list of parameters.
+See the docs (or `bestprot generate --help`) for the full list of parameters.
 
 ### Splitting
-By default, both `generate_bestprot` and `download_bestprot` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `split_bestprot` command.
+By default, both `bestprot generate` and `bestprot download` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `bestprot split` command.
 ```
-split_bestprot --tag new --valid_split 0.1 --test_split 0
+bestprot split --tag new --valid_split 0.1 --test_split 0
 ```
 
 ### Using the data
