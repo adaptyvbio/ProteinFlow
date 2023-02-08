@@ -6,3 +6,5 @@ log*
 *egg-info
 */__pycache__/
 */*/__pycache__/
+proteinmpnn/
+rcsbsearch/

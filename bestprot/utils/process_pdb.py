@@ -179,29 +179,30 @@ def _get_structure_file(pdb_id, biounit, bucket, tmp_folder, folders, load_live=
     Download the file from S3 and return the local path where it was saved
     """
 
-    pdb_file = f"{pdb_id}.pdb{biounit}.gz"
-    cif_file = f"{pdb_id}-assembly{biounit}.cif.gz"
-    PDB_PREFIX = "pub/pdb/data/biounit/PDB/all/"
-    CIF_PREFIX = "pub/pdb/data/biounit/mmCIF/all/"
-    extensions = [".pdb.gz", ".cif.gz"]
+    prefixes = ["pub/pdb/data/biounit/PDB/all/", "pub/pdb/data/biounit/mmCIF/all/", "pub/pdb/data/assemblies/mmCIF/all/"]
+    types = ["pdb", "cif", "cif"]
+    filenames = {
+        "cif": f"{pdb_id}-assembly{biounit}.cif.gz",
+        "pdb": f"{pdb_id}.pdb{biounit}.gz"
+    }
     for (
         folder
     ) in (
         folders
     ):  # go over earlier database snapshots in case the file is not found
-        filepaths = [folder + PDB_PREFIX + pdb_file, folder + CIF_PREFIX + cif_file]
-        for file, extension in zip(filepaths, extensions):
-            local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + extension
+        for prefix, t in zip(prefixes, types):
+            file = folder + prefix + filenames[t]
+            local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + f'.{t}.gz'
             try:
                 bucket.download_file(file, local_path)
                 return local_path
             except:
                 pass
     if load_live:
-        for file, extension in zip([pdb_file, cif_file], extensions):
-            local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + extension
+        for t in filenames:
+            local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + f'.{t}.gz'
             try:
-                url = f"https://files.rcsb.org/download/{file}"
+                url = f"https://files.rcsb.org/download/{filenames[t]}"
                 response = requests.get(url)
                 open(local_path, "wb").write(response.content)
                 return local_path

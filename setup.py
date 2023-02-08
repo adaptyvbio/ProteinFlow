@@ -7,9 +7,9 @@ setup(
     version='0.0.1',
     packages=find_packages(),
     install_requires=[
-        "numpy>=1.23.4",
+        "numpy",
         "editdistance>=0.6.0",
-        "Biopython>=1.79",
+        "Biopython>=1.80",
         "click>=8.1.3",
         "biopandas>=0.4.1",
         "boto3>=1.25.3",
@@ -19,6 +19,7 @@ setup(
         "pandas>=1.5.2",
         "torch>=1.10.0",
         "biotite==0.35.0",
+        "awscli",
         "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
     ],
     author = "Adaptyv Biosystems",
