@@ -10,8 +10,8 @@ def test_download():
     folder = "./data/bestprot_test"
     if os.path.exists(folder):
         shutil.rmtree(folder)        
-    subprocess.run(["download_bestprot", "--tag", "test", "--skip_splitting"], check=True)
-    subprocess.run(["split_bestprot", "--tag", "test"], check=True)
+    subprocess.run(["bestprot", "download", "--tag", "test", "--skip_splitting"], check=True)
+    subprocess.run(["bestprot", "split", "--tag", "test"], check=True)
     for cluster_dict_path, entry_type, classes_to_exclude in [
             (None, "chain", None), 
             (os.path.join(folder, "splits_dict/valid.pickle"), "pair", ["homomers"]),
