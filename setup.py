@@ -3,8 +3,8 @@ from setuptools import find_packages
 
 
 setup(
-    name='bestprot',
-    version='0.0.1',
+    name="bestprot",
+    version="0.0.1",
     packages=find_packages(),
     install_requires=[
         "numpy",
@@ -20,11 +20,13 @@ setup(
         "torch>=1.10.0",
         "biotite==0.35.0",
         "awscli",
-        "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
+        "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e",
     ],
-    author = "Adaptyv Biosystems",
-    author_email = "contact@adaptyvbio.com",
-    description = ("A library for running the BestProt protein data processing pipeline."),
+    author="Adaptyv Biosystems",
+    author_email="contact@adaptyvbio.com",
+    description=(
+        "A library for running the BestProt protein data processing pipeline."
+    ),
     entry_points={
         "console_scripts": [
             "bestprot = bestprot.scripts.bestprot_cli:cli",

@@ -358,7 +358,7 @@ def _run_processing(
     while os.path.exists(os.path.join(log_folder, f"log_{i}.txt")):
         i += 1
     LOG_FILE = os.path.join(log_folder, f"log_{i}.txt")
-    print(f'Log file: {LOG_FILE} \n')
+    print(f"Log file: {LOG_FILE} \n")
     now = datetime.now()  # current date and time
     date_time = now.strftime("%m/%d/%Y, %H:%M:%S") + "\n\n"
     with open(LOG_FILE, "a") as f:
@@ -377,7 +377,9 @@ def _run_processing(
     #     pdb_ids = pdb_ids.or_('rcsb_entry_info.polymer_composition').in_(["protein/NA", "protein/NA/oligosaccharide"])
 
     if RESOLUTION_THR is not None:
-        pdb_ids = pdb_ids.and_("rcsb_entry_info.resolution_combined").__le__(RESOLUTION_THR)
+        pdb_ids = pdb_ids.and_("rcsb_entry_info.resolution_combined").__le__(
+            RESOLUTION_THR
+        )
     if filter_methods:
         pdb_ids = pdb_ids.and_("exptl.method").in_(
             ["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"]
@@ -457,9 +459,7 @@ def _run_processing(
     not_found_error = "<<< PDB / mmCIF file downloaded but not found"
     while not_found_error in stats:
         with open(LOG_FILE, "r") as f:
-            lines = [
-                x for x in f.readlines() if not x.startswith(not_found_error)
-            ]
+            lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
         os.remove(LOG_FILE)
         with open(f"{LOG_FILE}_tmp", "a") as f:
             for line in lines:
@@ -468,9 +468,7 @@ def _run_processing(
         stats = get_error_summary(LOG_FILE, verbose=False)
     if os.path.exists(f"{LOG_FILE}_tmp"):
         with open(LOG_FILE, "r") as f:
-            lines = [
-                x for x in f.readlines() if not x.startswith(not_found_error)
-            ]
+            lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
         os.remove(LOG_FILE)
         with open(f"{LOG_FILE}_tmp", "a") as f:
             for line in lines:
@@ -491,19 +489,19 @@ class _PadCollate:
     A variant of `collate_fn` that pads according to the longest sequence in
     a batch of sequences
 
-    If `mask_residues` is `True`, an additional `'masked_res'` key is added to the output. The value is a binary 
-    tensor where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated 
+    If `mask_residues` is `True`, an additional `'masked_res'` key is added to the output. The value is a binary
+    tensor where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated
     according to the following rules:
-    - if `mask_whole_chains` is `True`, the whole chain is masked 
+    - if `mask_whole_chains` is `True`, the whole chain is masked
     - if `mask_frac` is given, the number of residues to mask is `mask_frac` times the length of the chain,
     - otherwise, the number of residues to mask is sampled uniformly from the range [`lower_limit`, `upper_limit`].
 
-    If `force_binding_sites_frac` > 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain 
+    If `force_binding_sites_frac` > 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
     from a polymer is sampled, the center of the masked region will be forced to be in a binding site.
     """
 
     def __init__(
-        self, 
+        self,
         mask_residues=False,
         lower_limit=15,
         upper_limit=100,
@@ -555,7 +553,7 @@ class _PadCollate:
         - if `mask_frac` is given, the number of residues to mask is `mask_frac` times the length of the chain,
         - otherwise, the number of residues to mask is sampled uniformly from the range [`lower_limit`, `upper_limit`].
 
-        If `force_binding_sites_frac` > 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain 
+        If `force_binding_sites_frac` > 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
         from a polymer is sampled, the center of the masked region will be forced to be in a binding site.
 
         Parameters
@@ -632,7 +630,9 @@ class _PadCollate:
                 dist = torch.sum(
                     (chain[neighbor_indices, 1, :] - res_coords.unsqueeze(0)) ** 2, -1
                 )
-                closest_indices = neighbor_indices[torch.topk(dist, k, largest=False)[1]]
+                closest_indices = neighbor_indices[
+                    torch.topk(dist, k, largest=False)[1]
+                ]
                 chain_M[i, closest_indices + chain_start] = 1
         return chain_M
 
@@ -683,6 +683,7 @@ def download_data(tag, local_datasets_folder="./data", skip_splitting=False):
     print(
         "Thanks for downloading BestProt, the most complete, user-friendly and loving protein dataset you will ever find! ;-)"
     )
+
 
 def generate_data(
     tag,
@@ -802,6 +803,7 @@ def generate_data(
         _split_data(output_folder)
     return log_dict
 
+
 def split_data(
     tag,
     local_datasets_folder="./data",
@@ -844,7 +846,9 @@ def split_data(
 
     if os.path.exists(out_split_dict_folder):
         if not ignore_existing:
-            warnings.warn(f"Found an existing dictionary for tag {tag}. BestProt will load it and ignore the parameters! Run with --ignore_existing to overwrite.")
+            warnings.warn(
+                f"Found an existing dictionary for tag {tag}. BestProt will load it and ignore the parameters! Run with --ignore_existing to overwrite."
+            )
             exists = True
     if not exists:
         _get_split_dictionaries(
@@ -897,8 +901,8 @@ class ProteinDataset(Dataset):
         interpolate="none",
         node_features_type="zeros",
         debug_file_path=None,
-        entry_type="biounit", # biounit, chain, pair
-        classes_to_exclude=None, # heteromers, homomers, single_chains
+        entry_type="biounit",  # biounit, chain, pair
+        classes_to_exclude=None,  # heteromers, homomers, single_chains
     ):
         """
         Parameters
@@ -926,7 +930,7 @@ class ProteinDataset(Dataset):
         debug_file_path : str, optional
             if not `None`, open this single file instead of loading the dataset
         entry_type : {"biounit", "chain", "pair"}
-            the type of entries to generate (`"biounit"` for biounit-level complexes, `"chain"` for chain-level, `"pair"` 
+            the type of entries to generate (`"biounit"` for biounit-level complexes, `"chain"` for chain-level, `"pair"`
             for chain-chain pairs (all pairs that are seen in the same biounit))
         classes_to_exclude : list of str, optional
             a list of classes to exclude from the dataset (select from `"single_chains"`, `"heteromers"`, `"homomers"`)
@@ -969,7 +973,9 @@ class ProteinDataset(Dataset):
         if debug:
             to_process = to_process[:1000]
         # output_tuples = [self._process(x, rewrite=rewrite) for x in tqdm(to_process)]
-        output_tuples_list = p_map(lambda x: self._process(x, rewrite=rewrite), to_process)
+        output_tuples_list = p_map(
+            lambda x: self._process(x, rewrite=rewrite), to_process
+        )
         # save the file names
         for output_tuples in output_tuples_list:
             for id, filename, chain_set in output_tuples:
@@ -1019,7 +1025,8 @@ class ProteinDataset(Dataset):
                 self.clusters[key] = [
                     [x[0].split(".")[0], x[1]]
                     for x in self.clusters[key]
-                    if x[0].split(".")[0] in self.files and x[0].split(".")[0] not in to_exclude
+                    if x[0].split(".")[0] in self.files
+                    and x[0].split(".")[0] not in to_exclude
                 ]
                 if len(self.clusters[key]) == 0:
                     self.clusters.pop(key)
@@ -1154,7 +1161,7 @@ class ProteinDataset(Dataset):
             else:
                 S_mask = S == i
                 orientation[S_mask] = np.random.rand(*orientation[S_mask].shape)
-        orientation /= (np.expand_dims(linalg.norm(orientation, axis=-1), -1) + 1e-7)
+        orientation /= np.expand_dims(linalg.norm(orientation, axis=-1), -1) + 1e-7
         return orientation
 
     def _chemical(self, seq):
@@ -1186,7 +1193,7 @@ class ProteinDataset(Dataset):
             with open(input_file, "rb") as f:
                 data = pickle.load(f)
         except:
-            print(f'{input_file=}')
+            print(f"{input_file=}")
         chains = sorted(data.keys())
         if self.entry_type == "biounit":
             chain_sets = [chains]
@@ -1195,16 +1202,16 @@ class ProteinDataset(Dataset):
         elif self.entry_type == "pair":
             chain_sets = list(combinations(chains, 2))
         else:
-            raise RuntimeError("Unknown entry type, please choose from ['biounit', 'chain', 'pair']")
+            raise RuntimeError(
+                "Unknown entry type, please choose from ['biounit', 'chain', 'pair']"
+            )
         output_names = []
         for chains_i, chain_set in enumerate(chain_sets):
-            output_file = os.path.join(self.features_folder, no_extension_name + f"_{chains_i}.pickle")
+            output_file = os.path.join(
+                self.features_folder, no_extension_name + f"_{chains_i}.pickle"
+            )
             output_names.append(
-                (
-                    os.path.basename(no_extension_name),
-                    output_file,
-                    chain_set
-                )
+                (os.path.basename(no_extension_name), output_file, chain_set)
             )
             if os.path.exists(output_file) and not rewrite:
                 continue
@@ -1235,11 +1242,15 @@ class ProteinDataset(Dataset):
                 if "dihedral" in self.feature_types:
                     node_features["dihedral"].append(self._dihedral(crd_i, mask_i))
                 if "sidechain_orientation" in self.feature_types:
-                    node_features["sidechain_orientation"].append(self._sidechain(data[chain]["crd_sc"], crd_i, seq))
+                    node_features["sidechain_orientation"].append(
+                        self._sidechain(data[chain]["crd_sc"], crd_i, seq)
+                    )
                 if "chemical" in self.feature_types:
                     node_features["chemical"].append(self._chemical(data[chain]["seq"]))
                 if "secondary_structure" in self.feature_types:
-                    node_features["secondary_structure"].append(self._sse(data[chain]["crd_bb"]))
+                    node_features["secondary_structure"].append(
+                        self._sse(data[chain]["crd_bb"])
+                    )
 
             out = {}
             out["X"] = torch.from_numpy(np.concatenate(X, 0))
@@ -1286,7 +1297,7 @@ class ProteinLoader(DataLoader):
     """
     A subclass of `torch.data.utils.DataLoader` tuned for the BestProt dataset
 
-    Creates and iterates over an instance of `ProteinDataset`, omitting the `'chain_dict'` keys. 
+    Creates and iterates over an instance of `ProteinDataset`, omitting the `'chain_dict'` keys.
     See the `ProteinDataset` docs for more information.
     """
 
@@ -1303,7 +1314,7 @@ class ProteinLoader(DataLoader):
         interpolate="none",
         node_features_type="zeros",
         batch_size=4,
-        entry_type="biounit", # biounit, chain, pair
+        entry_type="biounit",  # biounit, chain, pair
         classes_to_exclude=None,
     ) -> None:
         """
@@ -1396,6 +1407,7 @@ def get_error_summary(log_file, verbose=True):
             print(f"{key}: {len(stats[key])}")
     return stats
 
+
 def check_pdb_snapshots():
     """
     Get a list of PDB snapshots available for downloading
@@ -1413,6 +1425,7 @@ def check_pdb_snapshots():
         list_objs=False,
     )
     return [x.key.strip("/") for x in folders]
+
 
 def check_download_tags():
     """
@@ -1435,9 +1448,9 @@ def check_download_tags():
         folder = folder.key
         if not folder.startswith("bestprot_"):
             continue
-        tag = folder[len("bestprot_"):]
+        tag = folder[len("bestprot_") :]
         if tag.endswith("_splits_dict/"):
-            tag = tag[: - len("_splits_dict/")]
+            tag = tag[: -len("_splits_dict/")]
         else:
             tag = tag.strip("/")
         tags_dict[tag].append(folder)

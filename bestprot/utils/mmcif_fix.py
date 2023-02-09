@@ -3,21 +3,22 @@ from copy import deepcopy
 import numpy as np
 import pandas as pd
 
+
 class CustomMmcif(PandasMmcif):
     def read_mmcif(self, path: str):
         x = super().read_mmcif(path)
         x.df["ATOM"].rename(
             {
-                "label_comp_id": "residue_name", 
+                "label_comp_id": "residue_name",
                 "label_seq_id": "residue_number",
                 "label_atom_id": "atom_name",
                 "group_PDB": "record_name",
                 "Cartn_x": "x_coord",
                 "Cartn_y": "y_coord",
                 "Cartn_z": "z_coord",
-            }, 
-            axis=1, 
-            inplace=True
+            },
+            axis=1,
+            inplace=True,
         )
         x.df["ATOM"]["chain_id"] = x.df["ATOM"]["auth_asym_id"]
         return x
@@ -42,5 +43,7 @@ class CustomMmcif(PandasMmcif):
         df = deepcopy(self)
 
         if "ATOM" in df.df.keys():
-            df.df["ATOM"] = df.df["ATOM"].loc[df.df["ATOM"]["pdbx_PDB_model_num"] == model_index]
+            df.df["ATOM"] = df.df["ATOM"].loc[
+                df.df["ATOM"]["pdbx_PDB_model_num"] == model_index
+            ]
         return df

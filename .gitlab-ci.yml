@@ -1,5 +1,6 @@
 stages:
   - test
+  - deploy
 
 pytest:
   stage: test
@@ -17,3 +18,15 @@ pytest:
   script:
     - conda run -n bestprot python -m pytest .
 
+push-back-to-remote:
+  stage: deploy
+  before_script:
+    - python -m pip install -e .
+    - python -m pip install pdoc
+  script:
+    - git config user.email "my-email@email.com"
+    - git config user.name "ci-bot"
+    - git remote add gitlab_origin https://oauth2:$ACCESS_TOKEN@gitlab.com/path-to-project.git
+    - git add .
+    - git commit -m "push back from pipeline"
+    - git push gitlab_origin HEAD:main -o ci.skip # prevent triggering pipeline again

@@ -53,11 +53,9 @@ def _check_biounits(biounits_list, threshold):
     indexes = []
 
     for k, b1 in enumerate(biounits):
-
         if k not in indexes:
             b1_seqs = [b1[chain]["seq"] for chain in b1.keys()]
             for l, b2 in enumerate(biounits[k + 1 :]):
-
                 if len(b1.keys()) != len(b2.keys()):
                     continue
 

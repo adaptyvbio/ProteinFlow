@@ -14,7 +14,6 @@ import requests
 import warnings
 
 
-
 SIDECHAIN_ORDER = {
     "CYS": ["CB", "SG"],
     "ASP": ["CB", "CG", "OD1", "OD2"],
@@ -180,23 +179,19 @@ def _get_structure_file(pdb_id, biounit, bucket, tmp_folder, folders, load_live=
     """
 
     prefixes = [
-        "pub/pdb/data/biounit/PDB/all/", 
-        "pub/pdb/data/biounit/mmCIF/all/", 
+        "pub/pdb/data/biounit/PDB/all/",
+        "pub/pdb/data/biounit/mmCIF/all/",
         "pub/pdb/data/assemblies/mmCIF/all/",
     ]
     types = ["pdb", "cif", "cif"]
     filenames = {
         "cif": f"{pdb_id}-assembly{biounit}.cif.gz",
-        "pdb": f"{pdb_id}.pdb{biounit}.gz"
+        "pdb": f"{pdb_id}.pdb{biounit}.gz",
     }
-    for (
-        folder
-    ) in (
-        folders
-    ):
+    for folder in folders:
         for prefix, t in zip(prefixes, types):
             file = folder + prefix + filenames[t]
-            local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + f'.{t}.gz'
+            local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + f".{t}.gz"
             try:
                 bucket.download_file(file, local_path)
                 return local_path
@@ -204,7 +199,7 @@ def _get_structure_file(pdb_id, biounit, bucket, tmp_folder, folders, load_live=
                 pass
     if load_live:
         for t in filenames:
-            local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + f'.{t}.gz'
+            local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + f".{t}.gz"
             try:
                 url = f"https://files.rcsb.org/download/{filenames[t]}"
                 response = requests.get(url)
@@ -321,8 +316,8 @@ def _open_structure(file_path: str, tmp_folder: str) -> Dict:
         the parsed dictionary
     """
 
-    cif = (file_path.endswith("cif.gz"))
-    pdb, biounit = os.path.basename(file_path).split('.')[0].split("-")
+    cif = file_path.endswith("cif.gz")
+    pdb, biounit = os.path.basename(file_path).split(".")[0].split("-")
     out_dict = {}
 
     # download fasta and check if it contains only proteins
@@ -353,10 +348,10 @@ def _open_structure(file_path: str, tmp_folder: str) -> Dict:
     # retrieve sequences that are relevant for this PDB from the fasta file
     chains = p.df["ATOM"]["chain_id"].unique()
 
-    if not set([x.split('-')[0] for x in chains]).issubset(set(list(seqs_dict.keys()))):
+    if not set([x.split("-")[0] for x in chains]).issubset(set(list(seqs_dict.keys()))):
         raise PDBError("Some chains in the PDB do not appear in the fasta file")
 
-    out_dict["fasta"] = {k: seqs_dict[k.split('-')[0]] for k in chains}
+    out_dict["fasta"] = {k: seqs_dict[k.split("-")[0]] for k in chains}
 
     for path in [file_path, fasta_path]:
         if os.path.exists(path):
@@ -428,7 +423,9 @@ def _align_structure(
         # align fasta and pdb and check criteria)
         pdb_seq = "".join(seq_df[seq_df["chain_id"] == chain]["residue_name"])
         if "insertion" in chain_crd.columns:
-            chain_crd["residue_number"] = chain_crd.apply(lambda row: f"{row['residue_number']}_{row['insertion']}", axis=1)
+            chain_crd["residue_number"] = chain_crd.apply(
+                lambda row: f"{row['residue_number']}_{row['insertion']}", axis=1
+            )
         unique_numbers = chain_crd["residue_number"].unique()
         if len(unique_numbers) != len(pdb_seq):
             raise PDBError("Inconsistencies in the biopandas dataframe")
@@ -446,7 +443,9 @@ def _align_structure(
         end = residue_numbers.max() + 1
         if start + (len(aligned_seq) - end) > max_missing_ends * len(aligned_seq):
             raise PDBError("Too many missing values in the ends")
-        if (aligned_seq_arr[start: end] == "-").sum() > max_missing_middle * (end - start):
+        if (aligned_seq_arr[start:end] == "-").sum() > max_missing_middle * (
+            end - start
+        ):
             raise PDBError("Too many missing values in the middle")
         pdb_dict[chain]["seq"] = fasta[chain]
         pdb_dict[chain]["msk"] = (aligned_seq_arr != "-").astype(int)
@@ -462,7 +461,7 @@ def _align_structure(
         def arr_index(row):
             atom = row["atom_name"]
             if atom.startswith("H") or atom == "OXT":
-                return -1 # ignore hydrogens and OXT
+                return -1  # ignore hydrogens and OXT
             order = BACKBONE_ORDER + SIDECHAIN_ORDER[row["residue_name"]]
             try:
                 return order.index(atom)
@@ -471,11 +470,13 @@ def _align_structure(
 
         indices = chain_crd.apply(arr_index, axis=1)
         indices = indices.astype(int)
-        informative_mask = (indices != -1)
+        informative_mask = indices != -1
         res_indices = np.where(aligned_seq_arr != "-")[0]
         replace_dict = {x: y for x, y in zip(unique_numbers, res_indices)}
         chain_crd["residue_number"].replace(replace_dict, inplace=True)
-        crd_arr[chain_crd[informative_mask]["residue_number"], indices[informative_mask]] = chain_crd[informative_mask][["x_coord", "y_coord", "z_coord"]]
+        crd_arr[
+            chain_crd[informative_mask]["residue_number"], indices[informative_mask]
+        ] = chain_crd[informative_mask][["x_coord", "y_coord", "z_coord"]]
 
         pdb_dict[chain]["crd_bb"] = crd_arr[:, :4, :]
         pdb_dict[chain]["crd_sc"] = crd_arr[:, 4:, :]
