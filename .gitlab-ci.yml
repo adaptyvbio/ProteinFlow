@@ -1,6 +1,6 @@
 stages:
   - test
-  - deploy
+  - build
 
 pytest:
   stage: test
@@ -18,7 +18,7 @@ pytest:
     - conda run -n bestprot python -m pytest .
 
 push-back-to-remote:
-  stage: deploy
+  stage: build
   image: 
     name: python:3.9
   before_script:
