@@ -26,10 +26,11 @@ def test_download():
             classes_to_exclude=classes_to_exclude,
         )
         batch = next(iter(valid_loader))
-        assert set(batch.keys()) == {"X", "S", "mask", "mask_original", "residue_idx", "chain_encoding_all", "chain_id", "sidechain_orientation", "dihedral", "chemical", "secondary_structure"}
+        assert set(batch.keys()) == {"X", "S", "mask", "mask_original", "residue_idx", "chain_encoding_all", "chain_id", "sidechain_orientation", "dihedral", "chemical", "secondary_structure", "masked_res"}
         assert batch["X"].shape == (8, batch["X"].shape[1], 4, 3)
         assert batch["S"].shape == (8, batch["X"].shape[1])
         assert batch["dihedral"].shape == (8, batch["X"].shape[1], 2)
+        assert batch["masked_res"].shape == (8, batch["X"].shape[1])
 
     shutil.rmtree(folder)
 
