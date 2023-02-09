@@ -28,7 +28,7 @@ push-back-to-remote:
   script:
     - git config user.email "liza@adaptyvbio.com"
     - git config user.name "Liza Kozlova"
-    - git remote add gitlab_origin https://oauth2:$ACCESS_TOKEN@gitlab.com/path-to-project.git
+    - git remote add gitlab_origin https://oauth2:$ACCESS_TOKEN@gitlab.com/adaptyvbio/bestprot.git
     - pdoc3 -o html_docs bestprot --html --force
     - echo "" >> html_docs/bestprot/index.html
     - echo '<!--'"$(date) -->" >> html_docs/bestprot/index.html
