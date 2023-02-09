@@ -30,6 +30,8 @@ push-back-to-remote:
     - git config user.name "Liza Kozlova"
     - git remote add gitlab_origin https://oauth2:$ACCESS_TOKEN@gitlab.com/path-to-project.git
     - pdoc3 -o html_docs bestprot --html --force
+    - echo "" >> html_docs/bestprot/index.html
+    - echo '<!--'"$(date) -->" >> html_docs/bestprot/index.html
     - git add .
     - git commit -m "push back from pipeline"
     - git push gitlab_origin HEAD:main -o ci.skip # prevent triggering pipeline again
