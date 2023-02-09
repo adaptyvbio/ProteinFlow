@@ -1,0 +1,1 @@
+pdoc3 -o html_docs --html --force bestprot 

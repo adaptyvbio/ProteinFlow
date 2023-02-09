@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <title>bestprot API documentation</title>
-<meta name="description" content="" />
+<meta name="description" content="`bestprot` is a pipeline for protein data preparation …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,13 +22,91 @@
 <h1 class="title">Package <code>bestprot</code></h1>
 </header>
 <section id="section-intro">
+<p><code><a title="bestprot" href="#bestprot">bestprot</a></code> is a pipeline for protein data preparation. </p>
+<h2 id="installation">Installation</h2>
+<p>&hellip;</p>
+<h2 id="usage">Usage</h2>
+<h3 id="downloading-pre-computed-datasets">Downloading pre-computed datasets</h3>
+<p>We have run the pipeline and saved the results at an AWS S3 server. You can download the resulting dataset with <code><a title="bestprot" href="#bestprot">bestprot</a></code>. Check the output of <code><a title="bestprot" href="#bestprot">bestprot</a> check_tags</code> for a list of available tags.</p>
+<pre><code>bestprot download --tag 20221110 
+</code></pre>
+<h3 id="running-the-pipeline">Running the pipeline</h3>
+<p>You can also run <code><a title="bestprot" href="#bestprot">bestprot</a></code> with your own parameters. Check the output of <code><a title="bestprot" href="#bestprot">bestprot</a> check_snapshots</code> for a list of available snapshots.</p>
+<pre><code>bestprot generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods
+</code></pre>
+<p>See the docs (or <code>bestprot generate --help</code>) for the full list of parameters.</p>
+<h3 id="splitting">Splitting</h3>
+<p>By default, both <code><a title="bestprot" href="#bestprot">bestprot</a> generate</code> and <code><a title="bestprot" href="#bestprot">bestprot</a> download</code> will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a <code>--skip_splitting</code> flag and then perform it separately with the <code><a title="bestprot" href="#bestprot">bestprot</a> split</code> command.</p>
+<pre><code>bestprot split --tag new --valid_split 0.1 --test_split 0
+</code></pre>
+<h3 id="using-the-data">Using the data</h3>
+<p>The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:</p>
+<ul>
+<li><code>'crd_bb'</code>: a <code>numpy</code> array of shape <code>(L, 4, 3)</code> with backbone atom coordinates (N, C, CA, O),</li>
+<li><code>'crd_sc'</code>: a <code>numpy</code> array of shape <code>(L, 10, 3)</code> with sidechain atom coordinates (check <code><a title="bestprot.sidechain_order" href="#bestprot.sidechain_order">sidechain_order()</a></code> for the order of atoms),</li>
+<li><code>'msk'</code>: a <code>numpy</code> array of shape <code>(L,)</code> where ones correspond to residues with known coordinates and
+zeros to missing values,</li>
+<li><code>'seq'</code>: a string of length <code>L</code> with residue types.</li>
+</ul>
+<p>Once your data is ready, you can use our <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset">ProteinDataset</a></code> or <code><a title="bestprot.ProteinLoader" href="#bestprot.ProteinLoader">ProteinLoader</a></code> classes
+for convenient processing. </p>
+<pre><code class="language-python">from bestprot import ProteinLoader
+train_loader = ProteinLoader(&quot;./data/bestprot_new/training&quot;, batch_size=8)
+for batch in train_loader:
+    ...
+</code></pre>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">__pdoc__ = {&#34;utils&#34;: False, &#34;scripts&#34;: False}
-__docformat__ = &#34;numpy&#34;
+<pre><code class="python">&#34;&#34;&#34;
+`bestprot` is a pipeline for protein data preparation. 
 
+## Installation
+...
+
+## Usage
+### Downloading pre-computed datasets
+We have run the pipeline and saved the results at an AWS S3 server. You can download the resulting dataset with `bestprot`. Check the output of `bestprot check_tags` for a list of available tags.
+```
+bestprot download --tag 20221110 
+```
+
+### Running the pipeline
+You can also run `bestprot` with your own parameters. Check the output of `bestprot check_snapshots` for a list of available snapshots.
+```
+bestprot generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods
+```
+See the docs (or `bestprot generate --help`) for the full list of parameters.
+
+### Splitting
+By default, both `bestprot generate` and `bestprot download` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `bestprot split` command.
+```
+bestprot split --tag new --valid_split 0.1 --test_split 0
+```
+
+### Using the data
+The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:
+
+- `&#39;crd_bb&#39;`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),
+- `&#39;crd_sc&#39;`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (check `bestprot.sidechain_order()` for the order of atoms),
+- `&#39;msk&#39;`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and
+    zeros to missing values,
+- `&#39;seq&#39;`: a string of length `L` with residue types.
+
+Once your data is ready, you can use our `bestprot.ProteinDataset` or `bestprot.ProteinLoader` classes 
+for convenient processing. 
+```python
+from bestprot import ProteinLoader
+train_loader = ProteinLoader(&#34;./data/bestprot_new/training&#34;, batch_size=8)
+for batch in train_loader:
+    ...
+```
+
+&#34;&#34;&#34;
+
+__pdoc__ = {&#34;utils&#34;: False, &#34;scripts&#34;: False}
+__docformat__ = &#34;numpy&#34;
 
 from bestprot.utils.filter_database import _remove_database_redundancies
 from bestprot.utils.process_pdb import (
@@ -530,7 +608,7 @@ class _PadCollate:
 
     def __init__(
         self,
-        mask_residues=False,
+        mask_residues=True,
         lower_limit=15,
         upper_limit=100,
         mask_frac=None,
@@ -1327,6 +1405,16 @@ class ProteinLoader(DataLoader):
 
     Creates and iterates over an instance of `ProteinDataset`, omitting the `&#39;chain_dict&#39;` keys.
     See the `ProteinDataset` docs for more information.
+
+    If `mask_residues` is `True`, an additional `&#39;masked_res&#39;` key is added to the output. The value is a binary
+    tensor shaped `(B, L)` where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated
+    according to the following rules:
+    - if `mask_whole_chains` is `True`, the whole chain is masked
+    - if `mask_frac` is given, the number of residues to mask is `mask_frac` times the length of the chain,
+    - otherwise, the number of residues to mask is sampled uniformly from the range [`lower_limit`, `upper_limit`].
+
+    If `force_binding_sites_frac` &gt; 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
+    from a polymer is sampled, the center of the masked region will be forced to be in a binding site.
     &#34;&#34;&#34;
 
     def __init__(
@@ -1344,6 +1432,12 @@ class ProteinLoader(DataLoader):
         batch_size=4,
         entry_type=&#34;biounit&#34;,  # biounit, chain, pair
         classes_to_exclude=None,
+        lower_limit=15,
+        upper_limit=100,
+        mask_residues=True,
+        mask_whole_chains=False,
+        mask_frac=None,
+        force_binding_sites_frac=0.15,
     ) -&gt; None:
         &#34;&#34;&#34;
         Parameters
@@ -1374,6 +1468,17 @@ class ProteinLoader(DataLoader):
             the type of entries to generate (`&#34;biounit&#34;` for biounit-level, `&#34;chain&#34;` for chain-level, `&#34;pair&#34;` for chain-chain pairs)
         classes_to_exclude : list of str, optional
             a list of classes to exclude from the dataset (select from `&#34;single_chains&#34;`, `&#34;heteromers&#34;`, `&#34;homomers&#34;`)
+        lower_limit : int, default 15
+            the minimum number of residues to mask
+        upper_limit : int, default 100
+            the maximum number of residues to mask
+        mask_frac : float, optional
+            if given, the `lower_limit` and `upper_limit` are ignored and the number of residues to mask is `mask_frac` times the length of the chain
+        mask_whole_chains : bool, default False
+            if `True`, `upper_limit`, `force_binding_sites` and `lower_limit` are ignored and the whole chain is masked instead
+        force_binding_sites_frac : float, default 0.15
+            if &gt; 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
+            forced to be in a binding site
         &#34;&#34;&#34;
 
         dataset = ProteinDataset(
@@ -1390,7 +1495,18 @@ class ProteinLoader(DataLoader):
             entry_type=entry_type,
             classes_to_exclude=classes_to_exclude,
         )
-        super().__init__(dataset, collate_fn=_PadCollate(), batch_size=batch_size)
+        super().__init__(
+            dataset, 
+            collate_fn=_PadCollate(
+                mask_residues=mask_residues,
+                mask_whole_chains=mask_whole_chains,
+                mask_frac=mask_frac,
+                lower_limit=lower_limit,
+                upper_limit=upper_limit,
+                force_binding_sites_frac=force_binding_sites_frac,
+            ), 
+            batch_size=batch_size
+        )
 
 
 def sidechain_order():
@@ -2462,12 +2578,20 @@ for chain-chain pairs (all pairs that are seen in the same biounit))</dd>
 </dd>
 <dt id="bestprot.ProteinLoader"><code class="flex name class">
 <span>class <span class="ident">ProteinLoader</span></span>
-<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', batch_size=4, entry_type='biounit', classes_to_exclude=None)</span>
+<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', batch_size=4, entry_type='biounit', classes_to_exclude=None, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, force_binding_sites_frac=0.15)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A subclass of <code>torch.data.utils.DataLoader</code> tuned for the BestProt dataset</p>
 <p>Creates and iterates over an instance of <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset">ProteinDataset</a></code>, omitting the <code>'chain_dict'</code> keys.
 See the <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset">ProteinDataset</a></code> docs for more information.</p>
+<p>If <code>mask_residues</code> is <code>True</code>, an additional <code>'masked_res'</code> key is added to the output. The value is a binary
+tensor shaped <code>(B, L)</code> where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated
+according to the following rules:
+- if <code>mask_whole_chains</code> is <code>True</code>, the whole chain is masked
+- if <code>mask_frac</code> is given, the number of residues to mask is <code>mask_frac</code> times the length of the chain,
+- otherwise, the number of residues to mask is sampled uniformly from the range [<code>lower_limit</code>, <code>upper_limit</code>].</p>
+<p>If <code>force_binding_sites_frac</code> &gt; 0 and <code>mask_whole_chains</code> is <code>False</code>, in the fraction of cases where a chain
+from a polymer is sampled, the center of the masked region will be forced to be in a binding site.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>dataset_folder</code></strong> :&ensp;<code>str</code></dt>
@@ -2496,6 +2620,17 @@ See the <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset"
 <dd>the type of entries to generate (<code>"biounit"</code> for biounit-level, <code>"chain"</code> for chain-level, <code>"pair"</code> for chain-chain pairs)</dd>
 <dt><strong><code>classes_to_exclude</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
 <dd>a list of classes to exclude from the dataset (select from <code>"single_chains"</code>, <code>"heteromers"</code>, <code>"homomers"</code>)</dd>
+<dt><strong><code>lower_limit</code></strong> :&ensp;<code>int</code>, default <code>15</code></dt>
+<dd>the minimum number of residues to mask</dd>
+<dt><strong><code>upper_limit</code></strong> :&ensp;<code>int</code>, default <code>100</code></dt>
+<dd>the maximum number of residues to mask</dd>
+<dt><strong><code>mask_frac</code></strong> :&ensp;<code>float</code>, optional</dt>
+<dd>if given, the <code>lower_limit</code> and <code>upper_limit</code> are ignored and the number of residues to mask is <code>mask_frac</code> times the length of the chain</dd>
+<dt><strong><code>mask_whole_chains</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, <code>upper_limit</code>, <code>force_binding_sites</code> and <code>lower_limit</code> are ignored and the whole chain is masked instead</dd>
+<dt><strong><code>force_binding_sites_frac</code></strong> :&ensp;<code>float</code>, default <code>0.15</code></dt>
+<dd>if &gt; 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
+forced to be in a binding site</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -2507,6 +2642,16 @@ See the <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset"
 
     Creates and iterates over an instance of `ProteinDataset`, omitting the `&#39;chain_dict&#39;` keys.
     See the `ProteinDataset` docs for more information.
+
+    If `mask_residues` is `True`, an additional `&#39;masked_res&#39;` key is added to the output. The value is a binary
+    tensor shaped `(B, L)` where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated
+    according to the following rules:
+    - if `mask_whole_chains` is `True`, the whole chain is masked
+    - if `mask_frac` is given, the number of residues to mask is `mask_frac` times the length of the chain,
+    - otherwise, the number of residues to mask is sampled uniformly from the range [`lower_limit`, `upper_limit`].
+
+    If `force_binding_sites_frac` &gt; 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
+    from a polymer is sampled, the center of the masked region will be forced to be in a binding site.
     &#34;&#34;&#34;
 
     def __init__(
@@ -2524,6 +2669,12 @@ See the <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset"
         batch_size=4,
         entry_type=&#34;biounit&#34;,  # biounit, chain, pair
         classes_to_exclude=None,
+        lower_limit=15,
+        upper_limit=100,
+        mask_residues=True,
+        mask_whole_chains=False,
+        mask_frac=None,
+        force_binding_sites_frac=0.15,
     ) -&gt; None:
         &#34;&#34;&#34;
         Parameters
@@ -2554,6 +2705,17 @@ See the <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset"
             the type of entries to generate (`&#34;biounit&#34;` for biounit-level, `&#34;chain&#34;` for chain-level, `&#34;pair&#34;` for chain-chain pairs)
         classes_to_exclude : list of str, optional
             a list of classes to exclude from the dataset (select from `&#34;single_chains&#34;`, `&#34;heteromers&#34;`, `&#34;homomers&#34;`)
+        lower_limit : int, default 15
+            the minimum number of residues to mask
+        upper_limit : int, default 100
+            the maximum number of residues to mask
+        mask_frac : float, optional
+            if given, the `lower_limit` and `upper_limit` are ignored and the number of residues to mask is `mask_frac` times the length of the chain
+        mask_whole_chains : bool, default False
+            if `True`, `upper_limit`, `force_binding_sites` and `lower_limit` are ignored and the whole chain is masked instead
+        force_binding_sites_frac : float, default 0.15
+            if &gt; 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
+            forced to be in a binding site
         &#34;&#34;&#34;
 
         dataset = ProteinDataset(
@@ -2570,7 +2732,18 @@ See the <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset"
             entry_type=entry_type,
             classes_to_exclude=classes_to_exclude,
         )
-        super().__init__(dataset, collate_fn=_PadCollate(), batch_size=batch_size)</code></pre>
+        super().__init__(
+            dataset, 
+            collate_fn=_PadCollate(
+                mask_residues=mask_residues,
+                mask_whole_chains=mask_whole_chains,
+                mask_frac=mask_frac,
+                lower_limit=lower_limit,
+                upper_limit=upper_limit,
+                force_binding_sites_frac=force_binding_sites_frac,
+            ), 
+            batch_size=batch_size
+        )</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2623,7 +2796,16 @@ See the <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset"
 <nav id="sidebar">
 <h1>Index</h1>
 <div class="toc">
-<ul></ul>
+<ul>
+<li><a href="#installation">Installation</a></li>
+<li><a href="#usage">Usage</a><ul>
+<li><a href="#downloading-pre-computed-datasets">Downloading pre-computed datasets</a></li>
+<li><a href="#running-the-pipeline">Running the pipeline</a></li>
+<li><a href="#splitting">Splitting</a></li>
+<li><a href="#using-the-data">Using the data</a></li>
+</ul>
+</li>
+</ul>
 </div>
 <ul id="index">
 <li><h3><a href="#header-functions">Functions</a></h3>

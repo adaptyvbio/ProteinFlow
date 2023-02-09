@@ -14,7 +14,6 @@ pytest:
     - conda run -n bestprot python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
     - conda run -n bestprot python -m pip install -e .
     - conda run -n bestprot python -m pip install pytest
-    - conda run -n bestprot python -m pip install awscli
   script:
     - conda run -n bestprot python -m pytest .
 
@@ -29,7 +28,7 @@ push-back-to-remote:
     - git config user.email "liza@adaptyvbio.com"
     - git config user.name "Liza Kozlova"
     - git remote add gitlab_origin https://oauth2:$ACCESS_TOKEN@gitlab.com/adaptyvbio/bestprot.git
-    - pdoc3 -o html_docs bestprot --html --force
+    - . make_docs.sh
     - echo "" >> html_docs/bestprot/index.html
     - echo '<!--'"$(date) -->" >> html_docs/bestprot/index.html
     - git add .

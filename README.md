@@ -10,6 +10,7 @@ conda create --name bestprot -y python=3.9
 conda activate bestprot
 conda install -c conda-forge -c bioconda mmseqs2
 python -m pip install -e .
+aws configure
 ```
 
 ## Usage
