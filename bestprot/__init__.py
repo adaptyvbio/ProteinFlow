@@ -37,7 +37,12 @@ Once your data is ready, you can use our `bestprot.ProteinDataset` or `bestprot.
 for convenient processing. 
 ```python
 from bestprot import ProteinLoader
-train_loader = ProteinLoader("./data/bestprot_new/training", batch_size=8, node_features_type="chemical+secondary_structure")
+train_loader = ProteinLoader(
+    "./data/bestprot_new/training", 
+    clustering_dict_path="./data/bestprot_new/splits_dict/train.pickle",
+    batch_size=8, 
+    node_features_type="chemical+secondary_structure"
+)
 for batch in train_loader:
     ...
 ```
