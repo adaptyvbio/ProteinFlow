@@ -8,7 +8,6 @@ class CustomMmcif(PandasMmcif):
         x = super().read_mmcif(path)
         x.df["ATOM"].rename(
             {
-                "label_asym_id": "chain_id", 
                 "label_comp_id": "residue_name", 
                 "label_seq_id": "residue_number",
                 "label_atom_id": "atom_name",
@@ -20,6 +19,7 @@ class CustomMmcif(PandasMmcif):
             axis=1, 
             inplace=True
         )
+        x.df["ATOM"]["chain_id"] = x.df["ATOM"]["auth_asym_id"]
         return x
 
     def amino3to1(self):
@@ -43,12 +43,4 @@ class CustomMmcif(PandasMmcif):
 
         if "ATOM" in df.df.keys():
             df.df["ATOM"] = df.df["ATOM"].loc[df.df["ATOM"]["pdbx_PDB_model_num"] == model_index]
-        # if "HETATM" in df.df.keys():
-        #     df.df["HETATM"] = df.df["HETATM"].loc[
-        #         df.df["HETATM"]["pdbx_PDB_model_num"] == model_index
-        #     ]
-        # if "ANISOU" in df.df.keys():
-        #     df.df["ANISOU"] = df.df["ANISOU"].loc[
-        #         df.df["ANISOU"]["pdbx_PDB_model_num"] == model_index
-        #     ]
         return df

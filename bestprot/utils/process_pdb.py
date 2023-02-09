@@ -179,29 +179,34 @@ def _get_structure_file(pdb_id, biounit, bucket, tmp_folder, folders, load_live=
     Download the file from S3 and return the local path where it was saved
     """
 
-    pdb_file = f"{pdb_id}.pdb{biounit}.gz"
-    cif_file = f"{pdb_id}-assembly{biounit}.cif.gz"
-    PDB_PREFIX = "pub/pdb/data/biounit/PDB/all/"
-    CIF_PREFIX = "pub/pdb/data/biounit/mmCIF/all/"
-    extensions = [".pdb.gz", ".cif.gz"]
+    prefixes = [
+        "pub/pdb/data/biounit/PDB/all/", 
+        "pub/pdb/data/biounit/mmCIF/all/", 
+        "pub/pdb/data/assemblies/mmCIF/all/",
+    ]
+    types = ["pdb", "cif", "cif"]
+    filenames = {
+        "cif": f"{pdb_id}-assembly{biounit}.cif.gz",
+        "pdb": f"{pdb_id}.pdb{biounit}.gz"
+    }
     for (
         folder
     ) in (
         folders
-    ):  # go over earlier database snapshots in case the file is not found
-        filepaths = [folder + PDB_PREFIX + pdb_file, folder + CIF_PREFIX + cif_file]
-        for file, extension in zip(filepaths, extensions):
-            local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + extension
+    ):
+        for prefix, t in zip(prefixes, types):
+            file = folder + prefix + filenames[t]
+            local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + f'.{t}.gz'
             try:
                 bucket.download_file(file, local_path)
                 return local_path
             except:
                 pass
     if load_live:
-        for file, extension in zip([pdb_file, cif_file], extensions):
-            local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + extension
+        for t in filenames:
+            local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + f'.{t}.gz'
             try:
-                url = f"https://files.rcsb.org/download/{file}"
+                url = f"https://files.rcsb.org/download/{filenames[t]}"
                 response = requests.get(url)
                 open(local_path, "wb").write(response.content)
                 return local_path
@@ -346,12 +351,12 @@ def _open_structure(file_path: str, tmp_folder: str) -> Dict:
     #     out_dict[key] = metadata.get(key)
 
     # retrieve sequences that are relevant for this PDB from the fasta file
-    chains = np.unique(p.df["ATOM"]["chain_id"].values)
+    chains = p.df["ATOM"]["chain_id"].unique()
 
-    if not set(chains).issubset(set(list(seqs_dict.keys()))):
+    if not set([x.split('-')[0] for x in chains]).issubset(set(list(seqs_dict.keys()))):
         raise PDBError("Some chains in the PDB do not appear in the fasta file")
 
-    out_dict["fasta"] = {k: seqs_dict[k] for k in chains}
+    out_dict["fasta"] = {k: seqs_dict[k.split('-')[0]] for k in chains}
 
     for path in [file_path, fasta_path]:
         if os.path.exists(path):
@@ -422,6 +427,11 @@ def _align_structure(
 
         # align fasta and pdb and check criteria)
         pdb_seq = "".join(seq_df[seq_df["chain_id"] == chain]["residue_name"])
+        if "insertion" in chain_crd.columns:
+            chain_crd["residue_number"] = chain_crd.apply(lambda row: f"{row['residue_number']}_{row['insertion']}", axis=1)
+        unique_numbers = chain_crd["residue_number"].unique()
+        if len(unique_numbers) != len(pdb_seq):
+            raise PDBError("Inconsistencies in the biopandas dataframe")
         aligner = PairwiseAligner()
         aligner.match_score = 2
         aligner.mismatch_score = -10
@@ -429,9 +439,7 @@ def _align_structure(
         aligner.extend_gap_score = -0.1
         aligned_seq, fasta_seq = aligner.align(pdb_seq, fasta[chain])[0]
         aligned_seq_arr = np.array(list(aligned_seq))
-        if "-" in fasta_seq:
-            raise PDBError("Incorrect alignment")
-        if "".join([x for x in aligned_seq if x != "-"]) != pdb_seq:
+        if "-" in fasta_seq or "".join([x for x in aligned_seq if x != "-"]) != pdb_seq:
             raise PDBError("Incorrect alignment")
         residue_numbers = np.where(aligned_seq_arr != "-")[0]
         start = residue_numbers.min()
@@ -459,15 +467,13 @@ def _align_structure(
             try:
                 return order.index(atom)
             except:
-                return np.nan
+                raise PDBError(f"Unexpected atoms ({atom})")
 
         indices = chain_crd.apply(arr_index, axis=1)
-        if not (~indices.isna()).all():
-            raise PDBError("Unexpected atoms")
         indices = indices.astype(int)
         informative_mask = (indices != -1)
-        res_indices = np.array(range(len(aligned_seq)))[aligned_seq_arr != "-"]
-        replace_dict = {x: y for x, y in zip(chain_crd["residue_number"].unique(), res_indices)}
+        res_indices = np.where(aligned_seq_arr != "-")[0]
+        replace_dict = {x: y for x, y in zip(unique_numbers, res_indices)}
         chain_crd["residue_number"].replace(replace_dict, inplace=True)
         crd_arr[chain_crd[informative_mask]["residue_number"], indices[informative_mask]] = chain_crd[informative_mask][["x_coord", "y_coord", "z_coord"]]
 

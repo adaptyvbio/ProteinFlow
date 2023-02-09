@@ -1,5 +1,43 @@
+from bestprot import check_download_tags, check_pdb_snapshots, download_data, generate_data, split_data
 import click
-from bestprot import generate_data
+
+@click.group(help="A data processing pipeline for protein design ML tasks")
+def cli():
+    pass
+
+
+@cli.command("check_tags", help="Print the available options for download tags")
+def check_tags():
+    print("Available tags:")
+    for x in check_download_tags():
+        print(f"    {x}")
+
+
+@cli.command("check_snapshots", help="Print the available options for PDB snapshots")
+def check_snapshots():
+    print("Available snapshots:")
+    for x in check_pdb_snapshots():
+        print(f"    {x}")
+
+
+@click.option(
+    "--tag",
+    default="test",
+    help="The name of the dataset",
+)
+@click.option(
+    "--local_datasets_folder",
+    default="./data",
+    help="The folder where bestprot datasets, temporary files and logs will be stored"
+)
+@click.option(
+    "--skip_splitting",
+    is_flag=True,
+    help="Use this flag to skip splitting the data"
+)
+@cli.command("download", help="Download an existing BestProt dataset")
+def download(**kwargs):
+    download_data(**kwargs)
 
 
 @click.option(
@@ -90,10 +128,47 @@ from bestprot import generate_data
     is_flag=True,
     help="Load the files that are not in the latest PDB snapshot from the PDB FTP server (disregarded if pdb_snapshot is not none)"
 )
-@click.command(help="Generate a new BestProt dataset")
-def main(**kwargs):
+@cli.command("generate", help="Generate a new BestProt dataset")
+def generate(**kwargs):
     generate_data(**kwargs)
 
 
+@click.option(
+    "--tag",
+    help="The name of the dataset",
+)
+@click.option(
+    "--local_datasets_folder",
+    default="./data",
+    help="The folder where bestprot datasets, temporary files and logs will be stored"
+)
+@click.option(
+    "--ignore_existing",
+    is_flag=True,
+    help="Unless this flag is used, bestprot will not overwrite existing split dictionaries for this tag and will load them instead"
+)
+@click.option(
+    "--valid_split",
+    default=0.05,
+    type=float,
+    help="The percentage of chains to put in the validation set (default 5%)",
+)
+@click.option(
+    "--test_split",
+    default=0.05,
+    type=float,
+    help="The percentage of chains to put in the test set (default 5%)",
+)
+@click.option(
+    "--split_tolerance",
+    default=0.2,
+    type=float,
+    help="The tolerance on the split ratio (default 20%)",
+)
+@cli.command("split", help="Split an existing BestProt dataset into training, validation and test subset according to MMseqs clustering and homomer/heteromer/single chain proportions")
+def split(**kwargs):
+    split_data(**kwargs)
+
+
 if __name__ == "__main__":
-    main()
+    cli()

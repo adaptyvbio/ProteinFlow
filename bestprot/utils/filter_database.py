@@ -49,7 +49,7 @@ def _check_biounits(biounits_list, threshold):
     Return the indexes of the redundant biounits within the list of files given by `biounits_list`
     """
 
-    biounits = [_open_pdb(b) for b in biounits_list]
+    biounits = [_open_pdb(b) for b in sorted(biounits_list)]
     indexes = []
 
     for k, b1 in enumerate(biounits):

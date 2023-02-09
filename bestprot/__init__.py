@@ -1,6 +1,7 @@
 __pdoc__ = {"utils": False, "scripts": False}
 __docformat__ = "numpy"
 
+
 from bestprot.utils.filter_database import _remove_database_redundancies
 from bestprot.utils.process_pdb import (
     _align_structure,
@@ -357,6 +358,7 @@ def _run_processing(
     while os.path.exists(os.path.join(log_folder, f"log_{i}.txt")):
         i += 1
     LOG_FILE = os.path.join(log_folder, f"log_{i}.txt")
+    print(f'Log file: {LOG_FILE} \n')
     now = datetime.now()  # current date and time
     date_time = now.strftime("%m/%d/%Y, %H:%M:%S") + "\n\n"
     with open(LOG_FILE, "a") as f:
@@ -448,9 +450,7 @@ def _run_processing(
             else:
                 _log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER)
 
-    # process_f("1a1q-3", show_error=True, force=force)
-    assert len(pdb_ids) == len(set(pdb_ids))
-
+    # process_f("1a14-1", show_error=True, force=force)
     _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), pdb_ids)
 
     stats = get_error_summary(LOG_FILE, verbose=False)
@@ -1396,6 +1396,24 @@ def get_error_summary(log_file, verbose=True):
             print(f"{key}: {len(stats[key])}")
     return stats
 
+def check_pdb_snapshots():
+    """
+    Get a list of PDB snapshots available for downloading
+
+    Returns
+    -------
+    snapshots : list
+        a list of snapshot names
+    """
+
+    folders = _s3list(
+        boto3.resource("s3").Bucket("pdbsnapshots"),
+        "",
+        recursive=False,
+        list_objs=False,
+    )
+    return [x.key.strip("/") for x in folders]
+
 def check_download_tags():
     """
     Get a list of tags available for downloading
@@ -1416,7 +1434,6 @@ def check_download_tags():
     for folder in folders:
         folder = folder.key
         if not folder.startswith("bestprot_"):
-            print('continue')
             continue
         tag = folder[len("bestprot_"):]
         if tag.endswith("_splits_dict/"):
