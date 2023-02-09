@@ -3,8 +3,8 @@ stages:
 
 pytest:
   stage: test
-  # only:
-  #   - merge_requests
+  only:
+    - merge_requests
   image: 
     name: continuumio/miniconda3:latest
   before_script:
