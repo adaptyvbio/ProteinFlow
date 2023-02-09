@@ -51,7 +51,12 @@ zeros to missing values,</li>
 <p>Once your data is ready, you can use our <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset">ProteinDataset</a></code> or <code><a title="bestprot.ProteinLoader" href="#bestprot.ProteinLoader">ProteinLoader</a></code> (wrappers around <code>pytorch</code> data utils classes)
 for convenient processing. </p>
 <pre><code class="language-python">from bestprot import ProteinLoader
-train_loader = ProteinLoader(&quot;./data/bestprot_new/training&quot;, batch_size=8, node_features_type=&quot;chemical+secondary_structure&quot;)
+train_loader = ProteinLoader(
+    &quot;./data/bestprot_new/training&quot;, 
+    clustering_dict_path=&quot;./data/bestprot_new/splits_dict/train.pickle&quot;,
+    batch_size=8, 
+    node_features_type=&quot;chemical+secondary_structure&quot;
+)
 for batch in train_loader:
     ...
 </code></pre>
@@ -100,7 +105,12 @@ Once your data is ready, you can use our `bestprot.ProteinDataset` or `bestprot.
 for convenient processing. 
 ```python
 from bestprot import ProteinLoader
-train_loader = ProteinLoader(&#34;./data/bestprot_new/training&#34;, batch_size=8, node_features_type=&#34;chemical+secondary_structure&#34;)
+train_loader = ProteinLoader(
+    &#34;./data/bestprot_new/training&#34;, 
+    clustering_dict_path=&#34;./data/bestprot_new/splits_dict/train.pickle&#34;,
+    batch_size=8, 
+    node_features_type=&#34;chemical+secondary_structure&#34;
+)
 for batch in train_loader:
     ...
 ```
@@ -2854,4 +2864,4 @@ forced to be in a binding site</dd>
 </footer>
 </body>
 </html>
-<!--Thu Feb  9 17:48:32 UTC 2023 -->
+<!--Thu Feb  9 17:54:09 UTC 2023 -->
