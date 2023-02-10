@@ -1,3 +1,57 @@
+"""
+`bestprot` is a pipeline that loads protein data from PDB, filters it, puts it in a machine readable format and extracts structure and sequence features. 
+
+## Installation
+...
+
+## Usage
+### Downloading pre-computed datasets
+We have run the pipeline and saved the results at an AWS S3 server. You can download the resulting dataset with `bestprot`. Check the output of `bestprot check_tags` for a list of available tags.
+```
+bestprot download --tag 20221110 
+```
+
+### Running the pipeline
+You can also run `bestprot` with your own parameters. Check the output of `bestprot check_snapshots` for a list of available snapshots.
+```
+bestprot generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods
+```
+See the docs (or `bestprot generate --help`) for the full list of parameters.
+
+### Splitting
+By default, both `bestprot generate` and `bestprot download` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `bestprot split` command.
+```
+bestprot split --tag new --valid_split 0.1 --test_split 0
+```
+
+### Loading the data
+The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:
+
+- `'crd_bb'`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),
+- `'crd_sc'`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (check `bestprot.sidechain_order()` for the order of atoms),
+- `'msk'`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and
+    zeros to missing values,
+- `'seq'`: a string of length `L` with residue types.
+
+Once your data is ready, you can use our `bestprot.ProteinDataset` or `bestprot.ProteinLoader` (wrappers around `pytorch` data utils classes)
+for convenient processing. 
+```python
+from bestprot import ProteinLoader
+train_loader = ProteinLoader(
+    "./data/bestprot_new/training", 
+    clustering_dict_path="./data/bestprot_new/splits_dict/train.pickle",
+    batch_size=8, 
+    node_features_type="chemical+secondary_structure"
+)
+for batch in train_loader:
+    ...
+```
+
+## Citation
+See our paper for more details and for citing: ...
+
+"""
+
 __pdoc__ = {"utils": False, "scripts": False}
 __docformat__ = "numpy"
 
@@ -357,7 +411,7 @@ def _run_processing(
     while os.path.exists(os.path.join(log_folder, f"log_{i}.txt")):
         i += 1
     LOG_FILE = os.path.join(log_folder, f"log_{i}.txt")
-    print(f'Log file: {LOG_FILE} \n')
+    print(f"Log file: {LOG_FILE} \n")
     now = datetime.now()  # current date and time
     date_time = now.strftime("%m/%d/%Y, %H:%M:%S") + "\n\n"
     with open(LOG_FILE, "a") as f:
@@ -376,7 +430,9 @@ def _run_processing(
     #     pdb_ids = pdb_ids.or_('rcsb_entry_info.polymer_composition').in_(["protein/NA", "protein/NA/oligosaccharide"])
 
     if RESOLUTION_THR is not None:
-        pdb_ids = pdb_ids.and_("rcsb_entry_info.resolution_combined").__le__(RESOLUTION_THR)
+        pdb_ids = pdb_ids.and_("rcsb_entry_info.resolution_combined").__le__(
+            RESOLUTION_THR
+        )
     if filter_methods:
         pdb_ids = pdb_ids.and_("exptl.method").in_(
             ["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"]
@@ -423,7 +479,7 @@ def _run_processing(
                 biounit,
                 boto3.resource("s3").Bucket("pdbsnapshots"),
                 tmp_folder=TMP_FOLDER,
-                folders=ordered_folders,
+                folders=[ordered_folders[0]],
                 load_live=load_live,
             )
             # parse
@@ -456,9 +512,7 @@ def _run_processing(
     not_found_error = "<<< PDB / mmCIF file downloaded but not found"
     while not_found_error in stats:
         with open(LOG_FILE, "r") as f:
-            lines = [
-                x for x in f.readlines() if not x.startswith(not_found_error)
-            ]
+            lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
         os.remove(LOG_FILE)
         with open(f"{LOG_FILE}_tmp", "a") as f:
             for line in lines:
@@ -467,9 +521,7 @@ def _run_processing(
         stats = get_error_summary(LOG_FILE, verbose=False)
     if os.path.exists(f"{LOG_FILE}_tmp"):
         with open(LOG_FILE, "r") as f:
-            lines = [
-                x for x in f.readlines() if not x.startswith(not_found_error)
-            ]
+            lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
         os.remove(LOG_FILE)
         with open(f"{LOG_FILE}_tmp", "a") as f:
             for line in lines:
@@ -487,9 +539,155 @@ def _run_processing(
 
 class _PadCollate:
     """
-    a variant of collate_fn that pads according to the longest sequence in
+    A variant of `collate_fn` that pads according to the longest sequence in
     a batch of sequences
+
+    If `mask_residues` is `True`, an additional `'masked_res'` key is added to the output. The value is a binary
+    tensor where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated
+    according to the following rules:
+    - if `mask_whole_chains` is `True`, the whole chain is masked
+    - if `mask_frac` is given, the number of residues to mask is `mask_frac` times the length of the chain,
+    - otherwise, the number of residues to mask is sampled uniformly from the range [`lower_limit`, `upper_limit`].
+
+    If `force_binding_sites_frac` > 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
+    from a polymer is sampled, the center of the masked region will be forced to be in a binding site.
     """
+
+    def __init__(
+        self,
+        mask_residues=True,
+        lower_limit=15,
+        upper_limit=100,
+        mask_frac=None,
+        mask_whole_chains=False,
+        force_binding_sites_frac=0.15,
+    ):
+        """
+        Parameters
+        ----------
+        batch : dict
+            a batch generated by `ProteinDataset` and `PadCollate`
+        lower_limit : int, default 15
+            the minimum number of residues to mask
+        upper_limit : int, default 100
+            the maximum number of residues to mask
+        mask_frac : float, optional
+            if given, the `lower_limit` and `upper_limit` are ignored and the number of residues to mask is `mask_frac` times the length of the chain
+        mask_whole_chains : bool, default False
+            if `True`, `upper_limit`, `force_binding_sites` and `lower_limit` are ignored and the whole chain is masked instead
+        force_binding_sites_frac : float, default 0.15
+            if > 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
+            forced to be in a binding site
+
+        Returns
+        -------
+        chain_M : torch.Tensor
+            a `(B, L)` shaped binary tensor where 1 denotes the part that needs to be predicted and
+            0 is everything else
+        """
+
+        super().__init__()
+        self.mask_residues = mask_residues
+        self.lower_limit = lower_limit
+        self.upper_limit = upper_limit
+        self.mask_frac = mask_frac
+        self.mask_whole_chains = mask_whole_chains
+        self.force_binding_sites_frac = force_binding_sites_frac
+
+    def _get_masked_sequence(
+        self,
+        batch,
+    ):
+        """
+        Get the mask for the residues that need to be predicted
+
+        Depending on the parameters the residues are selected as follows:
+        - if `mask_whole_chains` is `True`, the whole chain is masked
+        - if `mask_frac` is given, the number of residues to mask is `mask_frac` times the length of the chain,
+        - otherwise, the number of residues to mask is sampled uniformly from the range [`lower_limit`, `upper_limit`].
+
+        If `force_binding_sites_frac` > 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
+        from a polymer is sampled, the center of the masked region will be forced to be in a binding site.
+
+        Parameters
+        ----------
+        batch : dict
+            a batch generated by `ProteinDataset` and `PadCollate`
+        lower_limit : int, default 15
+            the minimum number of residues to mask
+        upper_limit : int, default 100
+            the maximum number of residues to mask
+        mask_frac : float, optional
+            if given, the `lower_limit` and `upper_limit` are ignored and the number of residues to mask is `mask_frac` times the length of the chain
+        mask_whole_chains : bool, default False
+            if `True`, `upper_limit`, `force_binding_sites` and `lower_limit` are ignored and the whole chain is masked instead
+        force_binding_sites_frac : float, default 0.15
+            if > 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
+            forced to be in a binding site
+
+        Returns
+        -------
+        chain_M : torch.Tensor
+            a `(B, L)` shaped binary tensor where 1 denotes the part that needs to be predicted and
+            0 is everything else
+        """
+
+        chain_M = torch.zeros(batch["S"].shape)
+        for i, coords in enumerate(batch["X"]):
+            chain_index = batch["chain_id"][i]
+            chain_bool = batch["chain_encoding_all"][i] == chain_index
+            if self.mask_whole_chains:
+                chain_M[i, chain_bool] = 1
+            else:
+                chains = torch.unique(batch["chain_encoding_all"][i])
+                chain_start = torch.where(chain_bool)[0][0]
+                chain = coords[chain_bool]
+                res_i = None
+                if len(chains) > 1 and self.force_binding_sites_frac > 0:
+                    if random.uniform(0, 1) < self.force_binding_sites_frac:
+                        intersection_indices = []
+                        for chain_id in chains:
+                            if chain_id == chain_index:
+                                continue
+                            chain_id_bool = batch["chain_encoding_all"][i] == chain_id
+                            chain_min = (
+                                coords[chain_id_bool][:, 2, :].min(0)[0].unsqueeze(0)
+                            )
+                            chain_max = (
+                                coords[chain_id_bool][:, 2, :].max(0)[0].unsqueeze(0)
+                            )
+                            min_mask = (chain[:, 2, :] >= chain_min).sum(-1) == 3
+                            max_mask = (chain[:, 2, :] <= chain_max).sum(-1) == 3
+                            intersection_indices += torch.where(min_mask * max_mask)[
+                                0
+                            ].tolist()
+                        if len(intersection_indices) > 0:
+                            res_i = intersection_indices[
+                                random.randint(0, len(intersection_indices) - 1)
+                            ]
+                if res_i is None:
+                    non_zero = torch.where(batch["mask"][i][chain_bool])[0]
+                    res_i = non_zero[random.randint(0, len(non_zero) - 1)]
+                res_coords = chain[res_i, 2, :]
+                neighbor_indices = torch.where(batch["mask"][i][chain_bool])[0]
+                if self.mask_frac is not None:
+                    assert self.mask_frac > 0 and self.mask_frac < 1
+                    k = int(len(neighbor_indices) * self.mask_frac)
+                    k = max(k, 10)
+                else:
+                    up = min(
+                        self.upper_limit, int(len(neighbor_indices) * 0.5)
+                    )  # do not mask more than half of the sequence
+                    low = min(up - 1, self.lower_limit)
+                    k = random.choice(range(low, up))
+                dist = torch.sum(
+                    (chain[neighbor_indices, 1, :] - res_coords.unsqueeze(0)) ** 2, -1
+                )
+                closest_indices = neighbor_indices[
+                    torch.topk(dist, k, largest=False)[1]
+                ]
+                chain_M[i, closest_indices + chain_start] = 1
+        return chain_M
 
     def pad_collate(self, batch):
         # find longest sequence
@@ -509,6 +707,7 @@ class _PadCollate:
                 0,
             )
         out["chain_id"] = torch.tensor([b["chain_id"] for b in batch])
+        out["masked_res"] = self._get_masked_sequence(out)
         return out
 
     def __call__(self, batch):
@@ -537,6 +736,7 @@ def download_data(tag, local_datasets_folder="./data", skip_splitting=False):
     print(
         "Thanks for downloading BestProt, the most complete, user-friendly and loving protein dataset you will ever find! ;-)"
     )
+
 
 def generate_data(
     tag,
@@ -656,6 +856,7 @@ def generate_data(
         _split_data(output_folder)
     return log_dict
 
+
 def split_data(
     tag,
     local_datasets_folder="./data",
@@ -698,7 +899,9 @@ def split_data(
 
     if os.path.exists(out_split_dict_folder):
         if not ignore_existing:
-            warnings.warn(f"Found an existing dictionary for tag {tag}. BestProt will load it and ignore the parameters! Run with --ignore_existing to overwrite.")
+            warnings.warn(
+                f"Found an existing dictionary for tag {tag}. BestProt will load it and ignore the parameters! Run with --ignore_existing to overwrite."
+            )
             exists = True
     if not exists:
         _get_split_dictionaries(
@@ -751,8 +954,8 @@ class ProteinDataset(Dataset):
         interpolate="none",
         node_features_type="zeros",
         debug_file_path=None,
-        entry_type="biounit", # biounit, chain, pair
-        classes_to_exclude=None, # heteromers, homomers, single_chains
+        entry_type="biounit",  # biounit, chain, pair
+        classes_to_exclude=None,  # heteromers, homomers, single_chains
     ):
         """
         Parameters
@@ -780,7 +983,7 @@ class ProteinDataset(Dataset):
         debug_file_path : str, optional
             if not `None`, open this single file instead of loading the dataset
         entry_type : {"biounit", "chain", "pair"}
-            the type of entries to generate (`"biounit"` for biounit-level complexes, `"chain"` for chain-level, `"pair"` 
+            the type of entries to generate (`"biounit"` for biounit-level complexes, `"chain"` for chain-level, `"pair"`
             for chain-chain pairs (all pairs that are seen in the same biounit))
         classes_to_exclude : list of str, optional
             a list of classes to exclude from the dataset (select from `"single_chains"`, `"heteromers"`, `"homomers"`)
@@ -823,7 +1026,9 @@ class ProteinDataset(Dataset):
         if debug:
             to_process = to_process[:1000]
         # output_tuples = [self._process(x, rewrite=rewrite) for x in tqdm(to_process)]
-        output_tuples_list = p_map(lambda x: self._process(x, rewrite=rewrite), to_process)
+        output_tuples_list = p_map(
+            lambda x: self._process(x, rewrite=rewrite), to_process
+        )
         # save the file names
         for output_tuples in output_tuples_list:
             for id, filename, chain_set in output_tuples:
@@ -873,7 +1078,8 @@ class ProteinDataset(Dataset):
                 self.clusters[key] = [
                     [x[0].split(".")[0], x[1]]
                     for x in self.clusters[key]
-                    if x[0].split(".")[0] in self.files and x[0].split(".")[0] not in to_exclude
+                    if x[0].split(".")[0] in self.files
+                    and x[0].split(".")[0] not in to_exclude
                 ]
                 if len(self.clusters[key]) == 0:
                     self.clusters.pop(key)
@@ -1008,7 +1214,7 @@ class ProteinDataset(Dataset):
             else:
                 S_mask = S == i
                 orientation[S_mask] = np.random.rand(*orientation[S_mask].shape)
-        orientation /= (np.expand_dims(linalg.norm(orientation, axis=-1), -1) + 1e-7)
+        orientation /= np.expand_dims(linalg.norm(orientation, axis=-1), -1) + 1e-7
         return orientation
 
     def _chemical(self, seq):
@@ -1040,7 +1246,7 @@ class ProteinDataset(Dataset):
             with open(input_file, "rb") as f:
                 data = pickle.load(f)
         except:
-            print(f'{input_file=}')
+            print(f"{input_file=}")
         chains = sorted(data.keys())
         if self.entry_type == "biounit":
             chain_sets = [chains]
@@ -1049,16 +1255,16 @@ class ProteinDataset(Dataset):
         elif self.entry_type == "pair":
             chain_sets = list(combinations(chains, 2))
         else:
-            raise RuntimeError("Unknown entry type, please choose from ['biounit', 'chain', 'pair']")
+            raise RuntimeError(
+                "Unknown entry type, please choose from ['biounit', 'chain', 'pair']"
+            )
         output_names = []
         for chains_i, chain_set in enumerate(chain_sets):
-            output_file = os.path.join(self.features_folder, no_extension_name + f"_{chains_i}.pickle")
+            output_file = os.path.join(
+                self.features_folder, no_extension_name + f"_{chains_i}.pickle"
+            )
             output_names.append(
-                (
-                    os.path.basename(no_extension_name),
-                    output_file,
-                    chain_set
-                )
+                (os.path.basename(no_extension_name), output_file, chain_set)
             )
             if os.path.exists(output_file) and not rewrite:
                 continue
@@ -1089,11 +1295,15 @@ class ProteinDataset(Dataset):
                 if "dihedral" in self.feature_types:
                     node_features["dihedral"].append(self._dihedral(crd_i, mask_i))
                 if "sidechain_orientation" in self.feature_types:
-                    node_features["sidechain_orientation"].append(self._sidechain(data[chain]["crd_sc"], crd_i, seq))
+                    node_features["sidechain_orientation"].append(
+                        self._sidechain(data[chain]["crd_sc"], crd_i, seq)
+                    )
                 if "chemical" in self.feature_types:
                     node_features["chemical"].append(self._chemical(data[chain]["seq"]))
                 if "secondary_structure" in self.feature_types:
-                    node_features["secondary_structure"].append(self._sse(data[chain]["crd_bb"]))
+                    node_features["secondary_structure"].append(
+                        self._sse(data[chain]["crd_bb"])
+                    )
 
             out = {}
             out["X"] = torch.from_numpy(np.concatenate(X, 0))
@@ -1140,8 +1350,18 @@ class ProteinLoader(DataLoader):
     """
     A subclass of `torch.data.utils.DataLoader` tuned for the BestProt dataset
 
-    Creates and iterates over an instance of `ProteinDataset`, omitting the `'chain_dict'` keys. 
+    Creates and iterates over an instance of `ProteinDataset`, omitting the `'chain_dict'` keys.
     See the `ProteinDataset` docs for more information.
+
+    If `mask_residues` is `True`, an additional `'masked_res'` key is added to the output. The value is a binary
+    tensor shaped `(B, L)` where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated
+    according to the following rules:
+    - if `mask_whole_chains` is `True`, the whole chain is masked
+    - if `mask_frac` is given, the number of residues to mask is `mask_frac` times the length of the chain,
+    - otherwise, the number of residues to mask is sampled uniformly from the range [`lower_limit`, `upper_limit`].
+
+    If `force_binding_sites_frac` > 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
+    from a polymer is sampled, the center of the masked region will be forced to be in a binding site.
     """
 
     def __init__(
@@ -1157,8 +1377,14 @@ class ProteinLoader(DataLoader):
         interpolate="none",
         node_features_type="zeros",
         batch_size=4,
-        entry_type="biounit", # biounit, chain, pair
+        entry_type="biounit",  # biounit, chain, pair
         classes_to_exclude=None,
+        lower_limit=15,
+        upper_limit=100,
+        mask_residues=True,
+        mask_whole_chains=False,
+        mask_frac=None,
+        force_binding_sites_frac=0.15,
     ) -> None:
         """
         Parameters
@@ -1189,6 +1415,17 @@ class ProteinLoader(DataLoader):
             the type of entries to generate (`"biounit"` for biounit-level, `"chain"` for chain-level, `"pair"` for chain-chain pairs)
         classes_to_exclude : list of str, optional
             a list of classes to exclude from the dataset (select from `"single_chains"`, `"heteromers"`, `"homomers"`)
+        lower_limit : int, default 15
+            the minimum number of residues to mask
+        upper_limit : int, default 100
+            the maximum number of residues to mask
+        mask_frac : float, optional
+            if given, the `lower_limit` and `upper_limit` are ignored and the number of residues to mask is `mask_frac` times the length of the chain
+        mask_whole_chains : bool, default False
+            if `True`, `upper_limit`, `force_binding_sites` and `lower_limit` are ignored and the whole chain is masked instead
+        force_binding_sites_frac : float, default 0.15
+            if > 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
+            forced to be in a binding site
         """
 
         dataset = ProteinDataset(
@@ -1205,7 +1442,18 @@ class ProteinLoader(DataLoader):
             entry_type=entry_type,
             classes_to_exclude=classes_to_exclude,
         )
-        super().__init__(dataset, collate_fn=_PadCollate(), batch_size=batch_size)
+        super().__init__(
+            dataset, 
+            collate_fn=_PadCollate(
+                mask_residues=mask_residues,
+                mask_whole_chains=mask_whole_chains,
+                mask_frac=mask_frac,
+                lower_limit=lower_limit,
+                upper_limit=upper_limit,
+                force_binding_sites_frac=force_binding_sites_frac,
+            ), 
+            batch_size=batch_size
+        )
 
 
 def sidechain_order():
@@ -1251,6 +1499,7 @@ def get_error_summary(log_file, verbose=True):
         print(f"Total errors: {sum([len(x) for x in stats.values()])}")
     return stats
 
+
 def check_pdb_snapshots():
     """
     Get a list of PDB snapshots available for downloading
@@ -1268,6 +1517,7 @@ def check_pdb_snapshots():
         list_objs=False,
     )
     return [x.key.strip("/") for x in folders]
+
 
 def check_download_tags():
     """
@@ -1290,9 +1540,9 @@ def check_download_tags():
         folder = folder.key
         if not folder.startswith("bestprot_"):
             continue
-        tag = folder[len("bestprot_"):]
+        tag = folder[len("bestprot_") :]
         if tag.endswith("_splits_dict/"):
-            tag = tag[: - len("_splits_dict/")]
+            tag = tag[: -len("_splits_dict/")]
         else:
             tag = tag.strip("/")
         tags_dict[tag].append(folder)

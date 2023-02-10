@@ -1,5 +1,12 @@
-from bestprot import check_download_tags, check_pdb_snapshots, download_data, generate_data, split_data
+from bestprot import (
+    check_download_tags,
+    check_pdb_snapshots,
+    download_data,
+    generate_data,
+    split_data,
+)
 import click
+
 
 @click.group(help="A data processing pipeline for protein design ML tasks")
 def cli():
@@ -28,12 +35,10 @@ def check_snapshots():
 @click.option(
     "--local_datasets_folder",
     default="./data",
-    help="The folder where bestprot datasets, temporary files and logs will be stored"
+    help="The folder where bestprot datasets, temporary files and logs will be stored",
 )
 @click.option(
-    "--skip_splitting",
-    is_flag=True,
-    help="Use this flag to skip splitting the data"
+    "--skip_splitting", is_flag=True, help="Use this flag to skip splitting the data"
 )
 @cli.command("download", help="Download an existing BestProt dataset")
 def download(**kwargs):
@@ -47,7 +52,7 @@ def download(**kwargs):
 @click.option(
     "--local_datasets_folder",
     default="./data",
-    help="The folder where bestprot datasets, temporary files and logs will be stored"
+    help="The folder where bestprot datasets, temporary files and logs will be stored",
 )
 @click.option(
     "--min_length",
@@ -119,14 +124,12 @@ def download(**kwargs):
     help="The pdb snapshot folder to load",
 )
 @click.option(
-    "--skip_splitting",
-    is_flag=True,
-    help="Use this flag to skip splitting the data"
+    "--skip_splitting", is_flag=True, help="Use this flag to skip splitting the data"
 )
 @click.option(
     "--load_live",
     is_flag=True,
-    help="Load the files that are not in the latest PDB snapshot from the PDB FTP server (disregarded if pdb_snapshot is not none)"
+    help="Load the files that are not in the latest PDB snapshot from the PDB FTP server (disregarded if pdb_snapshot is not none)",
 )
 @cli.command("generate", help="Generate a new BestProt dataset")
 def generate(**kwargs):
@@ -140,12 +143,12 @@ def generate(**kwargs):
 @click.option(
     "--local_datasets_folder",
     default="./data",
-    help="The folder where bestprot datasets, temporary files and logs will be stored"
+    help="The folder where bestprot datasets, temporary files and logs will be stored",
 )
 @click.option(
     "--ignore_existing",
     is_flag=True,
-    help="Unless this flag is used, bestprot will not overwrite existing split dictionaries for this tag and will load them instead"
+    help="Unless this flag is used, bestprot will not overwrite existing split dictionaries for this tag and will load them instead",
 )
 @click.option(
     "--valid_split",
@@ -165,7 +168,10 @@ def generate(**kwargs):
     type=float,
     help="The tolerance on the split ratio (default 20%)",
 )
-@cli.command("split", help="Split an existing BestProt dataset into training, validation and test subset according to MMseqs clustering and homomer/heteromer/single chain proportions")
+@cli.command(
+    "split",
+    help="Split an existing BestProt dataset into training, validation and test subset according to MMseqs clustering and homomer/heteromer/single chain proportions",
+)
 def split(**kwargs):
     split_data(**kwargs)
 

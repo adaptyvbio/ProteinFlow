@@ -35,7 +35,6 @@ def _merge_chains(seqs_dict_):
     pdbs_to_delete = []
 
     for pdb in tqdm(seqs_dict.keys()):
-
         if seqs_dict[pdb] == []:
             pdbs_to_delete.append(pdb)
             continue
@@ -44,7 +43,6 @@ def _merge_chains(seqs_dict_):
         groups, ref_seqs, indexes = [], [], []
 
         for k in range(len(seqs_dict[pdb])):
-
             if k in indexes:
                 continue
             group = [seqs_dict[pdb][k][0]]
@@ -103,7 +101,6 @@ def _write_fasta(fasta_path, merged_seqs_dict):
     """
 
     with open(fasta_path, "w") as f:
-
         for k in merged_seqs_dict.keys():
             for chain, seq in merged_seqs_dict[k]:
                 f.write(">" + k + "_" + chain + "\n")
@@ -139,7 +136,6 @@ def _read_clusters(cluster_file_fasta):
     """
 
     with open(cluster_file_fasta, "r") as f:
-
         cluster_dict = defaultdict(lambda: [])
         cluster_pdb_dict = defaultdict(lambda: [])
         cluster_name, sequence_name = None, None
@@ -255,7 +251,6 @@ def _divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
     all_pdb_files = np.array([f[:4] for f in all_files])
 
     for pdb in tqdm(pdb_seqs_dict.keys()):
-
         file_names = all_files[all_pdb_files == pdb]
         if type(file_names) == str:
             file_names = [file_names]
@@ -268,7 +263,6 @@ def _divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
                 homomers.append((file_names[0], chain))
 
         elif len(seqs) == 1:
-
             correspondances = _find_correspondances(file_names, dataset_dir)
             for biounit in correspondances.keys():
                 if len(correspondances[biounit]) == 1:
@@ -278,7 +272,6 @@ def _divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
                         homomers.append((biounit, chain))
 
         else:
-
             correspondances = _find_correspondances(file_names, dataset_dir)
             for biounit in correspondances.keys():
                 if len(correspondances[biounit]) == 1:
@@ -319,7 +312,7 @@ def _find_chains_in_graph(
                 for pdb, chain in split_chains
             ]
         )
-        
+
         res_dict[node] = biounits_chains
 
     return res_dict
@@ -341,7 +334,6 @@ def _find_repartition(chains_dict, homomers, heteromers):
     n_single_chains, n_homomers, n_heteromers = 0, 0, 0
 
     for node in chains_dict.keys():
-
         for k, chain in enumerate(chains_dict[node]):
             if tuple(chain) in homomers:
                 classes_dict["homomers"][node].append(chain)
@@ -418,7 +410,6 @@ def _construct_dataset(dict_list, size_array, indices):
     dataset_classes_dict = {"single_chains": {}, "homomers": {}, "heteromers": {}}
     single_chains_size, homomers_size, heteromers_size = 0, 0, 0
     for k in indices:
-
         chains_dict, classes_dict = dict_list[k]
         n_single_chains, n_homomers, n_heteromers = size_array[k]
         single_chains_size += n_single_chains
@@ -457,7 +448,6 @@ def _remove_elements_from_dataset(
     sorted_sizes_indices = np.argsort(sizes)[::-1]
 
     while current_sizes[chain_class] > size_obj and len(sorted_sizes_indices) > 0:
-
         if (
             current_sizes[chain_class]
             - size_array[indices[sorted_sizes_indices[0]], chain_class]
@@ -486,11 +476,15 @@ def _check_mmseqs():
     Raise an error if MMseqs2 is not installed
     """
 
-    devnull = open(os.devnull,"w")
-    retval = subprocess.call(["mmseqs", "--help"],stdout=devnull,stderr=subprocess.STDOUT)
+    devnull = open(os.devnull, "w")
+    retval = subprocess.call(
+        ["mmseqs", "--help"], stdout=devnull, stderr=subprocess.STDOUT
+    )
     devnull.close()
     if retval != 0:
-        raise RuntimeError("Please install the MMseqs2 library following the instructions at https://github.com/soedinglab/MMseqs2 (recommended: conda)")
+        raise RuntimeError(
+            "Please install the MMseqs2 library following the instructions at https://github.com/soedinglab/MMseqs2 (recommended: conda)"
+        )
 
 
 def _add_elements_to_dataset(
@@ -520,7 +514,9 @@ def _add_elements_to_dataset(
             sorted_sizes_indices = sorted_sizes_indices[1:]
             continue
 
-        current_sizes += size_array[remaining_indices[sorted_sizes_indices[0]]].astype(int)
+        current_sizes += size_array[remaining_indices[sorted_sizes_indices[0]]].astype(
+            int
+        )
         indices.append(remaining_indices[sorted_sizes_indices[0]])
         remaining_indices.pop(sorted_sizes_indices[0])
         sizes = [s[chain_class] for s in size_array[remaining_indices]]
@@ -711,12 +707,11 @@ def _fill_dataset(
     single_chains_size, homomers_size, heteromers_size = 0, 0, 0
     sc_available, hm_available, ht_available = test_availability(
         size_array, n_samples
-    ) # rule of thumb to estimate if it is logical to try to fill the dataset with a given class
+    )  # rule of thumb to estimate if it is logical to try to fill the dataset with a given class
     distribution_satisfied = False
     n_iter = 0
 
     while not distribution_satisfied and n_iter < n_max_iter:
-
         n_iter += 1
         indices = rd.sample(remaining_indices, n_samples)
         (
@@ -728,13 +723,15 @@ def _fill_dataset(
         ) = _construct_dataset(dict_list, size_array, indices)
         distribution_satisfied = (
             (single_chains_size > (1 - tolerance) * n_single_chains or not sc_available)
-            and (single_chains_size < (1 + tolerance) * n_single_chains or not sc_available)
+            and (
+                single_chains_size < (1 + tolerance) * n_single_chains
+                or not sc_available
+            )
             and (homomers_size > (1 - tolerance) * n_homomers or not hm_available)
             and (homomers_size < (1 + tolerance) * n_homomers or not hm_available)
             and (heteromers_size > (1 - tolerance) * n_heteromers or not ht_available)
             and (heteromers_size < (1 + tolerance) * n_heteromers or not ht_available)
         )
-    
 
     if not distribution_satisfied:
         (
@@ -874,7 +871,9 @@ def _split_dataset(
     n_single_chains_test, n_homomers_test, n_heteromers_test = test_split * np.array(
         [n_single_chains, n_homomers, n_heteromers]
     )
-    n_samples_valid, n_samples_test = int(valid_split * len(subgraphs)), int(test_split * len(subgraphs))
+    n_samples_valid, n_samples_test = int(valid_split * len(subgraphs)), int(
+        test_split * len(subgraphs)
+    )
 
     (
         valid_clusters_dict,
@@ -1041,4 +1040,3 @@ def _build_dataset_partition(
         test_clusters_dict,
         test_classes_dict,
     )
-

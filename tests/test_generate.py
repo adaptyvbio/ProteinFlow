@@ -20,11 +20,11 @@ def get_class(seqs_dict):
         if (
             len(seq) > 1.1 * len(ref_seq)
             or len(seq) < 0.9 * len(ref_seq)
-            or editdistance.eval(seq, ref_seq) / max(len(seq), len(ref_seq))
-            > 0.1
+            or editdistance.eval(seq, ref_seq) / max(len(seq), len(ref_seq)) > 0.1
         ):
             return "heteromers"
     return "homomers"
+
 
 # @pytest.mark.skip()
 def test_generate():
@@ -60,5 +60,6 @@ def test_generate():
             assert classes[c] == len(class_files)
     assert num_files == num_files_split
     shutil.rmtree(folder)
-    
+
+
 # test_generate()

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <title>bestprot API documentation</title>
-<meta name="description" content="BestProt is a very cool library …" />
+<meta name="description" content="`bestprot` is a pipeline that loads protein data from PDB, filters it, puts it in a machine readable format and extracts structure and sequence …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,28 +22,102 @@
 <h1 class="title">Package <code>bestprot</code></h1>
 </header>
 <section id="section-intro">
-<p>BestProt is a very cool library.</p>
-<h2 id="processing-pipeline">Processing pipeline</h2>
+<p><code><a title="bestprot" href="#bestprot">bestprot</a></code> is a pipeline that loads protein data from PDB, filters it, puts it in a machine readable format and extracts structure and sequence features. </p>
+<h2 id="installation">Installation</h2>
 <p>&hellip;</p>
-<h2 id="pre-computed-data">Pre-computed data</h2>
-<p>&hellip;</p>
-<h2 id="handling-data">Handling data</h2>
-<p>&hellip;</p>
+<h2 id="usage">Usage</h2>
+<h3 id="downloading-pre-computed-datasets">Downloading pre-computed datasets</h3>
+<p>We have run the pipeline and saved the results at an AWS S3 server. You can download the resulting dataset with <code><a title="bestprot" href="#bestprot">bestprot</a></code>. Check the output of <code><a title="bestprot" href="#bestprot">bestprot</a> check_tags</code> for a list of available tags.</p>
+<pre><code>bestprot download --tag 20221110 
+</code></pre>
+<h3 id="running-the-pipeline">Running the pipeline</h3>
+<p>You can also run <code><a title="bestprot" href="#bestprot">bestprot</a></code> with your own parameters. Check the output of <code><a title="bestprot" href="#bestprot">bestprot</a> check_snapshots</code> for a list of available snapshots.</p>
+<pre><code>bestprot generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods
+</code></pre>
+<p>See the docs (or <code>bestprot generate --help</code>) for the full list of parameters.</p>
+<h3 id="splitting">Splitting</h3>
+<p>By default, both <code><a title="bestprot" href="#bestprot">bestprot</a> generate</code> and <code><a title="bestprot" href="#bestprot">bestprot</a> download</code> will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a <code>--skip_splitting</code> flag and then perform it separately with the <code><a title="bestprot" href="#bestprot">bestprot</a> split</code> command.</p>
+<pre><code>bestprot split --tag new --valid_split 0.1 --test_split 0
+</code></pre>
+<h3 id="loading-the-data">Loading the data</h3>
+<p>The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:</p>
+<ul>
+<li><code>'crd_bb'</code>: a <code>numpy</code> array of shape <code>(L, 4, 3)</code> with backbone atom coordinates (N, C, CA, O),</li>
+<li><code>'crd_sc'</code>: a <code>numpy</code> array of shape <code>(L, 10, 3)</code> with sidechain atom coordinates (check <code><a title="bestprot.sidechain_order" href="#bestprot.sidechain_order">sidechain_order()</a></code> for the order of atoms),</li>
+<li><code>'msk'</code>: a <code>numpy</code> array of shape <code>(L,)</code> where ones correspond to residues with known coordinates and
+zeros to missing values,</li>
+<li><code>'seq'</code>: a string of length <code>L</code> with residue types.</li>
+</ul>
+<p>Once your data is ready, you can use our <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset">ProteinDataset</a></code> or <code><a title="bestprot.ProteinLoader" href="#bestprot.ProteinLoader">ProteinLoader</a></code> (wrappers around <code>pytorch</code> data utils classes)
+for convenient processing. </p>
+<pre><code class="language-python">from bestprot import ProteinLoader
+train_loader = ProteinLoader(
+    &quot;./data/bestprot_new/training&quot;, 
+    clustering_dict_path=&quot;./data/bestprot_new/splits_dict/train.pickle&quot;,
+    batch_size=8, 
+    node_features_type=&quot;chemical+secondary_structure&quot;
+)
+for batch in train_loader:
+    ...
+</code></pre>
+<h2 id="citation">Citation</h2>
+<p>See our paper for more details and for citing: &hellip;</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;
-BestProt is a very cool library.
+`bestprot` is a pipeline that loads protein data from PDB, filters it, puts it in a machine readable format and extracts structure and sequence features. 
 
-## Processing pipeline
+## Installation
 ...
 
-## Pre-computed data
-...
+## Usage
+### Downloading pre-computed datasets
+We have run the pipeline and saved the results at an AWS S3 server. You can download the resulting dataset with `bestprot`. Check the output of `bestprot check_tags` for a list of available tags.
+```
+bestprot download --tag 20221110 
+```
 
-## Handling data
-...
+### Running the pipeline
+You can also run `bestprot` with your own parameters. Check the output of `bestprot check_snapshots` for a list of available snapshots.
+```
+bestprot generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods
+```
+See the docs (or `bestprot generate --help`) for the full list of parameters.
+
+### Splitting
+By default, both `bestprot generate` and `bestprot download` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `bestprot split` command.
+```
+bestprot split --tag new --valid_split 0.1 --test_split 0
+```
+
+### Loading the data
+The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:
+
+- `&#39;crd_bb&#39;`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),
+- `&#39;crd_sc&#39;`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (check `bestprot.sidechain_order()` for the order of atoms),
+- `&#39;msk&#39;`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and
+    zeros to missing values,
+- `&#39;seq&#39;`: a string of length `L` with residue types.
+
+Once your data is ready, you can use our `bestprot.ProteinDataset` or `bestprot.ProteinLoader` (wrappers around `pytorch` data utils classes)
+for convenient processing. 
+```python
+from bestprot import ProteinLoader
+train_loader = ProteinLoader(
+    &#34;./data/bestprot_new/training&#34;, 
+    clustering_dict_path=&#34;./data/bestprot_new/splits_dict/train.pickle&#34;,
+    batch_size=8, 
+    node_features_type=&#34;chemical+secondary_structure&#34;
+)
+for batch in train_loader:
+    ...
+```
+
+## Citation
+See our paper for more details and for citing: ...
+
 &#34;&#34;&#34;
 
 __pdoc__ = {&#34;utils&#34;: False, &#34;scripts&#34;: False}
@@ -51,16 +125,18 @@ __docformat__ = &#34;numpy&#34;
 
 from bestprot.utils.filter_database import _remove_database_redundancies
 from bestprot.utils.process_pdb import (
-    _align_pdb,
-    _open_pdb,
+    _align_structure,
+    _open_structure,
     PDBError,
-    _get_pdb_file,
+    _get_structure_file,
     _s3list,
     SIDECHAIN_ORDER,
 )
 from bestprot.utils.cluster_and_partition import _build_dataset_partition, _check_mmseqs
 from bestprot.utils.split_dataset import _download_dataset, _split_data
+from bestprot.utils.biotite_sse import _annotate_sse
 
+import traceback
 import warnings
 import os
 import pickle
@@ -80,8 +156,8 @@ from tqdm import tqdm
 from copy import deepcopy
 import pandas as pd
 from numpy import linalg
-from einops import rearrange
 import boto3
+from itertools import combinations
 
 
 MAIN_ATOMS = {
@@ -231,7 +307,7 @@ def _log_exception(exception, log_file, pdb_id, tmp_folder):
     else:
         with open(log_file, &#34;a&#34;) as f:
             f.write(f&#34;&lt;&lt;&lt; Unknown: {pdb_id} \n&#34;)
-            f.write(str(exception))
+            f.write(traceback.format_exc())
             f.write(&#34;\n&#34;)
 
 
@@ -314,6 +390,7 @@ def _run_processing(
     force=False,
     tag=None,
     pdb_snapshot=None,
+    load_live=False,
 ):
     &#34;&#34;&#34;
     Download and parse PDB files that meet filtering criteria
@@ -350,7 +427,7 @@ def _run_processing(
     filter_methods : bool, default True
         If `True`, only files obtained with X-ray or EM will be processed
     remove_redundancies : bool, default False
-        If &#39;True&#39;, removes biounits that are doubles of others sequence wise
+        If `True`, removes biounits that are doubles of others sequence wise
     seq_identity_threshold : float, default 0.9
         The threshold upon which sequences are considered as one and the same (default: 90%)
     n : int, default None
@@ -366,11 +443,13 @@ def _run_processing(
     valid_split : float, default 0.05
         The percentage of chains to put in the validation set (default 5%)
     out_split_dict_folder : str, default &#34;./data/dataset_splits_dict&#34;
-        The folder where the dictionaries containing the train/validation/test splits information will be saved&#34;
+        The folder where the dictionaries containing the train/validation/test splits information will be saved
     tag : str, optional
         A tag to add to the log file
     pdb_snapshot : str, optional
-        the PDB snapshot to use
+        the PDB snapshot to use, by default the latest is used
+    load_live : bool, default False
+        if `True`, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to `False` if `pdb_snapshot` is not `None`)
 
     Returns
     -------
@@ -380,7 +459,6 @@ def _run_processing(
 
     TMP_FOLDER = tmp_folder
     OUTPUT_FOLDER = output_folder
-    PDB_PREFIX = &#34;pub/pdb/data/biounit/PDB/all/&#34;
     MIN_LENGTH = min_length
     MAX_LENGTH = max_length
     RESOLUTION_THR = resolution_thr
@@ -394,18 +472,22 @@ def _run_processing(
     if not os.path.exists(log_folder):
         os.mkdir(log_folder)
 
+    if pdb_snapshot is not None:
+        load_live = False
+
     i = 0
     while os.path.exists(os.path.join(log_folder, f&#34;log_{i}.txt&#34;)):
         i += 1
     LOG_FILE = os.path.join(log_folder, f&#34;log_{i}.txt&#34;)
+    print(f&#34;Log file: {LOG_FILE} \n&#34;)
     now = datetime.now()  # current date and time
     date_time = now.strftime(&#34;%m/%d/%Y, %H:%M:%S&#34;) + &#34;\n\n&#34;
     with open(LOG_FILE, &#34;a&#34;) as f:
         f.write(date_time)
         if tag is not None:
-            f.write(f&#34;tag: {tag}&#34;)
+            f.write(f&#34;tag: {tag} \n\n&#34;)
 
-    # get filtered PDB ids fro PDB API
+    # get filtered PDB ids from PDB API
     pdb_ids = (
         Attr(&#34;rcsb_entry_info.selected_polymer_entity_types&#34;)
         .__eq__(&#34;Protein (only)&#34;)
@@ -415,7 +497,10 @@ def _run_processing(
     # if include_na:
     #     pdb_ids = pdb_ids.or_(&#39;rcsb_entry_info.polymer_composition&#39;).in_([&#34;protein/NA&#34;, &#34;protein/NA/oligosaccharide&#34;])
 
-    pdb_ids = pdb_ids.and_(&#34;rcsb_entry_info.resolution_combined&#34;).__le__(RESOLUTION_THR)
+    if RESOLUTION_THR is not None:
+        pdb_ids = pdb_ids.and_(&#34;rcsb_entry_info.resolution_combined&#34;).__le__(
+            RESOLUTION_THR
+        )
     if filter_methods:
         pdb_ids = pdb_ids.and_(&#34;exptl.method&#34;).in_(
             [&#34;X-RAY DIFFRACTION&#34;, &#34;ELECTRON MICROSCOPY&#34;]
@@ -430,7 +515,7 @@ def _run_processing(
         pdb_ids = pdbs
 
     ordered_folders = [
-        x.key + PDB_PREFIX
+        x.key
         for x in _s3list(
             boto3.resource(&#34;s3&#34;).Bucket(&#34;pdbsnapshots&#34;),
             &#34;&#34;,
@@ -449,28 +534,29 @@ def _run_processing(
         ind = ordered_folders.index(pdb_snapshot)
         ordered_folders = ordered_folders[ind:]
 
-    def process_f(pdb_id, show_error=False, force=True):
+    def process_f(pdb_id, show_error=False, force=True, load_live=False):
         try:
             pdb_id = pdb_id.lower()
             id, biounit = pdb_id.split(&#34;-&#34;)
             target_file = os.path.join(OUTPUT_FOLDER, pdb_id + &#34;.pickle&#34;)
             if not force and os.path.exists(target_file):
                 raise PDBError(&#34;File already exists&#34;)
-            pdb_file = f&#34;{id}.pdb{biounit}.gz&#34;
             # download
-            local_path = _get_pdb_file(
-                pdb_file,
+            local_path = _get_structure_file(
+                id,
+                biounit,
                 boto3.resource(&#34;s3&#34;).Bucket(&#34;pdbsnapshots&#34;),
                 tmp_folder=TMP_FOLDER,
-                folders=ordered_folders,
+                folders=[ordered_folders[0]],
+                load_live=load_live,
             )
             # parse
-            pdb_dict = _open_pdb(
+            pdb_dict = _open_structure(
                 local_path,
                 tmp_folder=TMP_FOLDER,
             )
             # filter and convert
-            pdb_dict = _align_pdb(
+            pdb_dict = _align_structure(
                 pdb_dict,
                 min_length=MIN_LENGTH,
                 max_length=MAX_LENGTH,
@@ -487,27 +573,23 @@ def _run_processing(
             else:
                 _log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER)
 
-    # process_f(&#34;1a1q-3&#34;, show_error=True, force=force)
-
-    _ = p_map(lambda x: process_f(x, force=force), pdb_ids)
+    # process_f(&#34;1a14-1&#34;, show_error=True, force=force)
+    _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), pdb_ids)
 
     stats = get_error_summary(LOG_FILE, verbose=False)
-    while &#34;&lt;&lt;&lt; PDB file not found&#34; in stats:
+    not_found_error = &#34;&lt;&lt;&lt; PDB / mmCIF file downloaded but not found&#34;
+    while not_found_error in stats:
         with open(LOG_FILE, &#34;r&#34;) as f:
-            lines = [
-                x for x in f.readlines() if not x.startswith(&#34;&lt;&lt;&lt; PDB file not found&#34;)
-            ]
+            lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
         os.remove(LOG_FILE)
         with open(f&#34;{LOG_FILE}_tmp&#34;, &#34;a&#34;) as f:
             for line in lines:
                 f.write(line)
-        _ = p_map(lambda x: process_f(x, force=force), stats[&#34;&lt;&lt;&lt; PDB file not found&#34;])
+        _ = p_map(lambda x: process_f(x, force=force), stats[not_found_error])
         stats = get_error_summary(LOG_FILE, verbose=False)
     if os.path.exists(f&#34;{LOG_FILE}_tmp&#34;):
         with open(LOG_FILE, &#34;r&#34;) as f:
-            lines = [
-                x for x in f.readlines() if not x.startswith(&#34;&lt;&lt;&lt; PDB file not found&#34;)
-            ]
+            lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
         os.remove(LOG_FILE)
         with open(f&#34;{LOG_FILE}_tmp&#34;, &#34;a&#34;) as f:
             for line in lines:
@@ -525,9 +607,155 @@ def _run_processing(
 
 class _PadCollate:
     &#34;&#34;&#34;
-    a variant of collate_fn that pads according to the longest sequence in
+    A variant of `collate_fn` that pads according to the longest sequence in
     a batch of sequences
+
+    If `mask_residues` is `True`, an additional `&#39;masked_res&#39;` key is added to the output. The value is a binary
+    tensor where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated
+    according to the following rules:
+    - if `mask_whole_chains` is `True`, the whole chain is masked
+    - if `mask_frac` is given, the number of residues to mask is `mask_frac` times the length of the chain,
+    - otherwise, the number of residues to mask is sampled uniformly from the range [`lower_limit`, `upper_limit`].
+
+    If `force_binding_sites_frac` &gt; 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
+    from a polymer is sampled, the center of the masked region will be forced to be in a binding site.
     &#34;&#34;&#34;
+
+    def __init__(
+        self,
+        mask_residues=True,
+        lower_limit=15,
+        upper_limit=100,
+        mask_frac=None,
+        mask_whole_chains=False,
+        force_binding_sites_frac=0.15,
+    ):
+        &#34;&#34;&#34;
+        Parameters
+        ----------
+        batch : dict
+            a batch generated by `ProteinDataset` and `PadCollate`
+        lower_limit : int, default 15
+            the minimum number of residues to mask
+        upper_limit : int, default 100
+            the maximum number of residues to mask
+        mask_frac : float, optional
+            if given, the `lower_limit` and `upper_limit` are ignored and the number of residues to mask is `mask_frac` times the length of the chain
+        mask_whole_chains : bool, default False
+            if `True`, `upper_limit`, `force_binding_sites` and `lower_limit` are ignored and the whole chain is masked instead
+        force_binding_sites_frac : float, default 0.15
+            if &gt; 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
+            forced to be in a binding site
+
+        Returns
+        -------
+        chain_M : torch.Tensor
+            a `(B, L)` shaped binary tensor where 1 denotes the part that needs to be predicted and
+            0 is everything else
+        &#34;&#34;&#34;
+
+        super().__init__()
+        self.mask_residues = mask_residues
+        self.lower_limit = lower_limit
+        self.upper_limit = upper_limit
+        self.mask_frac = mask_frac
+        self.mask_whole_chains = mask_whole_chains
+        self.force_binding_sites_frac = force_binding_sites_frac
+
+    def _get_masked_sequence(
+        self,
+        batch,
+    ):
+        &#34;&#34;&#34;
+        Get the mask for the residues that need to be predicted
+
+        Depending on the parameters the residues are selected as follows:
+        - if `mask_whole_chains` is `True`, the whole chain is masked
+        - if `mask_frac` is given, the number of residues to mask is `mask_frac` times the length of the chain,
+        - otherwise, the number of residues to mask is sampled uniformly from the range [`lower_limit`, `upper_limit`].
+
+        If `force_binding_sites_frac` &gt; 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
+        from a polymer is sampled, the center of the masked region will be forced to be in a binding site.
+
+        Parameters
+        ----------
+        batch : dict
+            a batch generated by `ProteinDataset` and `PadCollate`
+        lower_limit : int, default 15
+            the minimum number of residues to mask
+        upper_limit : int, default 100
+            the maximum number of residues to mask
+        mask_frac : float, optional
+            if given, the `lower_limit` and `upper_limit` are ignored and the number of residues to mask is `mask_frac` times the length of the chain
+        mask_whole_chains : bool, default False
+            if `True`, `upper_limit`, `force_binding_sites` and `lower_limit` are ignored and the whole chain is masked instead
+        force_binding_sites_frac : float, default 0.15
+            if &gt; 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
+            forced to be in a binding site
+
+        Returns
+        -------
+        chain_M : torch.Tensor
+            a `(B, L)` shaped binary tensor where 1 denotes the part that needs to be predicted and
+            0 is everything else
+        &#34;&#34;&#34;
+
+        chain_M = torch.zeros(batch[&#34;S&#34;].shape)
+        for i, coords in enumerate(batch[&#34;X&#34;]):
+            chain_index = batch[&#34;chain_id&#34;][i]
+            chain_bool = batch[&#34;chain_encoding_all&#34;][i] == chain_index
+            if self.mask_whole_chains:
+                chain_M[i, chain_bool] = 1
+            else:
+                chains = torch.unique(batch[&#34;chain_encoding_all&#34;][i])
+                chain_start = torch.where(chain_bool)[0][0]
+                chain = coords[chain_bool]
+                res_i = None
+                if len(chains) &gt; 1 and self.force_binding_sites_frac &gt; 0:
+                    if random.uniform(0, 1) &lt; self.force_binding_sites_frac:
+                        intersection_indices = []
+                        for chain_id in chains:
+                            if chain_id == chain_index:
+                                continue
+                            chain_id_bool = batch[&#34;chain_encoding_all&#34;][i] == chain_id
+                            chain_min = (
+                                coords[chain_id_bool][:, 2, :].min(0)[0].unsqueeze(0)
+                            )
+                            chain_max = (
+                                coords[chain_id_bool][:, 2, :].max(0)[0].unsqueeze(0)
+                            )
+                            min_mask = (chain[:, 2, :] &gt;= chain_min).sum(-1) == 3
+                            max_mask = (chain[:, 2, :] &lt;= chain_max).sum(-1) == 3
+                            intersection_indices += torch.where(min_mask * max_mask)[
+                                0
+                            ].tolist()
+                        if len(intersection_indices) &gt; 0:
+                            res_i = intersection_indices[
+                                random.randint(0, len(intersection_indices) - 1)
+                            ]
+                if res_i is None:
+                    non_zero = torch.where(batch[&#34;mask&#34;][i][chain_bool])[0]
+                    res_i = non_zero[random.randint(0, len(non_zero) - 1)]
+                res_coords = chain[res_i, 2, :]
+                neighbor_indices = torch.where(batch[&#34;mask&#34;][i][chain_bool])[0]
+                if self.mask_frac is not None:
+                    assert self.mask_frac &gt; 0 and self.mask_frac &lt; 1
+                    k = int(len(neighbor_indices) * self.mask_frac)
+                    k = max(k, 10)
+                else:
+                    up = min(
+                        self.upper_limit, int(len(neighbor_indices) * 0.5)
+                    )  # do not mask more than half of the sequence
+                    low = min(up - 1, self.lower_limit)
+                    k = random.choice(range(low, up))
+                dist = torch.sum(
+                    (chain[neighbor_indices, 1, :] - res_coords.unsqueeze(0)) ** 2, -1
+                )
+                closest_indices = neighbor_indices[
+                    torch.topk(dist, k, largest=False)[1]
+                ]
+                chain_M[i, closest_indices + chain_start] = 1
+        return chain_M
 
     def pad_collate(self, batch):
         # find longest sequence
@@ -547,6 +775,7 @@ class _PadCollate:
                 0,
             )
         out[&#34;chain_id&#34;] = torch.tensor([b[&#34;chain_id&#34;] for b in batch])
+        out[&#34;masked_res&#34;] = self._get_masked_sequence(out)
         return out
 
     def __call__(self, batch):
@@ -576,6 +805,7 @@ def download_data(tag, local_datasets_folder=&#34;./data&#34;, skip_splitting=Fa
         &#34;Thanks for downloading BestProt, the most complete, user-friendly and loving protein dataset you will ever find! ;-)&#34;
     )
 
+
 def generate_data(
     tag,
     local_datasets_folder=&#34;./data&#34;,
@@ -594,6 +824,7 @@ def generate_data(
     test_split=0.05,
     valid_split=0.05,
     pdb_snapshot=None,
+    load_live=False,
 ):
     &#34;&#34;&#34;
     Download and parse PDB files that meet filtering criteria
@@ -643,6 +874,10 @@ def generate_data(
         The percentage of chains to put in the test set (default 5%)
     valid_split : float, default 0.05
         The percentage of chains to put in the validation set (default 5%)
+    pdb_snapshot : str, optional
+        the PDB snapshot to use, by default the latest is used
+    load_live : bool, default False
+        if `True`, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to `False` if `pdb_snapshot` is not `None`)
 
     Returns
     -------
@@ -674,6 +909,7 @@ def generate_data(
         force=force,
         tag=tag,
         pdb_snapshot=pdb_snapshot,
+        load_live=load_live,
     )
     if not skip_splitting:
         _get_split_dictionaries(
@@ -687,6 +923,7 @@ def generate_data(
 
         _split_data(output_folder)
     return log_dict
+
 
 def split_data(
     tag,
@@ -730,7 +967,9 @@ def split_data(
 
     if os.path.exists(out_split_dict_folder):
         if not ignore_existing:
-            warnings.warn(f&#34;Found an existing dictionary for tag {tag}. BestProt will load it and ignore the parameters! Run with --ignore_existing to overwrite.&#34;)
+            warnings.warn(
+                f&#34;Found an existing dictionary for tag {tag}. BestProt will load it and ignore the parameters! Run with --ignore_existing to overwrite.&#34;
+            )
             exists = True
     if not exists:
         _get_split_dictionaries(
@@ -756,7 +995,8 @@ class ProteinDataset(Dataset):
 
     - `&#39;X&#39;`: 3D coordinates of N, C, Ca, O, `(total_L, 4, 3)`,
     - `&#39;S&#39;`: sequence indices (shape `(total_L)`),
-    - `&#39;mask&#39;`: residue mask (0 where coordinates are missing, 1 otherwise), `(total_L)`,
+    - `&#39;mask&#39;`: residue mask (0 where coordinates are missing, 1 otherwise; with interpolation 0s are replaced with 1s), `(total_L)`,
+    - `&#39;mask_original&#39;`: residue mask (0 where coordinates are missing, 1 otherwise; not changed with interpolation), `(total_L)`,
     - `&#39;residue_idx&#39;`: residue indices (from 0 to length of sequence, +100 where chains change), `(total_L)`,
     - `&#39;chain_encoding_all&#39;`: chain indices, `(total_L)`,
     - `&#39;chain_id`&#39;: a sampled chain index,
@@ -782,6 +1022,8 @@ class ProteinDataset(Dataset):
         interpolate=&#34;none&#34;,
         node_features_type=&#34;zeros&#34;,
         debug_file_path=None,
+        entry_type=&#34;biounit&#34;,  # biounit, chain, pair
+        classes_to_exclude=None,  # heteromers, homomers, single_chains
     ):
         &#34;&#34;&#34;
         Parameters
@@ -808,6 +1050,11 @@ class ProteinDataset(Dataset):
             the type of node features, e.g. &#34;dihedral&#34; or &#34;sidechain+chemical&#34;
         debug_file_path : str, optional
             if not `None`, open this single file instead of loading the dataset
+        entry_type : {&#34;biounit&#34;, &#34;chain&#34;, &#34;pair&#34;}
+            the type of entries to generate (`&#34;biounit&#34;` for biounit-level complexes, `&#34;chain&#34;` for chain-level, `&#34;pair&#34;`
+            for chain-chain pairs (all pairs that are seen in the same biounit))
+        classes_to_exclude : list of str, optional
+            a list of classes to exclude from the dataset (select from `&#34;single_chains&#34;`, `&#34;heteromers&#34;`, `&#34;homomers&#34;`)
         &#34;&#34;&#34;
 
         alphabet = ALPHABET
@@ -815,11 +1062,12 @@ class ProteinDataset(Dataset):
         for i, letter in enumerate(alphabet):
             self.alphabet_dict[letter] = i
         self.alphabet_dict[&#34;X&#34;] = 0
-        self.files = {}  # file path by biounit id
+        self.files = defaultdict(lambda: defaultdict(list))  # file path by biounit id
         self.loaded = None
         self.dataset_folder = dataset_folder
         self.features_folder = features_folder
         self.feature_types = node_features_type.split(&#34;+&#34;)
+        self.entry_type = entry_type
 
         if debug_file_path is not None:
             self.dataset_folder = os.path.dirname(debug_file_path)
@@ -846,29 +1094,60 @@ class ProteinDataset(Dataset):
         if debug:
             to_process = to_process[:1000]
         # output_tuples = [self._process(x, rewrite=rewrite) for x in tqdm(to_process)]
-        output_tuples = p_map(lambda x: self._process(x, rewrite=rewrite), to_process)
+        output_tuples_list = p_map(
+            lambda x: self._process(x, rewrite=rewrite), to_process
+        )
         # save the file names
-        for id, filename in output_tuples:
-            self.files[id] = filename
+        for output_tuples in output_tuples_list:
+            for id, filename, chain_set in output_tuples:
+                for chain in chain_set:
+                    self.files[id][chain].append(filename)
         # filter by length
+        seen = set()
         if max_length is not None:
             to_remove = []
-            for id, file in self.files.items():
-                with open(file, &#34;rb&#34;) as f:
-                    data = pickle.load(f)
-                    if len(data[&#34;S&#34;]) &gt; max_length:
-                        to_remove.append(id)
-            for id in to_remove:
-                self.files.pop(id)
+            for id, chain_dict in self.files.items():
+                for chain, file_list in chain_dict.items():
+                    for file in file_list:
+                        if file in seen:
+                            continue
+                        seen.add(file)
+                        with open(file, &#34;rb&#34;) as f:
+                            data = pickle.load(f)
+                            if len(data[&#34;S&#34;]) &gt; max_length:
+                                to_remove.append((id, chain, file))
+            for id, chain, file in to_remove:
+                self.files[id][chain].remove(file)
+                if len(self.files[id][chain]) == 0:
+                    self.files[id].pop(chain)
+                if len(self.files[id]) == 0:
+                    self.files.pop(id)
         # load the clusters
+        if classes_to_exclude is None:
+            classes_to_exclude = []
+        elif clustering_dict_path is None:
+            raise ValueError(
+                &#34;classes_to_exclude is not None, but clustering_dict_path is None&#34;
+            )
         if clustering_dict_path is not None:
+            if entry_type == &#34;pair&#34;:
+                classes_to_exclude = set(classes_to_exclude)
+                classes_to_exclude.add(&#34;single_chains&#34;)
+                classes_to_exclude = list(classes_to_exclude)
             with open(clustering_dict_path, &#34;rb&#34;) as f:
                 self.clusters = pickle.load(f)  # list of biounit ids by cluster id
+                classes = pickle.load(f)
+            to_exclude = set()
+            for c in classes_to_exclude:
+                for key, id_arr in classes.get(c, {}).items():
+                    for id, _ in id_arr:
+                        to_exclude.add(id)
             for key in list(self.clusters.keys()):
                 self.clusters[key] = [
                     [x[0].split(&#34;.&#34;)[0], x[1]]
                     for x in self.clusters[key]
                     if x[0].split(&#34;.&#34;)[0] in self.files
+                    and x[0].split(&#34;.&#34;)[0] not in to_exclude
                 ]
                 if len(self.clusters[key]) == 0:
                     self.clusters.pop(key)
@@ -882,18 +1161,15 @@ class ProteinDataset(Dataset):
         if load_to_ram:
             print(&#34;Loading to RAM...&#34;)
             self.loaded = {}
-            if self.clusters is None:
-                for id in tqdm(self.data):
-                    with open(self.files[id], &#34;rb&#34;) as f:
-                        self.loaded[id] = pickle.load(f)
-            else:
-                pbar = tqdm(total=sum([len(self.clusters[x]) for x in self.data]))
-                for cluster in self.data:
-                    for id_tuple in self.clusters[cluster]:
-                        with open(self.files[id_tuple[0]], &#34;rb&#34;) as f:
-                            self.loaded[id_tuple[0]] = pickle.load(f)
-                            pbar.update(1)
-                pbar.close()
+            seen = set()
+            for id in self.files:
+                for chain, file_list in self.files[id].items():
+                    for file in file_list:
+                        if file in seen:
+                            continue
+                        seen.add(file)
+                        with open(file, &#34;rb&#34;) as f:
+                            self.loaded[file] = pickle.load(f)
 
     def _interpolate(self, crd_i, mask_i):
         &#34;&#34;&#34;
@@ -1006,7 +1282,7 @@ class ProteinDataset(Dataset):
             else:
                 S_mask = S == i
                 orientation[S_mask] = np.random.rand(*orientation[S_mask].shape)
-        orientation /= (np.expand_dims(linalg.norm(orientation, axis=-1), -1) + 1e-7)
+        orientation /= np.expand_dims(linalg.norm(orientation, axis=-1), -1) + 1e-7
         return orientation
 
     def _chemical(self, seq):
@@ -1017,22 +1293,49 @@ class ProteinDataset(Dataset):
         features = np.array([_PMAP(x) for x in seq])
         return features
 
+    def _sse(self, X):
+        &#34;&#34;&#34;
+        Secondary structure features
+        &#34;&#34;&#34;
+
+        sse_map = {&#34;c&#34;: [0, 0, 1], &#34;b&#34;: [0, 1, 0], &#34;a&#34;: [1, 0, 0], &#34;&#34;: [0, 0, 0]}
+        sse = _annotate_sse(X)
+        sse = np.array([sse_map[x] for x in sse])
+        return sse
+
     def _process(self, filename, rewrite=False):
         &#34;&#34;&#34;
         Process a BestProt file and save it as ProteinMPNN features
         &#34;&#34;&#34;
 
         input_file = os.path.join(self.dataset_folder, filename)
-        output_file = os.path.join(self.features_folder, filename)
-        if not rewrite and os.path.exists(output_file):
-            pass
+        no_extension_name = filename.split(&#34;.&#34;)[0]
+        try:
+            with open(input_file, &#34;rb&#34;) as f:
+                data = pickle.load(f)
+        except:
+            print(f&#34;{input_file=}&#34;)
+        chains = sorted(data.keys())
+        if self.entry_type == &#34;biounit&#34;:
+            chain_sets = [chains]
+        elif self.entry_type == &#34;chain&#34;:
+            chain_sets = [[x] for x in chains]
+        elif self.entry_type == &#34;pair&#34;:
+            chain_sets = list(combinations(chains, 2))
         else:
-            try:
-                with open(input_file, &#34;rb&#34;) as f:
-                    data = pickle.load(f)
-            except:
-                print(f&#39;{input_file=}&#39;)
-            chains = sorted(data.keys())
+            raise RuntimeError(
+                &#34;Unknown entry type, please choose from [&#39;biounit&#39;, &#39;chain&#39;, &#39;pair&#39;]&#34;
+            )
+        output_names = []
+        for chains_i, chain_set in enumerate(chain_sets):
+            output_file = os.path.join(
+                self.features_folder, no_extension_name + f&#34;_{chains_i}.pickle&#34;
+            )
+            output_names.append(
+                (os.path.basename(no_extension_name), output_file, chain_set)
+            )
+            if os.path.exists(output_file) and not rewrite:
+                continue
             X = []
             S = []
             mask = []
@@ -1043,8 +1346,7 @@ class ProteinDataset(Dataset):
             last_idx = 0
             chain_dict = {}
 
-            for chain_i, chain in enumerate(chains):
-
+            for chain_i, chain in enumerate(chain_set):
                 seq = torch.tensor([self.alphabet_dict[x] for x in data[chain][&#34;seq&#34;]])
                 S.append(seq)
                 crd_i = data[chain][&#34;crd_bb&#34;]
@@ -1061,9 +1363,15 @@ class ProteinDataset(Dataset):
                 if &#34;dihedral&#34; in self.feature_types:
                     node_features[&#34;dihedral&#34;].append(self._dihedral(crd_i, mask_i))
                 if &#34;sidechain_orientation&#34; in self.feature_types:
-                    node_features[&#34;sidechain_orientation&#34;].append(self._sidechain(data[chain][&#34;crd_sc&#34;], crd_i, seq))
+                    node_features[&#34;sidechain_orientation&#34;].append(
+                        self._sidechain(data[chain][&#34;crd_sc&#34;], crd_i, seq)
+                    )
                 if &#34;chemical&#34; in self.feature_types:
                     node_features[&#34;chemical&#34;].append(self._chemical(data[chain][&#34;seq&#34;]))
+                if &#34;secondary_structure&#34; in self.feature_types:
+                    node_features[&#34;secondary_structure&#34;].append(
+                        self._sse(data[chain][&#34;crd_bb&#34;])
+                    )
 
             out = {}
             out[&#34;X&#34;] = torch.from_numpy(np.concatenate(X, 0))
@@ -1077,10 +1385,7 @@ class ProteinDataset(Dataset):
                 out[key] = torch.from_numpy(np.concatenate(value_list))
             with open(output_file, &#34;wb&#34;) as f:
                 pickle.dump(out, f)
-        return (
-            os.path.basename(filename).split(&#34;.&#34;)[0],
-            output_file,
-        )
+        return output_names
 
     def __len__(self):
         return len(self.data)
@@ -1089,7 +1394,7 @@ class ProteinDataset(Dataset):
         chain_id = None
         if self.clusters is None:
             id = self.data[idx]  # data is already filtered by length
-            chain_id = None
+            chain_id = random.choice(list(self.files[id].keys()))
         else:
             cluster = self.data[idx]
             id = None
@@ -1098,17 +1403,13 @@ class ProteinDataset(Dataset):
                 id, chain_id = self.clusters[cluster][
                     chain_n
                 ]  # get id and chain from cluster
+        file = random.choice(self.files[id][chain_id])
         if self.loaded is None:
-            file = self.files[id]
             with open(file, &#34;rb&#34;) as f:
                 data = pickle.load(f)
         else:
-            data = deepcopy(self.loaded[id])
-        if chain_id is None:
-            chain_id = random.choice(list(data[&#34;chain_dict&#34;].values()))
-        else:
-            chain_id = data[&#34;chain_dict&#34;][chain_id]
-        data[&#34;chain_id&#34;] = chain_id
+            data = deepcopy(self.loaded[file])
+        data[&#34;chain_id&#34;] = data[&#34;chain_dict&#34;][chain_id]
         data.pop(&#34;chain_dict&#34;)
         return data
 
@@ -1117,14 +1418,24 @@ class ProteinLoader(DataLoader):
     &#34;&#34;&#34;
     A subclass of `torch.data.utils.DataLoader` tuned for the BestProt dataset
 
-    Creates and iterates over an instance of `ProteinDataset`, omitting the `&#39;chain_dict&#39;` keys. 
+    Creates and iterates over an instance of `ProteinDataset`, omitting the `&#39;chain_dict&#39;` keys.
     See the `ProteinDataset` docs for more information.
+
+    If `mask_residues` is `True`, an additional `&#39;masked_res&#39;` key is added to the output. The value is a binary
+    tensor shaped `(B, L)` where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated
+    according to the following rules:
+    - if `mask_whole_chains` is `True`, the whole chain is masked
+    - if `mask_frac` is given, the number of residues to mask is `mask_frac` times the length of the chain,
+    - otherwise, the number of residues to mask is sampled uniformly from the range [`lower_limit`, `upper_limit`].
+
+    If `force_binding_sites_frac` &gt; 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
+    from a polymer is sampled, the center of the masked region will be forced to be in a binding site.
     &#34;&#34;&#34;
 
     def __init__(
         self,
         dataset_folder,
-        features_folder,
+        features_folder=&#34;./data/tmp/&#34;,
         clustering_dict_path=None,
         max_length=None,
         rewrite=False,
@@ -1134,6 +1445,14 @@ class ProteinLoader(DataLoader):
         interpolate=&#34;none&#34;,
         node_features_type=&#34;zeros&#34;,
         batch_size=4,
+        entry_type=&#34;biounit&#34;,  # biounit, chain, pair
+        classes_to_exclude=None,
+        lower_limit=15,
+        upper_limit=100,
+        mask_residues=True,
+        mask_whole_chains=False,
+        mask_frac=None,
+        force_binding_sites_frac=0.15,
     ) -&gt; None:
         &#34;&#34;&#34;
         Parameters
@@ -1160,6 +1479,21 @@ class ProteinLoader(DataLoader):
             the type of node features, e.g. `&#34;dihedral&#34;` or `&#34;sidechain+chemical&#34;`
         batch_size : int, default 4
             the batch size
+        entry_type : {&#34;biounit&#34;, &#34;chain&#34;, &#34;pair&#34;}
+            the type of entries to generate (`&#34;biounit&#34;` for biounit-level, `&#34;chain&#34;` for chain-level, `&#34;pair&#34;` for chain-chain pairs)
+        classes_to_exclude : list of str, optional
+            a list of classes to exclude from the dataset (select from `&#34;single_chains&#34;`, `&#34;heteromers&#34;`, `&#34;homomers&#34;`)
+        lower_limit : int, default 15
+            the minimum number of residues to mask
+        upper_limit : int, default 100
+            the maximum number of residues to mask
+        mask_frac : float, optional
+            if given, the `lower_limit` and `upper_limit` are ignored and the number of residues to mask is `mask_frac` times the length of the chain
+        mask_whole_chains : bool, default False
+            if `True`, `upper_limit`, `force_binding_sites` and `lower_limit` are ignored and the whole chain is masked instead
+        force_binding_sites_frac : float, default 0.15
+            if &gt; 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
+            forced to be in a binding site
         &#34;&#34;&#34;
 
         dataset = ProteinDataset(
@@ -1173,8 +1507,21 @@ class ProteinLoader(DataLoader):
             debug=debug,
             interpolate=interpolate,
             node_features_type=node_features_type,
+            entry_type=entry_type,
+            classes_to_exclude=classes_to_exclude,
         )
-        super().__init__(dataset, collate_fn=_PadCollate(), batch_size=batch_size)
+        super().__init__(
+            dataset, 
+            collate_fn=_PadCollate(
+                mask_residues=mask_residues,
+                mask_whole_chains=mask_whole_chains,
+                mask_frac=mask_frac,
+                lower_limit=lower_limit,
+                upper_limit=upper_limit,
+                force_binding_sites_frac=force_binding_sites_frac,
+            ), 
+            batch_size=batch_size
+        )
 
 
 def sidechain_order():
@@ -1219,6 +1566,26 @@ def get_error_summary(log_file, verbose=True):
             print(f&#34;{key}: {len(stats[key])}&#34;)
     return stats
 
+
+def check_pdb_snapshots():
+    &#34;&#34;&#34;
+    Get a list of PDB snapshots available for downloading
+
+    Returns
+    -------
+    snapshots : list
+        a list of snapshot names
+    &#34;&#34;&#34;
+
+    folders = _s3list(
+        boto3.resource(&#34;s3&#34;).Bucket(&#34;pdbsnapshots&#34;),
+        &#34;&#34;,
+        recursive=False,
+        list_objs=False,
+    )
+    return [x.key.strip(&#34;/&#34;) for x in folders]
+
+
 def check_download_tags():
     &#34;&#34;&#34;
     Get a list of tags available for downloading
@@ -1239,11 +1606,10 @@ def check_download_tags():
     for folder in folders:
         folder = folder.key
         if not folder.startswith(&#34;bestprot_&#34;):
-            print(&#39;continue&#39;)
             continue
-        tag = folder[len(&#34;bestprot_&#34;):]
+        tag = folder[len(&#34;bestprot_&#34;) :]
         if tag.endswith(&#34;_splits_dict/&#34;):
-            tag = tag[: - len(&#34;_splits_dict/&#34;)]
+            tag = tag[: -len(&#34;_splits_dict/&#34;)]
         else:
             tag = tag.strip(&#34;/&#34;)
         tags_dict[tag].append(folder)
@@ -1291,15 +1657,47 @@ def check_download_tags():
     for folder in folders:
         folder = folder.key
         if not folder.startswith(&#34;bestprot_&#34;):
-            print(&#39;continue&#39;)
             continue
-        tag = folder[len(&#34;bestprot_&#34;):]
+        tag = folder[len(&#34;bestprot_&#34;) :]
         if tag.endswith(&#34;_splits_dict/&#34;):
-            tag = tag[: - len(&#34;_splits_dict/&#34;)]
+            tag = tag[: -len(&#34;_splits_dict/&#34;)]
         else:
             tag = tag.strip(&#34;/&#34;)
         tags_dict[tag].append(folder)
     return [x for x, v in tags_dict.items() if len(v) == 2]</code></pre>
+</details>
+</dd>
+<dt id="bestprot.check_pdb_snapshots"><code class="name flex">
+<span>def <span class="ident">check_pdb_snapshots</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get a list of PDB snapshots available for downloading</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>snapshots</code></strong> :&ensp;<code>list</code></dt>
+<dd>a list of snapshot names</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def check_pdb_snapshots():
+    &#34;&#34;&#34;
+    Get a list of PDB snapshots available for downloading
+
+    Returns
+    -------
+    snapshots : list
+        a list of snapshot names
+    &#34;&#34;&#34;
+
+    folders = _s3list(
+        boto3.resource(&#34;s3&#34;).Bucket(&#34;pdbsnapshots&#34;),
+        &#34;&#34;,
+        recursive=False,
+        list_objs=False,
+    )
+    return [x.key.strip(&#34;/&#34;) for x in folders]</code></pre>
 </details>
 </dd>
 <dt id="bestprot.download_data"><code class="name flex">
@@ -1345,7 +1743,7 @@ def check_download_tags():
 </details>
 </dd>
 <dt id="bestprot.generate_data"><code class="name flex">
-<span>def <span class="ident">generate_data</span></span>(<span>tag, local_datasets_folder='./data', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, not_filter_methods=False, not_remove_redundancies=False, skip_splitting=False, seq_identity_threshold=0.9, n=None, force=False, split_tolerance=0.2, test_split=0.05, valid_split=0.05, pdb_snapshot=None)</span>
+<span>def <span class="ident">generate_data</span></span>(<span>tag, local_datasets_folder='./data', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, not_filter_methods=False, not_remove_redundancies=False, skip_splitting=False, seq_identity_threshold=0.9, n=None, force=False, split_tolerance=0.2, test_split=0.05, valid_split=0.05, pdb_snapshot=None, load_live=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Download and parse PDB files that meet filtering criteria</p>
@@ -1393,6 +1791,10 @@ zeros to missing values,</li>
 <dd>The percentage of chains to put in the test set (default 5%)</dd>
 <dt><strong><code>valid_split</code></strong> :&ensp;<code>float</code>, default <code>0.05</code></dt>
 <dd>The percentage of chains to put in the validation set (default 5%)</dd>
+<dt><strong><code>pdb_snapshot</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>the PDB snapshot to use, by default the latest is used</dd>
+<dt><strong><code>load_live</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to <code>False</code> if <code>pdb_snapshot</code> is not <code>None</code>)</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1421,6 +1823,7 @@ zeros to missing values,</li>
     test_split=0.05,
     valid_split=0.05,
     pdb_snapshot=None,
+    load_live=False,
 ):
     &#34;&#34;&#34;
     Download and parse PDB files that meet filtering criteria
@@ -1470,6 +1873,10 @@ zeros to missing values,</li>
         The percentage of chains to put in the test set (default 5%)
     valid_split : float, default 0.05
         The percentage of chains to put in the validation set (default 5%)
+    pdb_snapshot : str, optional
+        the PDB snapshot to use, by default the latest is used
+    load_live : bool, default False
+        if `True`, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to `False` if `pdb_snapshot` is not `None`)
 
     Returns
     -------
@@ -1501,6 +1908,7 @@ zeros to missing values,</li>
         force=force,
         tag=tag,
         pdb_snapshot=pdb_snapshot,
+        load_live=load_live,
     )
     if not skip_splitting:
         _get_split_dictionaries(
@@ -1667,7 +2075,9 @@ coordinates in the <code>'crd_sc'</code> array generated by the <code>run_proces
 
     if os.path.exists(out_split_dict_folder):
         if not ignore_existing:
-            warnings.warn(f&#34;Found an existing dictionary for tag {tag}. BestProt will load it and ignore the parameters! Run with --ignore_existing to overwrite.&#34;)
+            warnings.warn(
+                f&#34;Found an existing dictionary for tag {tag}. BestProt will load it and ignore the parameters! Run with --ignore_existing to overwrite.&#34;
+            )
             exists = True
     if not exists:
         _get_split_dictionaries(
@@ -1689,7 +2099,7 @@ coordinates in the <code>'crd_sc'</code> array generated by the <code>run_proces
 <dl>
 <dt id="bestprot.ProteinDataset"><code class="flex name class">
 <span>class <span class="ident">ProteinDataset</span></span>
-<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', debug_file_path=None)</span>
+<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', debug_file_path=None, entry_type='biounit', classes_to_exclude=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Dataset to load BestProt data</p>
@@ -1699,7 +2109,8 @@ at each iteration a random bionit from a cluster is sampled.</p>
 <ul>
 <li><code>'X'</code>: 3D coordinates of N, C, Ca, O, <code>(total_L, 4, 3)</code>,</li>
 <li><code>'S'</code>: sequence indices (shape <code>(total_L)</code>),</li>
-<li><code>'mask'</code>: residue mask (0 where coordinates are missing, 1 otherwise), <code>(total_L)</code>,</li>
+<li><code>'mask'</code>: residue mask (0 where coordinates are missing, 1 otherwise; with interpolation 0s are replaced with 1s), <code>(total_L)</code>,</li>
+<li><code>'mask_original'</code>: residue mask (0 where coordinates are missing, 1 otherwise; not changed with interpolation), <code>(total_L)</code>,</li>
 <li><code>'residue_idx'</code>: residue indices (from 0 to length of sequence, +100 where chains change), <code>(total_L)</code>,</li>
 <li><code>'chain_encoding_all'</code>: chain indices, <code>(total_L)</code>,</li>
 <li><code>'chain_id</code>': a sampled chain index,</li>
@@ -1735,6 +2146,11 @@ at each iteration a random bionit from a cluster is sampled.</p>
 <dd>the type of node features, e.g. "dihedral" or "sidechain+chemical"</dd>
 <dt><strong><code>debug_file_path</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>if not <code>None</code>, open this single file instead of loading the dataset</dd>
+<dt><strong><code>entry_type</code></strong> :&ensp;<code>{"biounit", "chain", "pair"}</code></dt>
+<dd>the type of entries to generate (<code>"biounit"</code> for biounit-level complexes, <code>"chain"</code> for chain-level, <code>"pair"</code>
+for chain-chain pairs (all pairs that are seen in the same biounit))</dd>
+<dt><strong><code>classes_to_exclude</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
+<dd>a list of classes to exclude from the dataset (select from <code>"single_chains"</code>, <code>"heteromers"</code>, <code>"homomers"</code>)</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -1751,7 +2167,8 @@ at each iteration a random bionit from a cluster is sampled.</p>
 
     - `&#39;X&#39;`: 3D coordinates of N, C, Ca, O, `(total_L, 4, 3)`,
     - `&#39;S&#39;`: sequence indices (shape `(total_L)`),
-    - `&#39;mask&#39;`: residue mask (0 where coordinates are missing, 1 otherwise), `(total_L)`,
+    - `&#39;mask&#39;`: residue mask (0 where coordinates are missing, 1 otherwise; with interpolation 0s are replaced with 1s), `(total_L)`,
+    - `&#39;mask_original&#39;`: residue mask (0 where coordinates are missing, 1 otherwise; not changed with interpolation), `(total_L)`,
     - `&#39;residue_idx&#39;`: residue indices (from 0 to length of sequence, +100 where chains change), `(total_L)`,
     - `&#39;chain_encoding_all&#39;`: chain indices, `(total_L)`,
     - `&#39;chain_id`&#39;: a sampled chain index,
@@ -1777,6 +2194,8 @@ at each iteration a random bionit from a cluster is sampled.</p>
         interpolate=&#34;none&#34;,
         node_features_type=&#34;zeros&#34;,
         debug_file_path=None,
+        entry_type=&#34;biounit&#34;,  # biounit, chain, pair
+        classes_to_exclude=None,  # heteromers, homomers, single_chains
     ):
         &#34;&#34;&#34;
         Parameters
@@ -1803,6 +2222,11 @@ at each iteration a random bionit from a cluster is sampled.</p>
             the type of node features, e.g. &#34;dihedral&#34; or &#34;sidechain+chemical&#34;
         debug_file_path : str, optional
             if not `None`, open this single file instead of loading the dataset
+        entry_type : {&#34;biounit&#34;, &#34;chain&#34;, &#34;pair&#34;}
+            the type of entries to generate (`&#34;biounit&#34;` for biounit-level complexes, `&#34;chain&#34;` for chain-level, `&#34;pair&#34;`
+            for chain-chain pairs (all pairs that are seen in the same biounit))
+        classes_to_exclude : list of str, optional
+            a list of classes to exclude from the dataset (select from `&#34;single_chains&#34;`, `&#34;heteromers&#34;`, `&#34;homomers&#34;`)
         &#34;&#34;&#34;
 
         alphabet = ALPHABET
@@ -1810,11 +2234,12 @@ at each iteration a random bionit from a cluster is sampled.</p>
         for i, letter in enumerate(alphabet):
             self.alphabet_dict[letter] = i
         self.alphabet_dict[&#34;X&#34;] = 0
-        self.files = {}  # file path by biounit id
+        self.files = defaultdict(lambda: defaultdict(list))  # file path by biounit id
         self.loaded = None
         self.dataset_folder = dataset_folder
         self.features_folder = features_folder
         self.feature_types = node_features_type.split(&#34;+&#34;)
+        self.entry_type = entry_type
 
         if debug_file_path is not None:
             self.dataset_folder = os.path.dirname(debug_file_path)
@@ -1841,29 +2266,60 @@ at each iteration a random bionit from a cluster is sampled.</p>
         if debug:
             to_process = to_process[:1000]
         # output_tuples = [self._process(x, rewrite=rewrite) for x in tqdm(to_process)]
-        output_tuples = p_map(lambda x: self._process(x, rewrite=rewrite), to_process)
+        output_tuples_list = p_map(
+            lambda x: self._process(x, rewrite=rewrite), to_process
+        )
         # save the file names
-        for id, filename in output_tuples:
-            self.files[id] = filename
+        for output_tuples in output_tuples_list:
+            for id, filename, chain_set in output_tuples:
+                for chain in chain_set:
+                    self.files[id][chain].append(filename)
         # filter by length
+        seen = set()
         if max_length is not None:
             to_remove = []
-            for id, file in self.files.items():
-                with open(file, &#34;rb&#34;) as f:
-                    data = pickle.load(f)
-                    if len(data[&#34;S&#34;]) &gt; max_length:
-                        to_remove.append(id)
-            for id in to_remove:
-                self.files.pop(id)
+            for id, chain_dict in self.files.items():
+                for chain, file_list in chain_dict.items():
+                    for file in file_list:
+                        if file in seen:
+                            continue
+                        seen.add(file)
+                        with open(file, &#34;rb&#34;) as f:
+                            data = pickle.load(f)
+                            if len(data[&#34;S&#34;]) &gt; max_length:
+                                to_remove.append((id, chain, file))
+            for id, chain, file in to_remove:
+                self.files[id][chain].remove(file)
+                if len(self.files[id][chain]) == 0:
+                    self.files[id].pop(chain)
+                if len(self.files[id]) == 0:
+                    self.files.pop(id)
         # load the clusters
+        if classes_to_exclude is None:
+            classes_to_exclude = []
+        elif clustering_dict_path is None:
+            raise ValueError(
+                &#34;classes_to_exclude is not None, but clustering_dict_path is None&#34;
+            )
         if clustering_dict_path is not None:
+            if entry_type == &#34;pair&#34;:
+                classes_to_exclude = set(classes_to_exclude)
+                classes_to_exclude.add(&#34;single_chains&#34;)
+                classes_to_exclude = list(classes_to_exclude)
             with open(clustering_dict_path, &#34;rb&#34;) as f:
                 self.clusters = pickle.load(f)  # list of biounit ids by cluster id
+                classes = pickle.load(f)
+            to_exclude = set()
+            for c in classes_to_exclude:
+                for key, id_arr in classes.get(c, {}).items():
+                    for id, _ in id_arr:
+                        to_exclude.add(id)
             for key in list(self.clusters.keys()):
                 self.clusters[key] = [
                     [x[0].split(&#34;.&#34;)[0], x[1]]
                     for x in self.clusters[key]
                     if x[0].split(&#34;.&#34;)[0] in self.files
+                    and x[0].split(&#34;.&#34;)[0] not in to_exclude
                 ]
                 if len(self.clusters[key]) == 0:
                     self.clusters.pop(key)
@@ -1877,18 +2333,15 @@ at each iteration a random bionit from a cluster is sampled.</p>
         if load_to_ram:
             print(&#34;Loading to RAM...&#34;)
             self.loaded = {}
-            if self.clusters is None:
-                for id in tqdm(self.data):
-                    with open(self.files[id], &#34;rb&#34;) as f:
-                        self.loaded[id] = pickle.load(f)
-            else:
-                pbar = tqdm(total=sum([len(self.clusters[x]) for x in self.data]))
-                for cluster in self.data:
-                    for id_tuple in self.clusters[cluster]:
-                        with open(self.files[id_tuple[0]], &#34;rb&#34;) as f:
-                            self.loaded[id_tuple[0]] = pickle.load(f)
-                            pbar.update(1)
-                pbar.close()
+            seen = set()
+            for id in self.files:
+                for chain, file_list in self.files[id].items():
+                    for file in file_list:
+                        if file in seen:
+                            continue
+                        seen.add(file)
+                        with open(file, &#34;rb&#34;) as f:
+                            self.loaded[file] = pickle.load(f)
 
     def _interpolate(self, crd_i, mask_i):
         &#34;&#34;&#34;
@@ -2001,7 +2454,7 @@ at each iteration a random bionit from a cluster is sampled.</p>
             else:
                 S_mask = S == i
                 orientation[S_mask] = np.random.rand(*orientation[S_mask].shape)
-        orientation /= (np.expand_dims(linalg.norm(orientation, axis=-1), -1) + 1e-7)
+        orientation /= np.expand_dims(linalg.norm(orientation, axis=-1), -1) + 1e-7
         return orientation
 
     def _chemical(self, seq):
@@ -2012,22 +2465,49 @@ at each iteration a random bionit from a cluster is sampled.</p>
         features = np.array([_PMAP(x) for x in seq])
         return features
 
+    def _sse(self, X):
+        &#34;&#34;&#34;
+        Secondary structure features
+        &#34;&#34;&#34;
+
+        sse_map = {&#34;c&#34;: [0, 0, 1], &#34;b&#34;: [0, 1, 0], &#34;a&#34;: [1, 0, 0], &#34;&#34;: [0, 0, 0]}
+        sse = _annotate_sse(X)
+        sse = np.array([sse_map[x] for x in sse])
+        return sse
+
     def _process(self, filename, rewrite=False):
         &#34;&#34;&#34;
         Process a BestProt file and save it as ProteinMPNN features
         &#34;&#34;&#34;
 
         input_file = os.path.join(self.dataset_folder, filename)
-        output_file = os.path.join(self.features_folder, filename)
-        if not rewrite and os.path.exists(output_file):
-            pass
+        no_extension_name = filename.split(&#34;.&#34;)[0]
+        try:
+            with open(input_file, &#34;rb&#34;) as f:
+                data = pickle.load(f)
+        except:
+            print(f&#34;{input_file=}&#34;)
+        chains = sorted(data.keys())
+        if self.entry_type == &#34;biounit&#34;:
+            chain_sets = [chains]
+        elif self.entry_type == &#34;chain&#34;:
+            chain_sets = [[x] for x in chains]
+        elif self.entry_type == &#34;pair&#34;:
+            chain_sets = list(combinations(chains, 2))
         else:
-            try:
-                with open(input_file, &#34;rb&#34;) as f:
-                    data = pickle.load(f)
-            except:
-                print(f&#39;{input_file=}&#39;)
-            chains = sorted(data.keys())
+            raise RuntimeError(
+                &#34;Unknown entry type, please choose from [&#39;biounit&#39;, &#39;chain&#39;, &#39;pair&#39;]&#34;
+            )
+        output_names = []
+        for chains_i, chain_set in enumerate(chain_sets):
+            output_file = os.path.join(
+                self.features_folder, no_extension_name + f&#34;_{chains_i}.pickle&#34;
+            )
+            output_names.append(
+                (os.path.basename(no_extension_name), output_file, chain_set)
+            )
+            if os.path.exists(output_file) and not rewrite:
+                continue
             X = []
             S = []
             mask = []
@@ -2038,8 +2518,7 @@ at each iteration a random bionit from a cluster is sampled.</p>
             last_idx = 0
             chain_dict = {}
 
-            for chain_i, chain in enumerate(chains):
-
+            for chain_i, chain in enumerate(chain_set):
                 seq = torch.tensor([self.alphabet_dict[x] for x in data[chain][&#34;seq&#34;]])
                 S.append(seq)
                 crd_i = data[chain][&#34;crd_bb&#34;]
@@ -2056,9 +2535,15 @@ at each iteration a random bionit from a cluster is sampled.</p>
                 if &#34;dihedral&#34; in self.feature_types:
                     node_features[&#34;dihedral&#34;].append(self._dihedral(crd_i, mask_i))
                 if &#34;sidechain_orientation&#34; in self.feature_types:
-                    node_features[&#34;sidechain_orientation&#34;].append(self._sidechain(data[chain][&#34;crd_sc&#34;], crd_i, seq))
+                    node_features[&#34;sidechain_orientation&#34;].append(
+                        self._sidechain(data[chain][&#34;crd_sc&#34;], crd_i, seq)
+                    )
                 if &#34;chemical&#34; in self.feature_types:
                     node_features[&#34;chemical&#34;].append(self._chemical(data[chain][&#34;seq&#34;]))
+                if &#34;secondary_structure&#34; in self.feature_types:
+                    node_features[&#34;secondary_structure&#34;].append(
+                        self._sse(data[chain][&#34;crd_bb&#34;])
+                    )
 
             out = {}
             out[&#34;X&#34;] = torch.from_numpy(np.concatenate(X, 0))
@@ -2072,10 +2557,7 @@ at each iteration a random bionit from a cluster is sampled.</p>
                 out[key] = torch.from_numpy(np.concatenate(value_list))
             with open(output_file, &#34;wb&#34;) as f:
                 pickle.dump(out, f)
-        return (
-            os.path.basename(filename).split(&#34;.&#34;)[0],
-            output_file,
-        )
+        return output_names
 
     def __len__(self):
         return len(self.data)
@@ -2084,7 +2566,7 @@ at each iteration a random bionit from a cluster is sampled.</p>
         chain_id = None
         if self.clusters is None:
             id = self.data[idx]  # data is already filtered by length
-            chain_id = None
+            chain_id = random.choice(list(self.files[id].keys()))
         else:
             cluster = self.data[idx]
             id = None
@@ -2093,17 +2575,13 @@ at each iteration a random bionit from a cluster is sampled.</p>
                 id, chain_id = self.clusters[cluster][
                     chain_n
                 ]  # get id and chain from cluster
+        file = random.choice(self.files[id][chain_id])
         if self.loaded is None:
-            file = self.files[id]
             with open(file, &#34;rb&#34;) as f:
                 data = pickle.load(f)
         else:
-            data = deepcopy(self.loaded[id])
-        if chain_id is None:
-            chain_id = random.choice(list(data[&#34;chain_dict&#34;].values()))
-        else:
-            chain_id = data[&#34;chain_dict&#34;][chain_id]
-        data[&#34;chain_id&#34;] = chain_id
+            data = deepcopy(self.loaded[file])
+        data[&#34;chain_id&#34;] = data[&#34;chain_dict&#34;][chain_id]
         data.pop(&#34;chain_dict&#34;)
         return data</code></pre>
 </details>
@@ -2115,12 +2593,20 @@ at each iteration a random bionit from a cluster is sampled.</p>
 </dd>
 <dt id="bestprot.ProteinLoader"><code class="flex name class">
 <span>class <span class="ident">ProteinLoader</span></span>
-<span>(</span><span>dataset_folder, features_folder, clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', batch_size=4)</span>
+<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', batch_size=4, entry_type='biounit', classes_to_exclude=None, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, force_binding_sites_frac=0.15)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A subclass of <code>torch.data.utils.DataLoader</code> tuned for the BestProt dataset</p>
 <p>Creates and iterates over an instance of <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset">ProteinDataset</a></code>, omitting the <code>'chain_dict'</code> keys.
 See the <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset">ProteinDataset</a></code> docs for more information.</p>
+<p>If <code>mask_residues</code> is <code>True</code>, an additional <code>'masked_res'</code> key is added to the output. The value is a binary
+tensor shaped <code>(B, L)</code> where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated
+according to the following rules:
+- if <code>mask_whole_chains</code> is <code>True</code>, the whole chain is masked
+- if <code>mask_frac</code> is given, the number of residues to mask is <code>mask_frac</code> times the length of the chain,
+- otherwise, the number of residues to mask is sampled uniformly from the range [<code>lower_limit</code>, <code>upper_limit</code>].</p>
+<p>If <code>force_binding_sites_frac</code> &gt; 0 and <code>mask_whole_chains</code> is <code>False</code>, in the fraction of cases where a chain
+from a polymer is sampled, the center of the masked region will be forced to be in a binding site.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>dataset_folder</code></strong> :&ensp;<code>str</code></dt>
@@ -2145,6 +2631,21 @@ See the <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset"
 <dd>the type of node features, e.g. <code>"dihedral"</code> or <code>"sidechain+chemical"</code></dd>
 <dt><strong><code>batch_size</code></strong> :&ensp;<code>int</code>, default <code>4</code></dt>
 <dd>the batch size</dd>
+<dt><strong><code>entry_type</code></strong> :&ensp;<code>{"biounit", "chain", "pair"}</code></dt>
+<dd>the type of entries to generate (<code>"biounit"</code> for biounit-level, <code>"chain"</code> for chain-level, <code>"pair"</code> for chain-chain pairs)</dd>
+<dt><strong><code>classes_to_exclude</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
+<dd>a list of classes to exclude from the dataset (select from <code>"single_chains"</code>, <code>"heteromers"</code>, <code>"homomers"</code>)</dd>
+<dt><strong><code>lower_limit</code></strong> :&ensp;<code>int</code>, default <code>15</code></dt>
+<dd>the minimum number of residues to mask</dd>
+<dt><strong><code>upper_limit</code></strong> :&ensp;<code>int</code>, default <code>100</code></dt>
+<dd>the maximum number of residues to mask</dd>
+<dt><strong><code>mask_frac</code></strong> :&ensp;<code>float</code>, optional</dt>
+<dd>if given, the <code>lower_limit</code> and <code>upper_limit</code> are ignored and the number of residues to mask is <code>mask_frac</code> times the length of the chain</dd>
+<dt><strong><code>mask_whole_chains</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, <code>upper_limit</code>, <code>force_binding_sites</code> and <code>lower_limit</code> are ignored and the whole chain is masked instead</dd>
+<dt><strong><code>force_binding_sites_frac</code></strong> :&ensp;<code>float</code>, default <code>0.15</code></dt>
+<dd>if &gt; 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
+forced to be in a binding site</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -2154,14 +2655,24 @@ See the <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset"
     &#34;&#34;&#34;
     A subclass of `torch.data.utils.DataLoader` tuned for the BestProt dataset
 
-    Creates and iterates over an instance of `ProteinDataset`, omitting the `&#39;chain_dict&#39;` keys. 
+    Creates and iterates over an instance of `ProteinDataset`, omitting the `&#39;chain_dict&#39;` keys.
     See the `ProteinDataset` docs for more information.
+
+    If `mask_residues` is `True`, an additional `&#39;masked_res&#39;` key is added to the output. The value is a binary
+    tensor shaped `(B, L)` where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated
+    according to the following rules:
+    - if `mask_whole_chains` is `True`, the whole chain is masked
+    - if `mask_frac` is given, the number of residues to mask is `mask_frac` times the length of the chain,
+    - otherwise, the number of residues to mask is sampled uniformly from the range [`lower_limit`, `upper_limit`].
+
+    If `force_binding_sites_frac` &gt; 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
+    from a polymer is sampled, the center of the masked region will be forced to be in a binding site.
     &#34;&#34;&#34;
 
     def __init__(
         self,
         dataset_folder,
-        features_folder,
+        features_folder=&#34;./data/tmp/&#34;,
         clustering_dict_path=None,
         max_length=None,
         rewrite=False,
@@ -2171,6 +2682,14 @@ See the <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset"
         interpolate=&#34;none&#34;,
         node_features_type=&#34;zeros&#34;,
         batch_size=4,
+        entry_type=&#34;biounit&#34;,  # biounit, chain, pair
+        classes_to_exclude=None,
+        lower_limit=15,
+        upper_limit=100,
+        mask_residues=True,
+        mask_whole_chains=False,
+        mask_frac=None,
+        force_binding_sites_frac=0.15,
     ) -&gt; None:
         &#34;&#34;&#34;
         Parameters
@@ -2197,6 +2716,21 @@ See the <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset"
             the type of node features, e.g. `&#34;dihedral&#34;` or `&#34;sidechain+chemical&#34;`
         batch_size : int, default 4
             the batch size
+        entry_type : {&#34;biounit&#34;, &#34;chain&#34;, &#34;pair&#34;}
+            the type of entries to generate (`&#34;biounit&#34;` for biounit-level, `&#34;chain&#34;` for chain-level, `&#34;pair&#34;` for chain-chain pairs)
+        classes_to_exclude : list of str, optional
+            a list of classes to exclude from the dataset (select from `&#34;single_chains&#34;`, `&#34;heteromers&#34;`, `&#34;homomers&#34;`)
+        lower_limit : int, default 15
+            the minimum number of residues to mask
+        upper_limit : int, default 100
+            the maximum number of residues to mask
+        mask_frac : float, optional
+            if given, the `lower_limit` and `upper_limit` are ignored and the number of residues to mask is `mask_frac` times the length of the chain
+        mask_whole_chains : bool, default False
+            if `True`, `upper_limit`, `force_binding_sites` and `lower_limit` are ignored and the whole chain is masked instead
+        force_binding_sites_frac : float, default 0.15
+            if &gt; 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
+            forced to be in a binding site
         &#34;&#34;&#34;
 
         dataset = ProteinDataset(
@@ -2210,8 +2744,21 @@ See the <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset"
             debug=debug,
             interpolate=interpolate,
             node_features_type=node_features_type,
+            entry_type=entry_type,
+            classes_to_exclude=classes_to_exclude,
         )
-        super().__init__(dataset, collate_fn=_PadCollate(), batch_size=batch_size)</code></pre>
+        super().__init__(
+            dataset, 
+            collate_fn=_PadCollate(
+                mask_residues=mask_residues,
+                mask_whole_chains=mask_whole_chains,
+                mask_frac=mask_frac,
+                lower_limit=lower_limit,
+                upper_limit=upper_limit,
+                force_binding_sites_frac=force_binding_sites_frac,
+            ), 
+            batch_size=batch_size
+        )</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2265,15 +2812,22 @@ See the <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset"
 <h1>Index</h1>
 <div class="toc">
 <ul>
-<li><a href="#processing-pipeline">Processing pipeline</a></li>
-<li><a href="#pre-computed-data">Pre-computed data</a></li>
-<li><a href="#handling-data">Handling data</a></li>
+<li><a href="#installation">Installation</a></li>
+<li><a href="#usage">Usage</a><ul>
+<li><a href="#downloading-pre-computed-datasets">Downloading pre-computed datasets</a></li>
+<li><a href="#running-the-pipeline">Running the pipeline</a></li>
+<li><a href="#splitting">Splitting</a></li>
+<li><a href="#loading-the-data">Loading the data</a></li>
+</ul>
+</li>
+<li><a href="#citation">Citation</a></li>
 </ul>
 </div>
 <ul id="index">
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
 <li><code><a title="bestprot.check_download_tags" href="#bestprot.check_download_tags">check_download_tags</a></code></li>
+<li><code><a title="bestprot.check_pdb_snapshots" href="#bestprot.check_pdb_snapshots">check_pdb_snapshots</a></code></li>
 <li><code><a title="bestprot.download_data" href="#bestprot.download_data">download_data</a></code></li>
 <li><code><a title="bestprot.generate_data" href="#bestprot.generate_data">generate_data</a></code></li>
 <li><code><a title="bestprot.get_error_summary" href="#bestprot.get_error_summary">get_error_summary</a></code></li>
@@ -2310,3 +2864,4 @@ See the <code><a title="bestprot.ProteinDataset" href="#bestprot.ProteinDataset"
 </footer>
 </body>
 </html>
+<!--Fri Feb 10 08:49:48 UTC 2023 -->

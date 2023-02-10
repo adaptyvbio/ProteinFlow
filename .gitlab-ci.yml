@@ -1,10 +1,11 @@
 stages:
   - test
+  - build
 
 pytest:
   stage: test
-  # only:
-  #   - merge_requests
+  only:
+    - merge_requests
   image: 
     name: continuumio/miniconda3:latest
   before_script:
@@ -13,7 +14,23 @@ pytest:
     - conda run -n bestprot python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
     - conda run -n bestprot python -m pip install -e .
     - conda run -n bestprot python -m pip install pytest
-    - conda run -n bestprot python -m pip install awscli
   script:
     - conda run -n bestprot python -m pytest .
 
+push-back-to-remote:
+  stage: build
+  image: 
+    name: python:3.9
+  before_script:
+    - python -m pip install -e .
+    - python -m pip install pdoc3
+  script:
+    - git config user.email "liza@adaptyvbio.com"
+    - git config user.name "Liza Kozlova"
+    - git remote add gitlab_origin https://oauth2:$ACCESS_TOKEN@gitlab.com/adaptyvbio/bestprot.git
+    - . make_docs.sh
+    - echo "" >> html_docs/bestprot/index.html
+    - echo '<!--'"$(date) -->" >> html_docs/bestprot/index.html
+    - git add .
+    - git commit -m "push back from pipeline"
+    - git push gitlab_origin HEAD:main -o ci.skip # prevent triggering pipeline again
