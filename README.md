@@ -27,6 +27,8 @@ bestprot generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_fil
 ```
 See the docs (or `bestprot generate --help`) for the full list of parameters.
 
+The reasons for filtering files out are logged in text files (at `data/logs` by default). To get a summary, run `bestprot get_summary {log_path}`.
+
 ### Splitting
 By default, both `bestprot generate` and `bestprot download` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `bestprot split` command.
 ```

@@ -4,6 +4,7 @@ from bestprot import (
     download_data,
     generate_data,
     split_data,
+    get_error_summary
 )
 import click
 
@@ -174,6 +175,15 @@ def generate(**kwargs):
 )
 def split(**kwargs):
     split_data(**kwargs)
+
+
+@click.argument("log_path")
+@cli.command(
+    "get_summary",
+    help="Get a summary of filtering reasons from a log file"
+)
+def get_summary(log_path):
+    get_error_summary(log_path)
 
 
 if __name__ == "__main__":
