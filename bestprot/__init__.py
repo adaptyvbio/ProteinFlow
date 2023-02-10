@@ -1244,10 +1244,11 @@ def get_error_summary(log_file, verbose=True):
         for line in f.readlines():
             if line.startswith("<<<"):
                 stats[line.split(":")[0]].append(line.split(":")[-1].strip())
-    keys = sorted(stats.keys(), key=lambda x: stats[x], reverse=True)
     if verbose:
+        keys = sorted(stats.keys(), key=lambda x: len(stats[x]), reverse=True)
         for key in keys:
             print(f"{key}: {len(stats[key])}")
+        print(f"Total errors: {sum([len(x) for x in stats.values()])}")
     return stats
 
 def check_pdb_snapshots():
