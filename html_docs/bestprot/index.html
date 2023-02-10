@@ -1560,10 +1560,11 @@ def get_error_summary(log_file, verbose=True):
         for line in f.readlines():
             if line.startswith(&#34;&lt;&lt;&lt;&#34;):
                 stats[line.split(&#34;:&#34;)[0]].append(line.split(&#34;:&#34;)[-1].strip())
-    keys = sorted(stats.keys(), key=lambda x: stats[x], reverse=True)
     if verbose:
+        keys = sorted(stats.keys(), key=lambda x: len(stats[x]), reverse=True)
         for key in keys:
             print(f&#34;{key}: {len(stats[key])}&#34;)
+        print(f&#34;Total errors: {sum([len(x) for x in stats.values()])}&#34;)
     return stats
 
 
@@ -1967,10 +1968,11 @@ zeros to missing values,</li>
         for line in f.readlines():
             if line.startswith(&#34;&lt;&lt;&lt;&#34;):
                 stats[line.split(&#34;:&#34;)[0]].append(line.split(&#34;:&#34;)[-1].strip())
-    keys = sorted(stats.keys(), key=lambda x: stats[x], reverse=True)
     if verbose:
+        keys = sorted(stats.keys(), key=lambda x: len(stats[x]), reverse=True)
         for key in keys:
             print(f&#34;{key}: {len(stats[key])}&#34;)
+        print(f&#34;Total errors: {sum([len(x) for x in stats.values()])}&#34;)
     return stats</code></pre>
 </details>
 </dd>
@@ -2864,4 +2866,4 @@ forced to be in a binding site</dd>
 </footer>
 </body>
 </html>
-<!--Fri Feb 10 08:49:48 UTC 2023 -->
+<!--Fri Feb 10 10:10:43 UTC 2023 -->
