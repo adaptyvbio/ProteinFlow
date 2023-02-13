@@ -127,7 +127,9 @@ def _download_dataset(tag, local_datasets_folder="./data/"):
 
     s3_data_path, s3_dict_path = _get_s3_paths_from_tag(tag)
     data_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
-    dict_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}", "splits_dict")
+    dict_folder = os.path.join(
+        local_datasets_folder, f"proteinflow_{tag}", "splits_dict"
+    )
 
     print("Downloading dictionaries for splitting the dataset...")
     _download_dataset_dicts_from_s3(dict_folder, s3_dict_path)

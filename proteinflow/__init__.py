@@ -64,7 +64,10 @@ from proteinflow.utils.process_pdb import (
     _s3list,
     SIDECHAIN_ORDER,
 )
-from proteinflow.utils.cluster_and_partition import _build_dataset_partition, _check_mmseqs
+from proteinflow.utils.cluster_and_partition import (
+    _build_dataset_partition,
+    _check_mmseqs,
+)
 from proteinflow.utils.split_dataset import _download_dataset, _split_data
 from proteinflow.utils.biotite_sse import _annotate_sse
 
@@ -1443,7 +1446,7 @@ class ProteinLoader(DataLoader):
             classes_to_exclude=classes_to_exclude,
         )
         super().__init__(
-            dataset, 
+            dataset,
             collate_fn=_PadCollate(
                 mask_residues=mask_residues,
                 mask_whole_chains=mask_whole_chains,
@@ -1451,8 +1454,8 @@ class ProteinLoader(DataLoader):
                 lower_limit=lower_limit,
                 upper_limit=upper_limit,
                 force_binding_sites_frac=force_binding_sites_frac,
-            ), 
-            batch_size=batch_size
+            ),
+            batch_size=batch_size,
         )
 
 

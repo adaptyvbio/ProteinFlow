@@ -4,7 +4,7 @@ from proteinflow import (
     download_data,
     generate_data,
     split_data,
-    get_error_summary
+    get_error_summary,
 )
 import click
 
@@ -178,10 +178,7 @@ def split(**kwargs):
 
 
 @click.argument("log_path")
-@cli.command(
-    "get_summary",
-    help="Get a summary of filtering reasons from a log file"
-)
+@cli.command("get_summary", help="Get a summary of filtering reasons from a log file")
 def get_summary(log_path):
     get_error_summary(log_path)
 
