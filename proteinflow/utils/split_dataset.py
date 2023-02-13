@@ -11,8 +11,8 @@ def _get_s3_paths_from_tag(tag):
     Get the path to the data and split dictionary folders on S3 given a tag
     """
 
-    dict_path = f"s3://ml4-main-storage/bestprot_{tag}_splits_dict/"
-    data_path = f"s3://ml4-main-storage/bestprot_{tag}/"
+    dict_path = f"s3://ml4-main-storage/proteinflow_{tag}_splits_dict/"
+    data_path = f"s3://ml4-main-storage/proteinflow_{tag}/"
     return data_path, dict_path
 
 
@@ -25,7 +25,7 @@ def _biounits_in_clusters_dict(clusters_dict):
 
 
 def _download_dataset_dicts_from_s3(
-    dict_folder_path, s3_path="s3://ml4-main-storage/bestprot_20221110_splits_dict/"
+    dict_folder_path, s3_path="s3://ml4-main-storage/proteinflow_20221110_splits_dict/"
 ):
     """
     Download dictionaries containing database split information from s3 to a local folder
@@ -43,13 +43,13 @@ def _download_dataset_dicts_from_s3(
     subprocess.run(["aws", "s3", "cp", test_path, dict_folder_path])
 
 
-def _split_data(dataset_path="./data/bestprot_20221110/"):
+def _split_data(dataset_path="./data/proteinflow_20221110/"):
     """
     Rearrange files into folders according to the dataset split dictionaries at `dataset_path/splits_dict`
 
     Parameters
     ----------
-    dataset_path : str, default "./data/bestprot_20221110/"
+    dataset_path : str, default "./data/proteinflow_20221110/"
         The path to the dataset folder containing pre-processed entries and a `splits_dict` folder with split dictionaries (downloaded or generated with `get_split_dictionaries`)
     """
 
@@ -93,8 +93,8 @@ def _split_data(dataset_path="./data/bestprot_20221110/"):
 
 
 def _download_dataset_from_s3(
-    dataset_path="./data/bestprot_20221110/",
-    s3_path="s3://ml4-main-storage/bestprot_20221110/",
+    dataset_path="./data/proteinflow_20221110/",
+    s3_path="s3://ml4-main-storage/proteinflow_20221110/",
 ):
     """
     Download the pre-processed files
@@ -117,7 +117,7 @@ def _download_dataset(tag, local_datasets_folder="./data/"):
     tag : str
         name of the dataset (check `get_available_tags` to see the options)
     local_dataset_folder : str, default "./data/"
-        the local folder that will contain bestprot dataset folders, temporary files and logs
+        the local folder that will contain proteinflow dataset folders, temporary files and logs
 
     Returns
     -------
@@ -126,8 +126,10 @@ def _download_dataset(tag, local_datasets_folder="./data/"):
     """
 
     s3_data_path, s3_dict_path = _get_s3_paths_from_tag(tag)
-    data_folder = os.path.join(local_datasets_folder, f"bestprot_{tag}")
-    dict_folder = os.path.join(local_datasets_folder, f"bestprot_{tag}", "splits_dict")
+    data_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
+    dict_folder = os.path.join(
+        local_datasets_folder, f"proteinflow_{tag}", "splits_dict"
+    )
 
     print("Downloading dictionaries for splitting the dataset...")
     _download_dataset_dicts_from_s3(dict_folder, s3_dict_path)
