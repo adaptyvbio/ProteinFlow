@@ -9,15 +9,15 @@ pytest:
   image: 
     name: continuumio/miniconda3:latest
   before_script:
-    - conda create --name bestprot -y python=3.9
-    - conda install -n bestprot -c conda-forge -c bioconda mmseqs2
-    - conda run -n bestprot python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
-    - conda run -n bestprot python -m pip install -e .
-    - conda run -n bestprot python -m pip install pytest
+    - conda create --name proteinflow -y python=3.9
+    - conda install -n proteinflow -c conda-forge -c bioconda mmseqs2
+    - conda run -n proteinflow python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
+    - conda run -n proteinflow python -m pip install -e .
+    - conda run -n proteinflow python -m pip install pytest
   script:
-    - conda run -n bestprot python -m pytest .
+    - conda run -n proteinflow python -m pytest .
 
-push-back-to-remote:
+update_docs:
   stage: build
   image: 
     name: python:3.9
