@@ -1,19 +1,19 @@
 import subprocess
 import shutil
-from bestprot import ProteinLoader
+from proteinflow import ProteinLoader
 import os
 
 
 def test_download():
     """Test download_data + split_data + ProteinLoader"""
 
-    folder = "./data/bestprot_test"
+    folder = "./data/proteinflow_test"
     if os.path.exists(folder):
         shutil.rmtree(folder)
     subprocess.run(
-        ["bestprot", "download", "--tag", "test", "--skip_splitting"], check=True
+        ["proteinflow", "download", "--tag", "test", "--skip_splitting"], check=True
     )
-    subprocess.run(["bestprot", "split", "--tag", "test"], check=True)
+    subprocess.run(["proteinflow", "split", "--tag", "test"], check=True)
     for cluster_dict_path, entry_type, classes_to_exclude in [
         (None, "chain", None),
         (os.path.join(folder, "splits_dict/valid.pickle"), "pair", ["homomers"]),

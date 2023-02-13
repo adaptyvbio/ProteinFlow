@@ -1,4 +1,4 @@
-from bestprot import generate_data, split_data
+from proteinflow import generate_data, split_data
 import os
 import pickle
 from collections import defaultdict
@@ -30,7 +30,7 @@ def get_class(seqs_dict):
 def test_generate():
     """Test generate_data + split_data + chain class distribution"""
 
-    folder = "./data/bestprot_test"
+    folder = "./data/proteinflow_test"
     if os.path.exists(folder):
         shutil.rmtree(folder)
     generate_data(tag="test", skip_splitting=True, n=50)

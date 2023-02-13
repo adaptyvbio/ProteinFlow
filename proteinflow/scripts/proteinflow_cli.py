@@ -1,4 +1,4 @@
-from bestprot import (
+from proteinflow import (
     check_download_tags,
     check_pdb_snapshots,
     download_data,

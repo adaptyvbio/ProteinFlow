@@ -1,45 +1,45 @@
 """
-`bestprot` is a pipeline that loads protein data from PDB, filters it, puts it in a machine readable format and extracts structure and sequence features. 
+`proteinflow` is a pipeline that loads protein data from PDB, filters it, puts it in a machine readable format and extracts structure and sequence features. 
 
 ## Installation
 ...
 
 ## Usage
 ### Downloading pre-computed datasets
-We have run the pipeline and saved the results at an AWS S3 server. You can download the resulting dataset with `bestprot`. Check the output of `bestprot check_tags` for a list of available tags.
+We have run the pipeline and saved the results at an AWS S3 server. You can download the resulting dataset with `proteinflow`. Check the output of `proteinflow check_tags` for a list of available tags.
 ```
-bestprot download --tag 20221110 
+proteinflow download --tag 20221110 
 ```
 
 ### Running the pipeline
-You can also run `bestprot` with your own parameters. Check the output of `bestprot check_snapshots` for a list of available snapshots.
+You can also run `proteinflow` with your own parameters. Check the output of `proteinflow check_snapshots` for a list of available snapshots.
 ```
-bestprot generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods
+proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods
 ```
-See the docs (or `bestprot generate --help`) for the full list of parameters.
+See the docs (or `proteinflow generate --help`) for the full list of parameters.
 
 ### Splitting
-By default, both `bestprot generate` and `bestprot download` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `bestprot split` command.
+By default, both `proteinflow generate` and `proteinflow download` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `proteinflow split` command.
 ```
-bestprot split --tag new --valid_split 0.1 --test_split 0
+proteinflow split --tag new --valid_split 0.1 --test_split 0
 ```
 
 ### Loading the data
 The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:
 
 - `'crd_bb'`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),
-- `'crd_sc'`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (check `bestprot.sidechain_order()` for the order of atoms),
+- `'crd_sc'`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (check `proteinflow.sidechain_order()` for the order of atoms),
 - `'msk'`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and
     zeros to missing values,
 - `'seq'`: a string of length `L` with residue types.
 
-Once your data is ready, you can use our `bestprot.ProteinDataset` or `bestprot.ProteinLoader` (wrappers around `pytorch` data utils classes)
+Once your data is ready, you can use our `proteinflow.ProteinDataset` or `proteinflow.ProteinLoader` (wrappers around `pytorch` data utils classes)
 for convenient processing. 
 ```python
-from bestprot import ProteinLoader
+from proteinflow import ProteinLoader
 train_loader = ProteinLoader(
-    "./data/bestprot_new/training", 
-    clustering_dict_path="./data/bestprot_new/splits_dict/train.pickle",
+    "./data/proteinflow_new/training", 
+    clustering_dict_path="./data/proteinflow_new/splits_dict/train.pickle",
     batch_size=8, 
     node_features_type="chemical+secondary_structure"
 )
@@ -55,8 +55,8 @@ See our paper for more details and for citing: ...
 __pdoc__ = {"utils": False, "scripts": False}
 __docformat__ = "numpy"
 
-from bestprot.utils.filter_database import _remove_database_redundancies
-from bestprot.utils.process_pdb import (
+from proteinflow.utils.filter_database import _remove_database_redundancies
+from proteinflow.utils.process_pdb import (
     _align_structure,
     _open_structure,
     PDBError,
@@ -64,9 +64,9 @@ from bestprot.utils.process_pdb import (
     _s3list,
     SIDECHAIN_ORDER,
 )
-from bestprot.utils.cluster_and_partition import _build_dataset_partition, _check_mmseqs
-from bestprot.utils.split_dataset import _download_dataset, _split_data
-from bestprot.utils.biotite_sse import _annotate_sse
+from proteinflow.utils.cluster_and_partition import _build_dataset_partition, _check_mmseqs
+from proteinflow.utils.split_dataset import _download_dataset, _split_data
+from proteinflow.utils.biotite_sse import _annotate_sse
 
 import traceback
 import warnings
@@ -723,7 +723,7 @@ def download_data(tag, local_datasets_folder="./data", skip_splitting=False):
     tag : str
         the name of the dataset to load
     local_datasets_folder : str, default "./data"
-        the path to the folder that will store bestprot datasets, logs and temporary files
+        the path to the folder that will store proteinflow datasets, logs and temporary files
     skip_splitting : bool, default False
         if `True`, skip the split dictionary creation and the file moving steps
     """
@@ -734,7 +734,7 @@ def download_data(tag, local_datasets_folder="./data", skip_splitting=False):
         _split_data(data_path)
         print("-------------------------------------")
     print(
-        "Thanks for downloading BestProt, the most complete, user-friendly and loving protein dataset you will ever find! ;-)"
+        "Thanks for downloading proteinflow, the most complete, user-friendly and loving protein dataset you will ever find! ;-)"
     )
 
 
@@ -777,7 +777,7 @@ def generate_data(
     tag : str
         the name of the dataset to load
     local_datasets_folder : str, default "./data"
-        the path to the folder that will store bestprot datasets, logs and temporary files
+        the path to the folder that will store proteinflow datasets, logs and temporary files
     min_length : int, default 30
         The minimum number of non-missing residues per chain
     max_length : int, default 10000
@@ -821,7 +821,7 @@ def generate_data(
     filter_methods = not not_filter_methods
     remove_redundancies = not not_remove_redundancies
     tmp_folder = os.path.join(local_datasets_folder, "tmp")
-    output_folder = os.path.join(local_datasets_folder, f"bestprot_{tag}")
+    output_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
     log_folder = os.path.join(local_datasets_folder, "logs")
     out_split_dict_folder = os.path.join(output_folder, "splits_dict")
 
@@ -866,7 +866,7 @@ def split_data(
     ignore_existing=False,
 ):
     """
-    Split `bestprot` entry files into training, test and validation.
+    Split `proteinflow` entry files into training, test and validation.
 
     ...
 
@@ -875,7 +875,7 @@ def split_data(
     tag : str
         the name of the dataset to load
     local_datasets_folder : str, default "./data"
-        the path to the folder that will store bestprot datasets, logs and temporary files
+        the path to the folder that will store proteinflow datasets, logs and temporary files
     split_tolerance : float, default 0.2
         The tolerance on the split ratio (default 20%)
     test_split : float, default 0.05
@@ -893,14 +893,14 @@ def split_data(
 
     _check_mmseqs()
     tmp_folder = os.path.join(local_datasets_folder, "tmp")
-    output_folder = os.path.join(local_datasets_folder, f"bestprot_{tag}")
+    output_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
     out_split_dict_folder = os.path.join(output_folder, "splits_dict")
     exists = False
 
     if os.path.exists(out_split_dict_folder):
         if not ignore_existing:
             warnings.warn(
-                f"Found an existing dictionary for tag {tag}. BestProt will load it and ignore the parameters! Run with --ignore_existing to overwrite."
+                f"Found an existing dictionary for tag {tag}. proteinflow will load it and ignore the parameters! Run with --ignore_existing to overwrite."
             )
             exists = True
     if not exists:
@@ -918,7 +918,7 @@ def split_data(
 
 class ProteinDataset(Dataset):
     """
-    Dataset to load BestProt data
+    Dataset to load proteinflow data
 
     Saves the model input tensors as pickle files in `features_folder`. When `clustering_dict_path` is provided,
     at each iteration a random bionit from a cluster is sampled.
@@ -961,7 +961,7 @@ class ProteinDataset(Dataset):
         Parameters
         ----------
         dataset_folder : str
-            the path to the folder with BestProt format input files (assumes that files are named {biounit_id}.pickle)
+            the path to the folder with proteinflow format input files (assumes that files are named {biounit_id}.pickle)
         features_folder : str, default "./data/tmp/"
             the path to the folder where the ProteinMPNN features will be saved
         clustering_dict_path : str, optional
@@ -1237,7 +1237,7 @@ class ProteinDataset(Dataset):
 
     def _process(self, filename, rewrite=False):
         """
-        Process a BestProt file and save it as ProteinMPNN features
+        Process a proteinflow file and save it as ProteinMPNN features
         """
 
         input_file = os.path.join(self.dataset_folder, filename)
@@ -1348,7 +1348,7 @@ class ProteinDataset(Dataset):
 
 class ProteinLoader(DataLoader):
     """
-    A subclass of `torch.data.utils.DataLoader` tuned for the BestProt dataset
+    A subclass of `torch.data.utils.DataLoader` tuned for the proteinflow dataset
 
     Creates and iterates over an instance of `ProteinDataset`, omitting the `'chain_dict'` keys.
     See the `ProteinDataset` docs for more information.
@@ -1390,7 +1390,7 @@ class ProteinLoader(DataLoader):
         Parameters
         ----------
         dataset_folder : str
-            the path to the folder with BestProt format input files (assumes that files are named {biounit_id}.pickle)
+            the path to the folder with proteinflow format input files (assumes that files are named {biounit_id}.pickle)
         features_folder : str
             the path to the folder where the ProteinMPNN features will be saved
         clustering_dict_path : str, optional
@@ -1538,9 +1538,9 @@ def check_download_tags():
     tags_dict = defaultdict(lambda: [])
     for folder in folders:
         folder = folder.key
-        if not folder.startswith("bestprot_"):
+        if not folder.startswith("proteinflow_"):
             continue
-        tag = folder[len("bestprot_") :]
+        tag = folder[len("proteinflow_") :]
         if tag.endswith("_splits_dict/"):
             tag = tag[: -len("_splits_dict/")]
         else:
