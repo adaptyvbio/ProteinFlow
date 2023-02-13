@@ -1,1 +1,1 @@
-pdoc3 -o html_docs --html --force bestprot 
+pdoc3 -o html_docs --html --force proteinflow 
