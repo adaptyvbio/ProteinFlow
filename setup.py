@@ -3,7 +3,7 @@ from setuptools import find_packages
 
 
 setup(
-    name="bestprot",
+    name="proteinflow",
     version="0.0.1",
     packages=find_packages(),
     install_requires=[
@@ -25,11 +25,11 @@ setup(
     author="Adaptyv Biosystems",
     author_email="contact@adaptyvbio.com",
     description=(
-        "A library for running the BestProt protein data processing pipeline."
+        "A library for running the proteinflow protein data processing pipeline."
     ),
     entry_points={
         "console_scripts": [
-            "bestprot = bestprot.scripts.bestprot_cli:cli",
+            "proteinflow = proteinflow.scripts.proteinflow_cli:cli",
         ]
     },
     python_requires=">=3.8,<3.10",

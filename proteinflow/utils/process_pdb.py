@@ -6,7 +6,7 @@ import urllib.request
 import os
 import numpy as np
 from biopandas.pdb import PandasPdb
-from bestprot.utils.mmcif_fix import CustomMmcif
+from proteinflow.utils.mmcif_fix import CustomMmcif
 import os
 from collections import namedtuple
 from operator import attrgetter
