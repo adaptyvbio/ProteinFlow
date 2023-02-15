@@ -1,1 +1,1 @@
-pdoc3 -o html_docs --html --force proteinflow 
+pdoc3 -o docs --html --force proteinflow 
