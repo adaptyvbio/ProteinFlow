@@ -17,9 +17,12 @@ jobs:
         run: |
           echo ${{ secrets.TEST_SECRET }}
           python -m pip install --upgrade pip
-          pip install flake8 pytest
-          pip install -e .
-          pip install awscli
+          conda create --name proteinflow -y python=3.9
+          conda install -n proteinflow -c conda-forge -c bioconda mmseqs2
+          conda run -n proteinflow python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
+          conda run -n proteinflow python -m pip install awscli pytest flake8
+          conda run -n proteinflow python -m pip install -e .
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -29,9 +32,9 @@ jobs:
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          conda run -n proteinflow flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          conda run -n proteinflow flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test with pytest
         run: |
-          pytest
+          conda run -n proteinflow pytest
