@@ -3,7 +3,7 @@ name: Test and update docs
 on: [push]
 
 jobs:
-  build:
+  test:
 
     runs-on: ubuntu-latest
 
