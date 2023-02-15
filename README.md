@@ -1,4 +1,4 @@
-# proteinflow
+# ProteinFlow
 This is a python library for handling the proteinflow data processing pipeline.
 
 ## Installation
