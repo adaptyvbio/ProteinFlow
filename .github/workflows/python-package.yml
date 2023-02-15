@@ -15,7 +15,7 @@ jobs:
           python-version: 3.9
       - name: Install dependencies
         run: |
-          echo $TEST_SECRET
+          echo ${{ secrets.TEST_SECRET }}
           python -m pip install --upgrade pip
           pip install flake8 pytest
           pip install -e .
@@ -24,8 +24,8 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-region: eu-west-1
-          aws-access-key-id: $AWS_ACCESS_KEY
-          aws-secret-access-key: $AWS_SECRET_KEY
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names
