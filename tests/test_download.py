@@ -2,7 +2,7 @@ import subprocess
 import shutil
 from proteinflow import ProteinLoader
 import os
-
+ 
 
 def test_download():
     """Test download_data + split_data + ProteinLoader"""
