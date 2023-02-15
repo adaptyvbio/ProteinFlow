@@ -1,8 +1,6 @@
-name: Test
+name: Run pytest
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
 
@@ -19,8 +17,6 @@ jobs:
           python-version: 3.9
       - name: Install dependencies
         run: |
-          echo ${{ secrets.TEST_SECRET }}
-          python -m pip install --upgrade pip
           conda create --name proteinflow -y python=3.9
           conda install -n proteinflow -c conda-forge -c bioconda mmseqs2
           conda run -n proteinflow python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
