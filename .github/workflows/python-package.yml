@@ -1,6 +1,10 @@
-name: Test and update docs
+name: Test
 
-on: [push]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   test:
@@ -38,3 +42,4 @@ jobs:
       - name: Test with pytest
         run: |
           conda run -n proteinflow pytest
+    
