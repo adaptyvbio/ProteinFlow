@@ -136,10 +136,6 @@ def _s3list(
     if start is not None:
         if not start.startswith(path):
             start = os.path.join(path, start)
-        # note: need to use a string just smaller than start, because
-        # the list_object API specifies that start is excluded (the first
-        # result is *after* start).
-        kwargs.update(Marker=__prev_str(start))
     if end is not None:
         if not end.startswith(path):
             end = os.path.join(path, end)
