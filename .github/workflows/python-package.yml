@@ -15,6 +15,7 @@ jobs:
           python-version: 3.9
       - name: Install dependencies
         run: |
+          echo $TEST_SECRET
           python -m pip install --upgrade pip
           pip install flake8 pytest
           pip install -e .
