@@ -1,4 +1,4 @@
-name: Run pytest
+name: Merge pull request
 
 on:
   pull_request:
@@ -38,4 +38,14 @@ jobs:
       - name: Test with pytest
         run: |
           conda run -n proteinflow pytest
+      - name: Install pdoc3
+          conda run -n proteinflow python -m pip install pdoc3
+      - name: Update the docs
+        run: |
+          conda run -n proteinflow pdoc3 -o docs --html --force proteinflow 
+          mv docs/proteinflow/* docs/
+          rm -r docs/proteinflow
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: update docs
     
