@@ -1,9 +1,9 @@
 """
 `proteinflow` is a pipeline that loads protein data from PDB, filters it, puts it in a machine readable format and extracts structure and sequence features. 
 
-
 ## Installation
 ...
+
 
 ## Usage
 ### Downloading pre-computed datasets
