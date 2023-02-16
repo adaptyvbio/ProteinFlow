@@ -5,7 +5,7 @@ on:
     branches: [ main ]
 
 jobs:
-  test+update:
+  test_and_update:
 
     runs-on: ubuntu-latest
 
