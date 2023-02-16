@@ -4,13 +4,13 @@
 ## Installation
 ...
 
-
 ## Usage
 ### Downloading pre-computed datasets
 We have run the pipeline and saved the results at an AWS S3 server. You can download the resulting dataset with `proteinflow`. Check the output of `proteinflow check_tags` for a list of available tags.
 ```
 proteinflow download --tag 20221110 
 ```
+
 
 ### Running the pipeline
 You can also run `proteinflow` with your own parameters. Check the output of `proteinflow check_snapshots` for a list of available snapshots.
