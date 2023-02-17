@@ -46,9 +46,12 @@ jobs:
       - name: Test with pytest
         run: |
           conda run -n proteinflow pytest
-      - name: Install pdoc3
+      - name: Install pdoc3 and black
         run: |
-          conda run -n proteinflow python -m pip install pdoc3
+          conda run -n proteinflow python -m pip install pdoc3 black
+      - name: Reformat the code
+        run: |
+          conda run -n proteinflow black .
       - name: Update the docs
         run: |
           git pull
@@ -57,6 +60,6 @@ jobs:
           rm -r docs/proteinflow
       - uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          commit_message: update docs
+          commit_message: auto update
           skip_checkout: true
     
