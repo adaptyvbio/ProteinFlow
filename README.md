@@ -1,13 +1,7 @@
 # ProteinFlow
 
-<p align="center">
-<a href="https://github.com/adaptyvbio/proteinflow/actions"><img alt="Actions Status" src="https://github.com/adaptyvbio/proteinflow/workflows/Test/badge.svg"></a>
-<a href="https://github.com/adaptyvbio/proteinflow/blob/main/LICENSE"><img alt="License: MIT"></a>
-<a href="https://pypi.org/project/black/"><img alt="PyPI" src="https://img.shields.io/pypi/v/black"></a>
-<a href="https://pepy.tech/project/black"><img alt="Downloads" src="https://pepy.tech/badge/black"></a>
-<a href="https://anaconda.org/conda-forge/black/"><img alt="conda-forge" src="https://img.shields.io/conda/dn/conda-forge/black.svg?label=conda-forge"></a>
-<a href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
-</p>
+[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+![example workflow](https://github.com/adaptyvbio/proteinflow/actions/workflows/run_pytest.yml/badge.svg)
 
 This is a python library for handling the proteinflow data processing pipeline.
 
