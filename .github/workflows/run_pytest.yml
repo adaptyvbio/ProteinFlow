@@ -44,6 +44,7 @@ jobs:
           conda run -n proteinflow python -m pip install pdoc3
       - name: Update the docs
         run: |
+          git pull
           conda run -n proteinflow pdoc3 -o docs --html --force proteinflow 
           mv docs/proteinflow/* docs/
           rm -r docs/proteinflow
