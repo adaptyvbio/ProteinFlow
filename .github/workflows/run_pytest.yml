@@ -4,9 +4,6 @@ on:
   pull_request:
     branches: [ main ]
 
-env:
-  MY_REF: ${{ format('refs/heads/{0}', github.event.pull_request.head.ref) }}
-
 jobs:
   test:
 
@@ -17,8 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: ${{ env.MY_REF}}
-          fetch-depth: 0
+          ref: $GITHUB_HEAD_REF
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
