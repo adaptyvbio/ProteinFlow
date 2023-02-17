@@ -47,5 +47,8 @@ jobs:
           conda run -n proteinflow pdoc3 -o docs --html --force proteinflow 
           mv docs/proteinflow/* docs/
           rm -r docs/proteinflow
-      - uses: devops-infra/action-commit-push@master
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: update docs
+          skip_checkout: true
     
