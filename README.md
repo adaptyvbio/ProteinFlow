@@ -14,7 +14,7 @@ git clone https://gitlab.com/adaptyvbio/ml-4/-/tree/library
 cd ml-4
 conda create --name proteinflow -y python=3.9
 conda activate proteinflow
-conda install -c conda-forge -c bioconda mmseqs2
+conda install -y -c conda-forge -c bioconda mmseqs2
 python -m pip install -e .
 aws configure
 ```
