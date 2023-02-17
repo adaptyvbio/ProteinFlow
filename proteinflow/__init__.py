@@ -308,11 +308,13 @@ def _get_split_dictionaries(
         pickle.dump(test_clusters_dict, f)
         pickle.dump(test_classes_dict, f)
 
+
 def _raise_rcsbsearch(e):
     if "404 Client Error" in str(e):
         raise RuntimeError(
             'Quering rcsbsearch is failing. Please install a version of rcsbsearch where this error is solved:\npython -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"'
         )
+
 
 def _run_processing(
     tmp_folder="./data/tmp_pdb",
