@@ -11,7 +11,6 @@ We have run the pipeline and saved the results at an AWS S3 server. You can down
 proteinflow download --tag 20221110 
 ```
 
-
 ### Running the pipeline
 You can also run `proteinflow` with your own parameters. Check the output of `proteinflow check_snapshots` for a list of available snapshots.
 ```
