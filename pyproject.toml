@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "proteinflow"
+version = "0.0.1"
+requires-python = ">=3.9"
+license = {text = "BSD-3-Clause"}
+dependencies = [
+    "numpy",
+    "editdistance>=0.6.0",
+    "Biopython>=1.80",
+    "click>=8.1.3",
+    "biopandas>=0.4.1",
+    "boto3>=1.25.3",
+    "p_tqdm>=1.4.0",
+    "networkx==2.8.8",
+    "einops>=0.6.0",
+    "pandas>=1.5.2",
+    "torch>=1.10.0",
+    "biotite==0.35.0",
+    "awscli",
+    "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e",
+]
+
+[project.scripts]
+proteinflow = "proteinflow.scripts.proteinflow_cli:cli"
+
+[tool.setuptools.packages]
+find = {}
