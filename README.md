@@ -5,6 +5,8 @@
 
 This is a python library for handling the proteinflow data processing pipeline.
 
+[Read the documentation.](https://adaptyvbio.github.io/ProteinFlow/)
+
 ## Installation
 Recommended: create a new `conda` environment and install `proteinflow` and `mmseqs`. Note that the python version has to be between 3.8 and 3.10.
 ```
