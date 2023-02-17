@@ -8,15 +8,17 @@ This is a python library for handling the proteinflow data processing pipeline.
 [Read the documentation.](https://adaptyvbio.github.io/ProteinFlow/)
 
 ## Installation
-Recommended: create a new `conda` environment and install `proteinflow` and `mmseqs`. Note that the python version has to be between 3.8 and 3.10.
+Recommended: create a new `conda` environment and install `proteinflow` and `mmseqs`. Note that the python version has to be between 3.8 and 3.10. 
 ```
-git clone https://gitlab.com/adaptyvbio/ml-4/-/tree/library
-cd ml-4
 conda create --name proteinflow -y python=3.9
 conda activate proteinflow
 conda install -y -c conda-forge -c bioconda mmseqs2
-python -m pip install -e .
+python -m pip install proteinflow
 aws configure
+```
+In addition, `proteinflow` depends on the `rcsbsearch` package and the latest release is currently failing. Follow the recommended fix:
+```
+python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
 ```
 
 ## Usage

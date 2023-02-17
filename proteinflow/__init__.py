@@ -308,6 +308,11 @@ def _get_split_dictionaries(
         pickle.dump(test_clusters_dict, f)
         pickle.dump(test_classes_dict, f)
 
+def _raise_rcsbsearch(e):
+    if "404 Client Error" in str(e):
+        raise RuntimeError(
+            'Quering rcsbsearch is failing. Please install a version of rcsbsearch where this error is solved:\npython -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"'
+        )
 
 def _run_processing(
     tmp_folder="./data/tmp_pdb",
@@ -443,11 +448,14 @@ def _run_processing(
     pdb_ids = pdb_ids.exec("assembly")
     if n is not None:
         pdbs = []
-        for i, x in enumerate(pdb_ids):
-            pdbs.append(x)
-            if i == n:
-                break
-        pdb_ids = pdbs
+        try:
+            for i, x in enumerate(pdb_ids):
+                pdbs.append(x)
+                if i == n:
+                    break
+            pdb_ids = pdbs
+        except Exception as e:
+            _raise_rcsbsearch(e)
 
     ordered_folders = [
         x.key
@@ -509,7 +517,10 @@ def _run_processing(
                 _log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER)
 
     # process_f("1a14-1", show_error=True, force=force)
-    _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), pdb_ids)
+    try:
+        _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), pdb_ids)
+    except Exception as e:
+        _raise_rcsbsearch(e)
 
     stats = get_error_summary(LOG_FILE, verbose=False)
     not_found_error = "<<< PDB / mmCIF file downloaded but not found"

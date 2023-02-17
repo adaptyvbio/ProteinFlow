@@ -10,8 +10,7 @@ authors = [
     {name = "Arthur Valentin", email = "arthur@adaptyvbio.com"}
 ]
 description = "Versatile pipeline for processing protein structure data for deep learning applications."
-long_description = "README.md"
-long_description_content_type = "text/markdown"
+readme = "README.md"
 requires-python = ">=3.8,<3.10"
 license = {text = "BSD-3-Clause"}
 dependencies = [
@@ -28,7 +27,7 @@ dependencies = [
     "torch>=1.10.0",
     "biotite==0.35.0",
     "awscli",
-    "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e",
+    "rcsbsearch",
 ]
 keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning"]
 
