@@ -49,7 +49,6 @@ for batch in train_loader:
 
 ## Citation
 See our paper for more details and for citing: ...
-
 """
 
 __pdoc__ = {"utils": False, "scripts": False}
