@@ -47,7 +47,7 @@ jobs:
       #   run: |
       #     conda run -n proteinflow pytest
       - name: Install pdoc3
-          conda run -n proteinflow python -m pip install pdoc3
+          run: conda run -n proteinflow python -m pip install pdoc3
       - name: Update the docs
         run: |
           git pull
