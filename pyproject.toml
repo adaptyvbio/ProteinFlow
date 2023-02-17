@@ -4,8 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "proteinflow"
-version = "0.0.1"
-requires-python = ">=3.9"
+version = "1.0.0"
+authors = [
+    {name = "Elizaveta Kozlova", email = "liza@adaptyvbio.com"},
+    {name = "Arthur Valentin", email = "arthur@adaptyvbio.com"}
+]
+description = "Versatile pipeline for processing protein structure data for deep learning applications."
+long_description = "README.md"
+long_description_content_type = "text/markdown"
+requires-python = ">=3.8,<3.10"
 license = {text = "BSD-3-Clause"}
 dependencies = [
     "numpy",
@@ -23,6 +30,7 @@ dependencies = [
     "awscli",
     "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e",
 ]
+keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning"]
 
 [project.scripts]
 proteinflow = "proteinflow.scripts.proteinflow_cli:cli"
