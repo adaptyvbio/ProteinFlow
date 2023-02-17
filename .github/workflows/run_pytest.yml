@@ -8,7 +8,7 @@ env:
   MY_REF: ${{ format('refs/heads/{0}', github.event.pull_request.head.ref) }}
 
 jobs:
-  test:
+  test_and_update:
 
     runs-on: ubuntu-latest
     permissions: 
