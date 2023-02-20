@@ -263,6 +263,7 @@ def _get_split_dictionaries(
     test_split=0.05,
     valid_split=0.05,
     out_split_dict_folder="./data/dataset_splits_dict",
+    min_seq_id=0.3,
 ):
     """
     Split preprocessed data into training, validation and test
@@ -281,6 +282,8 @@ def _get_split_dictionaries(
         The percentage of chains to put in the validation set (default 5%)
     out_split_dict_folder : str, default "./data/dataset_splits_dict"
         The folder where the dictionaries containing the train/validation/test splits information will be saved"
+    min_seq_id : float in [0, 1], default 0.3
+        minimum sequence identity for `mmseqs`
     """
 
     os.makedirs(out_split_dict_folder, exist_ok=True)
@@ -297,6 +300,7 @@ def _get_split_dictionaries(
         valid_split=valid_split,
         test_split=test_split,
         tolerance=split_tolerance,
+        min_seq_id=min_seq_id,
     )
     with open(os.path.join(out_split_dict_folder, "train.pickle"), "wb") as f:
         pickle.dump(train_clusters_dict, f)
@@ -773,6 +777,7 @@ def generate_data(
     valid_split=0.05,
     pdb_snapshot=None,
     load_live=False,
+    min_seq_id=0.3,
 ):
     """
     Download and parse PDB files that meet filtering criteria
@@ -826,6 +831,8 @@ def generate_data(
         the PDB snapshot to use, by default the latest is used
     load_live : bool, default False
         if `True`, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to `False` if `pdb_snapshot` is not `None`)
+    min_seq_id : float in [0, 1], default 0.3
+        minimum sequence identity for `mmseqs`
 
     Returns
     -------
@@ -867,6 +874,7 @@ def generate_data(
             test_split=test_split,
             valid_split=valid_split,
             out_split_dict_folder=out_split_dict_folder,
+            min_seq_id=min_seq_id,
         )
 
         _split_data(output_folder)
@@ -880,6 +888,7 @@ def split_data(
     test_split=0.05,
     valid_split=0.05,
     ignore_existing=False,
+    min_seq_id=0.3,
 ):
     """
     Split `proteinflow` entry files into training, test and validation.
@@ -900,6 +909,8 @@ def split_data(
         The percentage of chains to put in the validation set (default 5%)
     ignore_existing : bool, default False
         If `True`, overwrite existing dictionaries for this tag; otherwise, load the existing dictionary
+    min_seq_id : float in [0, 1], default 0.3
+        minimum sequence identity for `mmseqs`
 
     Returns
     -------
@@ -927,6 +938,7 @@ def split_data(
             test_split=test_split,
             valid_split=valid_split,
             out_split_dict_folder=out_split_dict_folder,
+            min_seq_id=min_seq_id,
         )
 
     _split_data(output_folder)

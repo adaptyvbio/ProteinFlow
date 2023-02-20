@@ -132,6 +132,12 @@ def download(**kwargs):
     is_flag=True,
     help="Load the files that are not in the latest PDB snapshot from the PDB FTP server (disregarded if pdb_snapshot is not none)",
 )
+@click.option(
+    "--min_seq_id",
+    default=0.3,
+    type=float,
+    help="Minimum sequence identity for mmseqs clustering"
+)
 @cli.command("generate", help="Generate a new ProteinFlow dataset")
 def generate(**kwargs):
     generate_data(**kwargs)
@@ -168,6 +174,12 @@ def generate(**kwargs):
     default=0.2,
     type=float,
     help="The tolerance on the split ratio (default 20%)",
+)
+@click.option(
+    "--min_seq_id",
+    default=0.3,
+    type=float,
+    help="Minimum sequence identity for mmseqs clustering"
 )
 @cli.command(
     "split",

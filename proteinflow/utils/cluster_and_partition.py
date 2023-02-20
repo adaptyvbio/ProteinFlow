@@ -108,7 +108,7 @@ def _write_fasta(fasta_path, merged_seqs_dict):
                 f.write(seq + "\n")
 
 
-def _run_mmseqs2(fasta_file, tmp_folder):
+def _run_mmseqs2(fasta_file, tmp_folder, min_seq_id):
     """
     Run the MMSeqs2 command with the parameters we want
 
@@ -124,7 +124,7 @@ def _run_mmseqs2(fasta_file, tmp_folder):
             os.path.join(tmp_folder, "MMSeqs2_results/clusterRes"),
             os.path.join(tmp_folder, "MMSeqs2_results/tmp"),
             "--min-seq-id",
-            "0.3",
+            str(min_seq_id),
         ]
     )
 
@@ -971,7 +971,7 @@ def _split_dataset(
 
 
 def _build_dataset_partition(
-    dataset_dir, tmp_folder, valid_split=0.05, test_split=0.05, tolerance=0.2
+    dataset_dir, tmp_folder, valid_split=0.05, test_split=0.05, tolerance=0.2, min_seq_id=0.3
 ):
     """
     Build training, validation and test sets from a curated dataset of biounit, using MMSeqs2 for clustering
@@ -980,10 +980,12 @@ def _build_dataset_partition(
     ----------
     dataset_dir : str
         the path to the dataset
-    valid_split : float in ]0, 1[, default 0.05
+    valid_split : float in [0, 1], default 0.05
         the validation split ratio
-    test_split : float in ]0, 1[, default 0.05
+    test_split : float in [0, 1], default 0.05
         the test split ratio
+    min_seq_id : float in [0, 1], default 0.3
+        minimum sequence identity for `mmseqs`
 
     Output
     ------
@@ -1010,7 +1012,7 @@ def _build_dataset_partition(
     # write sequences to a fasta file for clustering with MMSeqs2, run MMSeqs2 and delete the fasta file
     fasta_file = os.path.join(tmp_folder, "all_seqs.fasta")
     _write_fasta(fasta_file, merged_seqs_dict)
-    _run_mmseqs2(fasta_file, tmp_folder)
+    _run_mmseqs2(fasta_file, tmp_folder, min_seq_id)
     subprocess.run(["rm", fasta_file])
 
     # retrieve MMSeqs2 clusters and build a graph with these clusters
