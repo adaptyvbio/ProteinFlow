@@ -966,7 +966,8 @@ class ProteinDataset(Dataset):
 
     - `'sidechain_orientation'`: a unit vector in the direction of the sidechain, `(total_L, 3)`,
     - `'dihedral'`: the dihedral angles, `(total_L, 2)`,
-    - `'chemical'`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`.
+    - `'chemical'`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`,
+    - `'secondary_structure'`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 6)`.
     """
 
     def __init__(
@@ -1006,8 +1007,8 @@ class ProteinDataset(Dataset):
             only process 1000 files
         interpolate : {"none", "only_middle", "all"}
             `"none"` for no interpolation, `"only_middle"` for only linear interpolation in the middle, `"all"` for linear interpolation + ends generation
-        node_features_type : {"zeros", "dihedral", "sidechain", "chemical", or combinations with "+"}
-            the type of node features, e.g. "dihedral" or "sidechain+chemical"
+        node_features_type : {"zeros", "dihedral", "sidechain_orientation", "chemical", "secondary_structure" or combinations with "+"}
+            the type of node features, e.g. `"dihedral"` or `"sidechain_orientation+chemical"`
         debug_file_path : str, optional
             if not `None`, open this single file instead of loading the dataset
         entry_type : {"biounit", "chain", "pair"}
@@ -1435,8 +1436,8 @@ class ProteinLoader(DataLoader):
             only process 1000 files
         interpolate : {"none", "only_middle", "all"}
             `"none"` for no interpolation, `"only_middle"` for only linear interpolation in the middle, `"all"` for linear interpolation + ends generation
-        node_features_type : {"zeros", "dihedral", "sidechain", "chemical", or combinations with "+"}
-            the type of node features, e.g. `"dihedral"` or `"sidechain+chemical"`
+        node_features_type : {"zeros", "dihedral", "sidechain_orientation", "chemical", "secondary_structure" or combinations with "+"}
+            the type of node features, e.g. `"dihedral"` or `"sidechain_orientation+chemical"`
         batch_size : int, default 4
             the batch size
         entry_type : {"biounit", "chain", "pair"}

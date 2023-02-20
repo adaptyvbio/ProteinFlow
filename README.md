@@ -4,7 +4,7 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![PyPI](https://img.shields.io/pypi/v/proteinflow)](https://pypi.org/project/proteinflow/)
 
-This is a python library for handling the proteinflow data processing pipeline.
+A data processing pipeline for all your protein design needs.
 
 [Read the documentation.](https://adaptyvbio.github.io/ProteinFlow/)
 
