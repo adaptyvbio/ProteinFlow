@@ -8,6 +8,7 @@ import pickle as pkl
 import networkx as nx
 from tqdm import tqdm
 from collections import defaultdict
+from itertools import combinations
 
 
 def _unique_chains(seqs_list):
@@ -169,16 +170,24 @@ def _make_graph(cluster_pdb_dict):
     """
 
     keys = list(cluster_pdb_dict.keys())
-    keys_dict = {k: l for l, k in enumerate(keys)}
     keys_mapping = {l: k for l, k in enumerate(keys)}
     adjacency_matrix = np.zeros((len(keys), len(keys)))
 
-    for k, key1 in enumerate(keys):
-        for pdb in cluster_pdb_dict[key1]:
-            for key2 in keys[k + 1 :]:
-                if pdb in cluster_pdb_dict[key2]:
-                    adjacency_matrix[keys_dict[key1], keys_dict[key2]] += 1
-                    adjacency_matrix[keys_dict[key2], keys_dict[key1]] += 1
+    seen_dict = defaultdict(set)
+    for i, key in enumerate(keys):
+        for pdb in seen_dict[key]:
+            seen_dict[pdb].add(i)
+    for cluster_set in seen_dict.values():
+        for i, j in combinations(cluster_set, 2):
+            adjacency_matrix[i, j] += 1
+            adjacency_matrix[j, i] += 1
+
+    # for k, key1 in enumerate(keys):
+    #     for pdb in cluster_pdb_dict[key1]:
+    #         for key2 in keys[k + 1 :]:
+    #             if pdb in cluster_pdb_dict[key2]:
+    #                 adjacency_matrix[keys_dict[key1], keys_dict[key2]] += 1
+    #                 adjacency_matrix[keys_dict[key2], keys_dict[key1]] += 1
 
     graph = nx.from_numpy_matrix(adjacency_matrix)
     nx.relabel_nodes(graph, keys_mapping, copy=False)
