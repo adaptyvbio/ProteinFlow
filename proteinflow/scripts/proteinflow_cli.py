@@ -36,12 +36,12 @@ def check_snapshots():
 @click.option(
     "--local_datasets_folder",
     default="./data",
-    help="The folder where bestprot datasets, temporary files and logs will be stored",
+    help="The folder where proteinflow datasets, temporary files and logs will be stored",
 )
 @click.option(
     "--skip_splitting", is_flag=True, help="Use this flag to skip splitting the data"
 )
-@cli.command("download", help="Download an existing BestProt dataset")
+@cli.command("download", help="Download an existing ProteinFlow dataset")
 def download(**kwargs):
     download_data(**kwargs)
 
@@ -53,7 +53,7 @@ def download(**kwargs):
 @click.option(
     "--local_datasets_folder",
     default="./data",
-    help="The folder where bestprot datasets, temporary files and logs will be stored",
+    help="The folder where proteinflow datasets, temporary files and logs will be stored",
 )
 @click.option(
     "--min_length",
@@ -132,7 +132,7 @@ def download(**kwargs):
     is_flag=True,
     help="Load the files that are not in the latest PDB snapshot from the PDB FTP server (disregarded if pdb_snapshot is not none)",
 )
-@cli.command("generate", help="Generate a new BestProt dataset")
+@cli.command("generate", help="Generate a new ProteinFlow dataset")
 def generate(**kwargs):
     generate_data(**kwargs)
 
@@ -144,12 +144,12 @@ def generate(**kwargs):
 @click.option(
     "--local_datasets_folder",
     default="./data",
-    help="The folder where bestprot datasets, temporary files and logs will be stored",
+    help="The folder where proteinflow datasets, temporary files and logs will be stored",
 )
 @click.option(
     "--ignore_existing",
     is_flag=True,
-    help="Unless this flag is used, bestprot will not overwrite existing split dictionaries for this tag and will load them instead",
+    help="Unless this flag is used, proteinflow will not overwrite existing split dictionaries for this tag and will load them instead",
 )
 @click.option(
     "--valid_split",
@@ -171,7 +171,7 @@ def generate(**kwargs):
 )
 @cli.command(
     "split",
-    help="Split an existing BestProt dataset into training, validation and test subset according to MMseqs clustering and homomer/heteromer/single chain proportions",
+    help="Split an existing ProteinFlow dataset into training, validation and test subset according to MMseqs clustering and homomer/heteromer/single chain proportions",
 )
 def split(**kwargs):
     split_data(**kwargs)
