@@ -499,6 +499,7 @@ def _run_processing(
                 folders=[ordered_folders[0]],
                 load_live=load_live,
             )
+            subprocess.run(["cp", local_path, "data/output.pdb.gz"])
             # parse
             pdb_dict = _open_structure(
                 local_path,
@@ -522,7 +523,8 @@ def _run_processing(
             else:
                 _log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER)
 
-    # process_f("1a14-1", show_error=True, force=force)
+    # for x in ["1a52-3", "1a52-4", "1a52-2", "1a52-1"]:
+    #     process_f(x, show_error=True, force=force)
     try:
         _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), pdb_ids)
     except Exception as e:

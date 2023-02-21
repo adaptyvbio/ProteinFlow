@@ -175,19 +175,12 @@ def _make_graph(cluster_pdb_dict):
 
     seen_dict = defaultdict(set)
     for i, key in enumerate(keys):
-        for pdb in seen_dict[key]:
+        for pdb in cluster_pdb_dict[key]:
             seen_dict[pdb].add(i)
     for cluster_set in seen_dict.values():
         for i, j in combinations(cluster_set, 2):
             adjacency_matrix[i, j] += 1
             adjacency_matrix[j, i] += 1
-
-    # for k, key1 in enumerate(keys):
-    #     for pdb in cluster_pdb_dict[key1]:
-    #         for key2 in keys[k + 1 :]:
-    #             if pdb in cluster_pdb_dict[key2]:
-    #                 adjacency_matrix[keys_dict[key1], keys_dict[key2]] += 1
-    #                 adjacency_matrix[keys_dict[key2], keys_dict[key1]] += 1
 
     graph = nx.from_numpy_matrix(adjacency_matrix)
     nx.relabel_nodes(graph, keys_mapping, copy=False)
@@ -1006,8 +999,7 @@ def _build_dataset_partition(
     """
 
     # retrieve all sequences and create a merged_seqs_dict
-    seqs_dict = _load_pdbs(dataset_dir)
-    merged_seqs_dict = _merge_chains(seqs_dict)
+    merged_seqs_dict = _load_pdbs(dataset_dir)
 
     # write sequences to a fasta file for clustering with MMSeqs2, run MMSeqs2 and delete the fasta file
     fasta_file = os.path.join(tmp_folder, "all_seqs.fasta")
