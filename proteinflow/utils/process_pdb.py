@@ -11,6 +11,7 @@ import os
 from collections import namedtuple
 from operator import attrgetter
 import requests
+import shutil
 import warnings
 
 
@@ -169,7 +170,7 @@ def _s3list(
             yield p
 
 
-def _get_structure_file(pdb_id, biounit, bucket, tmp_folder, folders, load_live=False):
+def _get_structure_file(pdb_id, biounit, s3_client, tmp_folder, folders, load_live=False):
     """
     Download the file from S3 and return the local path where it was saved
     """
@@ -189,7 +190,11 @@ def _get_structure_file(pdb_id, biounit, bucket, tmp_folder, folders, load_live=
             file = folder + prefix + filenames[t]
             local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + f".{t}.gz"
             try:
-                bucket.download_file(file, local_path)
+                s3_client.download_file(
+                    "pdbsnapshots",
+                    file,
+                    local_path
+                )
                 return local_path
             except:
                 pass
@@ -317,7 +322,7 @@ def _open_structure(file_path: str, tmp_folder: str) -> Dict:
     out_dict = {}
 
     # download fasta and check if it contains only proteins
-    fasta_path = download_fasta(pdb, biounit, tmp_folder)
+    fasta_path = os.path.join(tmp_folder, f"{pdb}.fasta")
     try:
         seqs_dict = _retrieve_fasta_chains(fasta_path)
     except FileNotFoundError:
@@ -349,11 +354,10 @@ def _open_structure(file_path: str, tmp_folder: str) -> Dict:
 
     out_dict["fasta"] = {k: seqs_dict[k.split("-")[0]] for k in chains}
 
-    for path in [file_path, fasta_path]:
-        if os.path.exists(path):
-            subprocess.run(
-                ["rm", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-            )
+    try:
+        os.remove(file_path)
+    except OSError:
+        pass
     return out_dict
 
 
