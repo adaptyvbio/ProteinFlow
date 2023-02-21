@@ -170,7 +170,9 @@ def _s3list(
             yield p
 
 
-def _get_structure_file(pdb_id, biounit, s3_client, tmp_folder, folders, load_live=False):
+def _get_structure_file(
+    pdb_id, biounit, s3_client, tmp_folder, folders, load_live=False
+):
     """
     Download the file from S3 and return the local path where it was saved
     """
@@ -190,11 +192,7 @@ def _get_structure_file(pdb_id, biounit, s3_client, tmp_folder, folders, load_li
             file = folder + prefix + filenames[t]
             local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + f".{t}.gz"
             try:
-                s3_client.download_file(
-                    "pdbsnapshots",
-                    file,
-                    local_path
-                )
+                s3_client.download_file("pdbsnapshots", file, local_path)
                 return local_path
             except:
                 pass

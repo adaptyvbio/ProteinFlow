@@ -514,10 +514,12 @@ def _run_processing(
             # print(str(err), file=sys.stderr)
             return None
 
-    def process_f(local_path, s3_client=None, show_error=False, force=True, load_live=False):
+    def process_f(
+        local_path, s3_client=None, show_error=False, force=True, load_live=False
+    ):
         try:
             fn = os.path.basename(local_path)
-            pdb_id = fn.split('.')[0]
+            pdb_id = fn.split(".")[0]
             # id, biounit = pdb_id.split("-")
             target_file = os.path.join(OUTPUT_FOLDER, pdb_id + ".pickle")
             if not force and os.path.exists(target_file):
@@ -556,7 +558,7 @@ def _run_processing(
 
     # for x in ["1a52-3", "1a52-4", "1a52-2", "1a52-1"]:
     #     process_f(x, show_error=True, force=force)
-    
+
     try:
         session = boto3.session.Session()
         s3_client = session.client("s3")
