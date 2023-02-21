@@ -630,20 +630,24 @@ def _run_processing(
     try:
         session = boto3.session.Session()
         s3_client = session.client(&#34;s3&#34;)
-        pdbs = set([x.split(&#34;-&#34;)[0] for x in pdb_ids])
         with ThreadPoolExecutor() as executor:
-            print(&#34;Download structure files...&#34;)
+            print(&#34;Prepare the executor...&#34;)
+
+            def executor_f(x):
+                return download_f(x, s3_client=s3_client, load_live=load_live)
+
             future_to_key = {
-                executor.submit(
-                    lambda x: download_f(x, s3_client=s3_client, load_live=load_live),
-                    key,
-                ): key
-                for key in pdb_ids
+                executor.submit(executor_f, key): key for key in tqdm(pdb_ids)
             }
+            print(&#34;Download structure files&#34;)
             local_paths = [
                 x.result()
-                for x in tqdm(futures.as_completed(future_to_key), total=len(pdb_ids))
+                for x in tqdm(
+                    futures.as_completed(future_to_key), total=len(future_to_key)
+                )
             ]
+            print(&#34;Prepare fasta files...&#34;)
+            pdbs = set([os.path.basename(x).split(&#34;-&#34;)[0] for x in tqdm(local_paths)])
             print(&#34;Download fasta files...&#34;)
             future_to_key = {
                 executor.submit(
@@ -656,6 +660,7 @@ def _run_processing(
                 for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))
             ]
 
+        print(&#34;Filter and process...&#34;)
         _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), local_paths)
     except Exception as e:
         _raise_rcsbsearch(e)
