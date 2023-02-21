@@ -97,8 +97,6 @@ def _remove_database_redundancies(dir, seq_identity_threshold=0.9):
         )
         biounits_list = sorted(biounits_list)
         redundancies = _check_biounits(biounits_list, seq_identity_threshold)
-        print(f'{redundancies=}')
-        print(f'{biounits_list=}')
         if redundancies != []:
             for k in redundancies:
                 total_removed.append(os.path.basename(biounits_list[k]).split(".")[0])
