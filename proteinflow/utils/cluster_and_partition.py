@@ -71,7 +71,7 @@ def _merge_chains(seqs_dict_):
             new_group.append(("-".join(group), seq))
         seqs_dict[pdb] = new_group
 
-    print(f'{pdbs_to_delete=}')
+    print(f"{pdbs_to_delete=}")
     for pdb in pdbs_to_delete:
         del seqs_dict[pdb]
 
@@ -258,7 +258,7 @@ def _divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
     for pdb in tqdm(pdb_seqs_dict.keys()):
         file_names = all_files[all_pdb_files == pdb]
         if pdb == "1a52":
-            print(f'{file_names=}')
+            print(f"{file_names=}")
         if type(file_names) == str:
             file_names = [file_names]
         seqs = pdb_seqs_dict[pdb]
@@ -970,7 +970,12 @@ def _split_dataset(
 
 
 def _build_dataset_partition(
-    dataset_dir, tmp_folder, valid_split=0.05, test_split=0.05, tolerance=0.2, min_seq_id=0.3
+    dataset_dir,
+    tmp_folder,
+    valid_split=0.05,
+    test_split=0.05,
+    tolerance=0.2,
+    min_seq_id=0.3,
 ):
     """
     Build training, validation and test sets from a curated dataset of biounit, using MMSeqs2 for clustering
@@ -1006,7 +1011,7 @@ def _build_dataset_partition(
 
     # retrieve all sequences and create a merged_seqs_dict
     merged_seqs_dict = _load_pdbs(dataset_dir)
-    print('HELLO')
+    print("HELLO")
     merged_seqs_dict = _merge_chains(merged_seqs_dict)
 
     # write sequences to a fasta file for clustering with MMSeqs2, run MMSeqs2 and delete the fasta file

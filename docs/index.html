@@ -140,6 +140,7 @@ from proteinflow.utils.split_dataset import _download_dataset, _split_data
 from proteinflow.utils.biotite_sse import _annotate_sse
 
 import traceback
+import shutil
 import warnings
 import os
 import pickle
@@ -147,6 +148,7 @@ from collections import defaultdict
 from rcsbsearch import Attr
 from datetime import datetime
 import subprocess
+import urllib
 import torch
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
@@ -160,6 +162,8 @@ from copy import deepcopy
 import pandas as pd
 from numpy import linalg
 import boto3
+from concurrent import futures
+from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations
 
 
@@ -331,6 +335,7 @@ def _get_split_dictionaries(
     test_split=0.05,
     valid_split=0.05,
     out_split_dict_folder=&#34;./data/dataset_splits_dict&#34;,
+    min_seq_id=0.3,
 ):
     &#34;&#34;&#34;
     Split preprocessed data into training, validation and test
@@ -349,6 +354,8 @@ def _get_split_dictionaries(
         The percentage of chains to put in the validation set (default 5%)
     out_split_dict_folder : str, default &#34;./data/dataset_splits_dict&#34;
         The folder where the dictionaries containing the train/validation/test splits information will be saved&#34;
+    min_seq_id : float in [0, 1], default 0.3
+        minimum sequence identity for `mmseqs`
     &#34;&#34;&#34;
 
     os.makedirs(out_split_dict_folder, exist_ok=True)
@@ -365,6 +372,7 @@ def _get_split_dictionaries(
         valid_split=valid_split,
         test_split=test_split,
         tolerance=split_tolerance,
+        min_seq_id=min_seq_id,
     )
     with open(os.path.join(out_split_dict_folder, &#34;train.pickle&#34;), &#34;wb&#34;) as f:
         pickle.dump(train_clusters_dict, f)
@@ -547,22 +555,52 @@ def _run_processing(
         ind = ordered_folders.index(pdb_snapshot)
         ordered_folders = ordered_folders[ind:]
 
-    def process_f(pdb_id, show_error=False, force=True, load_live=False):
+    def download_f(pdb_id, s3_client, load_live=False):
+        pdb_id = pdb_id.lower()
+        id, biounit = pdb_id.split(&#34;-&#34;)
+        local_path = _get_structure_file(
+            id,
+            biounit,
+            s3_client,
+            tmp_folder=TMP_FOLDER,
+            folders=[ordered_folders[0]],
+            load_live=load_live,
+        )
+        return local_path
+
+    def download_fasta_f(pdb_id, datadir):
+        downloadurl = &#34;https://www.rcsb.org/fasta/entry/&#34;
+        pdbfn = pdb_id + &#34;/download&#34;
+        outfnm = os.path.join(datadir, f&#34;{pdb_id.lower()}.fasta&#34;)
+
+        url = downloadurl + pdbfn
         try:
-            pdb_id = pdb_id.lower()
-            id, biounit = pdb_id.split(&#34;-&#34;)
+            urllib.request.urlretrieve(url, outfnm)
+            return outfnm
+
+        except Exception as err:
+            # print(str(err), file=sys.stderr)
+            return None
+
+    def process_f(
+        local_path, s3_client=None, show_error=False, force=True, load_live=False
+    ):
+        try:
+            fn = os.path.basename(local_path)
+            pdb_id = fn.split(&#34;.&#34;)[0]
+            # id, biounit = pdb_id.split(&#34;-&#34;)
             target_file = os.path.join(OUTPUT_FOLDER, pdb_id + &#34;.pickle&#34;)
             if not force and os.path.exists(target_file):
                 raise PDBError(&#34;File already exists&#34;)
             # download
-            local_path = _get_structure_file(
-                id,
-                biounit,
-                boto3.resource(&#34;s3&#34;).Bucket(&#34;pdbsnapshots&#34;),
-                tmp_folder=TMP_FOLDER,
-                folders=[ordered_folders[0]],
-                load_live=load_live,
-            )
+            # local_path = _get_structure_file(
+            #     id,
+            #     biounit,
+            #     s3_client,
+            #     tmp_folder=TMP_FOLDER,
+            #     folders=[ordered_folders[0]],
+            #     load_live=load_live,
+            # )
             # parse
             pdb_dict = _open_structure(
                 local_path,
@@ -586,9 +624,39 @@ def _run_processing(
             else:
                 _log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER)
 
-    # process_f(&#34;1a14-1&#34;, show_error=True, force=force)
+    # for x in [&#34;1a52-3&#34;, &#34;1a52-4&#34;, &#34;1a52-2&#34;, &#34;1a52-1&#34;]:
+    #     process_f(x, show_error=True, force=force)
+
     try:
-        _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), pdb_ids)
+        session = boto3.session.Session()
+        s3_client = session.client(&#34;s3&#34;)
+        pdbs = set([x.split(&#34;-&#34;)[0] for x in pdb_ids])
+        with ThreadPoolExecutor() as executor:
+            print(&#34;Download structure files...&#34;)
+            future_to_key = {
+                executor.submit(
+                    lambda x: download_f(x, s3_client=s3_client, load_live=load_live),
+                    key,
+                ): key
+                for key in pdb_ids
+            }
+            local_paths = [
+                x.result()
+                for x in tqdm(futures.as_completed(future_to_key), total=len(pdb_ids))
+            ]
+            print(&#34;Download fasta files...&#34;)
+            future_to_key = {
+                executor.submit(
+                    lambda x: download_fasta_f(x, datadir=tmp_folder), key
+                ): key
+                for key in pdbs
+            }
+            _ = [
+                x.result()
+                for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))
+            ]
+
+        _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), local_paths)
     except Exception as e:
         _raise_rcsbsearch(e)
 
@@ -841,6 +909,7 @@ def generate_data(
     valid_split=0.05,
     pdb_snapshot=None,
     load_live=False,
+    min_seq_id=0.3,
 ):
     &#34;&#34;&#34;
     Download and parse PDB files that meet filtering criteria
@@ -894,6 +963,8 @@ def generate_data(
         the PDB snapshot to use, by default the latest is used
     load_live : bool, default False
         if `True`, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to `False` if `pdb_snapshot` is not `None`)
+    min_seq_id : float in [0, 1], default 0.3
+        minimum sequence identity for `mmseqs`
 
     Returns
     -------
@@ -935,6 +1006,7 @@ def generate_data(
             test_split=test_split,
             valid_split=valid_split,
             out_split_dict_folder=out_split_dict_folder,
+            min_seq_id=min_seq_id,
         )
 
         _split_data(output_folder)
@@ -948,6 +1020,7 @@ def split_data(
     test_split=0.05,
     valid_split=0.05,
     ignore_existing=False,
+    min_seq_id=0.3,
 ):
     &#34;&#34;&#34;
     Split `proteinflow` entry files into training, test and validation.
@@ -968,6 +1041,8 @@ def split_data(
         The percentage of chains to put in the validation set (default 5%)
     ignore_existing : bool, default False
         If `True`, overwrite existing dictionaries for this tag; otherwise, load the existing dictionary
+    min_seq_id : float in [0, 1], default 0.3
+        minimum sequence identity for `mmseqs`
 
     Returns
     -------
@@ -995,6 +1070,7 @@ def split_data(
             test_split=test_split,
             valid_split=valid_split,
             out_split_dict_folder=out_split_dict_folder,
+            min_seq_id=min_seq_id,
         )
 
     _split_data(output_folder)
@@ -1022,7 +1098,8 @@ class ProteinDataset(Dataset):
 
     - `&#39;sidechain_orientation&#39;`: a unit vector in the direction of the sidechain, `(total_L, 3)`,
     - `&#39;dihedral&#39;`: the dihedral angles, `(total_L, 2)`,
-    - `&#39;chemical&#39;`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`.
+    - `&#39;chemical&#39;`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`,
+    - `&#39;secondary_structure&#39;`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 6)`.
     &#34;&#34;&#34;
 
     def __init__(
@@ -1062,8 +1139,8 @@ class ProteinDataset(Dataset):
             only process 1000 files
         interpolate : {&#34;none&#34;, &#34;only_middle&#34;, &#34;all&#34;}
             `&#34;none&#34;` for no interpolation, `&#34;only_middle&#34;` for only linear interpolation in the middle, `&#34;all&#34;` for linear interpolation + ends generation
-        node_features_type : {&#34;zeros&#34;, &#34;dihedral&#34;, &#34;sidechain&#34;, &#34;chemical&#34;, or combinations with &#34;+&#34;}
-            the type of node features, e.g. &#34;dihedral&#34; or &#34;sidechain+chemical&#34;
+        node_features_type : {&#34;zeros&#34;, &#34;dihedral&#34;, &#34;sidechain_orientation&#34;, &#34;chemical&#34;, &#34;secondary_structure&#34; or combinations with &#34;+&#34;}
+            the type of node features, e.g. `&#34;dihedral&#34;` or `&#34;sidechain_orientation+chemical&#34;`
         debug_file_path : str, optional
             if not `None`, open this single file instead of loading the dataset
         entry_type : {&#34;biounit&#34;, &#34;chain&#34;, &#34;pair&#34;}
@@ -1491,8 +1568,8 @@ class ProteinLoader(DataLoader):
             only process 1000 files
         interpolate : {&#34;none&#34;, &#34;only_middle&#34;, &#34;all&#34;}
             `&#34;none&#34;` for no interpolation, `&#34;only_middle&#34;` for only linear interpolation in the middle, `&#34;all&#34;` for linear interpolation + ends generation
-        node_features_type : {&#34;zeros&#34;, &#34;dihedral&#34;, &#34;sidechain&#34;, &#34;chemical&#34;, or combinations with &#34;+&#34;}
-            the type of node features, e.g. `&#34;dihedral&#34;` or `&#34;sidechain+chemical&#34;`
+        node_features_type : {&#34;zeros&#34;, &#34;dihedral&#34;, &#34;sidechain_orientation&#34;, &#34;chemical&#34;, &#34;secondary_structure&#34; or combinations with &#34;+&#34;}
+            the type of node features, e.g. `&#34;dihedral&#34;` or `&#34;sidechain_orientation+chemical&#34;`
         batch_size : int, default 4
             the batch size
         entry_type : {&#34;biounit&#34;, &#34;chain&#34;, &#34;pair&#34;}
@@ -1760,7 +1837,7 @@ def check_download_tags():
 </details>
 </dd>
 <dt id="proteinflow.generate_data"><code class="name flex">
-<span>def <span class="ident">generate_data</span></span>(<span>tag, local_datasets_folder='./data', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, not_filter_methods=False, not_remove_redundancies=False, skip_splitting=False, seq_identity_threshold=0.9, n=None, force=False, split_tolerance=0.2, test_split=0.05, valid_split=0.05, pdb_snapshot=None, load_live=False)</span>
+<span>def <span class="ident">generate_data</span></span>(<span>tag, local_datasets_folder='./data', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, not_filter_methods=False, not_remove_redundancies=False, skip_splitting=False, seq_identity_threshold=0.9, n=None, force=False, split_tolerance=0.2, test_split=0.05, valid_split=0.05, pdb_snapshot=None, load_live=False, min_seq_id=0.3)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Download and parse PDB files that meet filtering criteria</p>
@@ -1812,6 +1889,8 @@ zeros to missing values,</li>
 <dd>the PDB snapshot to use, by default the latest is used</dd>
 <dt><strong><code>load_live</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to <code>False</code> if <code>pdb_snapshot</code> is not <code>None</code>)</dd>
+<dt><strong><code>min_seq_id</code></strong> :&ensp;<code>float in [0, 1]</code>, default <code>0.3</code></dt>
+<dd>minimum sequence identity for <code>mmseqs</code></dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1841,6 +1920,7 @@ zeros to missing values,</li>
     valid_split=0.05,
     pdb_snapshot=None,
     load_live=False,
+    min_seq_id=0.3,
 ):
     &#34;&#34;&#34;
     Download and parse PDB files that meet filtering criteria
@@ -1894,6 +1974,8 @@ zeros to missing values,</li>
         the PDB snapshot to use, by default the latest is used
     load_live : bool, default False
         if `True`, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to `False` if `pdb_snapshot` is not `None`)
+    min_seq_id : float in [0, 1], default 0.3
+        minimum sequence identity for `mmseqs`
 
     Returns
     -------
@@ -1935,6 +2017,7 @@ zeros to missing values,</li>
             test_split=test_split,
             valid_split=valid_split,
             out_split_dict_folder=out_split_dict_folder,
+            min_seq_id=min_seq_id,
         )
 
         _split_data(output_folder)
@@ -2022,7 +2105,7 @@ coordinates in the <code>'crd_sc'</code> array generated by the <code>run_proces
 </details>
 </dd>
 <dt id="proteinflow.split_data"><code class="name flex">
-<span>def <span class="ident">split_data</span></span>(<span>tag, local_datasets_folder='./data', split_tolerance=0.2, test_split=0.05, valid_split=0.05, ignore_existing=False)</span>
+<span>def <span class="ident">split_data</span></span>(<span>tag, local_datasets_folder='./data', split_tolerance=0.2, test_split=0.05, valid_split=0.05, ignore_existing=False, min_seq_id=0.3)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Split <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> entry files into training, test and validation.</p>
@@ -2041,6 +2124,8 @@ coordinates in the <code>'crd_sc'</code> array generated by the <code>run_proces
 <dd>The percentage of chains to put in the validation set (default 5%)</dd>
 <dt><strong><code>ignore_existing</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>If <code>True</code>, overwrite existing dictionaries for this tag; otherwise, load the existing dictionary</dd>
+<dt><strong><code>min_seq_id</code></strong> :&ensp;<code>float in [0, 1]</code>, default <code>0.3</code></dt>
+<dd>minimum sequence identity for <code>mmseqs</code></dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -2058,6 +2143,7 @@ coordinates in the <code>'crd_sc'</code> array generated by the <code>run_proces
     test_split=0.05,
     valid_split=0.05,
     ignore_existing=False,
+    min_seq_id=0.3,
 ):
     &#34;&#34;&#34;
     Split `proteinflow` entry files into training, test and validation.
@@ -2078,6 +2164,8 @@ coordinates in the <code>'crd_sc'</code> array generated by the <code>run_proces
         The percentage of chains to put in the validation set (default 5%)
     ignore_existing : bool, default False
         If `True`, overwrite existing dictionaries for this tag; otherwise, load the existing dictionary
+    min_seq_id : float in [0, 1], default 0.3
+        minimum sequence identity for `mmseqs`
 
     Returns
     -------
@@ -2105,6 +2193,7 @@ coordinates in the <code>'crd_sc'</code> array generated by the <code>run_proces
             test_split=test_split,
             valid_split=valid_split,
             out_split_dict_folder=out_split_dict_folder,
+            min_seq_id=min_seq_id,
         )
 
     _split_data(output_folder)</code></pre>
@@ -2138,7 +2227,8 @@ at each iteration a random bionit from a cluster is sampled.</p>
 <ul>
 <li><code>'sidechain_orientation'</code>: a unit vector in the direction of the sidechain, <code>(total_L, 3)</code>,</li>
 <li><code>'dihedral'</code>: the dihedral angles, <code>(total_L, 2)</code>,</li>
-<li><code>'chemical'</code>: hydropathy, volume, charge, polarity, acceptor/donor features, <code>(total_L, 6)</code>.</li>
+<li><code>'chemical'</code>: hydropathy, volume, charge, polarity, acceptor/donor features, <code>(total_L, 6)</code>,</li>
+<li><code>'secondary_structure'</code>: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), <code>(total_L, 6)</code>.</li>
 </ul>
 <h2 id="parameters">Parameters</h2>
 <dl>
@@ -2160,8 +2250,8 @@ at each iteration a random bionit from a cluster is sampled.</p>
 <dd>only process 1000 files</dd>
 <dt><strong><code>interpolate</code></strong> :&ensp;<code>{"none", "only_middle", "all"}</code></dt>
 <dd><code>"none"</code> for no interpolation, <code>"only_middle"</code> for only linear interpolation in the middle, <code>"all"</code> for linear interpolation + ends generation</dd>
-<dt><strong><code>node_features_type</code></strong> :&ensp;<code>{"zeros", "dihedral", "sidechain", "chemical",</code> or <code>combinations with "+"}</code></dt>
-<dd>the type of node features, e.g. "dihedral" or "sidechain+chemical"</dd>
+<dt><strong><code>node_features_type</code></strong> :&ensp;<code>{"zeros", "dihedral", "sidechain_orientation", "chemical", "secondary_structure"</code> or <code>combinations with "+"}</code></dt>
+<dd>the type of node features, e.g. <code>"dihedral"</code> or <code>"sidechain_orientation+chemical"</code></dd>
 <dt><strong><code>debug_file_path</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>if not <code>None</code>, open this single file instead of loading the dataset</dd>
 <dt><strong><code>entry_type</code></strong> :&ensp;<code>{"biounit", "chain", "pair"}</code></dt>
@@ -2196,7 +2286,8 @@ for chain-chain pairs (all pairs that are seen in the same biounit))</dd>
 
     - `&#39;sidechain_orientation&#39;`: a unit vector in the direction of the sidechain, `(total_L, 3)`,
     - `&#39;dihedral&#39;`: the dihedral angles, `(total_L, 2)`,
-    - `&#39;chemical&#39;`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`.
+    - `&#39;chemical&#39;`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`,
+    - `&#39;secondary_structure&#39;`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 6)`.
     &#34;&#34;&#34;
 
     def __init__(
@@ -2236,8 +2327,8 @@ for chain-chain pairs (all pairs that are seen in the same biounit))</dd>
             only process 1000 files
         interpolate : {&#34;none&#34;, &#34;only_middle&#34;, &#34;all&#34;}
             `&#34;none&#34;` for no interpolation, `&#34;only_middle&#34;` for only linear interpolation in the middle, `&#34;all&#34;` for linear interpolation + ends generation
-        node_features_type : {&#34;zeros&#34;, &#34;dihedral&#34;, &#34;sidechain&#34;, &#34;chemical&#34;, or combinations with &#34;+&#34;}
-            the type of node features, e.g. &#34;dihedral&#34; or &#34;sidechain+chemical&#34;
+        node_features_type : {&#34;zeros&#34;, &#34;dihedral&#34;, &#34;sidechain_orientation&#34;, &#34;chemical&#34;, &#34;secondary_structure&#34; or combinations with &#34;+&#34;}
+            the type of node features, e.g. `&#34;dihedral&#34;` or `&#34;sidechain_orientation+chemical&#34;`
         debug_file_path : str, optional
             if not `None`, open this single file instead of loading the dataset
         entry_type : {&#34;biounit&#34;, &#34;chain&#34;, &#34;pair&#34;}
@@ -2645,8 +2736,8 @@ from a polymer is sampled, the center of the masked region will be forced to be 
 <dd>only process 1000 files</dd>
 <dt><strong><code>interpolate</code></strong> :&ensp;<code>{"none", "only_middle", "all"}</code></dt>
 <dd><code>"none"</code> for no interpolation, <code>"only_middle"</code> for only linear interpolation in the middle, <code>"all"</code> for linear interpolation + ends generation</dd>
-<dt><strong><code>node_features_type</code></strong> :&ensp;<code>{"zeros", "dihedral", "sidechain", "chemical",</code> or <code>combinations with "+"}</code></dt>
-<dd>the type of node features, e.g. <code>"dihedral"</code> or <code>"sidechain+chemical"</code></dd>
+<dt><strong><code>node_features_type</code></strong> :&ensp;<code>{"zeros", "dihedral", "sidechain_orientation", "chemical", "secondary_structure"</code> or <code>combinations with "+"}</code></dt>
+<dd>the type of node features, e.g. <code>"dihedral"</code> or <code>"sidechain_orientation+chemical"</code></dd>
 <dt><strong><code>batch_size</code></strong> :&ensp;<code>int</code>, default <code>4</code></dt>
 <dd>the batch size</dd>
 <dt><strong><code>entry_type</code></strong> :&ensp;<code>{"biounit", "chain", "pair"}</code></dt>
@@ -2730,8 +2821,8 @@ forced to be in a binding site</dd>
             only process 1000 files
         interpolate : {&#34;none&#34;, &#34;only_middle&#34;, &#34;all&#34;}
             `&#34;none&#34;` for no interpolation, `&#34;only_middle&#34;` for only linear interpolation in the middle, `&#34;all&#34;` for linear interpolation + ends generation
-        node_features_type : {&#34;zeros&#34;, &#34;dihedral&#34;, &#34;sidechain&#34;, &#34;chemical&#34;, or combinations with &#34;+&#34;}
-            the type of node features, e.g. `&#34;dihedral&#34;` or `&#34;sidechain+chemical&#34;`
+        node_features_type : {&#34;zeros&#34;, &#34;dihedral&#34;, &#34;sidechain_orientation&#34;, &#34;chemical&#34;, &#34;secondary_structure&#34; or combinations with &#34;+&#34;}
+            the type of node features, e.g. `&#34;dihedral&#34;` or `&#34;sidechain_orientation+chemical&#34;`
         batch_size : int, default 4
             the batch size
         entry_type : {&#34;biounit&#34;, &#34;chain&#34;, &#34;pair&#34;}

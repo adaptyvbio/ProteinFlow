@@ -136,7 +136,7 @@ def download(**kwargs):
     "--min_seq_id",
     default=0.3,
     type=float,
-    help="Minimum sequence identity for mmseqs clustering"
+    help="Minimum sequence identity for mmseqs clustering",
 )
 @cli.command("generate", help="Generate a new ProteinFlow dataset")
 def generate(**kwargs):
@@ -179,7 +179,7 @@ def generate(**kwargs):
     "--min_seq_id",
     default=0.3,
     type=float,
-    help="Minimum sequence identity for mmseqs clustering"
+    help="Minimum sequence identity for mmseqs clustering",
 )
 @cli.command(
     "split",

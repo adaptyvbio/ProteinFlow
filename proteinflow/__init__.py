@@ -514,10 +514,12 @@ def _run_processing(
             # print(str(err), file=sys.stderr)
             return None
 
-    def process_f(local_path, s3_client=None, show_error=False, force=True, load_live=False):
+    def process_f(
+        local_path, s3_client=None, show_error=False, force=True, load_live=False
+    ):
         try:
             fn = os.path.basename(local_path)
-            pdb_id = fn.split('.')[0]
+            pdb_id = fn.split(".")[0]
             # id, biounit = pdb_id.split("-")
             target_file = os.path.join(OUTPUT_FOLDER, pdb_id + ".pickle")
             if not force and os.path.exists(target_file):
@@ -556,18 +558,35 @@ def _run_processing(
 
     # for x in ["1a52-3", "1a52-4", "1a52-2", "1a52-1"]:
     #     process_f(x, show_error=True, force=force)
-    
+
     try:
         session = boto3.session.Session()
         s3_client = session.client("s3")
-        pdbs = set([x.split('-')[0] for x in pdb_ids])
+        pdbs = set([x.split("-")[0] for x in pdb_ids])
         with ThreadPoolExecutor() as executor:
-            print('Download structure files...')
-            future_to_key = {executor.submit(lambda x: download_f(x, s3_client=s3_client, load_live=load_live), key): key for key in pdb_ids}
-            local_paths = [x.result() for x in tqdm(futures.as_completed(future_to_key), total=len(pdb_ids))]
-            print('Download fasta files...')
-            future_to_key = {executor.submit(lambda x: download_fasta_f(x, datadir=tmp_folder), key): key for key in pdbs}
-            _ = [x.result() for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))]
+            print("Download structure files...")
+            future_to_key = {
+                executor.submit(
+                    lambda x: download_f(x, s3_client=s3_client, load_live=load_live),
+                    key,
+                ): key
+                for key in pdb_ids
+            }
+            local_paths = [
+                x.result()
+                for x in tqdm(futures.as_completed(future_to_key), total=len(pdb_ids))
+            ]
+            print("Download fasta files...")
+            future_to_key = {
+                executor.submit(
+                    lambda x: download_fasta_f(x, datadir=tmp_folder), key
+                ): key
+                for key in pdbs
+            }
+            _ = [
+                x.result()
+                for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))
+            ]
 
         _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), local_paths)
     except Exception as e:

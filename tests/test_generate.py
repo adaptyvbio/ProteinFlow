@@ -65,7 +65,8 @@ def test_generate():
             assert classes[c] == len(class_files)
     assert num_files == num_files_split
     shutil.rmtree(folder)
-    print(f'generation time: {end - start} sec')
+    print(f"generation time: {end - start} sec")
+
 
 if __name__ == "__main__":
     test_generate()
