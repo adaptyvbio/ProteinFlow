@@ -8,6 +8,8 @@ A data processing pipeline for all your protein design needs.
 
 [Read the documentation.](https://adaptyvbio.github.io/ProteinFlow/)
 
+![overview](media/fig_pipeline.png)
+
 ## Installation
 Recommended: create a new `conda` environment and install `proteinflow` and `mmseqs`. Note that the python version has to be between 3.8 and 3.10. 
 ```
