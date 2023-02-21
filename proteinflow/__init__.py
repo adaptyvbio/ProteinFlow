@@ -563,19 +563,36 @@ def _run_processing(
         session = boto3.session.Session()
         s3_client = session.client("s3")
         with ThreadPoolExecutor() as executor:
-            print('Prepare the executor...')
+            print("Prepare the executor...")
+
             def executor_f(x):
                 return download_f(x, s3_client=s3_client, load_live=load_live)
-            future_to_key = {executor.submit(executor_f, key): key for key in tqdm(pdb_ids)}
-            print('Download structure files')
-            local_paths = [x.result() for x in tqdm(futures.as_completed(future_to_key), total=len(future_to_key))]
-            print('Prepare fasta files...')
-            pdbs = set([os.path.basename(x).split('-')[0] for x in tqdm(local_paths)])
-            print('Download fasta files...')
-            future_to_key = {executor.submit(lambda x: download_fasta_f(x, datadir=tmp_folder), key): key for key in pdbs}
-            _ = [x.result() for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))]
 
-        print('Filter and process...')
+            future_to_key = {
+                executor.submit(executor_f, key): key for key in tqdm(pdb_ids)
+            }
+            print("Download structure files")
+            local_paths = [
+                x.result()
+                for x in tqdm(
+                    futures.as_completed(future_to_key), total=len(future_to_key)
+                )
+            ]
+            print("Prepare fasta files...")
+            pdbs = set([os.path.basename(x).split("-")[0] for x in tqdm(local_paths)])
+            print("Download fasta files...")
+            future_to_key = {
+                executor.submit(
+                    lambda x: download_fasta_f(x, datadir=tmp_folder), key
+                ): key
+                for key in pdbs
+            }
+            _ = [
+                x.result()
+                for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))
+            ]
+
+        print("Filter and process...")
         _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), local_paths)
     except Exception as e:
         _raise_rcsbsearch(e)
