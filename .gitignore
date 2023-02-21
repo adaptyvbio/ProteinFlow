@@ -9,3 +9,4 @@ log*
 proteinmpnn/
 rcsbsearch/
 .pytest_cache/
+*ipynb
