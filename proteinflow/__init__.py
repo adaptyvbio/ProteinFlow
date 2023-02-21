@@ -72,6 +72,7 @@ from proteinflow.utils.split_dataset import _download_dataset, _split_data
 from proteinflow.utils.biotite_sse import _annotate_sse
 
 import traceback
+import shutil
 import warnings
 import os
 import pickle
@@ -79,6 +80,7 @@ from collections import defaultdict
 from rcsbsearch import Attr
 from datetime import datetime
 import subprocess
+import urllib
 import torch
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
@@ -92,6 +94,8 @@ from copy import deepcopy
 import pandas as pd
 from numpy import linalg
 import boto3
+from concurrent import futures
+from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations
 
 
@@ -483,23 +487,50 @@ def _run_processing(
         ind = ordered_folders.index(pdb_snapshot)
         ordered_folders = ordered_folders[ind:]
 
-    def process_f(pdb_id, show_error=False, force=True, load_live=False):
+    def download_f(pdb_id, s3_client, load_live=False):
+        pdb_id = pdb_id.lower()
+        id, biounit = pdb_id.split("-")
+        local_path = _get_structure_file(
+            id,
+            biounit,
+            s3_client,
+            tmp_folder=TMP_FOLDER,
+            folders=[ordered_folders[0]],
+            load_live=load_live,
+        )
+        return local_path
+
+    def download_fasta_f(pdb_id, datadir):
+        downloadurl = "https://www.rcsb.org/fasta/entry/"
+        pdbfn = pdb_id + "/download"
+        outfnm = os.path.join(datadir, f"{pdb_id.lower()}.fasta")
+
+        url = downloadurl + pdbfn
         try:
-            pdb_id = pdb_id.lower()
-            id, biounit = pdb_id.split("-")
+            urllib.request.urlretrieve(url, outfnm)
+            return outfnm
+
+        except Exception as err:
+            # print(str(err), file=sys.stderr)
+            return None
+
+    def process_f(local_path, s3_client=None, show_error=False, force=True, load_live=False):
+        try:
+            fn = os.path.basename(local_path)
+            pdb_id = fn.split('.')[0]
+            # id, biounit = pdb_id.split("-")
             target_file = os.path.join(OUTPUT_FOLDER, pdb_id + ".pickle")
             if not force and os.path.exists(target_file):
                 raise PDBError("File already exists")
             # download
-            local_path = _get_structure_file(
-                id,
-                biounit,
-                boto3.resource("s3").Bucket("pdbsnapshots"),
-                tmp_folder=TMP_FOLDER,
-                folders=[ordered_folders[0]],
-                load_live=load_live,
-            )
-            subprocess.run(["cp", local_path, "data/output.pdb.gz"])
+            # local_path = _get_structure_file(
+            #     id,
+            #     biounit,
+            #     s3_client,
+            #     tmp_folder=TMP_FOLDER,
+            #     folders=[ordered_folders[0]],
+            #     load_live=load_live,
+            # )
             # parse
             pdb_dict = _open_structure(
                 local_path,
@@ -525,8 +556,20 @@ def _run_processing(
 
     # for x in ["1a52-3", "1a52-4", "1a52-2", "1a52-1"]:
     #     process_f(x, show_error=True, force=force)
+    
     try:
-        _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), pdb_ids)
+        session = boto3.session.Session()
+        s3_client = session.client("s3")
+        pdbs = set([x.split('-')[0] for x in pdb_ids])
+        with ThreadPoolExecutor() as executor:
+            print('Download structure files...')
+            future_to_key = {executor.submit(lambda x: download_f(x, s3_client=s3_client, load_live=load_live), key): key for key in pdb_ids}
+            local_paths = [x.result() for x in tqdm(futures.as_completed(future_to_key), total=len(pdb_ids))]
+            print('Download fasta files...')
+            future_to_key = {executor.submit(lambda x: download_fasta_f(x, datadir=tmp_folder), key): key for key in pdbs}
+            _ = [x.result() for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))]
+
+        _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), local_paths)
     except Exception as e:
         _raise_rcsbsearch(e)
 
