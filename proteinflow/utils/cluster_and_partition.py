@@ -71,7 +71,6 @@ def _merge_chains(seqs_dict_):
             new_group.append(("-".join(group), seq))
         seqs_dict[pdb] = new_group
 
-    print(f'{pdbs_to_delete=}')
     for pdb in pdbs_to_delete:
         del seqs_dict[pdb]
 
@@ -252,13 +251,9 @@ def _divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
     single_chains = []
     all_files = np.array(list(os.listdir(dataset_dir)))
     all_pdb_files = np.array([f[:4] for f in all_files])
-    print(f'{"1a52-3.pickle" in all_files=}')
-    print(f'{"1a52" in pdb_seqs_dict=}')
 
     for pdb in tqdm(pdb_seqs_dict.keys()):
         file_names = all_files[all_pdb_files == pdb]
-        if pdb == "1a52":
-            print(f'{file_names=}')
         if type(file_names) == str:
             file_names = [file_names]
         seqs = pdb_seqs_dict[pdb]
@@ -1006,7 +1001,6 @@ def _build_dataset_partition(
 
     # retrieve all sequences and create a merged_seqs_dict
     merged_seqs_dict = _load_pdbs(dataset_dir)
-    print('HELLO')
     merged_seqs_dict = _merge_chains(merged_seqs_dict)
 
     # write sequences to a fasta file for clustering with MMSeqs2, run MMSeqs2 and delete the fasta file

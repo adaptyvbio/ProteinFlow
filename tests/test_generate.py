@@ -54,8 +54,6 @@ def test_generate():
             with open(os.path.join(subset_folder, file), "rb") as f:
                 data = pickle.load(f)
             c = get_class(data)
-            if c == "homomers":
-                print(file)
             classes[c] += 1
         for c in class_data:
             class_files = set()
