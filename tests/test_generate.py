@@ -57,16 +57,12 @@ def test_generate():
             if c == "homomers":
                 print(file)
             classes[c] += 1
-        print(subset)
         for c in class_data:
             class_files = set()
             for chain_arr in class_data[c].values():
                 for file, _ in chain_arr:
                     class_files.add(file)
-            print(c)
-            print(classes[c]) # files
-            print(len(class_files)) # dicts
-            # assert classes[c] == len(class_files)
+            assert classes[c] == len(class_files)
     assert num_files == num_files_split
     shutil.rmtree(folder)
     print(f'generation time: {end - start} sec')

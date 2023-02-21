@@ -46,7 +46,7 @@ jobs:
           conda run -n proteinflow flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test with pytest
         run: |
-          conda run -n proteinflow pytest
+          conda run -n proteinflow pytest tests
       - name: Install pdoc3 and black
         run: |
           conda run -n proteinflow python -m pip install pdoc3 black
