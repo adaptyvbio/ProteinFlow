@@ -630,7 +630,9 @@ def _run_processing(
     ordered_folders = [
         x.key
         for x in _s3list(
-            boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(&#34;pdbsnapshots&#34;),
+            boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
+                &#34;pdbsnapshots&#34;
+            ),
             &#34;&#34;,
             recursive=False,
             list_objs=False,
@@ -721,7 +723,7 @@ def _run_processing(
 
     try:
         session = boto3.session.Session()
-        s3_client = session.client(&#39;s3&#39;, config=Config(signature_version=UNSIGNED))
+        s3_client = session.client(&#34;s3&#34;, config=Config(signature_version=UNSIGNED))
         with ThreadPoolExecutor(max_workers=8) as executor:
             print(&#34;Prepare the executor...&#34;)
 
@@ -733,9 +735,7 @@ def _run_processing(
                 ids.append(x)
                 if n is not None and i == n:
                     break
-            future_to_key = {
-                executor.submit(executor_f, key): key for key in tqdm(ids)
-            }
+            future_to_key = {executor.submit(executor_f, key): key for key in tqdm(ids)}
             print(&#34;Download structure files&#34;)
             local_paths = [
                 x.result()
@@ -1122,16 +1122,16 @@ def split_data(
     &#34;&#34;&#34;
     Split `proteinflow` entry files into training, test and validation.
 
-    Our splitting algorithm has two objectives: achieving minimal data leakage and balancing the proportion of 
-    single chain, homomer and heteromer entries. 
+    Our splitting algorithm has two objectives: achieving minimal data leakage and balancing the proportion of
+    single chain, homomer and heteromer entries.
 
     It follows these steps:
-    
+
     1. cluster chains by sequence identity,
     2. generate a graph where nodes are the clusters and edges are protein-protein interactions between chains
     from those clusters,
     3. split connected components of the graph into training, test and validation subsets while keeping the proportion
-    of single chains, homomers and heteromers close to that in the full dataset (within `split_tolerance`). 
+    of single chains, homomers and heteromers close to that in the full dataset (within `split_tolerance`).
 
 
     Parameters
@@ -1190,7 +1190,7 @@ class ProteinDataset(Dataset):
     Saves the model input tensors as pickle files in `features_folder`. When `clustering_dict_path` is provided,
     at each iteration a random bionit from a cluster is sampled.
 
-    If a complex contains multiple chains, they are concatenated. The sequence identity information is preserved in the 
+    If a complex contains multiple chains, they are concatenated. The sequence identity information is preserved in the
     `&#39;chain_encoding_all&#39;` object and in the `&#39;residue_idx&#39;` arrays the chain change is denoted by a +100 jump.
 
     Returns dictionaries with the following keys and values (all values are `torch` tensors):
@@ -1624,7 +1624,7 @@ class ProteinLoader(DataLoader):
     Creates and iterates over an instance of `ProteinDataset`, omitting the `&#39;chain_dict&#39;` keys.
     See the `ProteinDataset` docs for more information.
 
-    If batch size is larger than one, all objects are padded with zeros at the ends to reach the length of the 
+    If batch size is larger than one, all objects are padded with zeros at the ends to reach the length of the
     longest protein in the batch.
 
     If `mask_residues` is `True`, an additional `&#39;masked_res&#39;` key is added to the output. The value is a binary
@@ -1785,7 +1785,9 @@ def check_pdb_snapshots():
     &#34;&#34;&#34;
 
     folders = _s3list(
-        boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(&#34;pdbsnapshots&#34;),
+        boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
+            &#34;pdbsnapshots&#34;
+        ),
         &#34;&#34;,
         recursive=False,
         list_objs=False,
@@ -1804,7 +1806,9 @@ def check_download_tags():
     &#34;&#34;&#34;
 
     folders = _s3list(
-        boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(&#34;proteinflow-datasets&#34;),
+        boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
+            &#34;proteinflow-datasets&#34;
+        ),
         &#34;&#34;,
         recursive=False,
         list_objs=False,
@@ -1855,7 +1859,9 @@ def check_download_tags():
     &#34;&#34;&#34;
 
     folders = _s3list(
-        boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(&#34;proteinflow-datasets&#34;),
+        boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
+            &#34;proteinflow-datasets&#34;
+        ),
         &#34;&#34;,
         recursive=False,
         list_objs=False,
@@ -1899,7 +1905,9 @@ def check_download_tags():
     &#34;&#34;&#34;
 
     folders = _s3list(
-        boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(&#34;pdbsnapshots&#34;),
+        boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
+            &#34;pdbsnapshots&#34;
+        ),
         &#34;&#34;,
         recursive=False,
         list_objs=False,
@@ -2218,14 +2226,14 @@ coordinates in the <code>'crd_sc'</code> array generated by the <code>run_proces
 <dd>
 <div class="desc"><p>Split <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> entry files into training, test and validation.</p>
 <p>Our splitting algorithm has two objectives: achieving minimal data leakage and balancing the proportion of
-single chain, homomer and heteromer entries. </p>
+single chain, homomer and heteromer entries.</p>
 <p>It follows these steps:</p>
 <ol>
 <li>cluster chains by sequence identity,</li>
 <li>generate a graph where nodes are the clusters and edges are protein-protein interactions between chains
 from those clusters,</li>
 <li>split connected components of the graph into training, test and validation subsets while keeping the proportion
-of single chains, homomers and heteromers close to that in the full dataset (within <code>split_tolerance</code>). </li>
+of single chains, homomers and heteromers close to that in the full dataset (within <code>split_tolerance</code>).</li>
 </ol>
 <h2 id="parameters">Parameters</h2>
 <dl>
@@ -2265,16 +2273,16 @@ of single chains, homomers and heteromers close to that in the full dataset (wit
     &#34;&#34;&#34;
     Split `proteinflow` entry files into training, test and validation.
 
-    Our splitting algorithm has two objectives: achieving minimal data leakage and balancing the proportion of 
-    single chain, homomer and heteromer entries. 
+    Our splitting algorithm has two objectives: achieving minimal data leakage and balancing the proportion of
+    single chain, homomer and heteromer entries.
 
     It follows these steps:
-    
+
     1. cluster chains by sequence identity,
     2. generate a graph where nodes are the clusters and edges are protein-protein interactions between chains
     from those clusters,
     3. split connected components of the graph into training, test and validation subsets while keeping the proportion
-    of single chains, homomers and heteromers close to that in the full dataset (within `split_tolerance`). 
+    of single chains, homomers and heteromers close to that in the full dataset (within `split_tolerance`).
 
 
     Parameters
@@ -2400,7 +2408,7 @@ for chain-chain pairs (all pairs that are seen in the same biounit))</dd>
     Saves the model input tensors as pickle files in `features_folder`. When `clustering_dict_path` is provided,
     at each iteration a random bionit from a cluster is sampled.
 
-    If a complex contains multiple chains, they are concatenated. The sequence identity information is preserved in the 
+    If a complex contains multiple chains, they are concatenated. The sequence identity information is preserved in the
     `&#39;chain_encoding_all&#39;` object and in the `&#39;residue_idx&#39;` arrays the chain change is denoted by a +100 jump.
 
     Returns dictionaries with the following keys and values (all values are `torch` tensors):
@@ -2901,7 +2909,7 @@ forced to be in a binding site</dd>
     Creates and iterates over an instance of `ProteinDataset`, omitting the `&#39;chain_dict&#39;` keys.
     See the `ProteinDataset` docs for more information.
 
-    If batch size is larger than one, all objects are padded with zeros at the ends to reach the length of the 
+    If batch size is larger than one, all objects are padded with zeros at the ends to reach the length of the
     longest protein in the batch.
 
     If `mask_residues` is `True`, an additional `&#39;masked_res&#39;` key is added to the output. The value is a binary
