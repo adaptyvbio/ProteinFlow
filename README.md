@@ -25,6 +25,8 @@ In addition, `proteinflow` depends on the `rcsbsearch` package and the latest re
 python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
 ```
 
+You do not need to install `mmseqs` or `rcsbsearch` if you are planning to 
+
 ## Usage
 ### Downloading pre-computed datasets
 We have already run the pipeline with a consensus set of parameters and saved the results at a server. You can download the resulting dataset with `proteinflow`. Check the output of `proteinflow check_tags` for a list of available tags.

@@ -5,21 +5,21 @@
 
 ## Installation
 Recommended: create a new `conda` environment and install `proteinflow` and `mmseqs`. Note that the python version has to be between 3.8 and 3.10. 
-```
+```bash
 conda create --name proteinflow -y python=3.9
 conda activate proteinflow
 conda install -y -c conda-forge -c bioconda mmseqs2
 python -m pip install proteinflow
 ```
 In addition, `proteinflow` depends on the `rcsbsearch` package and the latest release is currently failing. Follow the recommended fix:
-```
+```bash
 python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
 ```
 
 ## Usage
 ### Downloading pre-computed datasets
 We have already run the pipeline with a consensus set of parameters and saved the results at a server. You can download the resulting dataset with `proteinflow`. Check the output of `proteinflow check_tags` for a list of available tags.
-```
+```bash
 proteinflow download --tag paper 
 ```
 
@@ -38,7 +38,7 @@ For instance, let's generate a dataset with the following description:
 - maximum fraction of missing values at the ends 10%,
 - validation subset 10%.
 
-```
+```bash
 proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods --min_seq_id 0.4 --max_length 1000 --min_length 5 --missing_ends_thr 0.1 --valid_split 0.1
 ```
 See `proteinflow.generate_data` (or run `proteinflow generate --help`) for the full list of parameters and more information.
@@ -49,7 +49,7 @@ The reasons for filtering files out are logged in text files (at `data/logs` by 
 By default, both `proteinflow generate` and `proteinflow download` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `proteinflow split` command.
 
 The following command will perform the splitting with a 10% validation set, a 5% test set and a 50% threshold for sequence identity clusters.
-```
+```bash
 proteinflow split --tag new --valid_split 0.1 --test_split 0.5 --min_seq_id 0.5
 ```
 
