@@ -23,45 +23,88 @@
 </header>
 <section id="section-intro">
 <p><code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> is a pipeline that loads protein data from PDB, filters it, puts it in a machine readable format and extracts structure and sequence features. </p>
+<p><img alt="pipeline" src="https://github.com/adaptyvbio/ProteinFlow/blob/main/fig_pipeline.png"></p>
 <h2 id="installation">Installation</h2>
-<p>&hellip;</p>
+<p>Recommended: create a new <code>conda</code> environment and install <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> and <code>mmseqs</code>. Note that the python version has to be between 3.8 and 3.10. </p>
+<pre><code>conda create --name proteinflow -y python=3.9
+conda activate proteinflow
+conda install -y -c conda-forge -c bioconda mmseqs2
+python -m pip install proteinflow
+</code></pre>
+<p>In addition, <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> depends on the <code>rcsbsearch</code> package and the latest release is currently failing. Follow the recommended fix:</p>
+<pre><code>python -m pip install &quot;rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e&quot;
+</code></pre>
 <h2 id="usage">Usage</h2>
 <h3 id="downloading-pre-computed-datasets">Downloading pre-computed datasets</h3>
-<p>We have run the pipeline and saved the results at an AWS S3 server. You can download the resulting dataset with <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code>. Check the output of <code><a title="proteinflow" href="#proteinflow">proteinflow</a> check_tags</code> for a list of available tags.</p>
-<pre><code>proteinflow download --tag 20221110 
+<p>We have already run the pipeline with a consensus set of parameters and saved the results at a server. You can download the resulting dataset with <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code>. Check the output of <code><a title="proteinflow" href="#proteinflow">proteinflow</a> check_tags</code> for a list of available tags.</p>
+<pre><code>proteinflow download --tag paper 
 </code></pre>
+<p>See <code><a title="proteinflow.download_data" href="#proteinflow.download_data">download_data()</a></code> (or run <code>proteinflow download --help</code>) for more information.</p>
 <h3 id="running-the-pipeline">Running the pipeline</h3>
-<p>You can also run <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> with your own parameters. Check the output of <code><a title="proteinflow" href="#proteinflow">proteinflow</a> check_snapshots</code> for a list of available snapshots.</p>
-<pre><code>proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods
+<p>You can also run <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> with your own parameters. Check the output of <code><a title="proteinflow" href="#proteinflow">proteinflow</a> check_snapshots</code> for a list of available snapshots (naming rule: <code>{year}{month}{day}</code>).</p>
+<p>For instance, let's generate a dataset with the following description:
+- resolution threshold 5 $\AA$,
+- PDB snapshot 20190101,
+- all structure methods accepted,
+- sequence identity threshold for clustering 40%,
+- maximum length per sequence 1000 residues,
+- minimum length per sequence 5 residues,
+- maximum fraction of missing values at the ends 10%,
+- validation subset 10%.</p>
+<pre><code>proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods --min_seq_id 0.4 --max_length 1000 --min_length 5 --missing_ends_thr 0.1 --valid_split 0.1
 </code></pre>
-<p>See the docs (or <code>proteinflow generate --help</code>) for the full list of parameters.</p>
+<p>See <code><a title="proteinflow.generate_data" href="#proteinflow.generate_data">generate_data()</a></code> (or run <code>proteinflow generate --help</code>) for the full list of parameters and more information.</p>
+<p>The reasons for filtering files out are logged in text files (at <code>data/logs</code> by default). To get a summary, run <code>proteinflow get_summary {log_path}</code>.</p>
 <h3 id="splitting">Splitting</h3>
 <p>By default, both <code><a title="proteinflow" href="#proteinflow">proteinflow</a> generate</code> and <code><a title="proteinflow" href="#proteinflow">proteinflow</a> download</code> will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a <code>--skip_splitting</code> flag and then perform it separately with the <code><a title="proteinflow" href="#proteinflow">proteinflow</a> split</code> command.</p>
-<pre><code>proteinflow split --tag new --valid_split 0.1 --test_split 0
+<p>The following command will perform the splitting with a 10% validation set, a 5% test set and a 50% threshold for sequence identity clusters.</p>
+<pre><code>proteinflow split --tag new --valid_split 0.1 --test_split 0.5 --min_seq_id 0.5
 </code></pre>
-<h3 id="loading-the-data">Loading the data</h3>
-<p>The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:</p>
-<ul>
-<li><code>'crd_bb'</code>: a <code>numpy</code> array of shape <code>(L, 4, 3)</code> with backbone atom coordinates (N, C, CA, O),</li>
-<li><code>'crd_sc'</code>: a <code>numpy</code> array of shape <code>(L, 10, 3)</code> with sidechain atom coordinates (check <code><a title="proteinflow.sidechain_order" href="#proteinflow.sidechain_order">sidechain_order()</a></code> for the order of atoms),</li>
-<li><code>'msk'</code>: a <code>numpy</code> array of shape <code>(L,)</code> where ones correspond to residues with known coordinates and
-zeros to missing values,</li>
-<li><code>'seq'</code>: a string of length <code>L</code> with residue types.</li>
-</ul>
-<p>Once your data is ready, you can use our <code><a title="proteinflow.ProteinDataset" href="#proteinflow.ProteinDataset">ProteinDataset</a></code> or <code><a title="proteinflow.ProteinLoader" href="#proteinflow.ProteinLoader">ProteinLoader</a></code> (wrappers around <code>pytorch</code> data utils classes)
-for convenient processing. </p>
+<p>See <code><a title="proteinflow.split_data" href="#proteinflow.split_data">split_data()</a></code> (or run <code>proteinflow split --help</code>) for more information.</p>
+<h3 id="using-the-data">Using the data</h3>
+<p>The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:
+- <code>'crd_bb'</code>: a <code>numpy</code> array of shape <code>(L, 4, 3)</code> with backbone atom coordinates (N, C, CA, O),
+- <code>'crd_sc'</code>: a <code>numpy</code> array of shape <code>(L, 10, 3)</code> with sidechain atom coordinates (check <code><a title="proteinflow.sidechain_order" href="#proteinflow.sidechain_order">sidechain_order()</a></code> for the order of atoms),
+- <code>'msk'</code>: a <code>numpy</code> array of shape <code>(L,)</code> where ones correspond to residues with known coordinates and
+zeros to missing values,
+- <code>'seq'</code>: a string of length <code>L</code> with residue types.</p>
+<p>Once your data is ready, you can open the files directly with <code>pickle</code> to access this data.</p>
+<pre><code class="language-python">import pickle
+import os
+
+train_folder = &quot;./data/proteinflow_new/training&quot;
+for filename in os.listdir(train_folder):
+    with open(os.path.join(train_folder, filename), &quot;rb&quot;) as f:
+        data = pickle.load(f)
+    crd_bb = data[&quot;crd_bb&quot;]
+    seq = data[&quot;seq&quot;]
+    ...
+</code></pre>
+<p>Alternatively, you can use our <code><a title="proteinflow.ProteinDataset" href="#proteinflow.ProteinDataset">ProteinDataset</a></code> or <code><a title="proteinflow.ProteinLoader" href="#proteinflow.ProteinLoader">ProteinLoader</a></code> classes
+for convenient processing. Among other things, they allow for feature extraction, single chain / homomer / heteromer filtering and randomized sampling from sequence identity clusters.</p>
+<p>For example, here is how we can create a data loader that:
+- samples a different cluster representative at every epoch,
+- extracts dihedral angles, sidechain orientation and secondary structure features,
+- only loads pairs of interacting proteins (larger biounits are broken up into pairs),
+- generates a geometric mask for 10% of one of the chains (random generation at every pass),
+- has batch size 8.</p>
 <pre><code class="language-python">from proteinflow import ProteinLoader
 train_loader = ProteinLoader(
     &quot;./data/proteinflow_new/training&quot;, 
     clustering_dict_path=&quot;./data/proteinflow_new/splits_dict/train.pickle&quot;,
-    batch_size=8, 
-    node_features_type=&quot;chemical+secondary_structure&quot;
+    node_features_type=&quot;dihedral+sidechain_orientation+secondary_structure&quot;,
+    entry_type=&quot;pair&quot;,
+    mask_frac=0.1,
+    batch_size=8,
 )
 for batch in train_loader:
+    crd_bb = batch[&quot;X&quot;] #(B, L, 4, 3)
+    seq = batch[&quot;S&quot;] #(B, L)
+    sse = batch[&quot;secondary_structure&quot;] #(B, L, 3)
+    to_predict = batch[&quot;masked_res&quot;] #(B, L), 1 where the residues should be masked, 0 otherwise
     ...
 </code></pre>
-<h2 id="citation">Citation</h2>
-<p>See our paper for more details and for citing: &hellip;</p>
+<p>See <code><a title="proteinflow.ProteinLoader" href="#proteinflow.ProteinLoader">ProteinLoader</a></code> for more information.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -69,55 +112,112 @@ for batch in train_loader:
 <pre><code class="python">&#34;&#34;&#34;
 `proteinflow` is a pipeline that loads protein data from PDB, filters it, puts it in a machine readable format and extracts structure and sequence features. 
 
+![pipeline](https://github.com/adaptyvbio/ProteinFlow/blob/main/fig_pipeline.png)
 
 ## Installation
-...
+Recommended: create a new `conda` environment and install `proteinflow` and `mmseqs`. Note that the python version has to be between 3.8 and 3.10. 
+```
+conda create --name proteinflow -y python=3.9
+conda activate proteinflow
+conda install -y -c conda-forge -c bioconda mmseqs2
+python -m pip install proteinflow
+```
+In addition, `proteinflow` depends on the `rcsbsearch` package and the latest release is currently failing. Follow the recommended fix:
+```
+python -m pip install &#34;rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e&#34;
+```
 
 ## Usage
 ### Downloading pre-computed datasets
-We have run the pipeline and saved the results at an AWS S3 server. You can download the resulting dataset with `proteinflow`. Check the output of `proteinflow check_tags` for a list of available tags.
+We have already run the pipeline with a consensus set of parameters and saved the results at a server. You can download the resulting dataset with `proteinflow`. Check the output of `proteinflow check_tags` for a list of available tags.
 ```
-proteinflow download --tag 20221110 
+proteinflow download --tag paper 
 ```
 
+See `proteinflow.download_data` (or run `proteinflow download --help`) for more information.
+
 ### Running the pipeline
-You can also run `proteinflow` with your own parameters. Check the output of `proteinflow check_snapshots` for a list of available snapshots.
+You can also run `proteinflow` with your own parameters. Check the output of `proteinflow check_snapshots` for a list of available snapshots (naming rule: `{year}{month}{day}`).
+
+For instance, let&#39;s generate a dataset with the following description:
+- resolution threshold 5 $\AA$,
+- PDB snapshot 20190101,
+- all structure methods accepted,
+- sequence identity threshold for clustering 40%,
+- maximum length per sequence 1000 residues,
+- minimum length per sequence 5 residues,
+- maximum fraction of missing values at the ends 10%,
+- validation subset 10%.
+
 ```
-proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods
+proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods --min_seq_id 0.4 --max_length 1000 --min_length 5 --missing_ends_thr 0.1 --valid_split 0.1
 ```
-See the docs (or `proteinflow generate --help`) for the full list of parameters.
+See `proteinflow.generate_data` (or run `proteinflow generate --help`) for the full list of parameters and more information.
+
+The reasons for filtering files out are logged in text files (at `data/logs` by default). To get a summary, run `proteinflow get_summary {log_path}`.
 
 ### Splitting
 By default, both `proteinflow generate` and `proteinflow download` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `proteinflow split` command.
+
+The following command will perform the splitting with a 10% validation set, a 5% test set and a 50% threshold for sequence identity clusters.
 ```
-proteinflow split --tag new --valid_split 0.1 --test_split 0
+proteinflow split --tag new --valid_split 0.1 --test_split 0.5 --min_seq_id 0.5
 ```
 
-### Loading the data
+See `proteinflow.split_data` (or run `proteinflow split --help`) for more information.
+
+### Using the data
 The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:
-
 - `&#39;crd_bb&#39;`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),
 - `&#39;crd_sc&#39;`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (check `proteinflow.sidechain_order()` for the order of atoms),
 - `&#39;msk&#39;`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and
     zeros to missing values,
 - `&#39;seq&#39;`: a string of length `L` with residue types.
 
-Once your data is ready, you can use our `proteinflow.ProteinDataset` or `proteinflow.ProteinLoader` (wrappers around `pytorch` data utils classes)
-for convenient processing. 
+Once your data is ready, you can open the files directly with `pickle` to access this data.
+
+```python
+import pickle
+import os
+
+train_folder = &#34;./data/proteinflow_new/training&#34;
+for filename in os.listdir(train_folder):
+    with open(os.path.join(train_folder, filename), &#34;rb&#34;) as f:
+        data = pickle.load(f)
+    crd_bb = data[&#34;crd_bb&#34;]
+    seq = data[&#34;seq&#34;]
+    ...
+```
+
+Alternatively, you can use our `ProteinDataset` or `ProteinLoader` classes 
+for convenient processing. Among other things, they allow for feature extraction, single chain / homomer / heteromer filtering and randomized sampling from sequence identity clusters.
+
+For example, here is how we can create a data loader that:
+- samples a different cluster representative at every epoch,
+- extracts dihedral angles, sidechain orientation and secondary structure features,
+- only loads pairs of interacting proteins (larger biounits are broken up into pairs),
+- generates a geometric mask for 10% of one of the chains (random generation at every pass),
+- has batch size 8.
+
 ```python
 from proteinflow import ProteinLoader
 train_loader = ProteinLoader(
     &#34;./data/proteinflow_new/training&#34;, 
     clustering_dict_path=&#34;./data/proteinflow_new/splits_dict/train.pickle&#34;,
-    batch_size=8, 
-    node_features_type=&#34;chemical+secondary_structure&#34;
+    node_features_type=&#34;dihedral+sidechain_orientation+secondary_structure&#34;,
+    entry_type=&#34;pair&#34;,
+    mask_frac=0.1,
+    batch_size=8,
 )
 for batch in train_loader:
+    crd_bb = batch[&#34;X&#34;] #(B, L, 4, 3)
+    seq = batch[&#34;S&#34;] #(B, L)
+    sse = batch[&#34;secondary_structure&#34;] #(B, L, 3)
+    to_predict = batch[&#34;masked_res&#34;] #(B, L), 1 where the residues should be masked, 0 otherwise
     ...
 ```
 
-## Citation
-See our paper for more details and for citing: ...
+See `proteinflow.ProteinLoader` for more information.
 &#34;&#34;&#34;
 
 __pdoc__ = {&#34;utils&#34;: False, &#34;scripts&#34;: False}
@@ -162,6 +262,8 @@ from copy import deepcopy
 import pandas as pd
 from numpy import linalg
 import boto3
+from botocore import UNSIGNED
+from botocore.config import Config
 from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations
@@ -524,21 +626,13 @@ def _run_processing(
             [&#34;X-RAY DIFFRACTION&#34;, &#34;ELECTRON MICROSCOPY&#34;]
         )
     pdb_ids = pdb_ids.exec(&#34;assembly&#34;)
-    if n is not None:
-        pdbs = []
-        try:
-            for i, x in enumerate(pdb_ids):
-                pdbs.append(x)
-                if i == n:
-                    break
-            pdb_ids = pdbs
-        except Exception as e:
-            _raise_rcsbsearch(e)
 
     ordered_folders = [
         x.key
         for x in _s3list(
-            boto3.resource(&#34;s3&#34;).Bucket(&#34;pdbsnapshots&#34;),
+            boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
+                &#34;pdbsnapshots&#34;
+            ),
             &#34;&#34;,
             recursive=False,
             list_objs=False,
@@ -629,16 +723,19 @@ def _run_processing(
 
     try:
         session = boto3.session.Session()
-        s3_client = session.client(&#34;s3&#34;)
-        with ThreadPoolExecutor() as executor:
+        s3_client = session.client(&#34;s3&#34;, config=Config(signature_version=UNSIGNED))
+        with ThreadPoolExecutor(max_workers=8) as executor:
             print(&#34;Prepare the executor...&#34;)
 
             def executor_f(x):
                 return download_f(x, s3_client=s3_client, load_live=load_live)
 
-            future_to_key = {
-                executor.submit(executor_f, key): key for key in tqdm(pdb_ids)
-            }
+            ids = []
+            for i, x in enumerate(tqdm(pdb_ids)):
+                ids.append(x)
+                if n is not None and i == n:
+                    break
+            future_to_key = {executor.submit(executor_f, key): key for key in tqdm(ids)}
             print(&#34;Download structure files&#34;)
             local_paths = [
                 x.result()
@@ -647,7 +744,7 @@ def _run_processing(
                 )
             ]
             print(&#34;Prepare fasta files...&#34;)
-            pdbs = set([os.path.basename(x).split(&#34;-&#34;)[0] for x in tqdm(local_paths)])
+            pdbs = set([x.split(&#34;-&#34;)[0] for x in tqdm(ids)])
             print(&#34;Download fasta files...&#34;)
             future_to_key = {
                 executor.submit(
@@ -887,12 +984,7 @@ def download_data(tag, local_datasets_folder=&#34;./data&#34;, skip_splitting=Fa
 
     data_path = _download_dataset(tag, local_datasets_folder)
     if not skip_splitting:
-        print(&#34;We&#39;re almost there, just a tiny effort left :-)&#34;)
         _split_data(data_path)
-        print(&#34;-------------------------------------&#34;)
-    print(
-        &#34;Thanks for downloading proteinflow, the most complete, user-friendly and loving protein dataset you will ever find! ;-)&#34;
-    )
 
 
 def generate_data(
@@ -1030,7 +1122,16 @@ def split_data(
     &#34;&#34;&#34;
     Split `proteinflow` entry files into training, test and validation.
 
-    ...
+    Our splitting algorithm has two objectives: achieving minimal data leakage and balancing the proportion of
+    single chain, homomer and heteromer entries.
+
+    It follows these steps:
+    1. cluster chains by sequence identity,
+    2. generate a graph where nodes are the clusters and edges are protein-protein interactions between chains
+    from those clusters,
+    3. split connected components of the graph into training, test and validation subsets while keeping the proportion
+    of single chains, homomers and heteromers close to that in the full dataset (within `split_tolerance`).
+
 
     Parameters
     ----------
@@ -1088,6 +1189,9 @@ class ProteinDataset(Dataset):
     Saves the model input tensors as pickle files in `features_folder`. When `clustering_dict_path` is provided,
     at each iteration a random bionit from a cluster is sampled.
 
+    If a complex contains multiple chains, they are concatenated. The sequence identity information is preserved in the
+    `&#39;chain_encoding_all&#39;` object and in the `&#39;residue_idx&#39;` arrays the chain change is denoted by a +100 jump.
+
     Returns dictionaries with the following keys and values (all values are `torch` tensors):
 
     - `&#39;X&#39;`: 3D coordinates of N, C, Ca, O, `(total_L, 4, 3)`,
@@ -1104,7 +1208,7 @@ class ProteinDataset(Dataset):
     - `&#39;sidechain_orientation&#39;`: a unit vector in the direction of the sidechain, `(total_L, 3)`,
     - `&#39;dihedral&#39;`: the dihedral angles, `(total_L, 2)`,
     - `&#39;chemical&#39;`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`,
-    - `&#39;secondary_structure&#39;`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 6)`.
+    - `&#39;secondary_structure&#39;`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 3)`.
     &#34;&#34;&#34;
 
     def __init__(
@@ -1514,10 +1618,13 @@ class ProteinDataset(Dataset):
 
 class ProteinLoader(DataLoader):
     &#34;&#34;&#34;
-    A subclass of `torch.data.utils.DataLoader` tuned for the proteinflow dataset
+    A subclass of `torch.data.utils.DataLoader` tuned for the `proteinflow` dataset
 
     Creates and iterates over an instance of `ProteinDataset`, omitting the `&#39;chain_dict&#39;` keys.
     See the `ProteinDataset` docs for more information.
+
+    If batch size is larger than one, all objects are padded with zeros at the ends to reach the length of the
+    longest protein in the batch.
 
     If `mask_residues` is `True`, an additional `&#39;masked_res&#39;` key is added to the output. The value is a binary
     tensor shaped `(B, L)` where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated
@@ -1550,7 +1657,7 @@ class ProteinLoader(DataLoader):
         mask_residues=True,
         mask_whole_chains=False,
         mask_frac=None,
-        force_binding_sites_frac=0.15,
+        force_binding_sites_frac=0,
     ) -&gt; None:
         &#34;&#34;&#34;
         Parameters
@@ -1589,7 +1696,7 @@ class ProteinLoader(DataLoader):
             if given, the `lower_limit` and `upper_limit` are ignored and the number of residues to mask is `mask_frac` times the length of the chain
         mask_whole_chains : bool, default False
             if `True`, `upper_limit`, `force_binding_sites` and `lower_limit` are ignored and the whole chain is masked instead
-        force_binding_sites_frac : float, default 0.15
+        force_binding_sites_frac : float, default 0
             if &gt; 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
             forced to be in a binding site
         &#34;&#34;&#34;
@@ -1638,7 +1745,7 @@ def sidechain_order():
 
 def get_error_summary(log_file, verbose=True):
     &#34;&#34;&#34;
-    Get a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
+    Get a dictionary where keys are recognized exception names and values are lists of PDB ids that caused the exceptions
 
     Parameters
     ----------
@@ -1650,7 +1757,7 @@ def get_error_summary(log_file, verbose=True):
     Returns
     -------
     log_dict : dict
-        a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
+        a dictionary where keys are recognized exception names and values are lists of PDB ids that caused the exceptions
     &#34;&#34;&#34;
 
     stats = defaultdict(lambda: [])
@@ -1662,7 +1769,7 @@ def get_error_summary(log_file, verbose=True):
         keys = sorted(stats.keys(), key=lambda x: len(stats[x]), reverse=True)
         for key in keys:
             print(f&#34;{key}: {len(stats[key])}&#34;)
-        print(f&#34;Total errors: {sum([len(x) for x in stats.values()])}&#34;)
+        print(f&#34;Total exceptions: {sum([len(x) for x in stats.values()])}&#34;)
     return stats
 
 
@@ -1677,7 +1784,9 @@ def check_pdb_snapshots():
     &#34;&#34;&#34;
 
     folders = _s3list(
-        boto3.resource(&#34;s3&#34;).Bucket(&#34;pdbsnapshots&#34;),
+        boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
+            &#34;pdbsnapshots&#34;
+        ),
         &#34;&#34;,
         recursive=False,
         list_objs=False,
@@ -1696,7 +1805,9 @@ def check_download_tags():
     &#34;&#34;&#34;
 
     folders = _s3list(
-        boto3.resource(&#34;s3&#34;).Bucket(&#34;ml4-main-storage&#34;),
+        boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
+            &#34;proteinflow-datasets&#34;
+        ),
         &#34;&#34;,
         recursive=False,
         list_objs=False,
@@ -1747,7 +1858,9 @@ def check_download_tags():
     &#34;&#34;&#34;
 
     folders = _s3list(
-        boto3.resource(&#34;s3&#34;).Bucket(&#34;ml4-main-storage&#34;),
+        boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
+            &#34;proteinflow-datasets&#34;
+        ),
         &#34;&#34;,
         recursive=False,
         list_objs=False,
@@ -1791,7 +1904,9 @@ def check_download_tags():
     &#34;&#34;&#34;
 
     folders = _s3list(
-        boto3.resource(&#34;s3&#34;).Bucket(&#34;pdbsnapshots&#34;),
+        boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
+            &#34;pdbsnapshots&#34;
+        ),
         &#34;&#34;,
         recursive=False,
         list_objs=False,
@@ -1833,12 +1948,7 @@ def check_download_tags():
 
     data_path = _download_dataset(tag, local_datasets_folder)
     if not skip_splitting:
-        print(&#34;We&#39;re almost there, just a tiny effort left :-)&#34;)
-        _split_data(data_path)
-        print(&#34;-------------------------------------&#34;)
-    print(
-        &#34;Thanks for downloading proteinflow, the most complete, user-friendly and loving protein dataset you will ever find! ;-)&#34;
-    )</code></pre>
+        _split_data(data_path)</code></pre>
 </details>
 </dd>
 <dt id="proteinflow.generate_data"><code class="name flex">
@@ -2033,7 +2143,7 @@ zeros to missing values,</li>
 <span>def <span class="ident">get_error_summary</span></span>(<span>log_file, verbose=True)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Get a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors</p>
+<div class="desc"><p>Get a dictionary where keys are recognized exception names and values are lists of PDB ids that caused the exceptions</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>log_file</code></strong> :&ensp;<code>str</code></dt>
@@ -2044,7 +2154,7 @@ zeros to missing values,</li>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><strong><code>log_dict</code></strong> :&ensp;<code>dict</code></dt>
-<dd>a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors</dd>
+<dd>a dictionary where keys are recognized exception names and values are lists of PDB ids that caused the exceptions</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -2052,7 +2162,7 @@ zeros to missing values,</li>
 </summary>
 <pre><code class="python">def get_error_summary(log_file, verbose=True):
     &#34;&#34;&#34;
-    Get a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
+    Get a dictionary where keys are recognized exception names and values are lists of PDB ids that caused the exceptions
 
     Parameters
     ----------
@@ -2064,7 +2174,7 @@ zeros to missing values,</li>
     Returns
     -------
     log_dict : dict
-        a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
+        a dictionary where keys are recognized exception names and values are lists of PDB ids that caused the exceptions
     &#34;&#34;&#34;
 
     stats = defaultdict(lambda: [])
@@ -2076,7 +2186,7 @@ zeros to missing values,</li>
         keys = sorted(stats.keys(), key=lambda x: len(stats[x]), reverse=True)
         for key in keys:
             print(f&#34;{key}: {len(stats[key])}&#34;)
-        print(f&#34;Total errors: {sum([len(x) for x in stats.values()])}&#34;)
+        print(f&#34;Total exceptions: {sum([len(x) for x in stats.values()])}&#34;)
     return stats</code></pre>
 </details>
 </dd>
@@ -2114,7 +2224,14 @@ coordinates in the <code>'crd_sc'</code> array generated by the <code>run_proces
 </code></dt>
 <dd>
 <div class="desc"><p>Split <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> entry files into training, test and validation.</p>
-<p>&hellip;</p>
+<p>Our splitting algorithm has two objectives: achieving minimal data leakage and balancing the proportion of
+single chain, homomer and heteromer entries.</p>
+<p>It follows these steps:
+1. cluster chains by sequence identity,
+2. generate a graph where nodes are the clusters and edges are protein-protein interactions between chains
+from those clusters,
+3. split connected components of the graph into training, test and validation subsets while keeping the proportion
+of single chains, homomers and heteromers close to that in the full dataset (within <code>split_tolerance</code>).</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>tag</code></strong> :&ensp;<code>str</code></dt>
@@ -2153,7 +2270,16 @@ coordinates in the <code>'crd_sc'</code> array generated by the <code>run_proces
     &#34;&#34;&#34;
     Split `proteinflow` entry files into training, test and validation.
 
-    ...
+    Our splitting algorithm has two objectives: achieving minimal data leakage and balancing the proportion of
+    single chain, homomer and heteromer entries.
+
+    It follows these steps:
+    1. cluster chains by sequence identity,
+    2. generate a graph where nodes are the clusters and edges are protein-protein interactions between chains
+    from those clusters,
+    3. split connected components of the graph into training, test and validation subsets while keeping the proportion
+    of single chains, homomers and heteromers close to that in the full dataset (within `split_tolerance`).
+
 
     Parameters
     ----------
@@ -2217,6 +2343,8 @@ coordinates in the <code>'crd_sc'</code> array generated by the <code>run_proces
 <div class="desc"><p>Dataset to load proteinflow data</p>
 <p>Saves the model input tensors as pickle files in <code>features_folder</code>. When <code>clustering_dict_path</code> is provided,
 at each iteration a random bionit from a cluster is sampled.</p>
+<p>If a complex contains multiple chains, they are concatenated. The sequence identity information is preserved in the
+<code>'chain_encoding_all'</code> object and in the <code>'residue_idx'</code> arrays the chain change is denoted by a +100 jump.</p>
 <p>Returns dictionaries with the following keys and values (all values are <code>torch</code> tensors):</p>
 <ul>
 <li><code>'X'</code>: 3D coordinates of N, C, Ca, O, <code>(total_L, 4, 3)</code>,</li>
@@ -2233,7 +2361,7 @@ at each iteration a random bionit from a cluster is sampled.</p>
 <li><code>'sidechain_orientation'</code>: a unit vector in the direction of the sidechain, <code>(total_L, 3)</code>,</li>
 <li><code>'dihedral'</code>: the dihedral angles, <code>(total_L, 2)</code>,</li>
 <li><code>'chemical'</code>: hydropathy, volume, charge, polarity, acceptor/donor features, <code>(total_L, 6)</code>,</li>
-<li><code>'secondary_structure'</code>: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), <code>(total_L, 6)</code>.</li>
+<li><code>'secondary_structure'</code>: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), <code>(total_L, 3)</code>.</li>
 </ul>
 <h2 id="parameters">Parameters</h2>
 <dl>
@@ -2276,6 +2404,9 @@ for chain-chain pairs (all pairs that are seen in the same biounit))</dd>
     Saves the model input tensors as pickle files in `features_folder`. When `clustering_dict_path` is provided,
     at each iteration a random bionit from a cluster is sampled.
 
+    If a complex contains multiple chains, they are concatenated. The sequence identity information is preserved in the
+    `&#39;chain_encoding_all&#39;` object and in the `&#39;residue_idx&#39;` arrays the chain change is denoted by a +100 jump.
+
     Returns dictionaries with the following keys and values (all values are `torch` tensors):
 
     - `&#39;X&#39;`: 3D coordinates of N, C, Ca, O, `(total_L, 4, 3)`,
@@ -2292,7 +2423,7 @@ for chain-chain pairs (all pairs that are seen in the same biounit))</dd>
     - `&#39;sidechain_orientation&#39;`: a unit vector in the direction of the sidechain, `(total_L, 3)`,
     - `&#39;dihedral&#39;`: the dihedral angles, `(total_L, 2)`,
     - `&#39;chemical&#39;`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`,
-    - `&#39;secondary_structure&#39;`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 6)`.
+    - `&#39;secondary_structure&#39;`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 3)`.
     &#34;&#34;&#34;
 
     def __init__(
@@ -2707,12 +2838,14 @@ for chain-chain pairs (all pairs that are seen in the same biounit))</dd>
 </dd>
 <dt id="proteinflow.ProteinLoader"><code class="flex name class">
 <span>class <span class="ident">ProteinLoader</span></span>
-<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', batch_size=4, entry_type='biounit', classes_to_exclude=None, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, force_binding_sites_frac=0.15)</span>
+<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', batch_size=4, entry_type='biounit', classes_to_exclude=None, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, force_binding_sites_frac=0)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>A subclass of <code>torch.data.utils.DataLoader</code> tuned for the proteinflow dataset</p>
+<div class="desc"><p>A subclass of <code>torch.data.utils.DataLoader</code> tuned for the <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> dataset</p>
 <p>Creates and iterates over an instance of <code><a title="proteinflow.ProteinDataset" href="#proteinflow.ProteinDataset">ProteinDataset</a></code>, omitting the <code>'chain_dict'</code> keys.
 See the <code><a title="proteinflow.ProteinDataset" href="#proteinflow.ProteinDataset">ProteinDataset</a></code> docs for more information.</p>
+<p>If batch size is larger than one, all objects are padded with zeros at the ends to reach the length of the
+longest protein in the batch.</p>
 <p>If <code>mask_residues</code> is <code>True</code>, an additional <code>'masked_res'</code> key is added to the output. The value is a binary
 tensor shaped <code>(B, L)</code> where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated
 according to the following rules:
@@ -2757,7 +2890,7 @@ from a polymer is sampled, the center of the masked region will be forced to be 
 <dd>if given, the <code>lower_limit</code> and <code>upper_limit</code> are ignored and the number of residues to mask is <code>mask_frac</code> times the length of the chain</dd>
 <dt><strong><code>mask_whole_chains</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, <code>upper_limit</code>, <code>force_binding_sites</code> and <code>lower_limit</code> are ignored and the whole chain is masked instead</dd>
-<dt><strong><code>force_binding_sites_frac</code></strong> :&ensp;<code>float</code>, default <code>0.15</code></dt>
+<dt><strong><code>force_binding_sites_frac</code></strong> :&ensp;<code>float</code>, default <code>0</code></dt>
 <dd>if &gt; 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
 forced to be in a binding site</dd>
 </dl></div>
@@ -2767,10 +2900,13 @@ forced to be in a binding site</dd>
 </summary>
 <pre><code class="python">class ProteinLoader(DataLoader):
     &#34;&#34;&#34;
-    A subclass of `torch.data.utils.DataLoader` tuned for the proteinflow dataset
+    A subclass of `torch.data.utils.DataLoader` tuned for the `proteinflow` dataset
 
     Creates and iterates over an instance of `ProteinDataset`, omitting the `&#39;chain_dict&#39;` keys.
     See the `ProteinDataset` docs for more information.
+
+    If batch size is larger than one, all objects are padded with zeros at the ends to reach the length of the
+    longest protein in the batch.
 
     If `mask_residues` is `True`, an additional `&#39;masked_res&#39;` key is added to the output. The value is a binary
     tensor shaped `(B, L)` where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated
@@ -2803,7 +2939,7 @@ forced to be in a binding site</dd>
         mask_residues=True,
         mask_whole_chains=False,
         mask_frac=None,
-        force_binding_sites_frac=0.15,
+        force_binding_sites_frac=0,
     ) -&gt; None:
         &#34;&#34;&#34;
         Parameters
@@ -2842,7 +2978,7 @@ forced to be in a binding site</dd>
             if given, the `lower_limit` and `upper_limit` are ignored and the number of residues to mask is `mask_frac` times the length of the chain
         mask_whole_chains : bool, default False
             if `True`, `upper_limit`, `force_binding_sites` and `lower_limit` are ignored and the whole chain is masked instead
-        force_binding_sites_frac : float, default 0.15
+        force_binding_sites_frac : float, default 0
             if &gt; 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
             forced to be in a binding site
         &#34;&#34;&#34;
@@ -2931,10 +3067,9 @@ forced to be in a binding site</dd>
 <li><a href="#downloading-pre-computed-datasets">Downloading pre-computed datasets</a></li>
 <li><a href="#running-the-pipeline">Running the pipeline</a></li>
 <li><a href="#splitting">Splitting</a></li>
-<li><a href="#loading-the-data">Loading the data</a></li>
+<li><a href="#using-the-data">Using the data</a></li>
 </ul>
 </li>
-<li><a href="#citation">Citation</a></li>
 </ul>
 </div>
 <ul id="index">

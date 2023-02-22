@@ -1,55 +1,112 @@
 """
 `proteinflow` is a pipeline that loads protein data from PDB, filters it, puts it in a machine readable format and extracts structure and sequence features. 
 
+![pipeline](https://github.com/adaptyvbio/ProteinFlow/blob/main/fig_pipeline.png)
 
 ## Installation
-...
+Recommended: create a new `conda` environment and install `proteinflow` and `mmseqs`. Note that the python version has to be between 3.8 and 3.10. 
+```
+conda create --name proteinflow -y python=3.9
+conda activate proteinflow
+conda install -y -c conda-forge -c bioconda mmseqs2
+python -m pip install proteinflow
+```
+In addition, `proteinflow` depends on the `rcsbsearch` package and the latest release is currently failing. Follow the recommended fix:
+```
+python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
+```
 
 ## Usage
 ### Downloading pre-computed datasets
-We have run the pipeline and saved the results at an AWS S3 server. You can download the resulting dataset with `proteinflow`. Check the output of `proteinflow check_tags` for a list of available tags.
+We have already run the pipeline with a consensus set of parameters and saved the results at a server. You can download the resulting dataset with `proteinflow`. Check the output of `proteinflow check_tags` for a list of available tags.
 ```
-proteinflow download --tag 20221110 
+proteinflow download --tag paper 
 ```
 
+See `proteinflow.download_data` (or run `proteinflow download --help`) for more information.
+
 ### Running the pipeline
-You can also run `proteinflow` with your own parameters. Check the output of `proteinflow check_snapshots` for a list of available snapshots.
+You can also run `proteinflow` with your own parameters. Check the output of `proteinflow check_snapshots` for a list of available snapshots (naming rule: `{year}{month}{day}`).
+
+For instance, let's generate a dataset with the following description:
+- resolution threshold 5 $\AA$,
+- PDB snapshot 20190101,
+- all structure methods accepted,
+- sequence identity threshold for clustering 40%,
+- maximum length per sequence 1000 residues,
+- minimum length per sequence 5 residues,
+- maximum fraction of missing values at the ends 10%,
+- validation subset 10%.
+
 ```
-proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods
+proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods --min_seq_id 0.4 --max_length 1000 --min_length 5 --missing_ends_thr 0.1 --valid_split 0.1
 ```
-See the docs (or `proteinflow generate --help`) for the full list of parameters.
+See `proteinflow.generate_data` (or run `proteinflow generate --help`) for the full list of parameters and more information.
+
+The reasons for filtering files out are logged in text files (at `data/logs` by default). To get a summary, run `proteinflow get_summary {log_path}`.
 
 ### Splitting
 By default, both `proteinflow generate` and `proteinflow download` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `proteinflow split` command.
+
+The following command will perform the splitting with a 10% validation set, a 5% test set and a 50% threshold for sequence identity clusters.
 ```
-proteinflow split --tag new --valid_split 0.1 --test_split 0
+proteinflow split --tag new --valid_split 0.1 --test_split 0.5 --min_seq_id 0.5
 ```
 
-### Loading the data
+See `proteinflow.split_data` (or run `proteinflow split --help`) for more information.
+
+### Using the data
 The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:
-
 - `'crd_bb'`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),
 - `'crd_sc'`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (check `proteinflow.sidechain_order()` for the order of atoms),
 - `'msk'`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and
     zeros to missing values,
 - `'seq'`: a string of length `L` with residue types.
 
-Once your data is ready, you can use our `proteinflow.ProteinDataset` or `proteinflow.ProteinLoader` (wrappers around `pytorch` data utils classes)
-for convenient processing. 
+Once your data is ready, you can open the files directly with `pickle` to access this data.
+
+```python
+import pickle
+import os
+
+train_folder = "./data/proteinflow_new/training"
+for filename in os.listdir(train_folder):
+    with open(os.path.join(train_folder, filename), "rb") as f:
+        data = pickle.load(f)
+    crd_bb = data["crd_bb"]
+    seq = data["seq"]
+    ...
+```
+
+Alternatively, you can use our `ProteinDataset` or `ProteinLoader` classes 
+for convenient processing. Among other things, they allow for feature extraction, single chain / homomer / heteromer filtering and randomized sampling from sequence identity clusters.
+
+For example, here is how we can create a data loader that:
+- samples a different cluster representative at every epoch,
+- extracts dihedral angles, sidechain orientation and secondary structure features,
+- only loads pairs of interacting proteins (larger biounits are broken up into pairs),
+- generates a geometric mask for 10% of one of the chains (random generation at every pass),
+- has batch size 8.
+
 ```python
 from proteinflow import ProteinLoader
 train_loader = ProteinLoader(
     "./data/proteinflow_new/training", 
     clustering_dict_path="./data/proteinflow_new/splits_dict/train.pickle",
-    batch_size=8, 
-    node_features_type="chemical+secondary_structure"
+    node_features_type="dihedral+sidechain_orientation+secondary_structure",
+    entry_type="pair",
+    mask_frac=0.1,
+    batch_size=8,
 )
 for batch in train_loader:
+    crd_bb = batch["X"] #(B, L, 4, 3)
+    seq = batch["S"] #(B, L)
+    sse = batch["secondary_structure"] #(B, L, 3)
+    to_predict = batch["masked_res"] #(B, L), 1 where the residues should be masked, 0 otherwise
     ...
 ```
 
-## Citation
-See our paper for more details and for citing: ...
+See `proteinflow.ProteinLoader` for more information.
 """
 
 __pdoc__ = {"utils": False, "scripts": False}
@@ -94,6 +151,8 @@ from copy import deepcopy
 import pandas as pd
 from numpy import linalg
 import boto3
+from botocore import UNSIGNED
+from botocore.config import Config
 from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations
@@ -456,21 +515,13 @@ def _run_processing(
             ["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"]
         )
     pdb_ids = pdb_ids.exec("assembly")
-    if n is not None:
-        pdbs = []
-        try:
-            for i, x in enumerate(pdb_ids):
-                pdbs.append(x)
-                if i == n:
-                    break
-            pdb_ids = pdbs
-        except Exception as e:
-            _raise_rcsbsearch(e)
 
     ordered_folders = [
         x.key
         for x in _s3list(
-            boto3.resource("s3").Bucket("pdbsnapshots"),
+            boto3.resource("s3", config=Config(signature_version=UNSIGNED)).Bucket(
+                "pdbsnapshots"
+            ),
             "",
             recursive=False,
             list_objs=False,
@@ -561,16 +612,19 @@ def _run_processing(
 
     try:
         session = boto3.session.Session()
-        s3_client = session.client("s3")
-        with ThreadPoolExecutor() as executor:
+        s3_client = session.client("s3", config=Config(signature_version=UNSIGNED))
+        with ThreadPoolExecutor(max_workers=8) as executor:
             print("Prepare the executor...")
 
             def executor_f(x):
                 return download_f(x, s3_client=s3_client, load_live=load_live)
 
-            future_to_key = {
-                executor.submit(executor_f, key): key for key in tqdm(pdb_ids)
-            }
+            ids = []
+            for i, x in enumerate(tqdm(pdb_ids)):
+                ids.append(x)
+                if n is not None and i == n:
+                    break
+            future_to_key = {executor.submit(executor_f, key): key for key in tqdm(ids)}
             print("Download structure files")
             local_paths = [
                 x.result()
@@ -579,7 +633,7 @@ def _run_processing(
                 )
             ]
             print("Prepare fasta files...")
-            pdbs = set([os.path.basename(x).split("-")[0] for x in tqdm(local_paths)])
+            pdbs = set([x.split("-")[0] for x in tqdm(ids)])
             print("Download fasta files...")
             future_to_key = {
                 executor.submit(
@@ -819,12 +873,7 @@ def download_data(tag, local_datasets_folder="./data", skip_splitting=False):
 
     data_path = _download_dataset(tag, local_datasets_folder)
     if not skip_splitting:
-        print("We're almost there, just a tiny effort left :-)")
         _split_data(data_path)
-        print("-------------------------------------")
-    print(
-        "Thanks for downloading proteinflow, the most complete, user-friendly and loving protein dataset you will ever find! ;-)"
-    )
 
 
 def generate_data(
@@ -962,7 +1011,16 @@ def split_data(
     """
     Split `proteinflow` entry files into training, test and validation.
 
-    ...
+    Our splitting algorithm has two objectives: achieving minimal data leakage and balancing the proportion of
+    single chain, homomer and heteromer entries.
+
+    It follows these steps:
+    1. cluster chains by sequence identity,
+    2. generate a graph where nodes are the clusters and edges are protein-protein interactions between chains
+    from those clusters,
+    3. split connected components of the graph into training, test and validation subsets while keeping the proportion
+    of single chains, homomers and heteromers close to that in the full dataset (within `split_tolerance`).
+
 
     Parameters
     ----------
@@ -1020,6 +1078,9 @@ class ProteinDataset(Dataset):
     Saves the model input tensors as pickle files in `features_folder`. When `clustering_dict_path` is provided,
     at each iteration a random bionit from a cluster is sampled.
 
+    If a complex contains multiple chains, they are concatenated. The sequence identity information is preserved in the
+    `'chain_encoding_all'` object and in the `'residue_idx'` arrays the chain change is denoted by a +100 jump.
+
     Returns dictionaries with the following keys and values (all values are `torch` tensors):
 
     - `'X'`: 3D coordinates of N, C, Ca, O, `(total_L, 4, 3)`,
@@ -1036,7 +1097,7 @@ class ProteinDataset(Dataset):
     - `'sidechain_orientation'`: a unit vector in the direction of the sidechain, `(total_L, 3)`,
     - `'dihedral'`: the dihedral angles, `(total_L, 2)`,
     - `'chemical'`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`,
-    - `'secondary_structure'`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 6)`.
+    - `'secondary_structure'`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 3)`.
     """
 
     def __init__(
@@ -1446,10 +1507,13 @@ class ProteinDataset(Dataset):
 
 class ProteinLoader(DataLoader):
     """
-    A subclass of `torch.data.utils.DataLoader` tuned for the proteinflow dataset
+    A subclass of `torch.data.utils.DataLoader` tuned for the `proteinflow` dataset
 
     Creates and iterates over an instance of `ProteinDataset`, omitting the `'chain_dict'` keys.
     See the `ProteinDataset` docs for more information.
+
+    If batch size is larger than one, all objects are padded with zeros at the ends to reach the length of the
+    longest protein in the batch.
 
     If `mask_residues` is `True`, an additional `'masked_res'` key is added to the output. The value is a binary
     tensor shaped `(B, L)` where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated
@@ -1482,7 +1546,7 @@ class ProteinLoader(DataLoader):
         mask_residues=True,
         mask_whole_chains=False,
         mask_frac=None,
-        force_binding_sites_frac=0.15,
+        force_binding_sites_frac=0,
     ) -> None:
         """
         Parameters
@@ -1521,7 +1585,7 @@ class ProteinLoader(DataLoader):
             if given, the `lower_limit` and `upper_limit` are ignored and the number of residues to mask is `mask_frac` times the length of the chain
         mask_whole_chains : bool, default False
             if `True`, `upper_limit`, `force_binding_sites` and `lower_limit` are ignored and the whole chain is masked instead
-        force_binding_sites_frac : float, default 0.15
+        force_binding_sites_frac : float, default 0
             if > 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
             forced to be in a binding site
         """
@@ -1570,7 +1634,7 @@ def sidechain_order():
 
 def get_error_summary(log_file, verbose=True):
     """
-    Get a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
+    Get a dictionary where keys are recognized exception names and values are lists of PDB ids that caused the exceptions
 
     Parameters
     ----------
@@ -1582,7 +1646,7 @@ def get_error_summary(log_file, verbose=True):
     Returns
     -------
     log_dict : dict
-        a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
+        a dictionary where keys are recognized exception names and values are lists of PDB ids that caused the exceptions
     """
 
     stats = defaultdict(lambda: [])
@@ -1594,7 +1658,7 @@ def get_error_summary(log_file, verbose=True):
         keys = sorted(stats.keys(), key=lambda x: len(stats[x]), reverse=True)
         for key in keys:
             print(f"{key}: {len(stats[key])}")
-        print(f"Total errors: {sum([len(x) for x in stats.values()])}")
+        print(f"Total exceptions: {sum([len(x) for x in stats.values()])}")
     return stats
 
 
@@ -1609,7 +1673,9 @@ def check_pdb_snapshots():
     """
 
     folders = _s3list(
-        boto3.resource("s3").Bucket("pdbsnapshots"),
+        boto3.resource("s3", config=Config(signature_version=UNSIGNED)).Bucket(
+            "pdbsnapshots"
+        ),
         "",
         recursive=False,
         list_objs=False,
@@ -1628,7 +1694,9 @@ def check_download_tags():
     """
 
     folders = _s3list(
-        boto3.resource("s3").Bucket("ml4-main-storage"),
+        boto3.resource("s3", config=Config(signature_version=UNSIGNED)).Bucket(
+            "proteinflow-datasets"
+        ),
         "",
         recursive=False,
         list_objs=False,
