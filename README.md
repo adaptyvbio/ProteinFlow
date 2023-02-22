@@ -3,12 +3,13 @@
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![PyPI](https://img.shields.io/pypi/v/proteinflow)](https://pypi.org/project/proteinflow/)
+![Generic badge](https://img.shields.io/badge/Contributions-Welcome-brightgreen.svg)
 
 A data processing pipeline for all your protein design needs.
 
 [Read the documentation.](https://adaptyvbio.github.io/ProteinFlow/)
 
-![overview](media/fig_pipeline.png)
+![overview](fig_pipeline.png)
 
 ## Installation
 Recommended: create a new `conda` environment and install `proteinflow` and `mmseqs`. Note that the python version has to be between 3.8 and 3.10. 
