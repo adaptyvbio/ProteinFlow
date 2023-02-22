@@ -49,7 +49,7 @@ def _check_biounits(biounits_list, threshold):
     Return the indexes of the redundant biounits within the list of files given by `biounits_list`
     """
 
-    biounits = [_open_pdb(b) for b in sorted(biounits_list)]
+    biounits = [_open_pdb(b) for b in biounits_list]
     indexes = []
 
     for k, b1 in enumerate(biounits):
@@ -95,6 +95,7 @@ def _remove_database_redundancies(dir, seq_identity_threshold=0.9):
         biounits_list = np.array(
             [os.path.join(dir, file) for file in all_files[all_pdbs == pdb]]
         )
+        biounits_list = sorted(biounits_list)
         redundancies = _check_biounits(biounits_list, seq_identity_threshold)
         if redundancies != []:
             for k in redundancies:

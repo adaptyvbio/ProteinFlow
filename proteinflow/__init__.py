@@ -72,6 +72,7 @@ from proteinflow.utils.split_dataset import _download_dataset, _split_data
 from proteinflow.utils.biotite_sse import _annotate_sse
 
 import traceback
+import shutil
 import warnings
 import os
 import pickle
@@ -79,6 +80,7 @@ from collections import defaultdict
 from rcsbsearch import Attr
 from datetime import datetime
 import subprocess
+import urllib
 import torch
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
@@ -92,6 +94,8 @@ from copy import deepcopy
 import pandas as pd
 from numpy import linalg
 import boto3
+from concurrent import futures
+from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations
 
 
@@ -263,6 +267,7 @@ def _get_split_dictionaries(
     test_split=0.05,
     valid_split=0.05,
     out_split_dict_folder="./data/dataset_splits_dict",
+    min_seq_id=0.3,
 ):
     """
     Split preprocessed data into training, validation and test
@@ -281,6 +286,8 @@ def _get_split_dictionaries(
         The percentage of chains to put in the validation set (default 5%)
     out_split_dict_folder : str, default "./data/dataset_splits_dict"
         The folder where the dictionaries containing the train/validation/test splits information will be saved"
+    min_seq_id : float in [0, 1], default 0.3
+        minimum sequence identity for `mmseqs`
     """
 
     os.makedirs(out_split_dict_folder, exist_ok=True)
@@ -297,6 +304,7 @@ def _get_split_dictionaries(
         valid_split=valid_split,
         test_split=test_split,
         tolerance=split_tolerance,
+        min_seq_id=min_seq_id,
     )
     with open(os.path.join(out_split_dict_folder, "train.pickle"), "wb") as f:
         pickle.dump(train_clusters_dict, f)
@@ -479,22 +487,52 @@ def _run_processing(
         ind = ordered_folders.index(pdb_snapshot)
         ordered_folders = ordered_folders[ind:]
 
-    def process_f(pdb_id, show_error=False, force=True, load_live=False):
+    def download_f(pdb_id, s3_client, load_live=False):
+        pdb_id = pdb_id.lower()
+        id, biounit = pdb_id.split("-")
+        local_path = _get_structure_file(
+            id,
+            biounit,
+            s3_client,
+            tmp_folder=TMP_FOLDER,
+            folders=[ordered_folders[0]],
+            load_live=load_live,
+        )
+        return local_path
+
+    def download_fasta_f(pdb_id, datadir):
+        downloadurl = "https://www.rcsb.org/fasta/entry/"
+        pdbfn = pdb_id + "/download"
+        outfnm = os.path.join(datadir, f"{pdb_id.lower()}.fasta")
+
+        url = downloadurl + pdbfn
         try:
-            pdb_id = pdb_id.lower()
-            id, biounit = pdb_id.split("-")
+            urllib.request.urlretrieve(url, outfnm)
+            return outfnm
+
+        except Exception as err:
+            # print(str(err), file=sys.stderr)
+            return None
+
+    def process_f(
+        local_path, s3_client=None, show_error=False, force=True, load_live=False
+    ):
+        try:
+            fn = os.path.basename(local_path)
+            pdb_id = fn.split(".")[0]
+            # id, biounit = pdb_id.split("-")
             target_file = os.path.join(OUTPUT_FOLDER, pdb_id + ".pickle")
             if not force and os.path.exists(target_file):
                 raise PDBError("File already exists")
             # download
-            local_path = _get_structure_file(
-                id,
-                biounit,
-                boto3.resource("s3").Bucket("pdbsnapshots"),
-                tmp_folder=TMP_FOLDER,
-                folders=[ordered_folders[0]],
-                load_live=load_live,
-            )
+            # local_path = _get_structure_file(
+            #     id,
+            #     biounit,
+            #     s3_client,
+            #     tmp_folder=TMP_FOLDER,
+            #     folders=[ordered_folders[0]],
+            #     load_live=load_live,
+            # )
             # parse
             pdb_dict = _open_structure(
                 local_path,
@@ -518,9 +556,44 @@ def _run_processing(
             else:
                 _log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER)
 
-    # process_f("1a14-1", show_error=True, force=force)
+    # for x in ["1a52-3", "1a52-4", "1a52-2", "1a52-1"]:
+    #     process_f(x, show_error=True, force=force)
+
     try:
-        _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), pdb_ids)
+        session = boto3.session.Session()
+        s3_client = session.client("s3")
+        with ThreadPoolExecutor() as executor:
+            print("Prepare the executor...")
+
+            def executor_f(x):
+                return download_f(x, s3_client=s3_client, load_live=load_live)
+
+            future_to_key = {
+                executor.submit(executor_f, key): key for key in tqdm(pdb_ids)
+            }
+            print("Download structure files")
+            local_paths = [
+                x.result()
+                for x in tqdm(
+                    futures.as_completed(future_to_key), total=len(future_to_key)
+                )
+            ]
+            print("Prepare fasta files...")
+            pdbs = set([os.path.basename(x).split("-")[0] for x in tqdm(local_paths)])
+            print("Download fasta files...")
+            future_to_key = {
+                executor.submit(
+                    lambda x: download_fasta_f(x, datadir=tmp_folder), key
+                ): key
+                for key in pdbs
+            }
+            _ = [
+                x.result()
+                for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))
+            ]
+
+        print("Filter and process...")
+        _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), local_paths)
     except Exception as e:
         _raise_rcsbsearch(e)
 
@@ -773,6 +846,7 @@ def generate_data(
     valid_split=0.05,
     pdb_snapshot=None,
     load_live=False,
+    min_seq_id=0.3,
 ):
     """
     Download and parse PDB files that meet filtering criteria
@@ -826,6 +900,8 @@ def generate_data(
         the PDB snapshot to use, by default the latest is used
     load_live : bool, default False
         if `True`, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to `False` if `pdb_snapshot` is not `None`)
+    min_seq_id : float in [0, 1], default 0.3
+        minimum sequence identity for `mmseqs`
 
     Returns
     -------
@@ -867,6 +943,7 @@ def generate_data(
             test_split=test_split,
             valid_split=valid_split,
             out_split_dict_folder=out_split_dict_folder,
+            min_seq_id=min_seq_id,
         )
 
         _split_data(output_folder)
@@ -880,6 +957,7 @@ def split_data(
     test_split=0.05,
     valid_split=0.05,
     ignore_existing=False,
+    min_seq_id=0.3,
 ):
     """
     Split `proteinflow` entry files into training, test and validation.
@@ -900,6 +978,8 @@ def split_data(
         The percentage of chains to put in the validation set (default 5%)
     ignore_existing : bool, default False
         If `True`, overwrite existing dictionaries for this tag; otherwise, load the existing dictionary
+    min_seq_id : float in [0, 1], default 0.3
+        minimum sequence identity for `mmseqs`
 
     Returns
     -------
@@ -927,6 +1007,7 @@ def split_data(
             test_split=test_split,
             valid_split=valid_split,
             out_split_dict_folder=out_split_dict_folder,
+            min_seq_id=min_seq_id,
         )
 
     _split_data(output_folder)
@@ -954,7 +1035,8 @@ class ProteinDataset(Dataset):
 
     - `'sidechain_orientation'`: a unit vector in the direction of the sidechain, `(total_L, 3)`,
     - `'dihedral'`: the dihedral angles, `(total_L, 2)`,
-    - `'chemical'`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`.
+    - `'chemical'`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`,
+    - `'secondary_structure'`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 6)`.
     """
 
     def __init__(
@@ -994,8 +1076,8 @@ class ProteinDataset(Dataset):
             only process 1000 files
         interpolate : {"none", "only_middle", "all"}
             `"none"` for no interpolation, `"only_middle"` for only linear interpolation in the middle, `"all"` for linear interpolation + ends generation
-        node_features_type : {"zeros", "dihedral", "sidechain", "chemical", or combinations with "+"}
-            the type of node features, e.g. "dihedral" or "sidechain+chemical"
+        node_features_type : {"zeros", "dihedral", "sidechain_orientation", "chemical", "secondary_structure" or combinations with "+"}
+            the type of node features, e.g. `"dihedral"` or `"sidechain_orientation+chemical"`
         debug_file_path : str, optional
             if not `None`, open this single file instead of loading the dataset
         entry_type : {"biounit", "chain", "pair"}
@@ -1423,8 +1505,8 @@ class ProteinLoader(DataLoader):
             only process 1000 files
         interpolate : {"none", "only_middle", "all"}
             `"none"` for no interpolation, `"only_middle"` for only linear interpolation in the middle, `"all"` for linear interpolation + ends generation
-        node_features_type : {"zeros", "dihedral", "sidechain", "chemical", or combinations with "+"}
-            the type of node features, e.g. `"dihedral"` or `"sidechain+chemical"`
+        node_features_type : {"zeros", "dihedral", "sidechain_orientation", "chemical", "secondary_structure" or combinations with "+"}
+            the type of node features, e.g. `"dihedral"` or `"sidechain_orientation+chemical"`
         batch_size : int, default 4
             the batch size
         entry_type : {"biounit", "chain", "pair"}

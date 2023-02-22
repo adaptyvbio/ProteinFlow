@@ -4,6 +4,7 @@ import pickle
 from collections import defaultdict
 import editdistance
 import shutil
+from time import time
 import pytest
 
 
@@ -33,7 +34,9 @@ def test_generate():
     folder = "./data/proteinflow_test"
     if os.path.exists(folder):
         shutil.rmtree(folder)
+    start = time()
     generate_data(tag="test", skip_splitting=True, n=50)
+    end = time()
     num_files = len(os.listdir(folder))
     split_data(tag="test", valid_split=0.2, test_split=0.1)
     assert os.path.exists(folder)
@@ -60,6 +63,8 @@ def test_generate():
             assert classes[c] == len(class_files)
     assert num_files == num_files_split
     shutil.rmtree(folder)
+    print(f"generation time: {end - start} sec")
 
 
-# test_generate()
+if __name__ == "__main__":
+    test_generate()

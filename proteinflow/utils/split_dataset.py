@@ -80,15 +80,15 @@ def _split_data(dataset_path="./data/proteinflow_20221110/"):
 
     print("Moving files in the train set...")
     for biounit in tqdm(train_biounits):
-        subprocess.run(["mv", os.path.join(dataset_path, biounit), train_path])
+        shutil.move(os.path.join(dataset_path, biounit), train_path)
     print("Done!")
     print("Moving files in the validation set...")
     for biounit in tqdm(valid_biounits):
-        subprocess.run(["mv", os.path.join(dataset_path, biounit), valid_path])
+        shutil.move(os.path.join(dataset_path, biounit), valid_path)
     print("Done!")
     print("Moving files in the test set...")
     for biounit in tqdm(test_biounits):
-        subprocess.run(["mv", os.path.join(dataset_path, biounit), test_path])
+        shutil.move(os.path.join(dataset_path, biounit), test_path)
     print("Done!")
 
 

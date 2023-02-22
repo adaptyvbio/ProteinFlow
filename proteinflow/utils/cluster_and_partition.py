@@ -8,6 +8,7 @@ import pickle as pkl
 import networkx as nx
 from tqdm import tqdm
 from collections import defaultdict
+from itertools import combinations
 
 
 def _unique_chains(seqs_list):
@@ -107,7 +108,7 @@ def _write_fasta(fasta_path, merged_seqs_dict):
                 f.write(seq + "\n")
 
 
-def _run_mmseqs2(fasta_file, tmp_folder):
+def _run_mmseqs2(fasta_file, tmp_folder, min_seq_id):
     """
     Run the MMSeqs2 command with the parameters we want
 
@@ -123,7 +124,7 @@ def _run_mmseqs2(fasta_file, tmp_folder):
             os.path.join(tmp_folder, "MMSeqs2_results/clusterRes"),
             os.path.join(tmp_folder, "MMSeqs2_results/tmp"),
             "--min-seq-id",
-            "0.3",
+            str(min_seq_id),
         ]
     )
 
@@ -169,16 +170,17 @@ def _make_graph(cluster_pdb_dict):
     """
 
     keys = list(cluster_pdb_dict.keys())
-    keys_dict = {k: l for l, k in enumerate(keys)}
     keys_mapping = {l: k for l, k in enumerate(keys)}
     adjacency_matrix = np.zeros((len(keys), len(keys)))
 
-    for k, key1 in enumerate(keys):
-        for pdb in cluster_pdb_dict[key1]:
-            for key2 in keys[k + 1 :]:
-                if pdb in cluster_pdb_dict[key2]:
-                    adjacency_matrix[keys_dict[key1], keys_dict[key2]] += 1
-                    adjacency_matrix[keys_dict[key2], keys_dict[key1]] += 1
+    seen_dict = defaultdict(set)
+    for i, key in enumerate(keys):
+        for pdb in cluster_pdb_dict[key]:
+            seen_dict[pdb].add(i)
+    for cluster_set in seen_dict.values():
+        for i, j in combinations(cluster_set, 2):
+            adjacency_matrix[i, j] += 1
+            adjacency_matrix[j, i] += 1
 
     graph = nx.from_numpy_matrix(adjacency_matrix)
     nx.relabel_nodes(graph, keys_mapping, copy=False)
@@ -256,7 +258,8 @@ def _divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
             file_names = [file_names]
         seqs = pdb_seqs_dict[pdb]
         if len(seqs) == 1 and len(seqs[0].split("-")) == 1:
-            single_chains.append((file_names[0], seqs[0]))
+            for file_name in file_names:
+                single_chains.append((file_name, seqs[0]))
 
         elif len(seqs) == 1 and len(file_names) == 1:
             for chain in seqs[0].split("-"):
@@ -962,7 +965,12 @@ def _split_dataset(
 
 
 def _build_dataset_partition(
-    dataset_dir, tmp_folder, valid_split=0.05, test_split=0.05, tolerance=0.2
+    dataset_dir,
+    tmp_folder,
+    valid_split=0.05,
+    test_split=0.05,
+    tolerance=0.2,
+    min_seq_id=0.3,
 ):
     """
     Build training, validation and test sets from a curated dataset of biounit, using MMSeqs2 for clustering
@@ -971,10 +979,12 @@ def _build_dataset_partition(
     ----------
     dataset_dir : str
         the path to the dataset
-    valid_split : float in ]0, 1[, default 0.05
+    valid_split : float in [0, 1], default 0.05
         the validation split ratio
-    test_split : float in ]0, 1[, default 0.05
+    test_split : float in [0, 1], default 0.05
         the test split ratio
+    min_seq_id : float in [0, 1], default 0.3
+        minimum sequence identity for `mmseqs`
 
     Output
     ------
@@ -995,13 +1005,13 @@ def _build_dataset_partition(
     """
 
     # retrieve all sequences and create a merged_seqs_dict
-    seqs_dict = _load_pdbs(dataset_dir)
-    merged_seqs_dict = _merge_chains(seqs_dict)
+    merged_seqs_dict = _load_pdbs(dataset_dir)
+    merged_seqs_dict = _merge_chains(merged_seqs_dict)
 
     # write sequences to a fasta file for clustering with MMSeqs2, run MMSeqs2 and delete the fasta file
     fasta_file = os.path.join(tmp_folder, "all_seqs.fasta")
     _write_fasta(fasta_file, merged_seqs_dict)
-    _run_mmseqs2(fasta_file, tmp_folder)
+    _run_mmseqs2(fasta_file, tmp_folder, min_seq_id)
     subprocess.run(["rm", fasta_file])
 
     # retrieve MMSeqs2 clusters and build a graph with these clusters
