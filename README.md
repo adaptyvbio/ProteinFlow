@@ -104,15 +104,16 @@ for batch in train_loader:
     crd_bb = batch["X"] #(B, L, 4, 3)
     seq = batch["S"] #(B, L)
     sse = batch["secondary_structure"] #(B, L, 3)
+    to_predict = batch["masked_res"] #(B, L), 1 where the residues should be masked, 0 otherwise
     ...
 ```
 See more details on available parameters and the data format in the [docs](https://adaptyvbio.github.io/ProteinFlow/).
 
 ## Data
 
-|Date    |Location (S3)|Size|Min res|Min len|Max len|ID threshold|Split (train/val/test)|Missing thr (ends/middle)|
-|--------|--------|----|-------|-------|-------|------------|-----|-----------|
-|10.11.22|[data](s3://ml4-main-storage/proteinflow_20221110/) [split]("s3://ml4-main-storage/proteinflow_20221110_splits_dict/")|24G|3.5|30|10000|0.9|90/5/5|0.3/0.1
+|Tag    |Date    |Location (S3)|Size|Min res|Min len|Max len|MMseqs thr|Split (train/val/test)|Missing thr (ends/middle)|
+|--------|--------|--------|----|-------|-------|-------|------------|-----|-----------|
+|paper|10.11.22|[data](s3://ml4-main-storage/proteinflow_20221110/) [split]("s3://ml4-main-storage/proteinflow_20221110_splits_dict/")|24G|3.5|30|10000|0.3|90/5/5|0.3/0.1
 
 
 
