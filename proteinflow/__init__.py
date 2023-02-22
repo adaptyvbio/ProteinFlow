@@ -1,7 +1,7 @@
 """
 `proteinflow` is a pipeline that loads protein data from PDB, filters it, puts it in a machine readable format and extracts structure and sequence features. 
 
-![pipeline](https://github.com/adaptyvbio/ProteinFlow/blob/main/fig_pipeline.png)
+![pipeline](https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/fig_pipeline.png)
 
 ## Installation
 Recommended: create a new `conda` environment and install `proteinflow` and `mmseqs`. Note that the python version has to be between 3.8 and 3.10. 
@@ -1015,6 +1015,7 @@ def split_data(
     single chain, homomer and heteromer entries.
 
     It follows these steps:
+
     1. cluster chains by sequence identity,
     2. generate a graph where nodes are the clusters and edges are protein-protein interactions between chains
     from those clusters,
