@@ -519,7 +519,9 @@ def _run_processing(
     ordered_folders = [
         x.key
         for x in _s3list(
-            boto3.resource("s3", config=Config(signature_version=UNSIGNED)).Bucket("pdbsnapshots"),
+            boto3.resource("s3", config=Config(signature_version=UNSIGNED)).Bucket(
+                "pdbsnapshots"
+            ),
             "",
             recursive=False,
             list_objs=False,
@@ -610,7 +612,7 @@ def _run_processing(
 
     try:
         session = boto3.session.Session()
-        s3_client = session.client('s3', config=Config(signature_version=UNSIGNED))
+        s3_client = session.client("s3", config=Config(signature_version=UNSIGNED))
         with ThreadPoolExecutor(max_workers=8) as executor:
             print("Prepare the executor...")
 
@@ -622,9 +624,7 @@ def _run_processing(
                 ids.append(x)
                 if n is not None and i == n:
                     break
-            future_to_key = {
-                executor.submit(executor_f, key): key for key in tqdm(ids)
-            }
+            future_to_key = {executor.submit(executor_f, key): key for key in tqdm(ids)}
             print("Download structure files")
             local_paths = [
                 x.result()
@@ -1011,8 +1011,8 @@ def split_data(
     """
     Split `proteinflow` entry files into training, test and validation.
 
-    Our splitting algorithm has two objectives: achieving minimal data leakage and balancing the proportion of 
-    single chain, homomer and heteromer entries. 
+    Our splitting algorithm has two objectives: achieving minimal data leakage and balancing the proportion of
+    single chain, homomer and heteromer entries.
 
     It follows these steps:
     
@@ -1020,7 +1020,7 @@ def split_data(
     2. generate a graph where nodes are the clusters and edges are protein-protein interactions between chains
     from those clusters,
     3. split connected components of the graph into training, test and validation subsets while keeping the proportion
-    of single chains, homomers and heteromers close to that in the full dataset (within `split_tolerance`). 
+    of single chains, homomers and heteromers close to that in the full dataset (within `split_tolerance`).
 
 
     Parameters
@@ -1079,7 +1079,7 @@ class ProteinDataset(Dataset):
     Saves the model input tensors as pickle files in `features_folder`. When `clustering_dict_path` is provided,
     at each iteration a random bionit from a cluster is sampled.
 
-    If a complex contains multiple chains, they are concatenated. The sequence identity information is preserved in the 
+    If a complex contains multiple chains, they are concatenated. The sequence identity information is preserved in the
     `'chain_encoding_all'` object and in the `'residue_idx'` arrays the chain change is denoted by a +100 jump.
 
     Returns dictionaries with the following keys and values (all values are `torch` tensors):
@@ -1513,7 +1513,7 @@ class ProteinLoader(DataLoader):
     Creates and iterates over an instance of `ProteinDataset`, omitting the `'chain_dict'` keys.
     See the `ProteinDataset` docs for more information.
 
-    If batch size is larger than one, all objects are padded with zeros at the ends to reach the length of the 
+    If batch size is larger than one, all objects are padded with zeros at the ends to reach the length of the
     longest protein in the batch.
 
     If `mask_residues` is `True`, an additional `'masked_res'` key is added to the output. The value is a binary
@@ -1674,7 +1674,9 @@ def check_pdb_snapshots():
     """
 
     folders = _s3list(
-        boto3.resource("s3", config=Config(signature_version=UNSIGNED)).Bucket("pdbsnapshots"),
+        boto3.resource("s3", config=Config(signature_version=UNSIGNED)).Bucket(
+            "pdbsnapshots"
+        ),
         "",
         recursive=False,
         list_objs=False,
@@ -1693,7 +1695,9 @@ def check_download_tags():
     """
 
     folders = _s3list(
-        boto3.resource("s3", config=Config(signature_version=UNSIGNED)).Bucket("proteinflow-datasets"),
+        boto3.resource("s3", config=Config(signature_version=UNSIGNED)).Bucket(
+            "proteinflow-datasets"
+        ),
         "",
         recursive=False,
         list_objs=False,
