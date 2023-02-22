@@ -38,9 +38,15 @@ def _download_dataset_dicts_from_s3(
     if not os.path.exists(dict_folder_path):
         os.makedirs(dict_folder_path)
 
-    subprocess.run(["aws", "s3", "cp", "--no-sign-request", train_path, dict_folder_path])
-    subprocess.run(["aws", "s3", "cp", "--no-sign-request", valid_path, dict_folder_path])
-    subprocess.run(["aws", "s3", "cp", "--no-sign-request", test_path, dict_folder_path])
+    subprocess.run(
+        ["aws", "s3", "cp", "--no-sign-request", train_path, dict_folder_path]
+    )
+    subprocess.run(
+        ["aws", "s3", "cp", "--no-sign-request", valid_path, dict_folder_path]
+    )
+    subprocess.run(
+        ["aws", "s3", "cp", "--no-sign-request", test_path, dict_folder_path]
+    )
 
 
 def _split_data(dataset_path="./data/proteinflow_20221110/"):
@@ -102,7 +108,9 @@ def _download_dataset_from_s3(
 
     if s3_path.startswith("s3"):
         print("Downloading the dataset from s3...")
-        subprocess.run(["aws", "s3", "sync", "--no-sign-request", s3_path, dataset_path])
+        subprocess.run(
+            ["aws", "s3", "sync", "--no-sign-request", s3_path, dataset_path]
+        )
         print("Done!")
     else:
         shutil.move(s3_path, dataset_path)
