@@ -621,18 +621,18 @@ def _run_processing(
                 ids.append(x)
                 if n is not None and i == n:
                     break
-            # print("Download fasta files...")
-            # pdbs = set([x.split("-")[0] for x in ids])
-            # future_to_key = {
-            #     executor.submit(
-            #         lambda x: download_fasta_f(x, datadir=tmp_folder), key
-            #     ): key
-            #     for key in pdbs
-            # }
-            # _ = [
-            #     x.result()
-            #     for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))
-            # ]
+            print("Download fasta files...")
+            pdbs = set([x.split("-")[0] for x in ids])
+            future_to_key = {
+                executor.submit(
+                    lambda x: download_fasta_f(x, datadir=tmp_folder), key
+                ): key
+                for key in pdbs
+            }
+            _ = [
+                x.result()
+                for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))
+            ]
 
         # _ = [process_f(x, force=force, load_live=load_live) for x in tqdm(ids)]
         print("Download structure files...")
