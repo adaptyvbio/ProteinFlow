@@ -32,12 +32,12 @@ conda install -y -c conda-forge -c bioconda mmseqs2
 python -m pip install proteinflow
 </code></pre>
 <p>In addition, <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> depends on the <code>rcsbsearch</code> package and the latest release is currently failing. Follow the recommended fix:</p>
-<pre><code>python -m pip install &quot;rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e&quot;
+<pre><code class="language-bash">python -m pip install &quot;rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e&quot;
 </code></pre>
 <h2 id="usage">Usage</h2>
 <h3 id="downloading-pre-computed-datasets">Downloading pre-computed datasets</h3>
 <p>We have already run the pipeline with a consensus set of parameters and saved the results at a server. You can download the resulting dataset with <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code>. Check the output of <code><a title="proteinflow" href="#proteinflow">proteinflow</a> check_tags</code> for a list of available tags.</p>
-<pre><code>proteinflow download --tag paper 
+<pre><code class="language-bash">proteinflow download --tag paper 
 </code></pre>
 <p>See <code><a title="proteinflow.download_data" href="#proteinflow.download_data">download_data()</a></code> (or run <code>proteinflow download --help</code>) for more information.</p>
 <h3 id="running-the-pipeline">Running the pipeline</h3>
@@ -51,14 +51,14 @@ python -m pip install proteinflow
 - minimum length per sequence 5 residues,
 - maximum fraction of missing values at the ends 10%,
 - validation subset 10%.</p>
-<pre><code>proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods --min_seq_id 0.4 --max_length 1000 --min_length 5 --missing_ends_thr 0.1 --valid_split 0.1
+<pre><code class="language-bash">proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods --min_seq_id 0.4 --max_length 1000 --min_length 5 --missing_ends_thr 0.1 --valid_split 0.1
 </code></pre>
 <p>See <code><a title="proteinflow.generate_data" href="#proteinflow.generate_data">generate_data()</a></code> (or run <code>proteinflow generate --help</code>) for the full list of parameters and more information.</p>
 <p>The reasons for filtering files out are logged in text files (at <code>data/logs</code> by default). To get a summary, run <code>proteinflow get_summary {log_path}</code>.</p>
 <h3 id="splitting">Splitting</h3>
 <p>By default, both <code><a title="proteinflow" href="#proteinflow">proteinflow</a> generate</code> and <code><a title="proteinflow" href="#proteinflow">proteinflow</a> download</code> will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a <code>--skip_splitting</code> flag and then perform it separately with the <code><a title="proteinflow" href="#proteinflow">proteinflow</a> split</code> command.</p>
 <p>The following command will perform the splitting with a 10% validation set, a 5% test set and a 50% threshold for sequence identity clusters.</p>
-<pre><code>proteinflow split --tag new --valid_split 0.1 --test_split 0.5 --min_seq_id 0.5
+<pre><code class="language-bash">proteinflow split --tag new --valid_split 0.1 --test_split 0.5 --min_seq_id 0.5
 </code></pre>
 <p>See <code><a title="proteinflow.split_data" href="#proteinflow.split_data">split_data()</a></code> (or run <code>proteinflow split --help</code>) for more information.</p>
 <h3 id="using-the-data">Using the data</h3>
@@ -123,14 +123,14 @@ conda install -y -c conda-forge -c bioconda mmseqs2
 python -m pip install proteinflow
 ```
 In addition, `proteinflow` depends on the `rcsbsearch` package and the latest release is currently failing. Follow the recommended fix:
-```
+```bash
 python -m pip install &#34;rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e&#34;
 ```
 
 ## Usage
 ### Downloading pre-computed datasets
 We have already run the pipeline with a consensus set of parameters and saved the results at a server. You can download the resulting dataset with `proteinflow`. Check the output of `proteinflow check_tags` for a list of available tags.
-```
+```bash
 proteinflow download --tag paper 
 ```
 
@@ -149,7 +149,7 @@ For instance, let&#39;s generate a dataset with the following description:
 - maximum fraction of missing values at the ends 10%,
 - validation subset 10%.
 
-```
+```bash
 proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods --min_seq_id 0.4 --max_length 1000 --min_length 5 --missing_ends_thr 0.1 --valid_split 0.1
 ```
 See `proteinflow.generate_data` (or run `proteinflow generate --help`) for the full list of parameters and more information.
@@ -160,7 +160,7 @@ The reasons for filtering files out are logged in text files (at `data/logs` by 
 By default, both `proteinflow generate` and `proteinflow download` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `proteinflow split` command.
 
 The following command will perform the splitting with a 10% validation set, a 5% test set and a 50% threshold for sequence identity clusters.
-```
+```bash
 proteinflow split --tag new --valid_split 0.1 --test_split 0.5 --min_seq_id 0.5
 ```
 
@@ -228,7 +228,6 @@ from proteinflow.utils.process_pdb import (
     _align_structure,
     _open_structure,
     PDBError,
-    _get_structure_file,
     _s3list,
     SIDECHAIN_ORDER,
 )
@@ -238,7 +237,9 @@ from proteinflow.utils.cluster_and_partition import (
 )
 from proteinflow.utils.split_dataset import _download_dataset, _split_data
 from proteinflow.utils.biotite_sse import _annotate_sse
+from proteinflow.utils.async_download import _download_s3_parallel
 
+from aiobotocore.session import get_session
 import traceback
 import shutil
 import warnings
@@ -267,6 +268,7 @@ from botocore.config import Config
 from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations
+import requests
 
 
 MAIN_ATOMS = {
@@ -492,6 +494,8 @@ def _raise_rcsbsearch(e):
         raise RuntimeError(
             &#39;Quering rcsbsearch is failing. Please install a version of rcsbsearch where this error is solved:\npython -m pip install &#34;rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e&#34;&#39;
         )
+    else:
+        raise e
 
 
 def _run_processing(
@@ -649,18 +653,27 @@ def _run_processing(
         ind = ordered_folders.index(pdb_snapshot)
         ordered_folders = ordered_folders[ind:]
 
-    def download_f(pdb_id, s3_client, load_live=False):
-        pdb_id = pdb_id.lower()
-        id, biounit = pdb_id.split(&#34;-&#34;)
-        local_path = _get_structure_file(
-            id,
-            biounit,
-            s3_client,
-            tmp_folder=TMP_FOLDER,
-            folders=[ordered_folders[0]],
-            load_live=load_live,
-        )
-        return local_path
+    # session = boto3.session.Session()
+    # s3_client = session.client(&#34;s3&#34;, config=Config(signature_version=UNSIGNED))
+
+    session = get_session()
+
+    def download_live(id):
+        pdb_id, biounit = id.split(&#34;-&#34;)
+        filenames = {
+            &#34;cif&#34;: f&#34;{pdb_id}-assembly{biounit}.cif.gz&#34;,
+            &#34;pdb&#34;: f&#34;{pdb_id}.pdb{biounit}.gz&#34;,
+        }
+        for t in filenames:
+            local_path = os.path.join(tmp_folder, f&#34;{pdb_id}-{biounit}&#34;) + f&#34;.{t}.gz&#34;
+            try:
+                url = f&#34;https://files.rcsb.org/download/{filenames[t]}&#34;
+                response = requests.get(url)
+                open(local_path, &#34;wb&#34;).write(response.content)
+                return local_path
+            except:
+                pass
+        return id
 
     def download_fasta_f(pdb_id, datadir):
         downloadurl = &#34;https://www.rcsb.org/fasta/entry/&#34;
@@ -677,25 +690,17 @@ def _run_processing(
             return None
 
     def process_f(
-        local_path, s3_client=None, show_error=False, force=True, load_live=False
+        local_path,
+        show_error=False,
+        force=True,
     ):
         try:
+            # local_path = download_f(pdb_id, s3_client=s3_client, load_live=load_live)
             fn = os.path.basename(local_path)
             pdb_id = fn.split(&#34;.&#34;)[0]
-            # id, biounit = pdb_id.split(&#34;-&#34;)
             target_file = os.path.join(OUTPUT_FOLDER, pdb_id + &#34;.pickle&#34;)
             if not force and os.path.exists(target_file):
                 raise PDBError(&#34;File already exists&#34;)
-            # download
-            # local_path = _get_structure_file(
-            #     id,
-            #     biounit,
-            #     s3_client,
-            #     tmp_folder=TMP_FOLDER,
-            #     folders=[ordered_folders[0]],
-            #     load_live=load_live,
-            # )
-            # parse
             pdb_dict = _open_structure(
                 local_path,
                 tmp_folder=TMP_FOLDER,
@@ -722,30 +727,15 @@ def _run_processing(
     #     process_f(x, show_error=True, force=force)
 
     try:
-        session = boto3.session.Session()
-        s3_client = session.client(&#34;s3&#34;, config=Config(signature_version=UNSIGNED))
         with ThreadPoolExecutor(max_workers=8) as executor:
-            print(&#34;Prepare the executor...&#34;)
-
-            def executor_f(x):
-                return download_f(x, s3_client=s3_client, load_live=load_live)
-
+            print(&#34;Get a file list...&#34;)
             ids = []
             for i, x in enumerate(tqdm(pdb_ids)):
                 ids.append(x)
                 if n is not None and i == n:
                     break
-            future_to_key = {executor.submit(executor_f, key): key for key in tqdm(ids)}
-            print(&#34;Download structure files&#34;)
-            local_paths = [
-                x.result()
-                for x in tqdm(
-                    futures.as_completed(future_to_key), total=len(future_to_key)
-                )
-            ]
-            print(&#34;Prepare fasta files...&#34;)
-            pdbs = set([x.split(&#34;-&#34;)[0] for x in tqdm(ids)])
             print(&#34;Download fasta files...&#34;)
+            pdbs = set([x.split(&#34;-&#34;)[0] for x in ids])
             future_to_key = {
                 executor.submit(
                     lambda x: download_fasta_f(x, datadir=tmp_folder), key
@@ -757,8 +747,27 @@ def _run_processing(
                 for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))
             ]
 
+        # _ = [process_f(x, force=force, load_live=load_live) for x in tqdm(ids)]
+        print(&#34;Download structure files...&#34;)
+        paths = _download_s3_parallel(
+            pdb_ids=ids, tmp_folder=tmp_folder, snapshots=[ordered_folders[0]]
+        )
+        paths = [item for sublist in paths for item in sublist]
+        error_ids = [x for x in paths if not x.endswith(&#34;.gz&#34;)]
+        if load_live:
+            print(&#34;Download newest structure files...&#34;)
+            live_paths = p_map(download_live, error_ids)
+            error_ids = []
+            for x in live_paths:
+                if x.endswith(&#34;.gz&#34;):
+                    paths.append(x)
+                else:
+                    error_ids.append(x)
+        for id in error_ids:
+            with open(LOG_FILE, &#34;a&#34;) as f:
+                f.write(f&#34;&lt;&lt;&lt; Could not download PDB/mmCIF file: {id} \n&#34;)
         print(&#34;Filter and process...&#34;)
-        _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), local_paths)
+        _ = p_map(lambda x: process_f(x, force=force), paths)
     except Exception as e:
         _raise_rcsbsearch(e)
 

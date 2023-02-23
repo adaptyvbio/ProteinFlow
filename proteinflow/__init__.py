@@ -546,9 +546,9 @@ def _run_processing(
     # s3_client = session.client("s3", config=Config(signature_version=UNSIGNED))
 
     session = get_session()
-    
+
     def download_live(id):
-        pdb_id, biounit = id.split('-')
+        pdb_id, biounit = id.split("-")
         filenames = {
             "cif": f"{pdb_id}-assembly{biounit}.cif.gz",
             "pdb": f"{pdb_id}.pdb{biounit}.gz",
@@ -579,7 +579,9 @@ def _run_processing(
             return None
 
     def process_f(
-        local_path, show_error=False, force=True,
+        local_path,
+        show_error=False,
+        force=True,
     ):
         try:
             # local_path = download_f(pdb_id, s3_client=s3_client, load_live=load_live)
@@ -636,7 +638,9 @@ def _run_processing(
 
         # _ = [process_f(x, force=force, load_live=load_live) for x in tqdm(ids)]
         print("Download structure files...")
-        paths = _download_s3_parallel(pdb_ids=ids, tmp_folder=tmp_folder, snapshots=[ordered_folders[0]])
+        paths = _download_s3_parallel(
+            pdb_ids=ids, tmp_folder=tmp_folder, snapshots=[ordered_folders[0]]
+        )
         paths = [item for sublist in paths for item in sublist]
         error_ids = [x for x in paths if not x.endswith(".gz")]
         if load_live:
