@@ -1020,7 +1020,7 @@ def split_data(
     single chain, homomer and heteromer entries.
 
     It follows these steps:
-    
+
     1. cluster chains by sequence identity,
     2. generate a graph where nodes are the clusters and edges are protein-protein interactions between chains
     from those clusters,

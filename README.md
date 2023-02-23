@@ -18,9 +18,8 @@ conda create --name proteinflow -y python=3.9
 conda activate proteinflow
 conda install -y -c conda-forge -c bioconda mmseqs2
 python -m pip install proteinflow
-aws configure
 ```
-In addition, `proteinflow` depends on the `rcsbsearch` package and the latest release is currently failing. Follow the recommended fix:
+In addition, `proteinflow` depends on the `rcsbsearch` package and the latest release [v0.2.3](https://github.com/sbliven/rcsbsearch/releases/tag/v0.2.3) is currently not functioning . Follow the recommended fix:
 ```
 python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
 ```
@@ -28,31 +27,31 @@ python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@db
 You do not need to install `mmseqs` or `rcsbsearch` if you are planning to 
 
 ## Usage
-### Downloading pre-computed datasets
-We have already run the pipeline with a consensus set of parameters and saved the results at a server. You can download the resulting dataset with `proteinflow`. Check the output of `proteinflow check_tags` for a list of available tags.
+### Downloading pre-computed datasets (stable)
+Already precomputed datasets with consensus set of parameters and can be accessed and downloaded using the `proteinflow`. package. Check the output of `proteinflow check_tags` for a list of available tags.
 ```
 proteinflow download --tag 20221110 
 ```
 
 ### Running the pipeline
-You can also run `proteinflow` with your own parameters. Check the output of `proteinflow check_snapshots` for a list of available snapshots (naming rule: `{year}{month}{day}`).
+You can also run `proteinflow` with your own parameters. Check the output of `proteinflow check_snapshots` for a list of available PDB snapshots (naming rule: `{year}{month}{day}`).
 
 For instance, let's generate a dataset with the following description:
-- resolution threshold 5 $\AA$,
-- PDB snapshot 20190101,
-- all structure methods accepted,
-- sequence identity threshold for clustering 40%,
-- maximum length per sequence 1000 residues,
-- minimum length per sequence 5 residues,
-- maximum fraction of missing values at the ends 10%,
-- validation subset 10%.
+- resolution threshold: 5 $$\overset{\circ}{A}$$,
+- PDB snapshot: 20190101,
+- structure methods accepted: all (x-ray christolography, NRM, Cryo-EM),
+- sequence identity threshold for clustering: 40% sequence similarity,
+- maximum length per sequence: 1000 residues,
+- minimum length per sequence: 5 residues,
+- maximum fraction of missing values at the ends: 10%,
+- size of validation subset: 10%.
 
 ```
 proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods --min_seq_id 0.4 --max_length 1000 --min_length 5 --missing_ends_thr 0.1 --valid_split 0.1
 ```
 See the [docs](https://adaptyvbio.github.io/ProteinFlow/) (or `proteinflow generate --help`) for the full list of parameters and more information.
 
-The reasons for filtering files out are logged in text files (at `data/logs` by default). To get a summary, run `proteinflow get_summary {log_path}`.
+A registry of all the files that are removed during the filtering as well as description with the reason for their removal is created automatically for each `generate` command. The log files are save (at `data/logs` by default) and a summary can be accessed running `proteinflow get_summary {log_path}`.
 
 ### Splitting
 By default, both `proteinflow generate` and `proteinflow download` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `proteinflow split` command.
@@ -112,11 +111,16 @@ for batch in train_loader:
 ```
 See more details on available parameters and the data format in the [docs](https://adaptyvbio.github.io/ProteinFlow/).
 
-## Data
+## ProteinFlow Stable Releases
 
 |Tag    |Date    |Location (S3)|Size|Min res|Min len|Max len|MMseqs thr|Split (train/val/test)|Missing thr (ends/middle)|
 |--------|--------|--------|----|-------|-------|-------|------------|-----|-----------|
 |paper|10.11.22|[data](s3://ml4-main-storage/proteinflow_20221110/) [split]("s3://ml4-main-storage/proteinflow_20221110_splits_dict/")|24G|3.5|30|10000|0.3|90/5/5|0.3/0.1
 
+## License
+The `proteinflow` package and data are released and distributed under the BSD 3-Clause License
 
+
+## Contributions
+This is a open source project supported by [Adaptyv Bio](https://www.adaptyvbio.com/). Contributions, suggestions and bug-fixes are welcomed.
 
