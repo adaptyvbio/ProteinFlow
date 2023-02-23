@@ -26,6 +26,7 @@ dependencies = [
     "pandas>=1.5.2",
     "torch>=1.10.0",
     "biotite==0.35.0",
+    "aiobotocore>=2.4",
     "awscli",
     "rcsbsearch",
 ]
