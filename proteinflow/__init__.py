@@ -117,7 +117,6 @@ from proteinflow.utils.process_pdb import (
     _align_structure,
     _open_structure,
     PDBError,
-    _get_structure_file,
     _s3list,
     SIDECHAIN_ORDER,
 )
@@ -127,7 +126,9 @@ from proteinflow.utils.cluster_and_partition import (
 )
 from proteinflow.utils.split_dataset import _download_dataset, _split_data
 from proteinflow.utils.biotite_sse import _annotate_sse
+from proteinflow.utils.async_download import _download_s3_parallel
 
+from aiobotocore.session import get_session
 import traceback
 import shutil
 import warnings
@@ -156,6 +157,7 @@ from botocore.config import Config
 from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations
+import requests
 
 
 MAIN_ATOMS = {
@@ -381,6 +383,8 @@ def _raise_rcsbsearch(e):
         raise RuntimeError(
             'Quering rcsbsearch is failing. Please install a version of rcsbsearch where this error is solved:\npython -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"'
         )
+    else:
+        raise e
 
 
 def _run_processing(
@@ -538,18 +542,27 @@ def _run_processing(
         ind = ordered_folders.index(pdb_snapshot)
         ordered_folders = ordered_folders[ind:]
 
-    def download_f(pdb_id, s3_client, load_live=False):
-        pdb_id = pdb_id.lower()
-        id, biounit = pdb_id.split("-")
-        local_path = _get_structure_file(
-            id,
-            biounit,
-            s3_client,
-            tmp_folder=TMP_FOLDER,
-            folders=[ordered_folders[0]],
-            load_live=load_live,
-        )
-        return local_path
+    # session = boto3.session.Session()
+    # s3_client = session.client("s3", config=Config(signature_version=UNSIGNED))
+
+    session = get_session()
+    
+    def download_live(id):
+        pdb_id, biounit = id.split('-')
+        filenames = {
+            "cif": f"{pdb_id}-assembly{biounit}.cif.gz",
+            "pdb": f"{pdb_id}.pdb{biounit}.gz",
+        }
+        for t in filenames:
+            local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + f".{t}.gz"
+            try:
+                url = f"https://files.rcsb.org/download/{filenames[t]}"
+                response = requests.get(url)
+                open(local_path, "wb").write(response.content)
+                return local_path
+            except:
+                pass
+        return id
 
     def download_fasta_f(pdb_id, datadir):
         downloadurl = "https://www.rcsb.org/fasta/entry/"
@@ -566,25 +579,15 @@ def _run_processing(
             return None
 
     def process_f(
-        local_path, s3_client=None, show_error=False, force=True, load_live=False
+        local_path, show_error=False, force=True,
     ):
         try:
+            # local_path = download_f(pdb_id, s3_client=s3_client, load_live=load_live)
             fn = os.path.basename(local_path)
             pdb_id = fn.split(".")[0]
-            # id, biounit = pdb_id.split("-")
             target_file = os.path.join(OUTPUT_FOLDER, pdb_id + ".pickle")
             if not force and os.path.exists(target_file):
                 raise PDBError("File already exists")
-            # download
-            # local_path = _get_structure_file(
-            #     id,
-            #     biounit,
-            #     s3_client,
-            #     tmp_folder=TMP_FOLDER,
-            #     folders=[ordered_folders[0]],
-            #     load_live=load_live,
-            # )
-            # parse
             pdb_dict = _open_structure(
                 local_path,
                 tmp_folder=TMP_FOLDER,
@@ -611,43 +614,45 @@ def _run_processing(
     #     process_f(x, show_error=True, force=force)
 
     try:
-        session = boto3.session.Session()
-        s3_client = session.client("s3", config=Config(signature_version=UNSIGNED))
         with ThreadPoolExecutor(max_workers=8) as executor:
-            print("Prepare the executor...")
-
-            def executor_f(x):
-                return download_f(x, s3_client=s3_client, load_live=load_live)
-
+            print("Get a file list...")
             ids = []
             for i, x in enumerate(tqdm(pdb_ids)):
                 ids.append(x)
                 if n is not None and i == n:
                     break
-            future_to_key = {executor.submit(executor_f, key): key for key in tqdm(ids)}
-            print("Download structure files")
-            local_paths = [
-                x.result()
-                for x in tqdm(
-                    futures.as_completed(future_to_key), total=len(future_to_key)
-                )
-            ]
-            print("Prepare fasta files...")
-            pdbs = set([x.split("-")[0] for x in tqdm(ids)])
-            print("Download fasta files...")
-            future_to_key = {
-                executor.submit(
-                    lambda x: download_fasta_f(x, datadir=tmp_folder), key
-                ): key
-                for key in pdbs
-            }
-            _ = [
-                x.result()
-                for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))
-            ]
+            # print("Download fasta files...")
+            # pdbs = set([x.split("-")[0] for x in ids])
+            # future_to_key = {
+            #     executor.submit(
+            #         lambda x: download_fasta_f(x, datadir=tmp_folder), key
+            #     ): key
+            #     for key in pdbs
+            # }
+            # _ = [
+            #     x.result()
+            #     for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))
+            # ]
 
+        # _ = [process_f(x, force=force, load_live=load_live) for x in tqdm(ids)]
+        print("Download structure files...")
+        paths = _download_s3_parallel(pdb_ids=ids, tmp_folder=tmp_folder, snapshots=[ordered_folders[0]])
+        paths = [item for sublist in paths for item in sublist]
+        error_ids = [x for x in paths if not x.endswith(".gz")]
+        if load_live:
+            print("Download newest structure files...")
+            live_paths = p_map(download_live, error_ids)
+            error_ids = []
+            for x in live_paths:
+                if x.endswith(".gz"):
+                    paths.append(x)
+                else:
+                    error_ids.append(x)
+        for id in error_ids:
+            with open(LOG_FILE, "a") as f:
+                f.write(f"<<< Could not download PDB/mmCIF file: {id} \n")
         print("Filter and process...")
-        _ = p_map(lambda x: process_f(x, force=force, load_live=load_live), local_paths)
+        _ = p_map(lambda x: process_f(x, force=force), paths)
     except Exception as e:
         _raise_rcsbsearch(e)
 
