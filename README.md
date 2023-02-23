@@ -120,5 +120,5 @@ The `ProteinFlow` package and data are released and distributed under the BSD 3-
 
 
 ## Contributions
-The `ProteinFlow` is a open source project supported by [Adaptyv Bio](www.adaptyvbio.com). Contributions, suggestions and bug-fixes are welcomed.
+The `ProteinFlow` is a open source project supported by [Adaptyv Bio](https://www.adaptyvbio.com/). Contributions, suggestions and bug-fixes are welcomed.
 
