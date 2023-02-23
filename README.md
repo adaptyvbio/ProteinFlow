@@ -26,13 +26,13 @@ python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@db
 
 ## Usage
 ### Downloading pre-computed datasets (stable)
-Already precomputed datasets with consensus set of parameters and can be access and downloaded using the `proteinflow`. package. Check the output of `proteinflow check_tags` for a list of available tags.
+Already precomputed datasets with consensus set of parameters and can be accessed and downloaded using the `proteinflow`. package. Check the output of `proteinflow check_tags` for a list of available tags.
 ```
 proteinflow download --tag 20221110 
 ```
 
 ### Running the pipeline
-You can also run `proteinflow` with your own parameters. Check the output of `proteinflow check_snapshots` for a list of available snapshots (naming rule: `{year}{month}{day}`).
+You can also run `proteinflow` with your own parameters. Check the output of `proteinflow check_snapshots` for a list of available PDB snapshots (naming rule: `{year}{month}{day}`).
 
 For instance, let's generate a dataset with the following description:
 - resolution threshold: 5 $$\overset{\circ}{A}$$,
@@ -116,9 +116,9 @@ See more details on available parameters and the data format in the [docs](https
 |paper|10.11.22|[data](s3://ml4-main-storage/proteinflow_20221110/) [split]("s3://ml4-main-storage/proteinflow_20221110_splits_dict/")|24G|3.5|30|10000|0.3|90/5/5|0.3/0.1
 
 ## License
-The `ProteinFlow` package and data are released and distributed under the BSD 3-Clause License
+The `proteinflow` package and data are released and distributed under the BSD 3-Clause License
 
 
 ## Contributions
-The `ProteinFlow` is a open source project supported by [Adaptyv Bio](https://www.adaptyvbio.com/). Contributions, suggestions and bug-fixes are welcomed.
+This is a open source project supported by [Adaptyv Bio](https://www.adaptyvbio.com/). Contributions, suggestions and bug-fixes are welcomed.
 
