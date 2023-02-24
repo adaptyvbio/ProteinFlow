@@ -48,6 +48,8 @@ jobs:
       run: |
         docker build -t adaptyvbio/proteinflow:${{ github.event.release.tag_name }} .
         docker image push adaptyvbio/proteinflow:${{ github.event.release.tag_name }}
+        docker tag adaptyvbio/proteinflow:${{ github.event.release.tag_name }} adaptyvbio/proteinflow:latest
+        docker image push adaptyvbio/proteinflow:latest
     - name: Push README to Dockerhub
       uses: christian-korneck/update-container-description-action@v1
       env:
