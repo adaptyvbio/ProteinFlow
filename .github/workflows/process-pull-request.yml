@@ -15,15 +15,33 @@ jobs:
       contents: write
 
     steps:
+      - name: Check if relevant files have changed
+        uses: actions/github-script@0.9.0
+        id: service-changed
+        with:
+          result-encoding: string
+          script: |
+            const result = await github.pulls.listFiles({
+              owner: context.payload.repository.owner.login,
+              repo: context.payload.repository.name,
+              pull_number: context.payload.number,
+              per_page: 100
+            })
+            const serviceChanged = result.data.filter(f => f.filename.startsWith("proteinflow/")).length > 0
+            console.log(serviceChanged)
+            return serviceChanged
       - uses: actions/checkout@v3
+        if: ${{ steps.service-changed.outputs.result == 'true' }}
         with:
             ref: ${{ env.MY_REF}}
             fetch-depth: 0
       - name: Set up Python
+        if: ${{ steps.service-changed.outputs.result == 'true' }}
         uses: actions/setup-python@v4
         with:
           python-version: 3.9
       - name: Install dependencies
+        if: ${{ steps.service-changed.outputs.result == 'true' }}
         run: |
           conda create --name proteinflow -y python=3.9
           conda install -n proteinflow -c conda-forge -c bioconda mmseqs2
@@ -33,27 +51,33 @@ jobs:
           conda run -n proteinflow python -m pip install -e .
 
       - name: Lint with flake8
+        if: ${{ steps.service-changed.outputs.result == 'true' }}
         run: |
           # stop the build if there are Python syntax errors or undefined names
           conda run -n proteinflow flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
           conda run -n proteinflow flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test with pytest
+        if: ${{ steps.service-changed.outputs.result == 'true' }}
         run: |
           conda run -n proteinflow pytest tests
       - name: Install pdoc3 and black
+        if: ${{ steps.service-changed.outputs.result == 'true' }}
         run: |
           conda run -n proteinflow python -m pip install pdoc3 black
       - name: Reformat the code
+        if: ${{ steps.service-changed.outputs.result == 'true' }}
         run: |
           conda run -n proteinflow black .
       - name: Update the docs
+        if: ${{ steps.service-changed.outputs.result == 'true' }}
         run: |
           git pull
           conda run -n proteinflow pdoc3 -o docs --html --force proteinflow 
           mv docs/proteinflow/* docs/
           rm -r docs/proteinflow
       - uses: stefanzweifel/git-auto-commit-action@v4
+        if: ${{ steps.service-changed.outputs.result == 'true' }}
         with:
           commit_message: auto update
           skip_checkout: true
