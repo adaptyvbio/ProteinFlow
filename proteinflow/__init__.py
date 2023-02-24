@@ -1126,6 +1126,7 @@ class ProteinDataset(Dataset):
         debug_file_path=None,
         entry_type="biounit",  # biounit, chain, pair
         classes_to_exclude=None,  # heteromers, homomers, single_chains
+        shuffle_clusters=True,
     ):
         """
         Parameters
@@ -1157,6 +1158,8 @@ class ProteinDataset(Dataset):
             for chain-chain pairs (all pairs that are seen in the same biounit))
         classes_to_exclude : list of str, optional
             a list of classes to exclude from the dataset (select from `"single_chains"`, `"heteromers"`, `"homomers"`)
+        shuffle_clusters : bool, default True
+            if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
         """
 
         alphabet = ALPHABET
@@ -1170,6 +1173,7 @@ class ProteinDataset(Dataset):
         self.features_folder = features_folder
         self.feature_types = node_features_type.split("+")
         self.entry_type = entry_type
+        self.shuffle_clusters = shuffle_clusters
 
         if debug_file_path is not None:
             self.dataset_folder = os.path.dirname(debug_file_path)
@@ -1500,11 +1504,15 @@ class ProteinDataset(Dataset):
         else:
             cluster = self.data[idx]
             id = None
-            while id not in self.files:  # some IDs can be filtered out by length
-                chain_n = random.randint(0, len(self.clusters[cluster]) - 1)
+            chain_n = -1
+            while id is None or id not in self.files:  # some IDs can be filtered out by length
+                if self.shuffle_clusters:
+                    chain_n = random.randint(0, len(self.clusters[cluster]) - 1)
+                else:
+                    chain_n += 1
                 id, chain_id = self.clusters[cluster][
                     chain_n
-                ]  # get id and chain from cluster
+                ]   # get id and chain from cluster
         file = random.choice(self.files[id][chain_id])
         if self.loaded is None:
             with open(file, "rb") as f:
@@ -1558,6 +1566,7 @@ class ProteinLoader(DataLoader):
         mask_whole_chains=False,
         mask_frac=None,
         force_binding_sites_frac=0,
+        shuffle_clusters=True,
     ) -> None:
         """
         Parameters
@@ -1599,6 +1608,8 @@ class ProteinLoader(DataLoader):
         force_binding_sites_frac : float, default 0
             if > 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
             forced to be in a binding site
+        shuffle_clusters : bool, default True
+            if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
         """
 
         dataset = ProteinDataset(
@@ -1614,6 +1625,7 @@ class ProteinLoader(DataLoader):
             node_features_type=node_features_type,
             entry_type=entry_type,
             classes_to_exclude=classes_to_exclude,
+            shuffle_clusters=shuffle_clusters,
         )
         super().__init__(
             dataset,
