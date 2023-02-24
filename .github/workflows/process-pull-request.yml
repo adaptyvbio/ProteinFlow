@@ -3,7 +3,7 @@ name: Test and update docs
 on:
   pull_request:
     branches: [ main ]
-    paths: [ 'proteinflow/**' ]
+    # paths: [ 'proteinflow/**' ]
 
 env:
   MY_REF: ${{ format('refs/heads/{0}', github.event.pull_request.head.ref) }}
