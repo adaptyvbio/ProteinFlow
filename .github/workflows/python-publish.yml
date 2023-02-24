@@ -20,7 +20,7 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    name: Push to PyPI
+    name: Push to PyPI and DockerHub
 
     steps:
     - uses: actions/checkout@v3
@@ -39,31 +39,22 @@ jobs:
       with:
         user: __token__
         password: ${{ secrets.PYPI_API_TOKEN }}
-    
-  update_docker:
-
-    runs-on: ubuntu-latest
-    
-    name: Push to Dockerhub
-
-    steps:
-      - uses: actions/checkout@v3
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: adaptyvbio
-          password: ${{ secrets.DOCKER_PASS }}
-      - name: Build and push Docker image
-        run: |
-          docker build -t adaptyvbio/proteinflow:${{ github.event.release.tag_name }} .
-          docker image push adaptyvbio/proteinflow:${{ github.event.release.tag_name }}
-      - name: Push README to Dockerhub
-        uses: christian-korneck/update-container-description-action@v1
-        env:
-          DOCKER_USER: adaptyvbio
-          DOCKER_PASS: ${{ secrets.DOCKER_PASS }}
-        with:
-          destination_container_repo: adaptyvbio/proteinflow
-          provider: dockerhub
-          short_description: 'Versatile pipeline for processing protein structure data for deep learning applications.'
-          readme_file: 'README.md'
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: adaptyvbio
+        password: ${{ secrets.DOCKER_PASS }}
+    - name: Build and push Docker image
+      run: |
+        docker build -t adaptyvbio/proteinflow:${{ github.event.release.tag_name }} .
+        docker image push adaptyvbio/proteinflow:${{ github.event.release.tag_name }}
+    - name: Push README to Dockerhub
+      uses: christian-korneck/update-container-description-action@v1
+      env:
+        DOCKER_USER: adaptyvbio
+        DOCKER_PASS: ${{ secrets.DOCKER_PASS }}
+      with:
+        destination_container_repo: adaptyvbio/proteinflow
+        provider: dockerhub
+        short_description: 'Versatile pipeline for processing protein structure data for deep learning applications.'
+        readme_file: 'README.md'
