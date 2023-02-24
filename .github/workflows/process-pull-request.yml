@@ -15,21 +15,21 @@ jobs:
       contents: write
 
     steps:
-    - name: Check if relevant files have changed
-      uses: actions/github-script@0.9.0
-      id: service-changed
-      with:
-        result-encoding: string
-        script: |
-          const result = await github.pulls.listFiles({
-            owner: context.payload.repository.owner.login,
-            repo: context.payload.repository.name,
-            pull_number: context.payload.number,
-            per_page: 100
-          })
-          const serviceChanged = result.data.filter(f => f.filename.startsWith("proteinflow/")).length > 0
-          console.log(serviceChanged)
-          return serviceChanged
+      - name: Check if relevant files have changed
+        uses: actions/github-script@0.9.0
+        id: service-changed
+        with:
+          result-encoding: string
+          script: |
+            const result = await github.pulls.listFiles({
+              owner: context.payload.repository.owner.login,
+              repo: context.payload.repository.name,
+              pull_number: context.payload.number,
+              per_page: 100
+            })
+            const serviceChanged = result.data.filter(f => f.filename.startsWith("proteinflow/")).length > 0
+            console.log(serviceChanged)
+            return serviceChanged
       - uses: actions/checkout@v3
         if: ${{ steps.service-changed.outputs.result == 'true' }}
         with:
