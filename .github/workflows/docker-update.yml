@@ -14,8 +14,9 @@ jobs:
           username: adaptyvbio
           password: ${{ secrets.DOCKER_PASS }}
       - name: Build and push Docker image
-        run: docker build -t adaptyvbio/proteinflow .
-        run: docker image push adaptyvbio/proteinflow
+        run: |
+          docker build -t adaptyvbio/proteinflow .
+          docker image push adaptyvbio/proteinflow
       - name: Push README to Dockerhub
         uses: christian-korneck/update-container-description-action@v1
         env:
