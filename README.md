@@ -115,10 +115,11 @@ for batch in train_loader:
 See more details on available parameters and the data format in the [docs](https://adaptyvbio.github.io/ProteinFlow/).
 
 ## ProteinFlow Stable Releases
+You can download them with `proteinflow download --tag {tag}` in the commang line or browse in the [interface](https://proteinflow-datasets.s3.eu-west-1.amazonaws.com/index.html).
 
-|Tag    |Date    |Location (S3)|Size|Min res|Min len|Max len|MMseqs thr|Split (train/val/test)|Missing thr (ends/middle)|
-|--------|--------|--------|----|-------|-------|-------|------------|-----|-----------|
-|paper|10.11.22|[data](s3://ml4-main-storage/proteinflow_20221110/) [split]("s3://ml4-main-storage/proteinflow_20221110_splits_dict/")|24G|3.5|30|10000|0.3|90/5/5|0.3/0.1
+|Tag    |Date    |Size|Min res|Min len|Max len|MMseqs thr|Split (train/val/test)|Missing thr (ends/middle)|
+|--------|--------|----|-------|-------|-------|------------|-----|-----------|
+|paper|10.11.22|24G|3.5|30|10000|0.3|90/5/5|0.3/0.1
 
 ## License
 The `proteinflow` package and data are released and distributed under the BSD 3-Clause License
