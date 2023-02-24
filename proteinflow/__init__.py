@@ -1567,6 +1567,7 @@ class ProteinLoader(DataLoader):
         mask_frac=None,
         force_binding_sites_frac=0,
         shuffle_clusters=True,
+        shuffle_batches=True,
     ) -> None:
         """
         Parameters
