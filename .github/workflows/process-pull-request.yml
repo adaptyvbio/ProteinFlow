@@ -15,7 +15,7 @@ jobs:
       contents: write
 
     steps:
-     - name: Check if relevant files have changed
+    - name: Check if relevant files have changed
       uses: actions/github-script@0.9.0
       id: service-changed
       with:
