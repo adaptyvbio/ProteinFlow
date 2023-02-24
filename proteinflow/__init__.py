@@ -1610,6 +1610,8 @@ class ProteinLoader(DataLoader):
             forced to be in a binding site
         shuffle_clusters : bool, default True
             if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
+        shuffle_batches : bool, default True
+            if `True`, the batches are shuffled at each epoch
         """
 
         dataset = ProteinDataset(
@@ -1638,7 +1640,7 @@ class ProteinLoader(DataLoader):
                 force_binding_sites_frac=force_binding_sites_frac,
             ),
             batch_size=batch_size,
-            shuffle=True,
+            shuffle=shuffle_batches,
         )
 
 
