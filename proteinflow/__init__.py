@@ -1638,6 +1638,7 @@ class ProteinLoader(DataLoader):
                 force_binding_sites_frac=force_binding_sites_frac,
             ),
             batch_size=batch_size,
+            shuffle=True,
         )
 
 
