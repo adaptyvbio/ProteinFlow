@@ -24,9 +24,7 @@ def _biounits_in_clusters_dict(clusters_dict):
     return np.unique([c[0] for c in list(np.concatenate(list(clusters_dict.values())))])
 
 
-def _download_dataset_dicts_from_s3(
-    dict_folder_path, s3_path
-):
+def _download_dataset_dicts_from_s3(dict_folder_path, s3_path):
     """
     Download dictionaries containing database split information from s3 to a local folder
     """
