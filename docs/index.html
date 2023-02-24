@@ -1823,18 +1823,7 @@ def check_download_tags():
         recursive=False,
         list_objs=False,
     )
-    tags_dict = defaultdict(lambda: [])
-    for folder in folders:
-        folder = folder.key
-        if not folder.startswith(&#34;proteinflow_&#34;):
-            continue
-        tag = folder[len(&#34;proteinflow_&#34;) :]
-        if tag.endswith(&#34;_splits_dict/&#34;):
-            tag = tag[: -len(&#34;_splits_dict/&#34;)]
-        else:
-            tag = tag.strip(&#34;/&#34;)
-        tags_dict[tag].append(folder)
-    return [x for x, v in tags_dict.items() if len(v) == 2]</code></pre>
+    return [x.key.strip(&#34;/&#34;) for x in folders]</code></pre>
 </details>
 </section>
 <section>
@@ -1876,18 +1865,7 @@ def check_download_tags():
         recursive=False,
         list_objs=False,
     )
-    tags_dict = defaultdict(lambda: [])
-    for folder in folders:
-        folder = folder.key
-        if not folder.startswith(&#34;proteinflow_&#34;):
-            continue
-        tag = folder[len(&#34;proteinflow_&#34;) :]
-        if tag.endswith(&#34;_splits_dict/&#34;):
-            tag = tag[: -len(&#34;_splits_dict/&#34;)]
-        else:
-            tag = tag.strip(&#34;/&#34;)
-        tags_dict[tag].append(folder)
-    return [x for x, v in tags_dict.items() if len(v) == 2]</code></pre>
+    return [x.key.strip(&#34;/&#34;) for x in folders]</code></pre>
 </details>
 </dd>
 <dt id="proteinflow.check_pdb_snapshots"><code class="name flex">
@@ -3073,11 +3051,6 @@ forced to be in a binding site</dd>
 </section>
 </article>
 <nav id="sidebar">
-<header>
-<a class="homelink" rel="home" title="pdoc Home" href="https://adaptyvbio.github.io/ProteinFlow/">
-<img src="https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/logo.png" alt="">
-</a>
-</header>
 <h1>Index</h1>
 <div class="toc">
 <ul>

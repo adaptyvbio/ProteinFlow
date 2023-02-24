@@ -11,8 +11,8 @@ def _get_s3_paths_from_tag(tag):
     Get the path to the data and split dictionary folders on S3 given a tag
     """
 
-    dict_path = f"s3://proteinflow-datasets/proteinflow_{tag}_splits_dict/"
-    data_path = f"s3://proteinflow-datasets/proteinflow_{tag}/"
+    dict_path = f"s3://proteinflow-datasets/{tag}/proteinflow_{tag}_splits_dict/"
+    data_path = f"s3://proteinflow-datasets/{tag}/proteinflow_{tag}/"
     return data_path, dict_path
 
 
@@ -24,9 +24,7 @@ def _biounits_in_clusters_dict(clusters_dict):
     return np.unique([c[0] for c in list(np.concatenate(list(clusters_dict.values())))])
 
 
-def _download_dataset_dicts_from_s3(
-    dict_folder_path, s3_path="s3://ml4-main-storage/proteinflow_20221110_splits_dict/"
-):
+def _download_dataset_dicts_from_s3(dict_folder_path, s3_path):
     """
     Download dictionaries containing database split information from s3 to a local folder
     """

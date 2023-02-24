@@ -1712,15 +1712,4 @@ def check_download_tags():
         recursive=False,
         list_objs=False,
     )
-    tags_dict = defaultdict(lambda: [])
-    for folder in folders:
-        folder = folder.key
-        if not folder.startswith("proteinflow_"):
-            continue
-        tag = folder[len("proteinflow_") :]
-        if tag.endswith("_splits_dict/"):
-            tag = tag[: -len("_splits_dict/")]
-        else:
-            tag = tag.strip("/")
-        tags_dict[tag].append(folder)
-    return [x for x, v in tags_dict.items() if len(v) == 2]
+    return [x.key.strip("/") for x in folders]
