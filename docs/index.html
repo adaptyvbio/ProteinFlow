@@ -14,6 +14,8 @@
 <style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
 <script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+<title>My Page Title</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
 </head>
 <body>
 <main>
@@ -1823,18 +1825,7 @@ def check_download_tags():
         recursive=False,
         list_objs=False,
     )
-    tags_dict = defaultdict(lambda: [])
-    for folder in folders:
-        folder = folder.key
-        if not folder.startswith(&#34;proteinflow_&#34;):
-            continue
-        tag = folder[len(&#34;proteinflow_&#34;) :]
-        if tag.endswith(&#34;_splits_dict/&#34;):
-            tag = tag[: -len(&#34;_splits_dict/&#34;)]
-        else:
-            tag = tag.strip(&#34;/&#34;)
-        tags_dict[tag].append(folder)
-    return [x for x, v in tags_dict.items() if len(v) == 2]</code></pre>
+    return [x.key.strip(&#34;/&#34;) for x in folders]</code></pre>
 </details>
 </section>
 <section>
@@ -1876,18 +1867,7 @@ def check_download_tags():
         recursive=False,
         list_objs=False,
     )
-    tags_dict = defaultdict(lambda: [])
-    for folder in folders:
-        folder = folder.key
-        if not folder.startswith(&#34;proteinflow_&#34;):
-            continue
-        tag = folder[len(&#34;proteinflow_&#34;) :]
-        if tag.endswith(&#34;_splits_dict/&#34;):
-            tag = tag[: -len(&#34;_splits_dict/&#34;)]
-        else:
-            tag = tag.strip(&#34;/&#34;)
-        tags_dict[tag].append(folder)
-    return [x for x, v in tags_dict.items() if len(v) == 2]</code></pre>
+    return [x.key.strip(&#34;/&#34;) for x in folders]</code></pre>
 </details>
 </dd>
 <dt id="proteinflow.check_pdb_snapshots"><code class="name flex">
