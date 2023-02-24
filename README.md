@@ -115,7 +115,7 @@ for batch in train_loader:
 See more details on available parameters and the data format in the [docs](https://adaptyvbio.github.io/ProteinFlow/).
 
 ## ProteinFlow Stable Releases
-You can download them with `proteinflow download --tag {tag}` in the commang line or browse in the [interface](https://proteinflow-datasets.s3.eu-west-1.amazonaws.com/index.html).
+You can download them with `proteinflow download --tag {tag}` in the command line or browse in the [interface](https://proteinflow-datasets.s3.eu-west-1.amazonaws.com/index.html).
 
 |Tag    |Date    |Size|Min res|Min len|Max len|MMseqs thr|Split (train/val/test)|Missing thr (ends/middle)|
 |--------|--------|----|-------|-------|-------|------------|-----|-----------|
