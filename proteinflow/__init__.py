@@ -1171,7 +1171,9 @@ class ProteinDataset(Dataset):
         self.loaded = None
         self.dataset_folder = dataset_folder
         self.features_folder = features_folder
-        self.feature_types = node_features_type.split("+")
+        self.feature_types = []
+        if node_features_type is not None:
+            self.feature_types = node_features_type.split("+")
         self.entry_type = entry_type
         self.shuffle_clusters = shuffle_clusters
 
@@ -1556,7 +1558,7 @@ class ProteinLoader(DataLoader):
         load_to_ram=False,
         debug=False,
         interpolate="none",
-        node_features_type="zeros",
+        node_features_type=None,
         batch_size=4,
         entry_type="biounit",  # biounit, chain, pair
         classes_to_exclude=None,
@@ -1590,7 +1592,7 @@ class ProteinLoader(DataLoader):
             only process 1000 files
         interpolate : {"none", "only_middle", "all"}
             `"none"` for no interpolation, `"only_middle"` for only linear interpolation in the middle, `"all"` for linear interpolation + ends generation
-        node_features_type : {"zeros", "dihedral", "sidechain_orientation", "chemical", "secondary_structure" or combinations with "+"}
+        node_features_type : {"dihedral", "sidechain_orientation", "chemical", "secondary_structure" or combinations with "+"}, optional
             the type of node features, e.g. `"dihedral"` or `"sidechain_orientation+chemical"`
         batch_size : int, default 4
             the batch size
