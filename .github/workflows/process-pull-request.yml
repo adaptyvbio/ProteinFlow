@@ -73,9 +73,7 @@ jobs:
         if: ${{ steps.service-changed.outputs.result == 'true' }}
         run: |
           git pull
-          conda run -n proteinflow pdoc3 -o docs --html --force proteinflow 
-          mv docs/proteinflow/* docs/
-          rm -r docs/proteinflow
+          conda run -n proteinflow . make_docs.sh
       - uses: stefanzweifel/git-auto-commit-action@v4
         if: ${{ steps.service-changed.outputs.result == 'true' }}
         with:
