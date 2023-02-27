@@ -1224,13 +1224,18 @@ class ProteinDataset(Dataset):
                         with open(file, "rb") as f:
                             data = pickle.load(f)
                             if len(data["S"]) > max_length:
-                                to_remove.append((id, chain, file))
-            for id, chain, file in to_remove:
-                self.files[id][chain].remove(file)
-                if len(self.files[id][chain]) == 0:
-                    self.files[id].pop(chain)
-                if len(self.files[id]) == 0:
-                    self.files.pop(id)
+                                to_remove.append(file)
+            for id in list(self.files.keys()):
+                chain_dict = self.files[id]
+                for chain in list(chain_dict.keys()):
+                    file_list = chain_dict[chain]
+                    for file in file_list:
+                        if file in to_remove:
+                            self.files[id][chain].remove(file)
+                            if len(self.files[id][chain]) == 0:
+                                self.files[id].pop(chain)
+                            if len(self.files[id]) == 0:
+                                self.files.pop(id)
         # load the clusters
         if classes_to_exclude is None:
             classes_to_exclude = []
@@ -1508,7 +1513,7 @@ class ProteinDataset(Dataset):
             cluster = self.data[idx]
             id = None
             chain_n = -1
-            while id is None or id not in self.files:  # some IDs can be filtered out by length
+            while id is None or len(self.files[id][chain_id]) == 0:  # some IDs can be filtered out by length
                 if self.shuffle_clusters:
                     chain_n = random.randint(0, len(self.clusters[cluster]) - 1)
                 else:
