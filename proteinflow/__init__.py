@@ -644,6 +644,7 @@ def _run_processing(
         )
         paths = [item for sublist in paths for item in sublist]
         error_ids = [x for x in paths if not x.endswith(".gz")]
+        paths = [x for x in paths if x.endswith(".gz")]
         if load_live:
             print("Download newest structure files...")
             live_paths = p_map(download_live, error_ids)
