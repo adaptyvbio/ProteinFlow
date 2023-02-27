@@ -1513,14 +1513,16 @@ class ProteinDataset(Dataset):
             cluster = self.data[idx]
             id = None
             chain_n = -1
-            while id is None or len(self.files[id][chain_id]) == 0:  # some IDs can be filtered out by length
+            while (
+                id is None or len(self.files[id][chain_id]) == 0
+            ):  # some IDs can be filtered out by length
                 if self.shuffle_clusters:
                     chain_n = random.randint(0, len(self.clusters[cluster]) - 1)
                 else:
                     chain_n += 1
                 id, chain_id = self.clusters[cluster][
                     chain_n
-                ]   # get id and chain from cluster
+                ]  # get id and chain from cluster
         file = random.choice(self.files[id][chain_id])
         if self.loaded is None:
             with open(file, "rb") as f:
