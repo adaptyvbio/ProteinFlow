@@ -1,1 +1,1 @@
-<link rel="icon" type="image/x-icon" src="https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/favicon.png?">
+<link rel="shortcut icon" type="image/x-icon" href="favicon.png?">
