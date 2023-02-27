@@ -120,7 +120,7 @@ You can download them with `proteinflow download --tag {tag}` in the command lin
 |Tag    |Date    |Snapshot|Size|Min res|Min len|Max len|MMseqs thr|Split (train/val/test)|Missing thr (ends/middle)|Note|
 |-------|--------|--------|----|-------|-------|-------|----------|----------------------|-------------------------|----|
 |paper|10.11.22|20220103|24G|3.5|30|10'000|0.3|90/5/5|0.3/0.1|first release, no mmCIF files|
-|paper|27.02.23|20230102|28G|3.5|30|10'000|0.3|90/5/5|0.3/0.1|`proteinflow 1.1.1`|
+|paper|27.02.23|20230102|28G|3.5|30|10'000|0.3|90/5/5|0.3/0.1| v1.1.1|
 
 ## License
 The `proteinflow` package and data are released and distributed under the BSD 3-Clause License
