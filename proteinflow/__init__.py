@@ -644,6 +644,7 @@ def _run_processing(
         )
         paths = [item for sublist in paths for item in sublist]
         error_ids = [x for x in paths if not x.endswith(".gz")]
+        paths = [x for x in paths if x.endswith(".gz")]
         if load_live:
             print("Download newest structure files...")
             live_paths = p_map(download_live, error_ids)
@@ -1126,6 +1127,7 @@ class ProteinDataset(Dataset):
         debug_file_path=None,
         entry_type="biounit",  # biounit, chain, pair
         classes_to_exclude=None,  # heteromers, homomers, single_chains
+        shuffle_clusters=True,
     ):
         """
         Parameters
@@ -1157,6 +1159,8 @@ class ProteinDataset(Dataset):
             for chain-chain pairs (all pairs that are seen in the same biounit))
         classes_to_exclude : list of str, optional
             a list of classes to exclude from the dataset (select from `"single_chains"`, `"heteromers"`, `"homomers"`)
+        shuffle_clusters : bool, default True
+            if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
         """
 
         alphabet = ALPHABET
@@ -1168,8 +1172,11 @@ class ProteinDataset(Dataset):
         self.loaded = None
         self.dataset_folder = dataset_folder
         self.features_folder = features_folder
-        self.feature_types = node_features_type.split("+")
+        self.feature_types = []
+        if node_features_type is not None:
+            self.feature_types = node_features_type.split("+")
         self.entry_type = entry_type
+        self.shuffle_clusters = shuffle_clusters
 
         if debug_file_path is not None:
             self.dataset_folder = os.path.dirname(debug_file_path)
@@ -1217,13 +1224,18 @@ class ProteinDataset(Dataset):
                         with open(file, "rb") as f:
                             data = pickle.load(f)
                             if len(data["S"]) > max_length:
-                                to_remove.append((id, chain, file))
-            for id, chain, file in to_remove:
-                self.files[id][chain].remove(file)
-                if len(self.files[id][chain]) == 0:
-                    self.files[id].pop(chain)
-                if len(self.files[id]) == 0:
-                    self.files.pop(id)
+                                to_remove.append(file)
+            for id in list(self.files.keys()):
+                chain_dict = self.files[id]
+                for chain in list(chain_dict.keys()):
+                    file_list = chain_dict[chain]
+                    for file in file_list:
+                        if file in to_remove:
+                            self.files[id][chain].remove(file)
+                            if len(self.files[id][chain]) == 0:
+                                self.files[id].pop(chain)
+                            if len(self.files[id]) == 0:
+                                self.files.pop(id)
         # load the clusters
         if classes_to_exclude is None:
             classes_to_exclude = []
@@ -1500,8 +1512,14 @@ class ProteinDataset(Dataset):
         else:
             cluster = self.data[idx]
             id = None
-            while id not in self.files:  # some IDs can be filtered out by length
-                chain_n = random.randint(0, len(self.clusters[cluster]) - 1)
+            chain_n = -1
+            while (
+                id is None or len(self.files[id][chain_id]) == 0
+            ):  # some IDs can be filtered out by length
+                if self.shuffle_clusters:
+                    chain_n = random.randint(0, len(self.clusters[cluster]) - 1)
+                else:
+                    chain_n += 1
                 id, chain_id = self.clusters[cluster][
                     chain_n
                 ]  # get id and chain from cluster
@@ -1548,7 +1566,7 @@ class ProteinLoader(DataLoader):
         load_to_ram=False,
         debug=False,
         interpolate="none",
-        node_features_type="zeros",
+        node_features_type=None,
         batch_size=4,
         entry_type="biounit",  # biounit, chain, pair
         classes_to_exclude=None,
@@ -1558,6 +1576,8 @@ class ProteinLoader(DataLoader):
         mask_whole_chains=False,
         mask_frac=None,
         force_binding_sites_frac=0,
+        shuffle_clusters=True,
+        shuffle_batches=True,
     ) -> None:
         """
         Parameters
@@ -1580,7 +1600,7 @@ class ProteinLoader(DataLoader):
             only process 1000 files
         interpolate : {"none", "only_middle", "all"}
             `"none"` for no interpolation, `"only_middle"` for only linear interpolation in the middle, `"all"` for linear interpolation + ends generation
-        node_features_type : {"zeros", "dihedral", "sidechain_orientation", "chemical", "secondary_structure" or combinations with "+"}
+        node_features_type : {"dihedral", "sidechain_orientation", "chemical", "secondary_structure" or combinations with "+"}, optional
             the type of node features, e.g. `"dihedral"` or `"sidechain_orientation+chemical"`
         batch_size : int, default 4
             the batch size
@@ -1599,6 +1619,10 @@ class ProteinLoader(DataLoader):
         force_binding_sites_frac : float, default 0
             if > 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
             forced to be in a binding site
+        shuffle_clusters : bool, default True
+            if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
+        shuffle_batches : bool, default True
+            if `True`, the batches are shuffled at each epoch
         """
 
         dataset = ProteinDataset(
@@ -1614,6 +1638,7 @@ class ProteinLoader(DataLoader):
             node_features_type=node_features_type,
             entry_type=entry_type,
             classes_to_exclude=classes_to_exclude,
+            shuffle_clusters=shuffle_clusters,
         )
         super().__init__(
             dataset,
@@ -1626,6 +1651,7 @@ class ProteinLoader(DataLoader):
                 force_binding_sites_frac=force_binding_sites_frac,
             ),
             batch_size=batch_size,
+            shuffle=shuffle_batches,
         )
 
 
