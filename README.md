@@ -37,7 +37,7 @@ proteinflow download --tag 20221110
 ```
 
 ### Running the pipeline
-You can also run `proteinflow` with your own parameters. Check the output of `proteinflow check_snapshots` for a list of available PDB snapshots (naming rule: `{year}{month}{day}`).
+You can also run `proteinflow` with your own parameters. Check the output of `proteinflow check_snapshots` for a list of available PDB snapshots (naming rule: `yyyymmdd`).
 
 For instance, let's generate a dataset with the following description:
 - resolution threshold: 5 angstrom,
