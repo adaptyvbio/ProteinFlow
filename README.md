@@ -112,7 +112,7 @@ for batch in train_loader:
     to_predict = batch["masked_res"] #(B, L), 1 where the residues should be masked, 0 otherwise
     ...
 ```
-See more details on available parameters and the data format in the [docs](https://adaptyvbio.github.io/ProteinFlow/).
+See more details on available parameters and the data format in the [docs](https://adaptyvbio.github.io/ProteinFlow/) + [this repository](https://github.com/adaptyvbio/ProteinFlow-models) for a use case.
 
 ## ProteinFlow Stable Releases
 You can download them with `proteinflow download --tag {tag}` in the command line or browse in the [interface](https://proteinflow-datasets.s3.eu-west-1.amazonaws.com/index.html).
