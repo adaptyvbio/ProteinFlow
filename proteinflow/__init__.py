@@ -1110,6 +1110,12 @@ class ProteinDataset(Dataset):
     - `'dihedral'`: the dihedral angles, `(total_L, 2)`,
     - `'chemical'`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`,
     - `'secondary_structure'`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 3)`.
+
+    In order to compute additional features, use the `feature_functions` parameter. It should be a dictionary with keys
+    corresponding to the feature names and values corresponding to the functions that compute the features. The functions
+    should take a chain dictionary and an integer representation of the sequence as input (the dictionary is in `proteinflow` format,
+    see the docs for `generate_data` for details) and return a `np.array` shaped as `(batch_size, total_length, #features)`.
+
     """
 
     def __init__(
@@ -1128,6 +1134,7 @@ class ProteinDataset(Dataset):
         entry_type="biounit",  # biounit, chain, pair
         classes_to_exclude=None,  # heteromers, homomers, single_chains
         shuffle_clusters=True,
+        feature_functions=None,
     ):
         """
         Parameters
@@ -1161,6 +1168,8 @@ class ProteinDataset(Dataset):
             a list of classes to exclude from the dataset (select from `"single_chains"`, `"heteromers"`, `"homomers"`)
         shuffle_clusters : bool, default True
             if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
+        feature_functions : dict, optional
+            a dictionary of functions to compute additional features (keys are the names of the features, values are the functions)
         """
 
         alphabet = ALPHABET
@@ -1177,6 +1186,13 @@ class ProteinDataset(Dataset):
             self.feature_types = node_features_type.split("+")
         self.entry_type = entry_type
         self.shuffle_clusters = shuffle_clusters
+        self.feature_functions = {
+            "sidechain_orientation": self._sidechain,
+            "dihedral": self._dihedral,
+            "chemical": self._chemical,
+            "secondary_structure": self._sse,
+        }
+        self.feature_functions.update(feature_functions or {})
 
         if debug_file_path is not None:
             self.dataset_folder = os.path.dirname(debug_file_path)
@@ -1362,11 +1378,13 @@ class ProteinDataset(Dataset):
         dh[1 - msk] = 0
         return dh
 
-    def _dihedral(self, crd, msk):
+    def _dihedral(self, chain_dict, seq):
         """
         Dihedral angles
         """
 
+        crd = chain_dict["crd_bb"]
+        msk = chain_dict["msk"]
         angles = []
         # N, C, Ca, O
         # psi
@@ -1382,24 +1400,26 @@ class ProteinDataset(Dataset):
         angles = np.stack(angles, -1)
         return angles
 
-    def _sidechain(self, crd_sc, crd_bb, S):
+    def _sidechain(self, chain_dict, seq):
         """
         Sidechain orientation (defined by the 'main atoms' in the `main_atom_dict` dictionary)
         """
 
+        crd_sc = chain_dict["crd_sc"]
+        crd_bb = chain_dict["crd_bb"]
         orientation = np.zeros((crd_sc.shape[0], 3))
         for i in range(1, 21):
             if self.main_atom_dict[i] is not None:
-                orientation[S == i] = (
-                    crd_sc[S == i, self.main_atom_dict[i], :] - crd_bb[S == i, 2, :]
+                orientation[seq == i] = (
+                    crd_sc[seq == i, self.main_atom_dict[i], :] - crd_bb[seq == i, 2, :]
                 )
             else:
-                S_mask = S == i
+                S_mask = seq == i
                 orientation[S_mask] = np.random.rand(*orientation[S_mask].shape)
         orientation /= np.expand_dims(linalg.norm(orientation, axis=-1), -1) + 1e-7
         return orientation
 
-    def _chemical(self, seq):
+    def _chemical(self, chain_dict, seq):
         """
         Chemical features (hydropathy, volume, charge, polarity, acceptor/donor)
         """
@@ -1407,14 +1427,14 @@ class ProteinDataset(Dataset):
         features = np.array([_PMAP(x) for x in seq])
         return features
 
-    def _sse(self, X):
+    def _sse(self, chain_dict, seq):
         """
         Secondary structure features
         """
 
         sse_map = {"c": [0, 0, 1], "b": [0, 1, 0], "a": [1, 0, 0], "": [0, 0, 0]}
-        sse = _annotate_sse(X)
-        sse = np.array([sse_map[x] for x in sse])
+        sse = _annotate_sse(chain_dict["crd_bb"])
+        sse = np.array([sse_map[x] for x in sse]) * chain_dict["msk"][:, None]
         return sse
 
     def _process(self, filename, rewrite=False):
@@ -1463,29 +1483,19 @@ class ProteinDataset(Dataset):
             for chain_i, chain in enumerate(chain_set):
                 seq = torch.tensor([self.alphabet_dict[x] for x in data[chain]["seq"]])
                 S.append(seq)
-                crd_i = data[chain]["crd_bb"]
-                mask_i = data[chain]["msk"]
-                mask_original.append(deepcopy(mask_i))
+                mask_original.append(deepcopy(data[chain]["msk"]))
                 if self.interpolate != "none":
-                    crd_i, mask_i = self._interpolate(crd_i, mask_i)
-                X.append(crd_i)
-                mask.append(mask_i)
+                    data[chain]["crd_bb"], data[chain]["msk"] = self._interpolate(
+                        data[chain]["crd_bb"], data[chain]["msk"]
+                    )
+                X.append(data[chain]["crd_bb"])
+                mask.append(data[chain]["msk"])
                 residue_idx.append(torch.arange(len(data[chain]["seq"])) + last_idx)
                 last_idx = residue_idx[-1][-1] + 100
                 chain_encoding_all.append(torch.ones(len(data[chain]["seq"])) * chain_i)
                 chain_dict[chain] = chain_i
-                if "dihedral" in self.feature_types:
-                    node_features["dihedral"].append(self._dihedral(crd_i, mask_i))
-                if "sidechain_orientation" in self.feature_types:
-                    node_features["sidechain_orientation"].append(
-                        self._sidechain(data[chain]["crd_sc"], crd_i, seq)
-                    )
-                if "chemical" in self.feature_types:
-                    node_features["chemical"].append(self._chemical(data[chain]["seq"]))
-                if "secondary_structure" in self.feature_types:
-                    node_features["secondary_structure"].append(
-                        self._sse(data[chain]["crd_bb"])
-                    )
+                for name, func in self.feature_functions.items():
+                    node_features[name].append(func(data[chain], seq))
 
             out = {}
             out["X"] = torch.from_numpy(np.concatenate(X, 0))
@@ -1557,6 +1567,56 @@ class ProteinLoader(DataLoader):
 
     def __init__(
         self,
+        dataset,
+        lower_limit=15,
+        upper_limit=100,
+        mask_residues=True,
+        mask_whole_chains=False,
+        mask_frac=None,
+        force_binding_sites_frac=0,
+        shuffle_batches=True,
+        *args,
+        **kwargs,
+    ):
+        """
+        Parameters
+        ----------
+        dataset : ProteinDataset
+            a ProteinDataset instance
+        lower_limit : int, default 15
+            the minimum number of residues to mask
+        upper_limit : int, default 100
+            the maximum number of residues to mask
+        mask_frac : float, optional
+            if given, the `lower_limit` and `upper_limit` are ignored and the number of residues to mask is `mask_frac` times the length of the chain
+        mask_whole_chains : bool, default False
+            if `True`, `upper_limit`, `force_binding_sites` and `lower_limit` are ignored and the whole chain is masked instead
+        force_binding_sites_frac : float, default 0
+            if > 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
+            forced to be in a binding site
+        shuffle_clusters : bool, default True
+            if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
+        shuffle_batches : bool, default True
+            if `True`, the batches are shuffled at each epoch
+        """
+
+        super().__init__(
+            dataset,
+            collate_fn=_PadCollate(
+                mask_residues=mask_residues,
+                mask_whole_chains=mask_whole_chains,
+                mask_frac=mask_frac,
+                lower_limit=lower_limit,
+                upper_limit=upper_limit,
+                force_binding_sites_frac=force_binding_sites_frac,
+            ),
+            shuffle=shuffle_batches,
+            *args,
+            **kwargs,
+        )
+
+    @staticmethod
+    def from_args(
         dataset_folder,
         features_folder="./data/tmp/",
         clustering_dict_path=None,
@@ -1567,7 +1627,6 @@ class ProteinLoader(DataLoader):
         debug=False,
         interpolate="none",
         node_features_type=None,
-        batch_size=4,
         entry_type="biounit",  # biounit, chain, pair
         classes_to_exclude=None,
         lower_limit=15,
@@ -1578,8 +1637,12 @@ class ProteinLoader(DataLoader):
         force_binding_sites_frac=0,
         shuffle_clusters=True,
         shuffle_batches=True,
+        *args,
+        **kwargs,
     ) -> None:
         """
+        Creates a `ProteinLoader` instance with a `ProteinDataset` from the given arguments
+
         Parameters
         ----------
         dataset_folder : str
@@ -1602,8 +1665,6 @@ class ProteinLoader(DataLoader):
             `"none"` for no interpolation, `"only_middle"` for only linear interpolation in the middle, `"all"` for linear interpolation + ends generation
         node_features_type : {"dihedral", "sidechain_orientation", "chemical", "secondary_structure" or combinations with "+"}, optional
             the type of node features, e.g. `"dihedral"` or `"sidechain_orientation+chemical"`
-        batch_size : int, default 4
-            the batch size
         entry_type : {"biounit", "chain", "pair"}
             the type of entries to generate (`"biounit"` for biounit-level, `"chain"` for chain-level, `"pair"` for chain-chain pairs)
         classes_to_exclude : list of str, optional
@@ -1640,18 +1701,17 @@ class ProteinLoader(DataLoader):
             classes_to_exclude=classes_to_exclude,
             shuffle_clusters=shuffle_clusters,
         )
-        super().__init__(
-            dataset,
-            collate_fn=_PadCollate(
-                mask_residues=mask_residues,
-                mask_whole_chains=mask_whole_chains,
-                mask_frac=mask_frac,
-                lower_limit=lower_limit,
-                upper_limit=upper_limit,
-                force_binding_sites_frac=force_binding_sites_frac,
-            ),
-            batch_size=batch_size,
-            shuffle=shuffle_batches,
+        return ProteinLoader(
+            dataset=dataset,
+            lower_limit=lower_limit,
+            upper_limit=upper_limit,
+            mask_residues=mask_residues,
+            mask_whole_chains=mask_whole_chains,
+            mask_frac=mask_frac,
+            force_binding_sites_frac=force_binding_sites_frac,
+            shuffle_batches=shuffle_batches,
+            *args,
+            **kwargs,
         )
 
 
