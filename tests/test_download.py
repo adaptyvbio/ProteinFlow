@@ -18,8 +18,8 @@ def test_download():
         (None, "chain", None),
         (os.path.join(folder, "splits_dict/valid.pickle"), "pair", ["homomers"]),
     ]:
-        valid_loader = ProteinLoader(
-            os.path.join(folder, "valid"),
+        valid_loader = ProteinLoader.from_args(
+            dataset_folder=os.path.join(folder, "valid"),
             batch_size=8,
             node_features_type="chemical+sidechain_orientation+dihedral+secondary_structure",
             rewrite=True,

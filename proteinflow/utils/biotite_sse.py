@@ -138,5 +138,4 @@ def _annotate_sse(X):
             if d3i[i + 1] >= _d3_strand[0] and d3i[i + 1] <= _d3_strand[1]:
                 sse[i + 1] = "b"
         i += 1
-
     return sse
