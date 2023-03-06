@@ -1494,7 +1494,8 @@ class ProteinDataset(Dataset):
                 last_idx = residue_idx[-1][-1] + 100
                 chain_encoding_all.append(torch.ones(len(data[chain]["seq"])) * chain_i)
                 chain_dict[chain] = chain_i
-                for name, func in self.feature_functions.items():
+                for name in self.feature_types:
+                    func = self.feature_functions[name]
                     node_features[name].append(func(data[chain], seq))
 
             out = {}
