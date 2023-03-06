@@ -1113,7 +1113,7 @@ class ProteinDataset(Dataset):
 
     In order to compute additional features, use the `feature_functions` parameter. It should be a dictionary with keys
     corresponding to the feature names and values corresponding to the functions that compute the features. The functions
-    should take a chain dictionary and an integer representation of the sequence as input (the dictionary is in `proteinflow` format, 
+    should take a chain dictionary and an integer representation of the sequence as input (the dictionary is in `proteinflow` format,
     see the docs for `generate_data` for details) and return a `np.array` shaped as `(batch_size, total_length, #features)`.
 
     """
@@ -1186,7 +1186,7 @@ class ProteinDataset(Dataset):
             self.feature_types = node_features_type.split("+")
         self.entry_type = entry_type
         self.shuffle_clusters = shuffle_clusters
-        self.feature_functions  = {
+        self.feature_functions = {
             "sidechain_orientation": self._sidechain,
             "dihedral": self._dihedral,
             "chemical": self._chemical,
@@ -1485,7 +1485,9 @@ class ProteinDataset(Dataset):
                 S.append(seq)
                 mask_original.append(deepcopy(data[chain]["msk"]))
                 if self.interpolate != "none":
-                    data[chain]["crd_bb"], data[chain]["msk"] = self._interpolate(data[chain]["crd_bb"], data[chain]["msk"])
+                    data[chain]["crd_bb"], data[chain]["msk"] = self._interpolate(
+                        data[chain]["crd_bb"], data[chain]["msk"]
+                    )
                 X.append(data[chain]["crd_bb"])
                 mask.append(data[chain]["msk"])
                 residue_idx.append(torch.arange(len(data[chain]["seq"])) + last_idx)
@@ -1574,8 +1576,8 @@ class ProteinLoader(DataLoader):
         mask_frac=None,
         force_binding_sites_frac=0,
         shuffle_batches=True,
-        *args, 
-        **kwargs
+        *args,
+        **kwargs,
     ):
         """
         Parameters
@@ -1709,8 +1711,8 @@ class ProteinLoader(DataLoader):
             mask_frac=mask_frac,
             force_binding_sites_frac=force_binding_sites_frac,
             shuffle_batches=shuffle_batches,
-            *args, 
-            **kwargs
+            *args,
+            **kwargs,
         )
 
 
