@@ -35,6 +35,7 @@ jobs:
         with:
             ref: ${{ env.MY_REF}}
             fetch-depth: 0
+            token: ${{ secrets.PAT }}
       - name: Set up Python
         if: ${{ steps.service-changed.outputs.result == 'true' }}
         uses: actions/setup-python@v4
