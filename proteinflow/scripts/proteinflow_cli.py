@@ -30,7 +30,7 @@ def check_snapshots():
 
 @click.option(
     "--tag",
-    default="test",
+    default="20230102_stable",
     help="The name of the dataset",
 )
 @click.option(
