@@ -20,7 +20,8 @@ jobs:
           MSG=$(git log --format=%B -n 1 ${{github.event.after}})
           echo "::set-env name=COMMIT_MESSAGE::${MSG}"
       - name: Echo commit message
-        run: echo "Commit SHA: ${{github.event.after}}, commit message: ${{env.COMMIT_MESSAGE}} (or ${COMMIT_MESSAGE})"
+        run: |
+          echo "Commit SHA: ${{github.event.after}}, commit message: ${{env.COMMIT_MESSAGE}} (or ${COMMIT_MESSAGE})"
       - name: Check if relevant files have changed
         uses: actions/github-script@0.9.0
         id: service-changed
