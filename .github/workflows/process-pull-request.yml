@@ -6,6 +6,7 @@ on:
 
 env:
   MY_REF: ${{ format('refs/heads/{0}', github.event.pull_request.head.ref) }}
+  ACTIONS_ALLOW_UNSECURE_COMMANDS: true
 
 jobs:
   test_and_update:
@@ -31,18 +32,25 @@ jobs:
             console.log(serviceChanged)
             return serviceChanged
       - uses: actions/checkout@v3
-        if: ${{ steps.service-changed.outputs.result == 'true' }}
+        if: ${{ steps.service-changed.outputs.result == 'true' && !startsWith(github.event.head_commit.message, 'auto update') }}
         with:
             ref: ${{ env.MY_REF}}
             fetch-depth: 0
             token: ${{ secrets.PAT }}
+      - name: Get Commit Message
+        run: |
+          MSG=$(git log --format=%B -n 1 ${{github.event.after}})
+          echo "::set-env name=COMMIT_MESSAGE::${MSG}"
+      - name: Echo commit message
+        run: |
+          echo "Commit SHA: ${{github.event.after}}, commit message: ${{env.COMMIT_MESSAGE}} (or ${COMMIT_MESSAGE})"
       - name: Set up Python
-        if: ${{ steps.service-changed.outputs.result == 'true' }}
+        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
         uses: actions/setup-python@v4
         with:
           python-version: 3.9
       - name: Install dependencies
-        if: ${{ steps.service-changed.outputs.result == 'true' }}
+        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
         run: |
           conda create --name proteinflow -y python=3.9
           conda install -n proteinflow -c conda-forge -c bioconda mmseqs2
@@ -52,31 +60,31 @@ jobs:
           conda run -n proteinflow python -m pip install -e .
 
       - name: Lint with flake8
-        if: ${{ steps.service-changed.outputs.result == 'true' }}
+        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
         run: |
           # stop the build if there are Python syntax errors or undefined names
           conda run -n proteinflow flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
           conda run -n proteinflow flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test with pytest
-        if: ${{ steps.service-changed.outputs.result == 'true' }}
+        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
         run: |
           conda run -n proteinflow pytest tests
       - name: Install pdoc3 and black
-        if: ${{ steps.service-changed.outputs.result == 'true' }}
+        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
         run: |
           conda run -n proteinflow python -m pip install pdoc3 black
       - name: Reformat the code
-        if: ${{ steps.service-changed.outputs.result == 'true' }}
+        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
         run: |
           conda run -n proteinflow black .
       - name: Update the docs
-        if: ${{ steps.service-changed.outputs.result == 'true' }}
+        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
         run: |
           git pull
           conda run -n proteinflow . make_docs.sh
       - uses: stefanzweifel/git-auto-commit-action@v4
-        if: ${{ steps.service-changed.outputs.result == 'true' }}
+        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
         with:
           commit_message: auto update
           skip_checkout: true

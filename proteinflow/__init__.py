@@ -1494,6 +1494,8 @@ class ProteinDataset(Dataset):
                 chain_encoding_all.append(torch.ones(len(data[chain]["seq"])) * chain_i)
                 chain_dict[chain] = chain_i
                 for name in self.feature_types:
+                    if name not in self.feature_functions:
+                        continue
                     func = self.feature_functions[name]
                     node_features[name].append(func(data[chain], seq))
 
