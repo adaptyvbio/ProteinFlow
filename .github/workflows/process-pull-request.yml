@@ -54,8 +54,10 @@ jobs:
       - name: Lint with flake8
         if: ${{ steps.service-changed.outputs.result == 'true' && !startsWith(github.event.head_commit.message, 'auto update') }}
         run: |
-          echo ${{ github.event.head_commit.message }}
-          echo ${{ github.event.head_commit.message != 'auto update' }}
+          echo message
+          echo ${{ github.event.commits[-1].message }}
+          echo value
+          echo ${{ github.event.commits[-1].message != 'auto update' }}
           # stop the build if there are Python syntax errors or undefined names
           conda run -n proteinflow flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
