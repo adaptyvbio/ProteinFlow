@@ -1219,7 +1219,7 @@ class ProteinDataset(Dataset):
             to_process = to_process[:1000]
         # output_tuples = [self._process(x, rewrite=rewrite) for x in tqdm(to_process)]
         if self.entry_type == "pair":
-            print("Please note that the pair entry type takes much longer to process than the other two. The progress bar is not linear because of the varying number of chains per file.")
+            print("Please note that the pair entry type takes longer to process than the other two. The progress bar is not linear because of the varying number of chains per file.")
         output_tuples_list = p_map(
             lambda x: self._process(x, rewrite=rewrite, max_length=max_length), to_process
         )
