@@ -1466,41 +1466,49 @@ class ProteinDataset(Dataset):
             output_file = os.path.join(
                 self.features_folder, no_extension_name + f"_{chains_i}.pickle"
             )
-            output_names.append(
-                (os.path.basename(no_extension_name), output_file, chain_set)
-            )
+            pass_set = False
+            add_name = True
             if os.path.exists(output_file) and not rewrite:
+                pass_set = True
+            else:
+                X = []
+                S = []
+                mask = []
+                mask_original = []
+                chain_encoding_all = []
+                residue_idx = []
+                node_features = defaultdict(lambda: [])
+                last_idx = 0
+                chain_dict = {}
+
+                if max_length is not None:
+                    if sum([len(data[x]["seq"]) for x in chain_set]) > max_length:
+                        pass_set = True
+                        add_name = False
+
+                if self.entry_type == "pair":
+                    intersect = []
+                    X1 = data[chain_set[0]]["crd_bb"][data[chain_set[0]]["msk"].astype(bool)]
+                    X2 = data[chain_set[1]]["crd_bb"][data[chain_set[1]]["msk"].astype(bool)]
+                    for dim in range(3):
+                        min_dim_1 = X1[:, :, dim].min()
+                        max_dim_1 = X1[:, :, dim].max()
+                        min_dim_2 = X2[:, :, dim].min()
+                        max_dim_2 = X2[:, :, dim].max()
+                        if min_dim_1 - 4 <= max_dim_2 and max_dim_1 >= min_dim_2 - 4:
+                            intersect.append(True)
+                        else:
+                            intersect.append(False)
+                            break
+                    if not all(intersect):
+                        pass_set = True
+                        add_name = False
+            if add_name:
+                output_names.append(
+                    (os.path.basename(no_extension_name), output_file, chain_set)
+                )
+            if pass_set:
                 continue
-            X = []
-            S = []
-            mask = []
-            mask_original = []
-            chain_encoding_all = []
-            residue_idx = []
-            node_features = defaultdict(lambda: [])
-            last_idx = 0
-            chain_dict = {}
-
-            if max_length is not None:
-                if sum([len(data[x]["seq"]) for x in chain_set]) > max_length:
-                    continue
-
-            if self.entry_type == "pair":
-                intersect = []
-                X1 = data[chain_set[0]]["crd_bb"][data[chain_set[0]]["msk"].astype(bool)]
-                X2 = data[chain_set[1]]["crd_bb"][data[chain_set[1]]["msk"].astype(bool)]
-                for dim in range(3):
-                    min_dim_1 = X1[:, :, dim].min()
-                    max_dim_1 = X1[:, :, dim].max()
-                    min_dim_2 = X2[:, :, dim].min()
-                    max_dim_2 = X2[:, :, dim].max()
-                    if min_dim_1 - 4 <= max_dim_2 and max_dim_1 >= min_dim_2 - 4:
-                        intersect.append(True)
-                    else:
-                        intersect.append(False)
-                        break
-                if not all(intersect):
-                    continue
 
             for chain_i, chain in enumerate(chain_set):
                 seq = torch.tensor([self.alphabet_dict[x] for x in data[chain]["seq"]])

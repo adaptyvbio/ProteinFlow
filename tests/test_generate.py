@@ -38,7 +38,7 @@ def test_generate():
     generate_data(tag="test", skip_splitting=True, n=50)
     end = time()
     num_files = len(os.listdir(folder))
-    split_data(tag="test", valid_split=0.2, test_split=0.1)
+    split_data(tag="test", valid_split=0.2, test_split=0.1, ignore_existing=True)
     assert os.path.exists(folder)
     assert len(os.listdir(folder)) == 4
     num_files_split = 0
