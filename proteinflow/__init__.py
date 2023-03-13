@@ -1221,7 +1221,7 @@ class ProteinDataset(Dataset):
         if self.entry_type == "pair":
             print("Please note that the pair entry type takes much longer to process than the other two. The progress bar is not linear because of the varying number of chains per file.")
         output_tuples_list = p_map(
-            lambda x: self._process(x, rewrite=rewrite), to_process
+            lambda x: self._process(x, rewrite=rewrite, max_length=max_length), to_process
         )
         # save the file names
         for output_tuples in output_tuples_list:
@@ -1229,30 +1229,30 @@ class ProteinDataset(Dataset):
                 for chain in chain_set:
                     self.files[id][chain].append(filename)
         # filter by length
-        seen = set()
-        if max_length is not None:
-            to_remove = []
-            for id, chain_dict in self.files.items():
-                for chain, file_list in chain_dict.items():
-                    for file in file_list:
-                        if file in seen:
-                            continue
-                        seen.add(file)
-                        with open(file, "rb") as f:
-                            data = pickle.load(f)
-                            if len(data["S"]) > max_length:
-                                to_remove.append(file)
-            for id in list(self.files.keys()):
-                chain_dict = self.files[id]
-                for chain in list(chain_dict.keys()):
-                    file_list = chain_dict[chain]
-                    for file in file_list:
-                        if file in to_remove:
-                            self.files[id][chain].remove(file)
-                            if len(self.files[id][chain]) == 0:
-                                self.files[id].pop(chain)
-                            if len(self.files[id]) == 0:
-                                self.files.pop(id)
+        # seen = set()
+        # if max_length is not None:
+        #     to_remove = []
+        #     for id, chain_dict in self.files.items():
+        #         for chain, file_list in chain_dict.items():
+        #             for file in file_list:
+        #                 if file in seen:
+        #                     continue
+        #                 seen.add(file)
+        #                 with open(file, "rb") as f:
+        #                     data = pickle.load(f)
+        #                     if len(data["S"]) > max_length:
+        #                         to_remove.append(file)
+        #     for id in list(self.files.keys()):
+        #         chain_dict = self.files[id]
+        #         for chain in list(chain_dict.keys()):
+        #             file_list = chain_dict[chain]
+        #             for file in file_list:
+        #                 if file in to_remove:
+        #                     self.files[id][chain].remove(file)
+        #                     if len(self.files[id][chain]) == 0:
+        #                         self.files[id].pop(chain)
+        #                     if len(self.files[id]) == 0:
+        #                         self.files.pop(id)
         # load the clusters
         if classes_to_exclude is None:
             classes_to_exclude = []
@@ -1438,7 +1438,7 @@ class ProteinDataset(Dataset):
         sse = np.array([sse_map[x] for x in sse]) * chain_dict["msk"][:, None]
         return sse
 
-    def _process(self, filename, rewrite=False):
+    def _process(self, filename, rewrite=False, max_length=None):
         """
         Process a proteinflow file and save it as ProteinMPNN features
         """
@@ -1481,16 +1481,20 @@ class ProteinDataset(Dataset):
             last_idx = 0
             chain_dict = {}
 
+            if max_length is not None:
+                if sum([len(data[x]["seq"]) for x in chain_set]) > max_length:
+                    continue
+
             if self.entry_type == "pair":
                 intersect = []
-                X1 = data[chain_set[0]]["crd_bb"]
-                X2 = data[chain_set[1]]["crd_bb"]
+                X1 = data[chain_set[0]]["crd_bb"][data[chain_set[0]]["msk"].astype(bool)]
+                X2 = data[chain_set[1]]["crd_bb"][data[chain_set[1]]["msk"].astype(bool)]
                 for dim in range(3):
                     min_dim_1 = X1[:, :, dim].min()
                     max_dim_1 = X1[:, :, dim].max()
                     min_dim_2 = X2[:, :, dim].min()
                     max_dim_2 = X2[:, :, dim].max()
-                    if min_dim_1 < max_dim_2 or max_dim_1 > min_dim_2:
+                    if min_dim_1 - 4 <= max_dim_2 and max_dim_1 >= min_dim_2 - 4:
                         intersect.append(True)
                     else:
                         intersect.append(False)
