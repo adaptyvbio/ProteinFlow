@@ -1453,11 +1453,9 @@ class ProteinDataset(Dataset):
             chain_sets = [chains]
         elif self.entry_type == "chain":
             chain_sets = [[x] for x in chains]
-        elif self.entry_type == "pair":
-            chain_sets = list(combinations(chains, 2))
         else:
             raise RuntimeError(
-                "Unknown entry type, please choose from ['biounit', 'chain', 'pair']"
+                "Unknown entry type, please choose from ['biounit', 'chain']"
             )
         output_names = []
         for chains_i, chain_set in enumerate(chain_sets):
@@ -1478,6 +1476,23 @@ class ProteinDataset(Dataset):
             node_features = defaultdict(lambda: [])
             last_idx = 0
             chain_dict = {}
+
+            # if self.entry_type == "pair":
+            #     intersect = []
+            #     X1 = data[chain_set[0]]["crd_bb"]
+            #     X2 = data[chain_set[1]]["crd_bb"]
+            #     for dim in range(3):
+            #         min_dim_1 = X1[:, :, dim].min()
+            #         max_dim_1 = X1[:, :, dim].max()
+            #         min_dim_2 = X2[:, :, dim].min()
+            #         max_dim_2 = X2[:, :, dim].max()
+            #         if min_dim_1 < max_dim_2 or max_dim_1 > min_dim_2:
+            #             intersect.append(True)
+            #         else:
+            #             intersect.append(False)
+            #             break
+            #     if not all(intersect):
+            #         continue
 
             for chain_i, chain in enumerate(chain_set):
                 seq = torch.tensor([self.alphabet_dict[x] for x in data[chain]["seq"]])
