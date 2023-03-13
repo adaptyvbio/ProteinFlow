@@ -90,7 +90,7 @@ For example, here is how we can create a data loader that:
 
 ```python
 from proteinflow import ProteinLoader
-train_loader = ProteinLoader(
+train_loader = ProteinLoader.from_args(
     "./data/proteinflow_new/training", 
     clustering_dict_path="./data/proteinflow_new/splits_dict/train.pickle",
     node_features_type="dihedral+sidechain_orientation+secondary_structure",
