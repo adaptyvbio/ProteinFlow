@@ -809,8 +809,8 @@ class _PadCollate:
                             chain_max = (
                                 coords[chain_id_bool][:, 2, :].max(0)[0].unsqueeze(0)
                             )
-                            min_mask = (chain[:, 2, :] >= chain_min).sum(-1) == 3
-                            max_mask = (chain[:, 2, :] <= chain_max).sum(-1) == 3
+                            min_mask = (chain[:, 2, :] >= chain_min - 4).sum(-1) == 3
+                            max_mask = (chain[:, 2, :] - 4 <= chain_max).sum(-1) == 3
                             intersection_indices += torch.where(min_mask * max_mask)[
                                 0
                             ].tolist()
