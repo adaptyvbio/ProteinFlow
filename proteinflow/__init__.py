@@ -1162,7 +1162,7 @@ class ProteinDataset(Dataset):
             if not `None`, open this single file instead of loading the dataset
         entry_type : {"biounit", "chain", "pair"}
             the type of entries to generate (`"biounit"` for biounit-level complexes, `"chain"` for chain-level, `"pair"`
-            for chain-chain pairs (all pairs that are seen in the same biounit))
+            for chain-chain pairs (all pairs that are seen in the same biounit and have intersecting coordinate clouds))
         classes_to_exclude : list of str, optional
             a list of classes to exclude from the dataset (select from `"single_chains"`, `"heteromers"`, `"homomers"`)
         shuffle_clusters : bool, default True
@@ -1218,6 +1218,8 @@ class ProteinDataset(Dataset):
         if debug:
             to_process = to_process[:1000]
         # output_tuples = [self._process(x, rewrite=rewrite) for x in tqdm(to_process)]
+        if self.entry_type == "pair":
+            print("Please note that the pair entry type takes much longer to process than the other two. The progress bar is not linear because of the varying number of chains per file.")
         output_tuples_list = p_map(
             lambda x: self._process(x, rewrite=rewrite), to_process
         )
@@ -1453,9 +1455,11 @@ class ProteinDataset(Dataset):
             chain_sets = [chains]
         elif self.entry_type == "chain":
             chain_sets = [[x] for x in chains]
+        elif self.entry_type == "pair":
+            chain_sets = list(combinations(chains, 2))
         else:
             raise RuntimeError(
-                "Unknown entry type, please choose from ['biounit', 'chain']"
+                "Unknown entry type, please choose from ['biounit', 'chain', 'pair']"
             )
         output_names = []
         for chains_i, chain_set in enumerate(chain_sets):
@@ -1477,22 +1481,22 @@ class ProteinDataset(Dataset):
             last_idx = 0
             chain_dict = {}
 
-            # if self.entry_type == "pair":
-            #     intersect = []
-            #     X1 = data[chain_set[0]]["crd_bb"]
-            #     X2 = data[chain_set[1]]["crd_bb"]
-            #     for dim in range(3):
-            #         min_dim_1 = X1[:, :, dim].min()
-            #         max_dim_1 = X1[:, :, dim].max()
-            #         min_dim_2 = X2[:, :, dim].min()
-            #         max_dim_2 = X2[:, :, dim].max()
-            #         if min_dim_1 < max_dim_2 or max_dim_1 > min_dim_2:
-            #             intersect.append(True)
-            #         else:
-            #             intersect.append(False)
-            #             break
-            #     if not all(intersect):
-            #         continue
+            if self.entry_type == "pair":
+                intersect = []
+                X1 = data[chain_set[0]]["crd_bb"]
+                X2 = data[chain_set[1]]["crd_bb"]
+                for dim in range(3):
+                    min_dim_1 = X1[:, :, dim].min()
+                    max_dim_1 = X1[:, :, dim].max()
+                    min_dim_2 = X2[:, :, dim].min()
+                    max_dim_2 = X2[:, :, dim].max()
+                    if min_dim_1 < max_dim_2 or max_dim_1 > min_dim_2:
+                        intersect.append(True)
+                    else:
+                        intersect.append(False)
+                        break
+                if not all(intersect):
+                    continue
 
             for chain_i, chain in enumerate(chain_set):
                 seq = torch.tensor([self.alphabet_dict[x] for x in data[chain]["seq"]])
