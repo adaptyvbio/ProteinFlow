@@ -13,7 +13,7 @@ def test_download():
     subprocess.run(
         ["proteinflow", "download", "--tag", "test", "--skip_splitting"], check=True
     )
-    subprocess.run(["proteinflow", "split", "--tag", "test", "--ignore_existing"], check=True)
+    subprocess.run(["proteinflow", "split", "--tag", "test"], check=True)
     for cluster_dict_path, entry_type, classes_to_exclude in [
         (None, "chain", None),
         (os.path.join(folder, "splits_dict/valid.pickle"), "pair", ["homomers"]),
