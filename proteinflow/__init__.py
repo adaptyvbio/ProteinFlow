@@ -1108,12 +1108,13 @@ class ProteinDataset(Dataset):
     - `'sidechain_orientation'`: a unit vector in the direction of the sidechain, `(total_L, 3)`,
     - `'dihedral'`: the dihedral angles, `(total_L, 2)`,
     - `'chemical'`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`,
-    - `'secondary_structure'`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 3)`.
+    - `'secondary_structure'`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 3)`,
+    - `'sidechain_coords'`: the coordinates of the sidechain atoms (see `proteinflow.sidechain_order()` for the order), `(total_L, 10, 3)`,
 
     In order to compute additional features, use the `feature_functions` parameter. It should be a dictionary with keys
     corresponding to the feature names and values corresponding to the functions that compute the features. The functions
     should take a chain dictionary and an integer representation of the sequence as input (the dictionary is in `proteinflow` format,
-    see the docs for `generate_data` for details) and return a `np.array` shaped as `(batch_size, total_length, #features)`.
+    see the docs for `generate_data` for details) and return a `numpy` array shaped as `(#residues, #features)`.
 
     """
 
@@ -1190,8 +1191,18 @@ class ProteinDataset(Dataset):
             "dihedral": self._dihedral,
             "chemical": self._chemical,
             "secondary_structure": self._sse,
+            "sidechain_coords": self._sidechain_coords,
         }
         self.feature_functions.update(feature_functions or {})
+        if classes_to_exclude is not None and not all(
+            [
+                x in ["single_chains", "heteromers", "homomers"]
+                for x in classes_to_exclude
+            ]
+        ):
+            raise ValueError(
+                "Invalid class to exclude, choose from 'single_chains', 'heteromers', 'homomers'"
+            )
 
         if debug_file_path is not None:
             self.dataset_folder = os.path.dirname(debug_file_path)
@@ -1280,8 +1291,7 @@ class ProteinDataset(Dataset):
                 self.clusters[key] = [
                     [x[0].split(".")[0], x[1]]
                     for x in self.clusters[key]
-                    if x[0].split(".")[0] in self.files
-                    and x[0].split(".")[0] not in to_exclude
+                    if x[0].split(".")[0] in self.files and x[0] not in to_exclude
                 ]
                 if len(self.clusters[key]) == 0:
                     self.clusters.pop(key)
@@ -1440,6 +1450,14 @@ class ProteinDataset(Dataset):
         sse = _annotate_sse(chain_dict["crd_bb"])
         sse = np.array([sse_map[x] for x in sse]) * chain_dict["msk"][:, None]
         return sse
+
+    def _sidechain_coords(self, chain_dict, seq):
+        """
+        Sidechain coordinates
+        """
+
+        crd_sc = chain_dict["crd_sc"]
+        return crd_sc
 
     def _process(self, filename, rewrite=False, max_length=None):
         """
@@ -1703,7 +1721,7 @@ class ProteinLoader(DataLoader):
             only process 1000 files
         interpolate : {"none", "only_middle", "all"}
             `"none"` for no interpolation, `"only_middle"` for only linear interpolation in the middle, `"all"` for linear interpolation + ends generation
-        node_features_type : {"dihedral", "sidechain_orientation", "chemical", "secondary_structure" or combinations with "+"}, optional
+        node_features_type : {"dihedral", "sidechain_orientation", "chemical", "secondary_structure", "sidechain_coords", or combinations with "+"}, optional
             the type of node features, e.g. `"dihedral"` or `"sidechain_orientation+chemical"`
         entry_type : {"biounit", "chain", "pair"}
             the type of entries to generate (`"biounit"` for biounit-level, `"chain"` for chain-level, `"pair"` for chain-chain pairs)

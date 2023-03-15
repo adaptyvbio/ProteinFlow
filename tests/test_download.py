@@ -15,13 +15,13 @@ def test_download():
     )
     subprocess.run(["proteinflow", "split", "--tag", "test"], check=True)
     for cluster_dict_path, entry_type, classes_to_exclude in [
-        (None, "chain", None),
-        (os.path.join(folder, "splits_dict/valid.pickle"), "pair", ["homomers"]),
+        (os.path.join(folder, "splits_dict/valid.pickle"), "chain", ["homomers"]),
+        (None, "pair", None),
     ]:
         valid_loader = ProteinLoader.from_args(
             dataset_folder=os.path.join(folder, "valid"),
             batch_size=8,
-            node_features_type="chemical+sidechain_orientation+dihedral+secondary_structure",
+            node_features_type="chemical+sidechain_orientation+dihedral+secondary_structure+sidechain_coords",
             rewrite=True,
             clustering_dict_path=cluster_dict_path,
             entry_type=entry_type,
@@ -41,11 +41,13 @@ def test_download():
             "chemical",
             "secondary_structure",
             "masked_res",
+            "sidechain_coords",
         }
         assert batch["X"].shape == (8, batch["X"].shape[1], 4, 3)
         assert batch["S"].shape == (8, batch["X"].shape[1])
         assert batch["dihedral"].shape == (8, batch["X"].shape[1], 2)
         assert batch["masked_res"].shape == (8, batch["X"].shape[1])
+        assert batch["sidechain_coords"].shape == (8, batch["X"].shape[1], 10, 3)
 
     shutil.rmtree(folder)
 

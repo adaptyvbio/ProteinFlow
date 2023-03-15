@@ -1220,12 +1220,13 @@ class ProteinDataset(Dataset):
     - `&#39;sidechain_orientation&#39;`: a unit vector in the direction of the sidechain, `(total_L, 3)`,
     - `&#39;dihedral&#39;`: the dihedral angles, `(total_L, 2)`,
     - `&#39;chemical&#39;`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`,
-    - `&#39;secondary_structure&#39;`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 3)`.
+    - `&#39;secondary_structure&#39;`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 3)`,
+    - `&#39;sidechain_coords&#39;`: the coordinates of the sidechain atoms (see `proteinflow.sidechain_order()` for the order), `(total_L, 10, 3)`,
 
     In order to compute additional features, use the `feature_functions` parameter. It should be a dictionary with keys
     corresponding to the feature names and values corresponding to the functions that compute the features. The functions
     should take a chain dictionary and an integer representation of the sequence as input (the dictionary is in `proteinflow` format,
-    see the docs for `generate_data` for details) and return a `np.array` shaped as `(batch_size, total_length, #features)`.
+    see the docs for `generate_data` for details) and return a `numpy` array shaped as `(#residues, #features)`.
 
     &#34;&#34;&#34;
 
@@ -1302,8 +1303,18 @@ class ProteinDataset(Dataset):
             &#34;dihedral&#34;: self._dihedral,
             &#34;chemical&#34;: self._chemical,
             &#34;secondary_structure&#34;: self._sse,
+            &#34;sidechain_coords&#34;: self._sidechain_coords,
         }
         self.feature_functions.update(feature_functions or {})
+        if classes_to_exclude is not None and not all(
+            [
+                x in [&#34;single_chains&#34;, &#34;heteromers&#34;, &#34;homomers&#34;]
+                for x in classes_to_exclude
+            ]
+        ):
+            raise ValueError(
+                &#34;Invalid class to exclude, choose from &#39;single_chains&#39;, &#39;heteromers&#39;, &#39;homomers&#39;&#34;
+            )
 
         if debug_file_path is not None:
             self.dataset_folder = os.path.dirname(debug_file_path)
@@ -1392,8 +1403,7 @@ class ProteinDataset(Dataset):
                 self.clusters[key] = [
                     [x[0].split(&#34;.&#34;)[0], x[1]]
                     for x in self.clusters[key]
-                    if x[0].split(&#34;.&#34;)[0] in self.files
-                    and x[0].split(&#34;.&#34;)[0] not in to_exclude
+                    if x[0].split(&#34;.&#34;)[0] in self.files and x[0] not in to_exclude
                 ]
                 if len(self.clusters[key]) == 0:
                     self.clusters.pop(key)
@@ -1552,6 +1562,14 @@ class ProteinDataset(Dataset):
         sse = _annotate_sse(chain_dict[&#34;crd_bb&#34;])
         sse = np.array([sse_map[x] for x in sse]) * chain_dict[&#34;msk&#34;][:, None]
         return sse
+
+    def _sidechain_coords(self, chain_dict, seq):
+        &#34;&#34;&#34;
+        Sidechain coordinates
+        &#34;&#34;&#34;
+
+        crd_sc = chain_dict[&#34;crd_sc&#34;]
+        return crd_sc
 
     def _process(self, filename, rewrite=False, max_length=None):
         &#34;&#34;&#34;
@@ -1815,7 +1833,7 @@ class ProteinLoader(DataLoader):
             only process 1000 files
         interpolate : {&#34;none&#34;, &#34;only_middle&#34;, &#34;all&#34;}
             `&#34;none&#34;` for no interpolation, `&#34;only_middle&#34;` for only linear interpolation in the middle, `&#34;all&#34;` for linear interpolation + ends generation
-        node_features_type : {&#34;dihedral&#34;, &#34;sidechain_orientation&#34;, &#34;chemical&#34;, &#34;secondary_structure&#34; or combinations with &#34;+&#34;}, optional
+        node_features_type : {&#34;dihedral&#34;, &#34;sidechain_orientation&#34;, &#34;chemical&#34;, &#34;secondary_structure&#34;, &#34;sidechain_coords&#34;, or combinations with &#34;+&#34;}, optional
             the type of node features, e.g. `&#34;dihedral&#34;` or `&#34;sidechain_orientation+chemical&#34;`
         entry_type : {&#34;biounit&#34;, &#34;chain&#34;, &#34;pair&#34;}
             the type of entries to generate (`&#34;biounit&#34;` for biounit-level, `&#34;chain&#34;` for chain-level, `&#34;pair&#34;` for chain-chain pairs)
@@ -2480,12 +2498,13 @@ at each iteration a random bionit from a cluster is sampled.</p>
 <li><code>'sidechain_orientation'</code>: a unit vector in the direction of the sidechain, <code>(total_L, 3)</code>,</li>
 <li><code>'dihedral'</code>: the dihedral angles, <code>(total_L, 2)</code>,</li>
 <li><code>'chemical'</code>: hydropathy, volume, charge, polarity, acceptor/donor features, <code>(total_L, 6)</code>,</li>
-<li><code>'secondary_structure'</code>: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), <code>(total_L, 3)</code>.</li>
+<li><code>'secondary_structure'</code>: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), <code>(total_L, 3)</code>,</li>
+<li><code>'sidechain_coords'</code>: the coordinates of the sidechain atoms (see <code><a title="proteinflow.sidechain_order" href="#proteinflow.sidechain_order">sidechain_order()</a></code> for the order), <code>(total_L, 10, 3)</code>,</li>
 </ul>
 <p>In order to compute additional features, use the <code>feature_functions</code> parameter. It should be a dictionary with keys
 corresponding to the feature names and values corresponding to the functions that compute the features. The functions
 should take a chain dictionary and an integer representation of the sequence as input (the dictionary is in <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> format,
-see the docs for <code><a title="proteinflow.generate_data" href="#proteinflow.generate_data">generate_data()</a></code> for details) and return a <code>np.array</code> shaped as <code>(batch_size, total_length, #features)</code>.</p>
+see the docs for <code><a title="proteinflow.generate_data" href="#proteinflow.generate_data">generate_data()</a></code> for details) and return a <code>numpy</code> array shaped as <code>(#residues, #features)</code>.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>dataset_folder</code></strong> :&ensp;<code>str</code></dt>
@@ -2550,12 +2569,13 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
     - `&#39;sidechain_orientation&#39;`: a unit vector in the direction of the sidechain, `(total_L, 3)`,
     - `&#39;dihedral&#39;`: the dihedral angles, `(total_L, 2)`,
     - `&#39;chemical&#39;`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`,
-    - `&#39;secondary_structure&#39;`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 3)`.
+    - `&#39;secondary_structure&#39;`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 3)`,
+    - `&#39;sidechain_coords&#39;`: the coordinates of the sidechain atoms (see `proteinflow.sidechain_order()` for the order), `(total_L, 10, 3)`,
 
     In order to compute additional features, use the `feature_functions` parameter. It should be a dictionary with keys
     corresponding to the feature names and values corresponding to the functions that compute the features. The functions
     should take a chain dictionary and an integer representation of the sequence as input (the dictionary is in `proteinflow` format,
-    see the docs for `generate_data` for details) and return a `np.array` shaped as `(batch_size, total_length, #features)`.
+    see the docs for `generate_data` for details) and return a `numpy` array shaped as `(#residues, #features)`.
 
     &#34;&#34;&#34;
 
@@ -2632,8 +2652,18 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
             &#34;dihedral&#34;: self._dihedral,
             &#34;chemical&#34;: self._chemical,
             &#34;secondary_structure&#34;: self._sse,
+            &#34;sidechain_coords&#34;: self._sidechain_coords,
         }
         self.feature_functions.update(feature_functions or {})
+        if classes_to_exclude is not None and not all(
+            [
+                x in [&#34;single_chains&#34;, &#34;heteromers&#34;, &#34;homomers&#34;]
+                for x in classes_to_exclude
+            ]
+        ):
+            raise ValueError(
+                &#34;Invalid class to exclude, choose from &#39;single_chains&#39;, &#39;heteromers&#39;, &#39;homomers&#39;&#34;
+            )
 
         if debug_file_path is not None:
             self.dataset_folder = os.path.dirname(debug_file_path)
@@ -2722,8 +2752,7 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
                 self.clusters[key] = [
                     [x[0].split(&#34;.&#34;)[0], x[1]]
                     for x in self.clusters[key]
-                    if x[0].split(&#34;.&#34;)[0] in self.files
-                    and x[0].split(&#34;.&#34;)[0] not in to_exclude
+                    if x[0].split(&#34;.&#34;)[0] in self.files and x[0] not in to_exclude
                 ]
                 if len(self.clusters[key]) == 0:
                     self.clusters.pop(key)
@@ -2882,6 +2911,14 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
         sse = _annotate_sse(chain_dict[&#34;crd_bb&#34;])
         sse = np.array([sse_map[x] for x in sse]) * chain_dict[&#34;msk&#34;][:, None]
         return sse
+
+    def _sidechain_coords(self, chain_dict, seq):
+        &#34;&#34;&#34;
+        Sidechain coordinates
+        &#34;&#34;&#34;
+
+        crd_sc = chain_dict[&#34;crd_sc&#34;]
+        return crd_sc
 
     def _process(self, filename, rewrite=False, max_length=None):
         &#34;&#34;&#34;
@@ -3192,7 +3229,7 @@ forced to be in a binding site</dd>
             only process 1000 files
         interpolate : {&#34;none&#34;, &#34;only_middle&#34;, &#34;all&#34;}
             `&#34;none&#34;` for no interpolation, `&#34;only_middle&#34;` for only linear interpolation in the middle, `&#34;all&#34;` for linear interpolation + ends generation
-        node_features_type : {&#34;dihedral&#34;, &#34;sidechain_orientation&#34;, &#34;chemical&#34;, &#34;secondary_structure&#34; or combinations with &#34;+&#34;}, optional
+        node_features_type : {&#34;dihedral&#34;, &#34;sidechain_orientation&#34;, &#34;chemical&#34;, &#34;secondary_structure&#34;, &#34;sidechain_coords&#34;, or combinations with &#34;+&#34;}, optional
             the type of node features, e.g. `&#34;dihedral&#34;` or `&#34;sidechain_orientation+chemical&#34;`
         entry_type : {&#34;biounit&#34;, &#34;chain&#34;, &#34;pair&#34;}
             the type of entries to generate (`&#34;biounit&#34;` for biounit-level, `&#34;chain&#34;` for chain-level, `&#34;pair&#34;` for chain-chain pairs)
@@ -3274,7 +3311,7 @@ forced to be in a binding site</dd>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="proteinflow.ProteinLoader.prefetch_factor"><code class="name">var <span class="ident">prefetch_factor</span> : int</code></dt>
+<dt id="proteinflow.ProteinLoader.prefetch_factor"><code class="name">var <span class="ident">prefetch_factor</span> : Optional[int]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -3314,7 +3351,7 @@ forced to be in a binding site</dd>
 <dd>only process 1000 files</dd>
 <dt><strong><code>interpolate</code></strong> :&ensp;<code>{"none", "only_middle", "all"}</code></dt>
 <dd><code>"none"</code> for no interpolation, <code>"only_middle"</code> for only linear interpolation in the middle, <code>"all"</code> for linear interpolation + ends generation</dd>
-<dt><strong><code>node_features_type</code></strong> :&ensp;<code>{"dihedral", "sidechain_orientation", "chemical", "secondary_structure"</code> or <code>combinations with "+"}</code>, optional</dt>
+<dt><strong><code>node_features_type</code></strong> :&ensp;<code>{"dihedral", "sidechain_orientation", "chemical", "secondary_structure", "sidechain_coords",</code> or <code>combinations with "+"}</code>, optional</dt>
 <dd>the type of node features, e.g. <code>"dihedral"</code> or <code>"sidechain_orientation+chemical"</code></dd>
 <dt><strong><code>entry_type</code></strong> :&ensp;<code>{"biounit", "chain", "pair"}</code></dt>
 <dd>the type of entries to generate (<code>"biounit"</code> for biounit-level, <code>"chain"</code> for chain-level, <code>"pair"</code> for chain-chain pairs)</dd>
@@ -3388,7 +3425,7 @@ def from_args(
         only process 1000 files
     interpolate : {&#34;none&#34;, &#34;only_middle&#34;, &#34;all&#34;}
         `&#34;none&#34;` for no interpolation, `&#34;only_middle&#34;` for only linear interpolation in the middle, `&#34;all&#34;` for linear interpolation + ends generation
-    node_features_type : {&#34;dihedral&#34;, &#34;sidechain_orientation&#34;, &#34;chemical&#34;, &#34;secondary_structure&#34; or combinations with &#34;+&#34;}, optional
+    node_features_type : {&#34;dihedral&#34;, &#34;sidechain_orientation&#34;, &#34;chemical&#34;, &#34;secondary_structure&#34;, &#34;sidechain_coords&#34;, or combinations with &#34;+&#34;}, optional
         the type of node features, e.g. `&#34;dihedral&#34;` or `&#34;sidechain_orientation+chemical&#34;`
     entry_type : {&#34;biounit&#34;, &#34;chain&#34;, &#34;pair&#34;}
         the type of entries to generate (`&#34;biounit&#34;` for biounit-level, `&#34;chain&#34;` for chain-level, `&#34;pair&#34;` for chain-chain pairs)
