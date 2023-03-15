@@ -1192,6 +1192,8 @@ class ProteinDataset(Dataset):
             "secondary_structure": self._sse,
         }
         self.feature_functions.update(feature_functions or {})
+        if classes_to_exclude is not None and not all([x in ["single_chains", "heteromers", "homomers"] for x in classes_to_exclude]):
+            raise ValueError("Invalid class to exclude, choose from 'single_chains', 'heteromers', 'homomers'")
 
         if debug_file_path is not None:
             self.dataset_folder = os.path.dirname(debug_file_path)
@@ -1278,7 +1280,7 @@ class ProteinDataset(Dataset):
                     [x[0].split(".")[0], x[1]]
                     for x in self.clusters[key]
                     if x[0].split(".")[0] in self.files
-                    and x[0].split(".")[0] not in to_exclude
+                    and x[0] not in to_exclude
                 ]
                 if len(self.clusters[key]) == 0:
                     self.clusters.pop(key)
