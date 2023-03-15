@@ -26,6 +26,7 @@ def test_download():
             clustering_dict_path=cluster_dict_path,
             entry_type=entry_type,
             classes_to_exclude=classes_to_exclude,
+            max_length=1000,
         )
         batch = next(iter(valid_loader))
         assert set(batch.keys()) == {
@@ -48,6 +49,7 @@ def test_download():
         assert batch["dihedral"].shape == (8, batch["X"].shape[1], 2)
         assert batch["masked_res"].shape == (8, batch["X"].shape[1])
         assert batch["sidechain_coords"].shape == (8, batch["X"].shape[1], 10, 3)
+        assert batch["X"].shape[1] <= 1000
 
     shutil.rmtree(folder)
 
