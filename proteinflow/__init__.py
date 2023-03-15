@@ -1194,8 +1194,15 @@ class ProteinDataset(Dataset):
             "sidechain_coords": self._sidechain_coords,
         }
         self.feature_functions.update(feature_functions or {})
-        if classes_to_exclude is not None and not all([x in ["single_chains", "heteromers", "homomers"] for x in classes_to_exclude]):
-            raise ValueError("Invalid class to exclude, choose from 'single_chains', 'heteromers', 'homomers'")
+        if classes_to_exclude is not None and not all(
+            [
+                x in ["single_chains", "heteromers", "homomers"]
+                for x in classes_to_exclude
+            ]
+        ):
+            raise ValueError(
+                "Invalid class to exclude, choose from 'single_chains', 'heteromers', 'homomers'"
+            )
 
         if debug_file_path is not None:
             self.dataset_folder = os.path.dirname(debug_file_path)
@@ -1223,9 +1230,12 @@ class ProteinDataset(Dataset):
             to_process = to_process[:1000]
         # output_tuples = [self._process(x, rewrite=rewrite) for x in tqdm(to_process)]
         if self.entry_type == "pair":
-            print("Please note that the pair entry type takes longer to process than the other two. The progress bar is not linear because of the varying number of chains per file.")
+            print(
+                "Please note that the pair entry type takes longer to process than the other two. The progress bar is not linear because of the varying number of chains per file."
+            )
         output_tuples_list = p_map(
-            lambda x: self._process(x, rewrite=rewrite, max_length=max_length), to_process
+            lambda x: self._process(x, rewrite=rewrite, max_length=max_length),
+            to_process,
         )
         # save the file names
         for output_tuples in output_tuples_list:
@@ -1281,8 +1291,7 @@ class ProteinDataset(Dataset):
                 self.clusters[key] = [
                     [x[0].split(".")[0], x[1]]
                     for x in self.clusters[key]
-                    if x[0].split(".")[0] in self.files
-                    and x[0] not in to_exclude
+                    if x[0].split(".")[0] in self.files and x[0] not in to_exclude
                 ]
                 if len(self.clusters[key]) == 0:
                     self.clusters.pop(key)
@@ -1482,6 +1491,9 @@ class ProteinDataset(Dataset):
             add_name = True
             if os.path.exists(output_file) and not rewrite:
                 pass_set = True
+                if max_length is not None:
+                    if sum([len(data[x]["seq"]) for x in chain_set]) > max_length:
+                        add_name = False
             else:
                 X = []
                 S = []
@@ -1500,8 +1512,12 @@ class ProteinDataset(Dataset):
 
                 if self.entry_type == "pair":
                     intersect = []
-                    X1 = data[chain_set[0]]["crd_bb"][data[chain_set[0]]["msk"].astype(bool)]
-                    X2 = data[chain_set[1]]["crd_bb"][data[chain_set[1]]["msk"].astype(bool)]
+                    X1 = data[chain_set[0]]["crd_bb"][
+                        data[chain_set[0]]["msk"].astype(bool)
+                    ]
+                    X2 = data[chain_set[1]]["crd_bb"][
+                        data[chain_set[1]]["msk"].astype(bool)
+                    ]
                     for dim in range(3):
                         min_dim_1 = X1[:, :, dim].min()
                         max_dim_1 = X1[:, :, dim].max()
