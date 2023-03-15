@@ -1226,8 +1226,6 @@ class ProteinDataset(Dataset):
             to_process = os.listdir(dataset_folder)
         else:
             to_process = [debug_file_path]
-        if debug:
-            to_process = to_process[:1000]
         if clustering_dict_path is not None and use_fraction < 1:
             with open(clustering_dict_path, "rb") as f:
                 clusters = pickle.load(f)
@@ -1236,6 +1234,8 @@ class ProteinDataset(Dataset):
             for key in keys:
                 to_process.update([x[0] for x in clusters[key]])
             to_process = list(to_process)
+        if debug:
+            to_process = to_process[:1000]
         # output_tuples = [self._process(x, rewrite=rewrite) for x in tqdm(to_process)]
         if self.entry_type == "pair":
             print(
