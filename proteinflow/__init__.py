@@ -1491,6 +1491,9 @@ class ProteinDataset(Dataset):
             add_name = True
             if os.path.exists(output_file) and not rewrite:
                 pass_set = True
+                if max_length is not None:
+                    if sum([len(data[x]["seq"]) for x in chain_set]) > max_length:
+                        add_name = False
             else:
                 X = []
                 S = []
