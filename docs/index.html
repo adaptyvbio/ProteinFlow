@@ -35,6 +35,8 @@ python -m pip install proteinflow
 <p>In addition, <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> depends on the <code>rcsbsearch</code> package and the latest release is currently failing. Follow the recommended fix:</p>
 <pre><code class="language-bash">python -m pip install &quot;rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e&quot;
 </code></pre>
+<p>Note that you do not need to install <code>mmseqs</code> or <code>rcsbsearch</code> if you are not planning to generate a new dataset.</p>
+<p>Finally, you can use our <a href="https://hub.docker.com/r/adaptyvbio/proteinflow/tags">docker image</a> as an alternative.</p>
 <h2 id="usage">Usage</h2>
 <h3 id="downloading-pre-computed-datasets">Downloading pre-computed datasets</h3>
 <p>We have already run the pipeline with a consensus set of parameters and saved the results at a server. You can download the resulting dataset with <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code>. Check the output of <code><a title="proteinflow" href="#proteinflow">proteinflow</a> check_tags</code> for a list of available tags.</p>
@@ -127,6 +129,10 @@ In addition, `proteinflow` depends on the `rcsbsearch` package and the latest re
 ```bash
 python -m pip install &#34;rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e&#34;
 ```
+
+Note that you do not need to install `mmseqs` or `rcsbsearch` if you are not planning to generate a new dataset.
+
+Finally, you can use our [docker image](https://hub.docker.com/r/adaptyvbio/proteinflow/tags) as an alternative.
 
 ## Usage
 ### Downloading pre-computed datasets
@@ -1338,6 +1344,14 @@ class ProteinDataset(Dataset):
             to_process = os.listdir(dataset_folder)
         else:
             to_process = [debug_file_path]
+        if clustering_dict_path is not None and use_fraction &lt; 1:
+            with open(clustering_dict_path, &#34;rb&#34;) as f:
+                clusters = pickle.load(f)
+            keys = sorted(clusters.keys())[: int(len(clusters) * use_fraction)]
+            to_process = set()
+            for key in keys:
+                to_process.update([x[0] for x in clusters[key]])
+            to_process = list(to_process)
         if debug:
             to_process = to_process[:1000]
         # output_tuples = [self._process(x, rewrite=rewrite) for x in tqdm(to_process)]
@@ -1411,8 +1425,8 @@ class ProteinDataset(Dataset):
         else:
             self.clusters = None
             self.data = list(self.files.keys())
-        # create a smaller datset if necessary
-        if use_fraction &lt; 1:
+        # create a smaller dataset if necessary
+        if clustering_dict_path is None and use_fraction &lt; 1:
             self.data = sorted(self.data)[: int(len(self.data) * use_fraction)]
         if load_to_ram:
             print(&#34;Loading to RAM...&#34;)
@@ -2690,6 +2704,14 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
             to_process = os.listdir(dataset_folder)
         else:
             to_process = [debug_file_path]
+        if clustering_dict_path is not None and use_fraction &lt; 1:
+            with open(clustering_dict_path, &#34;rb&#34;) as f:
+                clusters = pickle.load(f)
+            keys = sorted(clusters.keys())[: int(len(clusters) * use_fraction)]
+            to_process = set()
+            for key in keys:
+                to_process.update([x[0] for x in clusters[key]])
+            to_process = list(to_process)
         if debug:
             to_process = to_process[:1000]
         # output_tuples = [self._process(x, rewrite=rewrite) for x in tqdm(to_process)]
@@ -2763,8 +2785,8 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
         else:
             self.clusters = None
             self.data = list(self.files.keys())
-        # create a smaller datset if necessary
-        if use_fraction &lt; 1:
+        # create a smaller dataset if necessary
+        if clustering_dict_path is None and use_fraction &lt; 1:
             self.data = sorted(self.data)[: int(len(self.data) * use_fraction)]
         if load_to_ram:
             print(&#34;Loading to RAM...&#34;)
