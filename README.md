@@ -28,6 +28,9 @@ python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@db
 Note that you do not need to install `mmseqs` or `rcsbsearch` if you are not planning to generate a new dataset.
 
 Finally, you can use our [docker image](https://hub.docker.com/r/adaptyvbio/proteinflow/tags) as an alternative.
+```bash
+docker run -it -v /path/to/data:/media adaptyvbio/proteinflow bash
+```
 
 ## Usage
 ### Downloading pre-computed datasets (stable)
