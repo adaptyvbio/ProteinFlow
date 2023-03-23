@@ -1300,11 +1300,20 @@ class ProteinDataset(Dataset):
                     for id, _ in id_arr:
                         to_exclude.add(id)
             for key in list(self.clusters.keys()):
-                self.clusters[key] = [
-                    [x[0].split(".")[0], x[1]]
-                    for x in self.clusters[key]
-                    if x[0].split(".")[0] in self.files and x[0] not in to_exclude
-                ]
+                cluster_list = []
+                for x in self.clusters[key]:
+                    if x[0] in to_exclude:
+                        continue
+                    id = x[0].split(".")[0]
+                    chain = x[1]
+                    if id not in self.files:
+                        continue
+                    if chain not in self.files[id]:
+                        continue
+                    if len(self.files[id][chain]) == 0:
+                        continue
+                    cluster_list.append([id, chain])
+                self.clusters[key] = cluster_list
                 if len(self.clusters[key]) == 0:
                     self.clusters.pop(key)
             self.data = list(self.clusters.keys())
@@ -1596,6 +1605,7 @@ class ProteinDataset(Dataset):
             cluster = self.data[idx]
             id = None
             chain_n = -1
+            # print(f'{self.clusters[cluster]=}')
             while (
                 id is None or len(self.files[id][chain_id]) == 0
             ):  # some IDs can be filtered out by length
@@ -1606,6 +1616,7 @@ class ProteinDataset(Dataset):
                 id, chain_id = self.clusters[cluster][
                     chain_n
                 ]  # get id and chain from cluster
+                # print(f'{id=}, {len(self.files[id][chain_id])=}')
         file = random.choice(self.files[id][chain_id])
         if self.loaded is None:
             with open(file, "rb") as f:
