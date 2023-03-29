@@ -1659,6 +1659,7 @@ class ProteinLoader(DataLoader):
         mask_frac=None,
         force_binding_sites_frac=0,
         shuffle_batches=True,
+        collate_fn=None,
         *args,
         **kwargs,
     ):
@@ -1682,6 +1683,8 @@ class ProteinLoader(DataLoader):
             if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
         shuffle_batches : bool, default True
             if `True`, the batches are shuffled at each epoch
+        collate_fn : callable, optional
+            a function that takes a list of samples and returns a batch
         """
 
         super().__init__(
@@ -1693,7 +1696,7 @@ class ProteinLoader(DataLoader):
                 lower_limit=lower_limit,
                 upper_limit=upper_limit,
                 force_binding_sites_frac=force_binding_sites_frac,
-            ),
+            ) if collate_fn is None else collate_fn,
             shuffle=shuffle_batches,
             *args,
             **kwargs,
