@@ -1696,7 +1696,9 @@ class ProteinLoader(DataLoader):
                 lower_limit=lower_limit,
                 upper_limit=upper_limit,
                 force_binding_sites_frac=force_binding_sites_frac,
-            ) if collate_fn is None else collate_fn,
+            )
+            if collate_fn is None
+            else collate_fn,
             shuffle=shuffle_batches,
             *args,
             **kwargs,
