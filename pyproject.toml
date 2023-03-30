@@ -29,7 +29,6 @@ dependencies = [
     "aiobotocore==2.4.2",
     "awscli==1.25.60",
     "rcsbsearch",
-    "sidechainnet",
 ]
 keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning"]
 
