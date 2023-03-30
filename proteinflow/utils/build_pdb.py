@@ -13,6 +13,7 @@ from einops import rearrange
 
 
 ATOM_MAP_4 = {a: ["N", "C", "CA", "O"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
+ATOM_MAP_1 = {a: ["CA"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
 ALPHABET = "XACDEFGHIKLMNPQRSTVWY"
 
 
@@ -30,6 +31,8 @@ class PdbBuilder(object):
             coords,
             chain_dict,
             chain_id_arr,
+            only_ca=False,
+            mask=None,
         ):
         """
         Parameters
@@ -46,9 +49,11 @@ class PdbBuilder(object):
 
         """
         seq = np.array([ALPHABET[x] for x in seq.int().numpy()])
+        if only_ca:
+            coords = coords[:, 2, :].unsqueeze(1)
         coords = rearrange(coords, "l n c -> (l n) c")
 
-        atoms_per_res = 4
+        atoms_per_res = 1 if only_ca else 4
         terminal_atoms = None
 
         if len(seq) != coords.shape[0] / atoms_per_res:
@@ -59,11 +64,12 @@ class PdbBuilder(object):
         if coords.shape[0] % atoms_per_res != 0:
             raise AssertionError(f"Coords is not divisible by {atoms_per_res}. "
                                  f"{coords.shape}")
-        if atoms_per_res not in (NUM_COORDS_PER_RES, NUM_COORDS_PER_RES_W_HYDROGENS, 4):
+        if atoms_per_res not in (NUM_COORDS_PER_RES, NUM_COORDS_PER_RES_W_HYDROGENS, 4, 1):
             raise ValueError(
                 f"Values for atoms_per_res other than {NUM_COORDS_PER_RES}"
-                f"/{NUM_COORDS_PER_RES_W_HYDROGENS}/4 are currently not supported.")
+                f"/{NUM_COORDS_PER_RES_W_HYDROGENS}/4/1 are currently not supported.")
 
+        self.only_ca = only_ca
         self.atoms_per_res = atoms_per_res
         self.has_hydrogens = self.atoms_per_res == NUM_COORDS_PER_RES_W_HYDROGENS
         self.only_backbone = self.atoms_per_res == 4
@@ -75,6 +81,10 @@ class PdbBuilder(object):
         chain_dict_inv = {v: k for k, v in chain_dict.items()}
         self.chain_ids = np.array([chain_dict_inv[x] for x in chain_id_arr.numpy()])
         self.chain_ids_unique = list(chain_dict.keys())
+
+        if mask is not None:
+            self.chain_ids[mask.bool()] = "mask"
+        self.chain_ids_unique.append("mask")
 
         # PDB Formatting Information
         self.format_str = ("{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}"
@@ -181,7 +191,9 @@ class PdbBuilder(object):
     def _make_mapping_from_seq(self):
         """Given a protein sequence, this returns a mapping that assumes coords are
         generated in groups of atoms_per_res (the output is L x atoms_per_res x 3.)"""
-        if self.only_backbone:
+        if self.only_ca:
+            atom_names = ATOM_MAP_1
+        elif self.only_backbone:
             atom_names = ATOM_MAP_4
         else:
             atom_names = ATOM_MAP_14 if not self.has_hydrogens else ATOM_MAP_24
