@@ -1491,7 +1491,7 @@ class ProteinDataset(Dataset):
             with open(input_file, "rb") as f:
                 data = pickle.load(f)
         except:
-            print(f"{input_file=}")
+            raise RuntimeError(f"Could not load file {input_file}")
         chains = sorted(data.keys())
         if self.entry_type == "biounit":
             chain_sets = [chains]
