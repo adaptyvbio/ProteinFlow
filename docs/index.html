@@ -1414,11 +1414,20 @@ class ProteinDataset(Dataset):
                     for id, _ in id_arr:
                         to_exclude.add(id)
             for key in list(self.clusters.keys()):
-                self.clusters[key] = [
-                    [x[0].split(&#34;.&#34;)[0], x[1]]
-                    for x in self.clusters[key]
-                    if x[0].split(&#34;.&#34;)[0] in self.files and x[0] not in to_exclude
-                ]
+                cluster_list = []
+                for x in self.clusters[key]:
+                    if x[0] in to_exclude:
+                        continue
+                    id = x[0].split(&#34;.&#34;)[0]
+                    chain = x[1]
+                    if id not in self.files:
+                        continue
+                    if chain not in self.files[id]:
+                        continue
+                    if len(self.files[id][chain]) == 0:
+                        continue
+                    cluster_list.append([id, chain])
+                self.clusters[key] = cluster_list
                 if len(self.clusters[key]) == 0:
                     self.clusters.pop(key)
             self.data = list(self.clusters.keys())
@@ -1710,6 +1719,7 @@ class ProteinDataset(Dataset):
             cluster = self.data[idx]
             id = None
             chain_n = -1
+            # print(f&#39;{self.clusters[cluster]=}&#39;)
             while (
                 id is None or len(self.files[id][chain_id]) == 0
             ):  # some IDs can be filtered out by length
@@ -1720,6 +1730,7 @@ class ProteinDataset(Dataset):
                 id, chain_id = self.clusters[cluster][
                     chain_n
                 ]  # get id and chain from cluster
+                # print(f&#39;{id=}, {len(self.files[id][chain_id])=}&#39;)
         file = random.choice(self.files[id][chain_id])
         if self.loaded is None:
             with open(file, &#34;rb&#34;) as f:
@@ -1762,6 +1773,7 @@ class ProteinLoader(DataLoader):
         mask_frac=None,
         force_binding_sites_frac=0,
         shuffle_batches=True,
+        collate_fn=None,
         *args,
         **kwargs,
     ):
@@ -1785,6 +1797,8 @@ class ProteinLoader(DataLoader):
             if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
         shuffle_batches : bool, default True
             if `True`, the batches are shuffled at each epoch
+        collate_fn : callable, optional
+            a function that takes a list of samples and returns a batch
         &#34;&#34;&#34;
 
         super().__init__(
@@ -1796,7 +1810,9 @@ class ProteinLoader(DataLoader):
                 lower_limit=lower_limit,
                 upper_limit=upper_limit,
                 force_binding_sites_frac=force_binding_sites_frac,
-            ),
+            )
+            if collate_fn is None
+            else collate_fn,
             shuffle=shuffle_batches,
             *args,
             **kwargs,
@@ -2774,11 +2790,20 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
                     for id, _ in id_arr:
                         to_exclude.add(id)
             for key in list(self.clusters.keys()):
-                self.clusters[key] = [
-                    [x[0].split(&#34;.&#34;)[0], x[1]]
-                    for x in self.clusters[key]
-                    if x[0].split(&#34;.&#34;)[0] in self.files and x[0] not in to_exclude
-                ]
+                cluster_list = []
+                for x in self.clusters[key]:
+                    if x[0] in to_exclude:
+                        continue
+                    id = x[0].split(&#34;.&#34;)[0]
+                    chain = x[1]
+                    if id not in self.files:
+                        continue
+                    if chain not in self.files[id]:
+                        continue
+                    if len(self.files[id][chain]) == 0:
+                        continue
+                    cluster_list.append([id, chain])
+                self.clusters[key] = cluster_list
                 if len(self.clusters[key]) == 0:
                     self.clusters.pop(key)
             self.data = list(self.clusters.keys())
@@ -3070,6 +3095,7 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
             cluster = self.data[idx]
             id = None
             chain_n = -1
+            # print(f&#39;{self.clusters[cluster]=}&#39;)
             while (
                 id is None or len(self.files[id][chain_id]) == 0
             ):  # some IDs can be filtered out by length
@@ -3080,6 +3106,7 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
                 id, chain_id = self.clusters[cluster][
                     chain_n
                 ]  # get id and chain from cluster
+                # print(f&#39;{id=}, {len(self.files[id][chain_id])=}&#39;)
         file = random.choice(self.files[id][chain_id])
         if self.loaded is None:
             with open(file, &#34;rb&#34;) as f:
@@ -3098,7 +3125,7 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
 </dd>
 <dt id="proteinflow.ProteinLoader"><code class="flex name class">
 <span>class <span class="ident">ProteinLoader</span></span>
-<span>(</span><span>dataset, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, force_binding_sites_frac=0, shuffle_batches=True, *args, **kwargs)</span>
+<span>(</span><span>dataset, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, force_binding_sites_frac=0, shuffle_batches=True, collate_fn=None, *args, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A subclass of <code>torch.data.utils.DataLoader</code> tuned for the <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> dataset</p>
@@ -3133,6 +3160,8 @@ forced to be in a binding site</dd>
 <dd>if <code>True</code>, a new representative is randomly selected for each cluster at each epoch (if <code>clustering_dict_path</code> is given)</dd>
 <dt><strong><code>shuffle_batches</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>if <code>True</code>, the batches are shuffled at each epoch</dd>
+<dt><strong><code>collate_fn</code></strong> :&ensp;<code>callable</code>, optional</dt>
+<dd>a function that takes a list of samples and returns a batch</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -3169,6 +3198,7 @@ forced to be in a binding site</dd>
         mask_frac=None,
         force_binding_sites_frac=0,
         shuffle_batches=True,
+        collate_fn=None,
         *args,
         **kwargs,
     ):
@@ -3192,6 +3222,8 @@ forced to be in a binding site</dd>
             if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
         shuffle_batches : bool, default True
             if `True`, the batches are shuffled at each epoch
+        collate_fn : callable, optional
+            a function that takes a list of samples and returns a batch
         &#34;&#34;&#34;
 
         super().__init__(
@@ -3203,7 +3235,9 @@ forced to be in a binding site</dd>
                 lower_limit=lower_limit,
                 upper_limit=upper_limit,
                 force_binding_sites_frac=force_binding_sites_frac,
-            ),
+            )
+            if collate_fn is None
+            else collate_fn,
             shuffle=shuffle_batches,
             *args,
             **kwargs,
