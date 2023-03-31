@@ -854,7 +854,7 @@ class _PadCollate:
         # pad according to max_len
         to_pad = [max_len - b["S"].shape[0] for b in batch]
         for key in batch[0].keys():
-            if key in ["chain_id", "chain_dict"]:
+            if key in ["chain_id", "chain_dict", "pdb_id"]:
                 continue
             out[key] = torch.stack(
                 [
@@ -865,6 +865,8 @@ class _PadCollate:
             )
         out["chain_id"] = torch.tensor([b["chain_id"] for b in batch])
         out["masked_res"] = self._get_masked_sequence(out)
+        out["chain_dict"] = [b["chain_dict"] for b in batch]
+        out["pdb_id"] = [b["pdb_id"] for b in batch]
         return out
 
     def __call__(self, batch):
@@ -1487,11 +1489,8 @@ class ProteinDataset(Dataset):
 
         input_file = os.path.join(self.dataset_folder, filename)
         no_extension_name = filename.split(".")[0]
-        try:
-            with open(input_file, "rb") as f:
-                data = pickle.load(f)
-        except:
-            print(f"{input_file=}")
+        with open(input_file, "rb") as f:
+            data = pickle.load(f)
         chains = sorted(data.keys())
         if self.entry_type == "biounit":
             chain_sets = [chains]
@@ -1587,6 +1586,7 @@ class ProteinDataset(Dataset):
             out["chain_encoding_all"] = torch.cat(chain_encoding_all)
             out["residue_idx"] = torch.cat(residue_idx)
             out["chain_dict"] = chain_dict
+            out["pdb_id"] = no_extension_name.split("-")[0]
             for key, value_list in node_features.items():
                 out[key] = torch.from_numpy(np.concatenate(value_list))
             with open(output_file, "wb") as f:
@@ -1624,7 +1624,6 @@ class ProteinDataset(Dataset):
         else:
             data = deepcopy(self.loaded[file])
         data["chain_id"] = data["chain_dict"][chain_id]
-        data.pop("chain_dict")
         return data
 
 

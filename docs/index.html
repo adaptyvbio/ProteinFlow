@@ -968,7 +968,7 @@ class _PadCollate:
         # pad according to max_len
         to_pad = [max_len - b[&#34;S&#34;].shape[0] for b in batch]
         for key in batch[0].keys():
-            if key in [&#34;chain_id&#34;, &#34;chain_dict&#34;]:
+            if key in [&#34;chain_id&#34;, &#34;chain_dict&#34;, &#34;pdb_id&#34;]:
                 continue
             out[key] = torch.stack(
                 [
@@ -979,6 +979,8 @@ class _PadCollate:
             )
         out[&#34;chain_id&#34;] = torch.tensor([b[&#34;chain_id&#34;] for b in batch])
         out[&#34;masked_res&#34;] = self._get_masked_sequence(out)
+        out[&#34;chain_dict&#34;] = [b[&#34;chain_dict&#34;] for b in batch]
+        out[&#34;pdb_id&#34;] = [b[&#34;pdb_id&#34;] for b in batch]
         return out
 
     def __call__(self, batch):
@@ -1601,11 +1603,8 @@ class ProteinDataset(Dataset):
 
         input_file = os.path.join(self.dataset_folder, filename)
         no_extension_name = filename.split(&#34;.&#34;)[0]
-        try:
-            with open(input_file, &#34;rb&#34;) as f:
-                data = pickle.load(f)
-        except:
-            print(f&#34;{input_file=}&#34;)
+        with open(input_file, &#34;rb&#34;) as f:
+            data = pickle.load(f)
         chains = sorted(data.keys())
         if self.entry_type == &#34;biounit&#34;:
             chain_sets = [chains]
@@ -1701,6 +1700,7 @@ class ProteinDataset(Dataset):
             out[&#34;chain_encoding_all&#34;] = torch.cat(chain_encoding_all)
             out[&#34;residue_idx&#34;] = torch.cat(residue_idx)
             out[&#34;chain_dict&#34;] = chain_dict
+            out[&#34;pdb_id&#34;] = no_extension_name.split(&#34;-&#34;)[0]
             for key, value_list in node_features.items():
                 out[key] = torch.from_numpy(np.concatenate(value_list))
             with open(output_file, &#34;wb&#34;) as f:
@@ -1738,7 +1738,6 @@ class ProteinDataset(Dataset):
         else:
             data = deepcopy(self.loaded[file])
         data[&#34;chain_id&#34;] = data[&#34;chain_dict&#34;][chain_id]
-        data.pop(&#34;chain_dict&#34;)
         return data
 
 
@@ -2977,11 +2976,8 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
 
         input_file = os.path.join(self.dataset_folder, filename)
         no_extension_name = filename.split(&#34;.&#34;)[0]
-        try:
-            with open(input_file, &#34;rb&#34;) as f:
-                data = pickle.load(f)
-        except:
-            print(f&#34;{input_file=}&#34;)
+        with open(input_file, &#34;rb&#34;) as f:
+            data = pickle.load(f)
         chains = sorted(data.keys())
         if self.entry_type == &#34;biounit&#34;:
             chain_sets = [chains]
@@ -3077,6 +3073,7 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
             out[&#34;chain_encoding_all&#34;] = torch.cat(chain_encoding_all)
             out[&#34;residue_idx&#34;] = torch.cat(residue_idx)
             out[&#34;chain_dict&#34;] = chain_dict
+            out[&#34;pdb_id&#34;] = no_extension_name.split(&#34;-&#34;)[0]
             for key, value_list in node_features.items():
                 out[key] = torch.from_numpy(np.concatenate(value_list))
             with open(output_file, &#34;wb&#34;) as f:
@@ -3114,7 +3111,6 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
         else:
             data = deepcopy(self.loaded[file])
         data[&#34;chain_id&#34;] = data[&#34;chain_dict&#34;][chain_id]
-        data.pop(&#34;chain_dict&#34;)
         return data</code></pre>
 </details>
 <h3>Ancestors</h3>
