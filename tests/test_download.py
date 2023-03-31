@@ -43,6 +43,8 @@ def test_download():
             "secondary_structure",
             "masked_res",
             "sidechain_coords",
+            "pdb_id",
+            "chain_dict",
         }
         assert batch["X"].shape == (8, batch["X"].shape[1], 4, 3)
         assert batch["S"].shape == (8, batch["X"].shape[1])
