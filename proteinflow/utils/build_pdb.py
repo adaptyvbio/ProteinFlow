@@ -196,7 +196,7 @@ class PdbBuilder(object):
         elif self.only_backbone:
             atom_names = ATOM_MAP_4
         else:
-            atom_names = ATOM_MAP_14 if not self.has_hydrogens else ATOM_MAP_24
+            atom_names = ATOM_MAP_24
         mapping = []
         for residue in self.seq:
             mapping.append((residue, atom_names[residue]))
