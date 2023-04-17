@@ -20,6 +20,8 @@ conda activate proteinflow
 python -m pip install proteinflow
 ```
 
+If you are using `python 3.10` and encountering installation problems, try running `python -m pip install prody==2.4.0` before installing `proteinflow`.
+
 ### Additional requirements
 In most cases, running the commands is enough. However, if you are planning to generate a new dataset, there is a couple additional requirements.
 
