@@ -1,5 +1,4 @@
 test.ipynb
-sidechainnet_data/
 data/
 .vscode/
 log*
@@ -10,3 +9,4 @@ proteinmpnn/
 rcsbsearch/
 .pytest_cache/
 *ipynb
+pulchra304
