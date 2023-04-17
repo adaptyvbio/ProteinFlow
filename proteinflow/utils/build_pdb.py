@@ -5,7 +5,10 @@ Adapted from `sidechainnet`.
 import itertools
 import numpy as np
 from sidechainnet.structure.build_info import NUM_COORDS_PER_RES, SC_BUILD_INFO
-from sidechainnet.structure.HydrogenBuilder import ATOM_MAP_24, NUM_COORDS_PER_RES_W_HYDROGENS
+from sidechainnet.structure.HydrogenBuilder import (
+    ATOM_MAP_24,
+    NUM_COORDS_PER_RES_W_HYDROGENS,
+)
 from sidechainnet.structure.structure import coord_generator
 from sidechainnet.utils.sequence import ONE_TO_THREE_LETTER_MAP
 from proteinflow import ALPHABET
@@ -27,15 +30,15 @@ class PdbBuilder(object):
     """
 
     def __init__(
-            self, 
-            seq,
-            coords,
-            chain_dict,
-            chain_id_arr,
-            only_ca=False,
-            skip_oxygens=False,
-            mask=None,
-        ):
+        self,
+        seq,
+        coords,
+        chain_dict,
+        chain_id_arr,
+        only_ca=False,
+        skip_oxygens=False,
+        mask=None,
+    ):
         """
         Parameters
         ----------
@@ -68,15 +71,26 @@ class PdbBuilder(object):
         if len(seq) != coords.shape[0] / atoms_per_res:
             raise ValueError(
                 "The sequence length must match the coordinate length and contain 1 "
-                "letter AA codes." + str(coords.shape[0] / atoms_per_res) + " " +
-                str(len(seq)))
+                "letter AA codes."
+                + str(coords.shape[0] / atoms_per_res)
+                + " "
+                + str(len(seq))
+            )
         if coords.shape[0] % atoms_per_res != 0:
-            raise AssertionError(f"Coords is not divisible by {atoms_per_res}. "
-                                 f"{coords.shape}")
-        if atoms_per_res not in (NUM_COORDS_PER_RES, NUM_COORDS_PER_RES_W_HYDROGENS, 4, 1, 3):
+            raise AssertionError(
+                f"Coords is not divisible by {atoms_per_res}. " f"{coords.shape}"
+            )
+        if atoms_per_res not in (
+            NUM_COORDS_PER_RES,
+            NUM_COORDS_PER_RES_W_HYDROGENS,
+            4,
+            1,
+            3,
+        ):
             raise ValueError(
                 f"Values for atoms_per_res other than {NUM_COORDS_PER_RES}"
-                f"/{NUM_COORDS_PER_RES_W_HYDROGENS}/4/1 are currently not supported.")
+                f"/{NUM_COORDS_PER_RES_W_HYDROGENS}/4/1 are currently not supported."
+            )
 
         self.only_ca = only_ca
         self.skip_oxygens = skip_oxygens
@@ -97,8 +111,10 @@ class PdbBuilder(object):
         self.chain_ids_unique.append("mask")
 
         # PDB Formatting Information
-        self.format_str = ("{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}"
-                           "{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}")
+        self.format_str = (
+            "{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}"
+            "{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}"
+        )
         self.defaults = {
             "alt_loc": "",
             "chain_id": "A",
@@ -106,7 +122,7 @@ class PdbBuilder(object):
             "occupancy": 1,
             "temp_factor": 0,
             "element_sym": "",
-            "charge": ""
+            "charge": "",
         }
         self.title = "Untitled"
         self.atom_nbr = 1
@@ -119,7 +135,9 @@ class PdbBuilder(object):
         """Return a generator to iteratively yield self.atoms_per_res atoms at a time."""
         return coord_generator(self.coords, self.atoms_per_res)
 
-    def _get_line_for_atom(self, res_name, atom_name, atom_coords, chain_id, missing=False):
+    def _get_line_for_atom(
+        self, res_name, atom_name, atom_coords, chain_id, missing=False
+    ):
         """Return the 'ATOM...' line in PDB format for the specified atom.
 
         If missing, this function should have special, but not yet determined,
@@ -130,41 +148,62 @@ class PdbBuilder(object):
         else:
             occupancy = self.defaults["occupancy"]
         return self.format_str.format(
-            "ATOM", self.atom_nbr, atom_name, self.defaults["alt_loc"],
-            ONE_TO_THREE_LETTER_MAP[res_name], chain_id, self.res_nbr,
-            self.defaults["insertion_code"], atom_coords[0], atom_coords[1],
-            atom_coords[2], occupancy, self.defaults["temp_factor"], atom_name[0],
-            self.defaults["charge"])
+            "ATOM",
+            self.atom_nbr,
+            atom_name,
+            self.defaults["alt_loc"],
+            ONE_TO_THREE_LETTER_MAP[res_name],
+            chain_id,
+            self.res_nbr,
+            self.defaults["insertion_code"],
+            atom_coords[0],
+            atom_coords[1],
+            atom_coords[2],
+            occupancy,
+            self.defaults["temp_factor"],
+            atom_name[0],
+            self.defaults["charge"],
+        )
 
-    def _get_lines_for_residue(self,
-                               res_name,
-                               atom_names,
-                               coords,
-                               chain_id,
-                               n_terminal=False,
-                               c_terminal=False):
+    def _get_lines_for_residue(
+        self, res_name, atom_names, coords, chain_id, n_terminal=False, c_terminal=False
+    ):
         """Return a list of PDB-formatted lines for all atoms in a single residue.
 
         Calls get_line_for_atom.
         """
         residue_lines = []
         for atom_name, atom_coord in zip(atom_names, coords):
-            if (atom_name == "PAD" or np.isnan(atom_coord).sum() > 0 or
-                    atom_coord.sum() == 0):
+            if (
+                atom_name == "PAD"
+                or np.isnan(atom_coord).sum() > 0
+                or atom_coord.sum() == 0
+            ):
                 continue
-            residue_lines.append(self._get_line_for_atom(res_name, atom_name, atom_coord, chain_id))
+            residue_lines.append(
+                self._get_line_for_atom(res_name, atom_name, atom_coord, chain_id)
+            )
             self.atom_nbr += 1
 
         # Add Terminal Atoms (Must be provided in terminal_atoms dict; Hs must be built)
         if n_terminal and self.terminal_atoms:
             residue_lines.append(
-                self._get_line_for_atom(res_name, "H2", self.terminal_atoms["H2"], chain_id))
+                self._get_line_for_atom(
+                    res_name, "H2", self.terminal_atoms["H2"], chain_id
+                )
+            )
             residue_lines.append(
-                self._get_line_for_atom(res_name, "H3", self.terminal_atoms["H3"], chain_id))
+                self._get_line_for_atom(
+                    res_name, "H3", self.terminal_atoms["H3"], chain_id
+                )
+            )
             self.atom_nbr += 2
         if c_terminal and self.terminal_atoms:
             residue_lines.append(
-                self._get_line_for_atom(res_name, "OXT", self.terminal_atoms["OXT"], chain_id))
+                self._get_line_for_atom(
+                    res_name, "OXT", self.terminal_atoms["OXT"], chain_id
+                )
+            )
 
         return residue_lines
 
@@ -180,12 +219,15 @@ class PdbBuilder(object):
         for index, ((res_name, atom_names), res_coords) in enumerate(mapping_coords):
             # TODO assumes only first/last residue have terminal atoms
             self._pdb_body_lines.extend(
-                self._get_lines_for_residue(res_name,
-                                            atom_names,
-                                            res_coords,
-                                            self.chain_ids[index],
-                                            n_terminal=index == 0,
-                                            c_terminal=index == len(self.seq) - 1))
+                self._get_lines_for_residue(
+                    res_name,
+                    atom_names,
+                    res_coords,
+                    self.chain_ids[index],
+                    n_terminal=index == 0,
+                    c_terminal=index == len(self.seq) - 1,
+                )
+            )
             self.res_nbr += 1
         return self._pdb_body_lines
 
@@ -221,8 +263,9 @@ class PdbBuilder(object):
         if self._pdb_str:
             return self._pdb_str
         self._get_lines_for_protein()
-        self._pdb_lines = [self._make_header(title)
-                           ] + self._pdb_body_lines + [self._make_footer()]
+        self._pdb_lines = (
+            [self._make_header(title)] + self._pdb_body_lines + [self._make_footer()]
+        )
         self._pdb_str = "\n".join(self._pdb_lines)
         return self._pdb_str
 
@@ -238,7 +281,9 @@ class PdbBuilder(object):
             nres = len(self.seq)
             for block in residue_blocks:
                 res_block_str = " ".join(block)
-                cur_line = f"SEQRES {lineno: >3} {chain} {nres: >4}  {res_block_str: <61}"
+                cur_line = (
+                    f"SEQRES {lineno: >3} {chain} {nres: >4}  {res_block_str: <61}"
+                )
                 lines.append(cur_line)
                 lineno += 1
         return "\n".join(lines)
@@ -254,6 +299,7 @@ class PdbBuilder(object):
         Used for visualizing with Weights and Biases.
         """
         import pymol
+
         assert ".gltf" in path, "requested filepath must end with '.gtlf'."
         if create_pdb:
             self.save_pdb(path.replace(".gltf", ".pdb"), title)
@@ -270,4 +316,3 @@ def split_every(n, iterable):
     while piece:
         yield piece
         piece = list(itertools.islice(i, n))
-

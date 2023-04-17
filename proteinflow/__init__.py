@@ -1586,7 +1586,7 @@ class ProteinDataset(Dataset):
             out["chain_encoding_all"] = torch.cat(chain_encoding_all)
             out["residue_idx"] = torch.cat(residue_idx)
             out["chain_dict"] = chain_dict
-            out["pdb_id"] = no_extension_name.split('-')[0]
+            out["pdb_id"] = no_extension_name.split("-")[0]
             for key, value_list in node_features.items():
                 out[key] = torch.from_numpy(np.concatenate(value_list))
             with open(output_file, "wb") as f:
