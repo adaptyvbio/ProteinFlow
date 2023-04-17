@@ -30,15 +30,15 @@ class PdbBuilder(object):
     """
 
     def __init__(
-            self, 
-            seq,
-            coords,
-            chain_dict,
-            chain_id_arr,
-            only_ca=False,
-            skip_oxygens=False,
-            mask=None,
-        ):
+        self,
+        seq,
+        coords,
+        chain_dict,
+        chain_id_arr,
+        only_ca=False,
+        skip_oxygens=False,
+        mask=None,
+    ):
         """
         Parameters
         ----------
@@ -77,9 +77,16 @@ class PdbBuilder(object):
                 + str(len(seq))
             )
         if coords.shape[0] % atoms_per_res != 0:
-            raise AssertionError(f"Coords is not divisible by {atoms_per_res}. "
-                                 f"{coords.shape}")
-        if atoms_per_res not in (NUM_COORDS_PER_RES, NUM_COORDS_PER_RES_W_HYDROGENS, 4, 1, 3):
+            raise AssertionError(
+                f"Coords is not divisible by {atoms_per_res}. " f"{coords.shape}"
+            )
+        if atoms_per_res not in (
+            NUM_COORDS_PER_RES,
+            NUM_COORDS_PER_RES_W_HYDROGENS,
+            4,
+            1,
+            3,
+        ):
             raise ValueError(
                 f"Values for atoms_per_res other than {NUM_COORDS_PER_RES}"
                 f"/{NUM_COORDS_PER_RES_W_HYDROGENS}/4/1 are currently not supported."
