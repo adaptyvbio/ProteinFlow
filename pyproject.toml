@@ -11,12 +11,12 @@ authors = [
 ]
 description = "Versatile pipeline for processing protein structure data for deep learning applications."
 readme = "README.md"
-requires-python = ">=3.8,<3.10"
+requires-python = ">=3.8"
 license = {text = "BSD-3-Clause"}
 dependencies = [
     "numpy",
     "editdistance>=0.6.0",
-    "Biopython>=1.80",
+    "Biopython==1.79",
     "click>=8.1.3",
     "biopandas>=0.4.1",
     "boto3==1.24.59",
@@ -28,6 +28,7 @@ dependencies = [
     "biotite==0.35.0",
     "aiobotocore==2.4.2",
     "awscli==1.25.60",
+    "prody>=2.4",
     "rcsbsearch",
     "sidechainnet",
 ]

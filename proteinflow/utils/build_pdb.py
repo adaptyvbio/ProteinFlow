@@ -17,6 +17,7 @@ from einops import rearrange
 
 ATOM_MAP_4 = {a: ["N", "C", "CA", "O"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
 ATOM_MAP_1 = {a: ["CA"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
+ATOM_MAP_3 = {a: ["N", "C", "CA"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
 ALPHABET = "XACDEFGHIKLMNPQRSTVWY"
 
 
@@ -35,6 +36,7 @@ class PdbBuilder(object):
         chain_dict,
         chain_id_arr,
         only_ca=False,
+        skip_oxygens=False,
         mask=None,
     ):
         """
@@ -54,9 +56,16 @@ class PdbBuilder(object):
         seq = np.array([ALPHABET[x] for x in seq.int().numpy()])
         if only_ca:
             coords = coords[:, 2, :].unsqueeze(1)
+        elif skip_oxygens:
+            coords = coords[:, :-1, :]
         coords = rearrange(coords, "l n c -> (l n) c")
 
-        atoms_per_res = 1 if only_ca else 4
+        if only_ca:
+            atoms_per_res = 1
+        elif skip_oxygens:
+            atoms_per_res = 3
+        else:
+            atoms_per_res = 4
         terminal_atoms = None
 
         if len(seq) != coords.shape[0] / atoms_per_res:
@@ -76,6 +85,7 @@ class PdbBuilder(object):
             NUM_COORDS_PER_RES_W_HYDROGENS,
             4,
             1,
+            3,
         ):
             raise ValueError(
                 f"Values for atoms_per_res other than {NUM_COORDS_PER_RES}"
@@ -83,6 +93,7 @@ class PdbBuilder(object):
             )
 
         self.only_ca = only_ca
+        self.skip_oxygens = skip_oxygens
         self.atoms_per_res = atoms_per_res
         self.has_hydrogens = self.atoms_per_res == NUM_COORDS_PER_RES_W_HYDROGENS
         self.only_backbone = self.atoms_per_res == 4
@@ -234,6 +245,8 @@ class PdbBuilder(object):
         generated in groups of atoms_per_res (the output is L x atoms_per_res x 3.)"""
         if self.only_ca:
             atom_names = ATOM_MAP_1
+        elif self.skip_oxygens:
+            atom_names = ATOM_MAP_3
         elif self.only_backbone:
             atom_names = ATOM_MAP_4
         else:
