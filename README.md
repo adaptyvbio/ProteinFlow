@@ -1,4 +1,14 @@
-# ProteinFlow
+<p align="center">
+    <b> ProteinFlow - A data processing pipeline for all your protein design needs </b> <br />
+</p>
+
+<p align="center">
+  <a href="https://adaptyvbio.github.io/ProteinFlow/" target="_blank">
+      Docs
+  </a>
+</p>
+
+---
 
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -6,11 +16,19 @@
 [![Docker Image Version (latest semver)](https://img.shields.io/docker/v/adaptyvbio/proteinflow?label=docker)](https://hub.docker.com/r/adaptyvbio/proteinflow/tags)
 ![Generic badge](https://img.shields.io/badge/Contributions-Welcome-brightgreen.svg)
 
-A data processing pipeline for all your protein design needs.
 
-[Read the documentation.](https://adaptyvbio.github.io/ProteinFlow/)
+ProteinFlow is an open-source Python library that streamlines the pre-processing of protein structure data for deep learning applications. ProteinFlow enables users to efficiently filter, cluster, and generate new datasets from resources like the Protein Data Bank (PDB).
 
-![overview](https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/fig_pipeline.png)
+Here are some of the key features we currently support:
+
+- ⛓️ Processing of both single-chain and multi-chain protein structures (Biounit PDB definition)
+- 🏷️ Various featurization options can be computed, including secondary structure features, torsion angles, etc.
+- 💾 A variety of data loading options and conversions to cater to different downstream training frameworks
+- 🧬 Access to up-to-date, pre-computed protein structure datasets
+
+![overview](media/pf-1.png)
+
+---
 
 ## Installation
 Recommended: create a new `conda` environment and install `proteinflow` with `pip`. 
