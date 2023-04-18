@@ -26,7 +26,7 @@ Here are some of the key features we currently support:
 - 💾 A variety of data loading options and conversions to cater to different downstream training frameworks
 - 🧬 Access to up-to-date, pre-computed protein structure datasets
 
-![overview](media/pf-1.png)
+![overview](https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/pf-1.png)
 
 ---
 
