@@ -11,7 +11,6 @@ env:
 jobs:
 
   test:
-
     runs-on: ubuntu-latest
     permissions: 
       contents: write
@@ -87,7 +86,7 @@ jobs:
             fetch-depth: 0
             token: ${{ secrets.PAT }}
       - name: Install dependencies
-        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
+        if: ${{ needs.test.outputs.update }}
         run: |
           conda create --name proteinflow -y python=3.9
           conda run -n proteinflow python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
