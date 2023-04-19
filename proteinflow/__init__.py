@@ -831,10 +831,10 @@ class _PadCollate:
                 non_masked_interface = []
                 if len(chains) > 1 and self.force_binding_sites_frac > 0:
                     if random.uniform(0, 1) <= self.force_binding_sites_frac:
-                        if torch.cuda.is_available():
-                            X_copy = coords.cuda()
-                        else:
-                            X_copy = coords
+                        # if torch.cuda.is_available() and coords.device != torch.device('cuda'):
+                        #     X_copy = coords.cuda()
+                        # else:
+                        X_copy = coords
 
                         i_indices = (chain_bool == 0).nonzero().flatten()
                         j_indices = chain_bool.nonzero().flatten()
@@ -1731,7 +1731,6 @@ class ProteinLoader(DataLoader):
         collate_func=_PadCollate,
         force_binding_sites_frac=0,
         shuffle_batches=True,
-        collate_fn=None,
         *args,
         **kwargs,
     ):
@@ -1755,8 +1754,8 @@ class ProteinLoader(DataLoader):
             if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
         shuffle_batches : bool, default True
             if `True`, the batches are shuffled at each epoch
-        collate_fn : callable, optional
-            a function that takes a list of samples and returns a batch
+        collate_func : callable, optional
+            a function that takes a list of samples and returns a batch and inherits from _PadCollate
         """
 
         super().__init__(
@@ -1768,9 +1767,7 @@ class ProteinLoader(DataLoader):
                 lower_limit=lower_limit,
                 upper_limit=upper_limit,
                 force_binding_sites_frac=force_binding_sites_frac,
-            )
-            if collate_fn is None
-            else collate_fn,
+            ),
             shuffle=shuffle_batches,
             *args,
             **kwargs,
