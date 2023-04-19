@@ -1707,7 +1707,7 @@ class ProteinLoader(DataLoader):
         mask_residues=True,
         mask_whole_chains=False,
         mask_frac=None,
-        collate_fn=_PadCollate,
+        collate_func=_PadCollate,
         force_binding_sites_frac=0,
         shuffle_batches=True,
         *args,
@@ -1737,7 +1737,7 @@ class ProteinLoader(DataLoader):
 
         super().__init__(
             dataset,
-            collate_fn=collate_fn(
+            collate_fn=collate_func(
                 mask_residues=mask_residues,
                 mask_whole_chains=mask_whole_chains,
                 mask_frac=mask_frac,
