@@ -1,4 +1,14 @@
-# ProteinFlow
+<p align="center">
+    <b> ProteinFlow - A data processing pipeline for all your protein design needs </b> <br />
+</p>
+
+<p align="center">
+  <a href="https://adaptyvbio.github.io/ProteinFlow/" target="_blank">
+      Docs
+  </a>
+</p>
+
+---
 
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -6,26 +16,42 @@
 [![Docker Image Version (latest semver)](https://img.shields.io/docker/v/adaptyvbio/proteinflow?label=docker)](https://hub.docker.com/r/adaptyvbio/proteinflow/tags)
 ![Generic badge](https://img.shields.io/badge/Contributions-Welcome-brightgreen.svg)
 
-A data processing pipeline for all your protein design needs.
 
-[Read the documentation.](https://adaptyvbio.github.io/ProteinFlow/)
+ProteinFlow is an open-source Python library that streamlines the pre-processing of protein structure data for deep learning applications. ProteinFlow enables users to efficiently filter, cluster, and generate new datasets from resources like the Protein Data Bank (PDB).
 
-![overview](https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/fig_pipeline.png)
+Here are some of the key features we currently support:
+
+- ⛓️ Processing of both single-chain and multi-chain protein structures (Biounit PDB definition)
+- 🏷️ Various featurization options can be computed, including secondary structure features, torsion angles, etc.
+- 💾 A variety of data loading options and conversions to cater to different downstream training frameworks
+- 🧬 Access to up-to-date, pre-computed protein structure datasets
+
+![overview](https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/pf-1.png)
+
+---
 
 ## Installation
-Recommended: create a new `conda` environment and install `proteinflow` and `mmseqs`. Note that the python version has to be between 3.8 and 3.10. 
+Recommended: create a new `conda` environment and install `proteinflow` with `pip`. 
 ```bash
-conda create --name proteinflow -y python=3.9
+conda create --name proteinflow -y
 conda activate proteinflow
-conda install -y -c conda-forge -c bioconda mmseqs2
 python -m pip install proteinflow
 ```
-In addition, `proteinflow` depends on the `rcsbsearch` package and the latest release [v0.2.3](https://github.com/sbliven/rcsbsearch/releases/tag/v0.2.3) is currently not functioning . Follow the recommended fix:
+
+If you are using `python 3.10` and encountering installation problems, try running `python -m pip install prody==2.4.0` before installing `proteinflow`.
+
+### Additional requirements
+In most cases, running the commands is enough. However, if you are planning to generate a new dataset, there is a couple additional requirements.
+
+First, you will need to install `mmseqs`. The recommended way is to run the following command in your `conda` environment but there are alternative methods you can see [here](https://github.com/soedinglab/MMseqs2).
+```bash
+conda install -y -c conda-forge -c bioconda mmseqs2
+```
+
+In addition, `proteinflow` depends on the `rcsbsearch` package and the latest release [v0.2.3](https://github.com/sbliven/rcsbsearch/releases/tag/v0.2.3) is currently not working correctly. Follow the recommended fix:
 ```bash
 python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
 ```
-
-Note that you do not need to install `mmseqs` or `rcsbsearch` if you are not planning to generate a new dataset.
 
 Finally, you can use our [docker image](https://hub.docker.com/r/adaptyvbio/proteinflow/tags) as an alternative.
 ```bash

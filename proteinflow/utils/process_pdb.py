@@ -1,4 +1,4 @@
-from Bio.Align import PairwiseAligner
+from Bio import pairwise2
 import numpy as np
 from typing import Dict
 import subprocess
@@ -355,12 +355,15 @@ def _align_structure(
         unique_numbers = chain_crd["residue_number"].unique()
         if len(unique_numbers) != len(pdb_seq):
             raise PDBError("Inconsistencies in the biopandas dataframe")
-        aligner = PairwiseAligner()
-        aligner.match_score = 2
-        aligner.mismatch_score = -10
-        aligner.open_gap_score = -0.5
-        aligner.extend_gap_score = -0.1
-        aligned_seq, fasta_seq = aligner.align(pdb_seq, fasta[chain])[0]
+        # aligner = PairwiseAligner()
+        # aligner.match_score = 2
+        # aligner.mismatch_score = -10
+        # aligner.open_gap_score = -0.5
+        # aligner.extend_gap_score = -0.1
+        # aligned_seq, fasta_seq = aligner.align(pdb_seq, fasta[chain])[0]
+        aligned_seq, fasta_seq, *_ = pairwise2.align.globalms(
+            pdb_seq, fasta[chain], 2, -10, -0.5, -0.1
+        )[0]
         aligned_seq_arr = np.array(list(aligned_seq))
         if "-" in fasta_seq or "".join([x for x in aligned_seq if x != "-"]) != pdb_seq:
             raise PDBError("Incorrect alignment")
