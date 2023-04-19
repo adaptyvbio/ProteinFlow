@@ -415,6 +415,7 @@ def _raise_rcsbsearch(e):
     else:
         raise e
 
+
 def _run_processing(
     tmp_folder="./data/tmp_pdb",
     output_folder="./data/pdb",
@@ -839,19 +840,28 @@ class _PadCollate:
                         i_indices = (chain_bool == 0).nonzero().flatten()
                         j_indices = chain_bool.nonzero().flatten()
 
-                        distances = torch.norm(X_copy[i_indices, 2, :] - X_copy[j_indices, 2, :].unsqueeze(1), dim=-1).cpu()
+                        distances = torch.norm(
+                            X_copy[i_indices, 2, :]
+                            - X_copy[j_indices, 2, :].unsqueeze(1),
+                            dim=-1,
+                        ).cpu()
                         # all_distances = torch.norm(X_copy[:, 2, :] - X_copy[:, 2, :].unsqueeze(1), dim=-1)
 
                         # close_idx = np.where(torch.min(all_distances[:, i_indices][j_indices, :], dim = 1)[0] <  10)[0]
-                        close_idx = np.where(torch.min(distances, dim = 1)[0] <=  10)[0] + chain_start.item()
+                        close_idx = (
+                            np.where(torch.min(distances, dim=1)[0] <= 10)[0]
+                            + chain_start.item()
+                        )
 
-                        no_mask_idx = np.where(batch['mask'][i][chain_bool])[0]
+                        no_mask_idx = np.where(batch["mask"][i][chain_bool])[0]
                         # mask_idx = np.where(batch['mask'][i] == 0)[0]
                         interface = np.intersect1d(close_idx, j_indices)
-                        
-                        not_end_mask = np.where(((X_copy[:, 2, :].cpu() == 0).sum(-1) != 3))[0]
+
+                        not_end_mask = np.where(
+                            ((X_copy[:, 2, :].cpu() == 0).sum(-1) != 3)
+                        )[0]
                         interface = np.intersect1d(interface, not_end_mask)
-                        
+
                         non_masked_interface = np.intersect1d(interface, no_mask_idx)
                         interpolate = True
                         if len(non_masked_interface) > 0:
@@ -859,9 +869,7 @@ class _PadCollate:
                                 random.randint(0, len(non_masked_interface) - 1)
                             ]
                         elif len(interface) > 0 and interpolate:
-                            res_i = interface[
-                                random.randint(0, len(interface) - 1)
-                            ]
+                            res_i = interface[random.randint(0, len(interface) - 1)]
                         else:
                             res_i = no_mask_idx[random.randint(0, len(no_mask_idx) - 1)]
                 if res_i is None:
@@ -879,7 +887,9 @@ class _PadCollate:
                     )  # do not mask more than half of the sequence
                     low = min(up - 1, self.lower_limit)
                     k = random.choice(range(low, up))
-                dist = torch.norm(chain[neighbor_indices, 2, :] - res_coords.unsqueeze(0), dim=-1)
+                dist = torch.norm(
+                    chain[neighbor_indices, 2, :] - res_coords.unsqueeze(0), dim=-1
+                )
                 closest_indices = neighbor_indices[
                     torch.topk(dist, k, largest=False)[1]
                 ]
@@ -1592,16 +1602,36 @@ class ProteinDataset(Dataset):
                         max_dim_1 = X1[:, 2, dim].max()
                         min_dim_2 = X2[:, 2, dim].min()
                         max_dim_2 = X2[:, 2, dim].max()
-                        intersect_dim_X1.append(np.where(np.logical_and(X1[:, 2, dim] >= min_dim_2 -margin, X1[:, 2, dim] <= max_dim_2 + margin))[0])
-                        intersect_dim_X2.append(np.where(np.logical_and(X2[:, 2, dim] >= min_dim_1 -margin, X2[:, 2, dim] <= max_dim_1 + margin))[0])
+                        intersect_dim_X1.append(
+                            np.where(
+                                np.logical_and(
+                                    X1[:, 2, dim] >= min_dim_2 - margin,
+                                    X1[:, 2, dim] <= max_dim_2 + margin,
+                                )
+                            )[0]
+                        )
+                        intersect_dim_X2.append(
+                            np.where(
+                                np.logical_and(
+                                    X2[:, 2, dim] >= min_dim_1 - margin,
+                                    X2[:, 2, dim] <= max_dim_1 + margin,
+                                )
+                            )[0]
+                        )
 
                         # if min_dim_1 - 4 <= max_dim_2 and max_dim_1 >= min_dim_2 - 4:
                         #     intersect.append(True)
                         # else:
                         #     intersect.append(False)
                         #     break
-                    intersect_X1 = np.intersect1d(np.intersect1d(intersect_dim_X1[0], intersect_dim_X1[1]), intersect_dim_X1[2])
-                    intersect_X2 = np.intersect1d(np.intersect1d(intersect_dim_X2[0], intersect_dim_X2[1]), intersect_dim_X2[2])
+                    intersect_X1 = np.intersect1d(
+                        np.intersect1d(intersect_dim_X1[0], intersect_dim_X1[1]),
+                        intersect_dim_X1[2],
+                    )
+                    intersect_X2 = np.intersect1d(
+                        np.intersect1d(intersect_dim_X2[0], intersect_dim_X2[1]),
+                        intersect_dim_X2[2],
+                    )
 
                     not_end_mask1 = np.where(((X1[:, 2, :] == 0).sum(-1) != 3))[0]
                     not_end_mask2 = np.where(((X2[:, 2, :] == 0).sum(-1) != 3))[0]
@@ -1616,7 +1646,7 @@ class ProteinDataset(Dataset):
                     intersect_X1 = torch.LongTensor(intersect_X1)
                     intersect_X2 = torch.LongTensor(intersect_X2)
                     if np.sum(distances < cutoff) < 3:
-                    # if not all(intersect):
+                        # if not all(intersect):
                         pass_set = True
                         add_name = False
             if add_name:
