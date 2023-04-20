@@ -18,7 +18,7 @@ jobs:
       matrix:
         version: ["3.8", "3.9", "3.10"]
     outputs:
-      update: ${{ steps.service-changed.outputs.result == 'true' && !startsWith(github.event.head_commit.message, 'auto update') }}
+      update: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
 
     steps:
       - name: Check if relevant files have changed
