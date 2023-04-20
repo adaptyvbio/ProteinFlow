@@ -1,0 +1,51 @@
+{% set version = "1.2.9" %}
+
+package:
+  name: "proteinflow"
+  version: {{ version }}
+
+source:
+  url: https://files.pythonhosted.org/packages/00/6a/4b918e682cba19b7766ea76beaa05e6caf1b5834d6f52e2ef416726d78da/proteinflow-1.2.9.tar.gz
+  sha256: 67684df80c1ccd0d0166a33b725b4cd2f47c5b4780adc7bbdef34671eb35316e
+
+build:
+  number: 0
+  script: {{ PYTHON }} -m pip install . --no-deps --ignore-installed --no-cache-dir -vvv
+
+requirements:
+  host:
+    - python
+    - setuptools
+    - pip
+    - wheel
+  build:
+    - python
+    - pip
+    - wheel
+    - setuptools
+  run:
+    - numpy>=1.17
+    - editdistance>=0.6.0
+    - Biopython==1.79 
+    - click>=8.1.3
+    - biopandas>=0.4.1
+    - boto3==1.24.59
+    - p-tqdm
+    - networkx==2.8.8
+    - einops
+    - pandas
+    - pytorch>=1.10.0
+    - biotite==0.35.0
+    - aiobotocore==2.4.2
+    - awscli==1.25.60
+    - rcsbsearch
+    - mmseqs2
+
+about:
+  home: https://github.com/adaptyvbio/ProteinFlow
+  license: BSD-3-Clause
+  license_familY: BSD
+  license_file: LICENSE
+  summary: "Versatile pipeline for processing protein structure data for deep learning applications."
+  doc_url: "https://adaptyvbio.github.io/ProteinFlow/"
+  dev_url: "https://github.com/adaptyvbio/ProteinFlow"
