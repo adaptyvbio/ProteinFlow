@@ -4,21 +4,48 @@ Adapted from `sidechainnet`.
 
 import itertools
 import numpy as np
-from sidechainnet.structure.build_info import NUM_COORDS_PER_RES, SC_BUILD_INFO
-from sidechainnet.structure.HydrogenBuilder import (
-    ATOM_MAP_24,
-    NUM_COORDS_PER_RES_W_HYDROGENS,
-)
-from sidechainnet.structure.structure import coord_generator
-from sidechainnet.utils.sequence import ONE_TO_THREE_LETTER_MAP
 from proteinflow import ALPHABET
 from einops import rearrange
 
-
+GLOBAL_PAD_CHAR = 0
+ONE_TO_THREE_LETTER_MAP = {
+    "R": "ARG",
+    "H": "HIS",
+    "K": "LYS",
+    "D": "ASP",
+    "E": "GLU",
+    "S": "SER",
+    "T": "THR",
+    "N": "ASN",
+    "Q": "GLN",
+    "C": "CYS",
+    "G": "GLY",
+    "P": "PRO",
+    "A": "ALA",
+    "V": "VAL",
+    "I": "ILE",
+    "L": "LEU",
+    "M": "MET",
+    "F": "PHE",
+    "Y": "TYR",
+    "W": "TRP",
+}
 ATOM_MAP_4 = {a: ["N", "C", "CA", "O"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
 ATOM_MAP_1 = {a: ["CA"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
 ATOM_MAP_3 = {a: ["N", "C", "CA"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
 ALPHABET = "XACDEFGHIKLMNPQRSTVWY"
+
+
+def coord_generator(coords, atoms_per_res=14, remove_padding=False):
+    """Return a generator to iteratively yield self.atoms_per_res atoms at a time."""
+    coord_idx = 0
+    while coord_idx < coords.shape[0]:
+        _slice = coords[coord_idx : coord_idx + atoms_per_res]
+        if remove_padding:
+            non_pad_locs = (_slice != GLOBAL_PAD_CHAR).any(axis=1)
+            _slice = _slice[non_pad_locs]
+        yield _slice
+        coord_idx += atoms_per_res
 
 
 class PdbBuilder(object):
@@ -81,21 +108,16 @@ class PdbBuilder(object):
                 f"Coords is not divisible by {atoms_per_res}. " f"{coords.shape}"
             )
         if atoms_per_res not in (
-            NUM_COORDS_PER_RES,
-            NUM_COORDS_PER_RES_W_HYDROGENS,
             4,
             1,
             3,
         ):
-            raise ValueError(
-                f"Values for atoms_per_res other than {NUM_COORDS_PER_RES}"
-                f"/{NUM_COORDS_PER_RES_W_HYDROGENS}/4/1 are currently not supported."
-            )
+            raise ValueError("Invalid atoms_per_res. Must be 1, 3, or 4.")
 
         self.only_ca = only_ca
         self.skip_oxygens = skip_oxygens
         self.atoms_per_res = atoms_per_res
-        self.has_hydrogens = self.atoms_per_res == NUM_COORDS_PER_RES_W_HYDROGENS
+        self.has_hydrogens = False
         self.only_backbone = self.atoms_per_res == 4
         self.coords = coords
         self.seq = seq
@@ -250,7 +272,7 @@ class PdbBuilder(object):
         elif self.only_backbone:
             atom_names = ATOM_MAP_4
         else:
-            atom_names = ATOM_MAP_24
+            raise NotImplementedError
         mapping = []
         for residue in self.seq:
             mapping.append((residue, atom_names[residue]))
