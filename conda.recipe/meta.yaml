@@ -5,12 +5,14 @@ package:
   version: {{ version }}
 
 source:
-  url: https://files.pythonhosted.org/packages/00/6a/4b918e682cba19b7766ea76beaa05e6caf1b5834d6f52e2ef416726d78da/proteinflow-1.2.9.tar.gz
-  sha256: 67684df80c1ccd0d0166a33b725b4cd2f47c5b4780adc7bbdef34671eb35316e
+  git_url: https://github.com/adaptyvbio/ProteinFlow.git
+  git_rev: v{{ version }}
 
 build:
   number: 0
   script: {{ PYTHON }} -m pip install . --no-deps --ignore-installed --no-cache-dir -vvv
+  entry_points:
+    - proteinflow = proteinflow.scripts.proteinflow_cli:cli
 
 requirements:
   host:
