@@ -1,24 +1,44 @@
 """
-`proteinflow` is a pipeline that loads protein data from PDB, filters it, puts it in a machine readable format and extracts structure and sequence features. 
+Proteinflow is an open-source Python library that streamlines the pre-processing of protein structure data for deep learning applications. ProteinFlow enables users to efficiently filter, cluster, and generate new datasets from resources like the Protein Data Bank (PDB).
 
-![pipeline](https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/fig_pipeline.png)
+Here are some of the key features we currently support:
+
+- ⛓️ Processing of both single-chain and multi-chain protein structures (Biounit PDB definition)
+- 🏷️ Various featurization options can be computed, including secondary structure features, torsion angles, etc.
+- 💾 A variety of data loading options and conversions to cater to different downstream training frameworks
+- 🧬 Access to up-to-date, pre-computed protein structure datasets
+
+![overview](https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/pf-1.png)
+
+---
 
 ## Installation
-Recommended: create a new `conda` environment and install `proteinflow` and `mmseqs`. Note that the python version has to be between 3.8 and 3.10. 
+Recommended: create a new `conda` environment and install `proteinflow` with `pip`. 
 ```bash
-conda create --name proteinflow -y python=3.9
+conda create --name proteinflow -y
 conda activate proteinflow
-conda install -y -c conda-forge -c bioconda mmseqs2
 python -m pip install proteinflow
 ```
-In addition, `proteinflow` depends on the `rcsbsearch` package and the latest release is currently failing. Follow the recommended fix:
+
+If you are using `python 3.10` and encountering installation problems, try running `python -m pip install prody==2.4.0` before installing `proteinflow`.
+
+### Additional requirements
+In most cases, running the commands is enough. However, if you are planning to generate a new dataset, there is a couple additional requirements.
+
+First, you will need to install `mmseqs`. The recommended way is to run the following command in your `conda` environment but there are alternative methods you can see [here](https://github.com/soedinglab/MMseqs2).
+```bash
+conda install -y -c conda-forge -c bioconda mmseqs2
+```
+
+In addition, `proteinflow` depends on the `rcsbsearch` package and the latest release [v0.2.3](https://github.com/sbliven/rcsbsearch/releases/tag/v0.2.3) is currently not working correctly. Follow the recommended fix:
 ```bash
 python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
 ```
 
-Note that you do not need to install `mmseqs` or `rcsbsearch` if you are not planning to generate a new dataset.
-
 Finally, you can use our [docker image](https://hub.docker.com/r/adaptyvbio/proteinflow/tags) as an alternative.
+```bash
+docker run -it -v /path/to/data:/media adaptyvbio/proteinflow bash
+```
 
 ## Usage
 ### Downloading pre-computed datasets
@@ -111,6 +131,7 @@ for batch in train_loader:
 ```
 
 See `proteinflow.ProteinLoader` for more information.
+
 """
 
 __pdoc__ = {"utils": False, "scripts": False}
@@ -208,6 +229,10 @@ D3TO1 = {
     "TYR": "Y",
     "MET": "M",
 }
+
+REVERSE_D3TO1 = {v: k for k, v in D3TO1.items()}
+REVERSE_D3TO1["X"] = "GLY"
+
 ALPHABET = "-ACDEFGHIKLMNPQRSTVWY"
 
 FEATURES_DICT = defaultdict(lambda: defaultdict(lambda: 0))
@@ -790,9 +815,12 @@ class _PadCollate:
         """
 
         chain_M = torch.zeros(batch["S"].shape)
+        interface_lengths = []
+        non_masked_interface_lengths = []
         for i, coords in enumerate(batch["X"]):
             chain_index = batch["chain_id"][i]
             chain_bool = batch["chain_encoding_all"][i] == chain_index
+
             if self.mask_whole_chains:
                 chain_M[i, chain_bool] = 1
             else:
@@ -800,32 +828,54 @@ class _PadCollate:
                 chain_start = torch.where(chain_bool)[0][0]
                 chain = coords[chain_bool]
                 res_i = None
+                interface = []
+                non_masked_interface = []
                 if len(chains) > 1 and self.force_binding_sites_frac > 0:
-                    if random.uniform(0, 1) < self.force_binding_sites_frac:
-                        intersection_indices = []
-                        for chain_id in chains:
-                            if chain_id == chain_index:
-                                continue
-                            chain_id_bool = batch["chain_encoding_all"][i] == chain_id
-                            chain_min = (
-                                coords[chain_id_bool][:, 2, :].min(0)[0].unsqueeze(0)
-                            )
-                            chain_max = (
-                                coords[chain_id_bool][:, 2, :].max(0)[0].unsqueeze(0)
-                            )
-                            min_mask = (chain[:, 2, :] >= chain_min - 4).sum(-1) == 3
-                            max_mask = (chain[:, 2, :] - 4 <= chain_max).sum(-1) == 3
-                            intersection_indices += torch.where(min_mask * max_mask)[
-                                0
-                            ].tolist()
-                        if len(intersection_indices) > 0:
-                            res_i = intersection_indices[
-                                random.randint(0, len(intersection_indices) - 1)
+                    if random.uniform(0, 1) <= self.force_binding_sites_frac:
+                        # if torch.cuda.is_available() and coords.device != torch.device('cuda'):
+                        #     X_copy = coords.cuda()
+                        # else:
+                        X_copy = coords
+
+                        i_indices = (chain_bool == 0).nonzero().flatten()
+                        j_indices = chain_bool.nonzero().flatten()
+
+                        distances = torch.norm(
+                            X_copy[i_indices, 2, :]
+                            - X_copy[j_indices, 2, :].unsqueeze(1),
+                            dim=-1,
+                        ).cpu()
+                        # all_distances = torch.norm(X_copy[:, 2, :] - X_copy[:, 2, :].unsqueeze(1), dim=-1)
+
+                        # close_idx = np.where(torch.min(all_distances[:, i_indices][j_indices, :], dim = 1)[0] <  10)[0]
+                        close_idx = (
+                            np.where(torch.min(distances, dim=1)[0] <= 10)[0]
+                            + chain_start.item()
+                        )
+
+                        no_mask_idx = np.where(batch["mask"][i][chain_bool])[0]
+                        # mask_idx = np.where(batch['mask'][i] == 0)[0]
+                        interface = np.intersect1d(close_idx, j_indices)
+
+                        not_end_mask = np.where(
+                            ((X_copy[:, 2, :].cpu() == 0).sum(-1) != 3)
+                        )[0]
+                        interface = np.intersect1d(interface, not_end_mask)
+
+                        non_masked_interface = np.intersect1d(interface, no_mask_idx)
+                        interpolate = True
+                        if len(non_masked_interface) > 0:
+                            res_i = non_masked_interface[
+                                random.randint(0, len(non_masked_interface) - 1)
                             ]
+                        elif len(interface) > 0 and interpolate:
+                            res_i = interface[random.randint(0, len(interface) - 1)]
+                        else:
+                            res_i = no_mask_idx[random.randint(0, len(no_mask_idx) - 1)]
                 if res_i is None:
                     non_zero = torch.where(batch["mask"][i][chain_bool])[0]
                     res_i = non_zero[random.randint(0, len(non_zero) - 1)]
-                res_coords = chain[res_i, 2, :]
+                res_coords = coords[res_i, 2, :]
                 neighbor_indices = torch.where(batch["mask"][i][chain_bool])[0]
                 if self.mask_frac is not None:
                     assert self.mask_frac > 0 and self.mask_frac < 1
@@ -837,14 +887,17 @@ class _PadCollate:
                     )  # do not mask more than half of the sequence
                     low = min(up - 1, self.lower_limit)
                     k = random.choice(range(low, up))
-                dist = torch.sum(
-                    (chain[neighbor_indices, 1, :] - res_coords.unsqueeze(0)) ** 2, -1
+                dist = torch.norm(
+                    chain[neighbor_indices, 2, :] - res_coords.unsqueeze(0), dim=-1
                 )
                 closest_indices = neighbor_indices[
                     torch.topk(dist, k, largest=False)[1]
                 ]
                 chain_M[i, closest_indices + chain_start] = 1
+                # interface_lengths.append(len(interface))
+                # non_masked_interface_lengths.append(len(non_masked_interface))
         return chain_M
+        # return [chain_M, interface_lengths, non_masked_interface_lengths] # , torch.Tensor(interface), torch.Tensor(non_masked_interface)
 
     def pad_collate(self, batch):
         # find longest sequence
@@ -1531,24 +1584,69 @@ class ProteinDataset(Dataset):
                         add_name = False
 
                 if self.entry_type == "pair":
-                    intersect = []
+                    # intersect = []
                     X1 = data[chain_set[0]]["crd_bb"][
                         data[chain_set[0]]["msk"].astype(bool)
                     ]
                     X2 = data[chain_set[1]]["crd_bb"][
                         data[chain_set[1]]["msk"].astype(bool)
                     ]
+                    intersect_dim_X1 = []
+                    intersect_dim_X2 = []
+                    intersect_X1 = np.zeros(len(X1))
+                    intersect_X2 = np.zeros(len(X2))
+                    margin = 30
+                    cutoff = 10
                     for dim in range(3):
-                        min_dim_1 = X1[:, :, dim].min()
-                        max_dim_1 = X1[:, :, dim].max()
-                        min_dim_2 = X2[:, :, dim].min()
-                        max_dim_2 = X2[:, :, dim].max()
-                        if min_dim_1 - 4 <= max_dim_2 and max_dim_1 >= min_dim_2 - 4:
-                            intersect.append(True)
-                        else:
-                            intersect.append(False)
-                            break
-                    if not all(intersect):
+                        min_dim_1 = X1[:, 2, dim].min()
+                        max_dim_1 = X1[:, 2, dim].max()
+                        min_dim_2 = X2[:, 2, dim].min()
+                        max_dim_2 = X2[:, 2, dim].max()
+                        intersect_dim_X1.append(
+                            np.where(
+                                np.logical_and(
+                                    X1[:, 2, dim] >= min_dim_2 - margin,
+                                    X1[:, 2, dim] <= max_dim_2 + margin,
+                                )
+                            )[0]
+                        )
+                        intersect_dim_X2.append(
+                            np.where(
+                                np.logical_and(
+                                    X2[:, 2, dim] >= min_dim_1 - margin,
+                                    X2[:, 2, dim] <= max_dim_1 + margin,
+                                )
+                            )[0]
+                        )
+
+                        # if min_dim_1 - 4 <= max_dim_2 and max_dim_1 >= min_dim_2 - 4:
+                        #     intersect.append(True)
+                        # else:
+                        #     intersect.append(False)
+                        #     break
+                    intersect_X1 = np.intersect1d(
+                        np.intersect1d(intersect_dim_X1[0], intersect_dim_X1[1]),
+                        intersect_dim_X1[2],
+                    )
+                    intersect_X2 = np.intersect1d(
+                        np.intersect1d(intersect_dim_X2[0], intersect_dim_X2[1]),
+                        intersect_dim_X2[2],
+                    )
+
+                    not_end_mask1 = np.where(((X1[:, 2, :] == 0).sum(-1) != 3))[0]
+                    not_end_mask2 = np.where(((X2[:, 2, :] == 0).sum(-1) != 3))[0]
+
+                    intersect_X1 = np.intersect1d(intersect_X1, not_end_mask1)
+                    intersect_X2 = np.intersect1d(intersect_X2, not_end_mask2)
+
+                    # distances = torch.norm(X1[intersect_X1, 2, :] - X2[intersect_X2, 2, :](1), dim=-1)
+                    diff = X1[intersect_X1, 2, np.newaxis, :] - X2[intersect_X2, 2, :]
+                    distances = np.sqrt(np.sum(diff**2, axis=2))
+
+                    intersect_X1 = torch.LongTensor(intersect_X1)
+                    intersect_X2 = torch.LongTensor(intersect_X2)
+                    if np.sum(distances < cutoff) < 3:
+                        # if not all(intersect):
                         pass_set = True
                         add_name = False
             if add_name:
@@ -1620,7 +1718,11 @@ class ProteinDataset(Dataset):
         file = random.choice(self.files[id][chain_id])
         if self.loaded is None:
             with open(file, "rb") as f:
-                data = pickle.load(f)
+                try:
+                    data = pickle.load(f)
+                except EOFError:
+                    print("EOFError", file)
+                    raise
         else:
             data = deepcopy(self.loaded[file])
         data["chain_id"] = data["chain_dict"][chain_id]
@@ -1656,9 +1758,9 @@ class ProteinLoader(DataLoader):
         mask_residues=True,
         mask_whole_chains=False,
         mask_frac=None,
+        collate_func=_PadCollate,
         force_binding_sites_frac=0,
         shuffle_batches=True,
-        collate_fn=None,
         *args,
         **kwargs,
     ):
@@ -1682,22 +1784,20 @@ class ProteinLoader(DataLoader):
             if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
         shuffle_batches : bool, default True
             if `True`, the batches are shuffled at each epoch
-        collate_fn : callable, optional
-            a function that takes a list of samples and returns a batch
+        collate_func : callable, optional
+            a function that takes a list of samples and returns a batch and inherits from _PadCollate
         """
 
         super().__init__(
             dataset,
-            collate_fn=_PadCollate(
+            collate_fn=collate_func(
                 mask_residues=mask_residues,
                 mask_whole_chains=mask_whole_chains,
                 mask_frac=mask_frac,
                 lower_limit=lower_limit,
                 upper_limit=upper_limit,
                 force_binding_sites_frac=force_binding_sites_frac,
-            )
-            if collate_fn is None
-            else collate_fn,
+            ),
             shuffle=shuffle_batches,
             *args,
             **kwargs,

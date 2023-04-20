@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <title>proteinflow API documentation</title>
-<meta name="description" content="`proteinflow` is a pipeline that loads protein data from PDB, filters it, puts it in a machine readable format and extracts structure and sequence …" />
+<meta name="description" content="Proteinflow is an open-source Python library that streamlines the pre-processing of protein structure data for deep learning applications. ProteinFlow …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -23,20 +23,34 @@
 <h1 class="title">Package <code>proteinflow</code></h1>
 </header>
 <section id="section-intro">
-<p><code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> is a pipeline that loads protein data from PDB, filters it, puts it in a machine readable format and extracts structure and sequence features. </p>
-<p><img alt="pipeline" src="https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/fig_pipeline.png"></p>
+<p>Proteinflow is an open-source Python library that streamlines the pre-processing of protein structure data for deep learning applications. ProteinFlow enables users to efficiently filter, cluster, and generate new datasets from resources like the Protein Data Bank (PDB).</p>
+<p>Here are some of the key features we currently support:</p>
+<ul>
+<li>⛓️ Processing of both single-chain and multi-chain protein structures (Biounit PDB definition)</li>
+<li>🏷️ Various featurization options can be computed, including secondary structure features, torsion angles, etc.</li>
+<li>💾 A variety of data loading options and conversions to cater to different downstream training frameworks</li>
+<li>🧬 Access to up-to-date, pre-computed protein structure datasets</li>
+</ul>
+<p><img alt="overview" src="https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/pf-1.png"></p>
+<hr>
 <h2 id="installation">Installation</h2>
-<p>Recommended: create a new <code>conda</code> environment and install <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> and <code>mmseqs</code>. Note that the python version has to be between 3.8 and 3.10. </p>
-<pre><code class="language-bash">conda create --name proteinflow -y python=3.9
+<p>Recommended: create a new <code>conda</code> environment and install <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> with <code>pip</code>. </p>
+<pre><code class="language-bash">conda create --name proteinflow -y
 conda activate proteinflow
-conda install -y -c conda-forge -c bioconda mmseqs2
 python -m pip install proteinflow
 </code></pre>
-<p>In addition, <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> depends on the <code>rcsbsearch</code> package and the latest release is currently failing. Follow the recommended fix:</p>
+<p>If you are using <code>python 3.10</code> and encountering installation problems, try running <code>python -m pip install prody==2.4.0</code> before installing <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code>.</p>
+<h3 id="additional-requirements">Additional requirements</h3>
+<p>In most cases, running the commands is enough. However, if you are planning to generate a new dataset, there is a couple additional requirements.</p>
+<p>First, you will need to install <code>mmseqs</code>. The recommended way is to run the following command in your <code>conda</code> environment but there are alternative methods you can see <a href="https://github.com/soedinglab/MMseqs2">here</a>.</p>
+<pre><code class="language-bash">conda install -y -c conda-forge -c bioconda mmseqs2
+</code></pre>
+<p>In addition, <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> depends on the <code>rcsbsearch</code> package and the latest release <a href="https://github.com/sbliven/rcsbsearch/releases/tag/v0.2.3">v0.2.3</a> is currently not working correctly. Follow the recommended fix:</p>
 <pre><code class="language-bash">python -m pip install &quot;rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e&quot;
 </code></pre>
-<p>Note that you do not need to install <code>mmseqs</code> or <code>rcsbsearch</code> if you are not planning to generate a new dataset.</p>
 <p>Finally, you can use our <a href="https://hub.docker.com/r/adaptyvbio/proteinflow/tags">docker image</a> as an alternative.</p>
+<pre><code class="language-bash">docker run -it -v /path/to/data:/media adaptyvbio/proteinflow bash
+</code></pre>
 <h2 id="usage">Usage</h2>
 <h3 id="downloading-pre-computed-datasets">Downloading pre-computed datasets</h3>
 <p>We have already run the pipeline with a consensus set of parameters and saved the results at a server. You can download the resulting dataset with <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code>. Check the output of <code><a title="proteinflow" href="#proteinflow">proteinflow</a> check_tags</code> for a list of available tags.</p>
@@ -113,26 +127,46 @@ for batch in train_loader:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">&#34;&#34;&#34;
-`proteinflow` is a pipeline that loads protein data from PDB, filters it, puts it in a machine readable format and extracts structure and sequence features. 
+Proteinflow is an open-source Python library that streamlines the pre-processing of protein structure data for deep learning applications. ProteinFlow enables users to efficiently filter, cluster, and generate new datasets from resources like the Protein Data Bank (PDB).
 
-![pipeline](https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/fig_pipeline.png)
+Here are some of the key features we currently support:
+
+- ⛓️ Processing of both single-chain and multi-chain protein structures (Biounit PDB definition)
+- 🏷️ Various featurization options can be computed, including secondary structure features, torsion angles, etc.
+- 💾 A variety of data loading options and conversions to cater to different downstream training frameworks
+- 🧬 Access to up-to-date, pre-computed protein structure datasets
+
+![overview](https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/pf-1.png)
+
+---
 
 ## Installation
-Recommended: create a new `conda` environment and install `proteinflow` and `mmseqs`. Note that the python version has to be between 3.8 and 3.10. 
+Recommended: create a new `conda` environment and install `proteinflow` with `pip`. 
 ```bash
-conda create --name proteinflow -y python=3.9
+conda create --name proteinflow -y
 conda activate proteinflow
-conda install -y -c conda-forge -c bioconda mmseqs2
 python -m pip install proteinflow
 ```
-In addition, `proteinflow` depends on the `rcsbsearch` package and the latest release is currently failing. Follow the recommended fix:
+
+If you are using `python 3.10` and encountering installation problems, try running `python -m pip install prody==2.4.0` before installing `proteinflow`.
+
+### Additional requirements
+In most cases, running the commands is enough. However, if you are planning to generate a new dataset, there is a couple additional requirements.
+
+First, you will need to install `mmseqs`. The recommended way is to run the following command in your `conda` environment but there are alternative methods you can see [here](https://github.com/soedinglab/MMseqs2).
+```bash
+conda install -y -c conda-forge -c bioconda mmseqs2
+```
+
+In addition, `proteinflow` depends on the `rcsbsearch` package and the latest release [v0.2.3](https://github.com/sbliven/rcsbsearch/releases/tag/v0.2.3) is currently not working correctly. Follow the recommended fix:
 ```bash
 python -m pip install &#34;rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e&#34;
 ```
 
-Note that you do not need to install `mmseqs` or `rcsbsearch` if you are not planning to generate a new dataset.
-
 Finally, you can use our [docker image](https://hub.docker.com/r/adaptyvbio/proteinflow/tags) as an alternative.
+```bash
+docker run -it -v /path/to/data:/media adaptyvbio/proteinflow bash
+```
 
 ## Usage
 ### Downloading pre-computed datasets
@@ -225,6 +259,7 @@ for batch in train_loader:
 ```
 
 See `proteinflow.ProteinLoader` for more information.
+
 &#34;&#34;&#34;
 
 __pdoc__ = {&#34;utils&#34;: False, &#34;scripts&#34;: False}
@@ -322,6 +357,10 @@ D3TO1 = {
     &#34;TYR&#34;: &#34;Y&#34;,
     &#34;MET&#34;: &#34;M&#34;,
 }
+
+REVERSE_D3TO1 = {v: k for k, v in D3TO1.items()}
+REVERSE_D3TO1[&#34;X&#34;] = &#34;GLY&#34;
+
 ALPHABET = &#34;-ACDEFGHIKLMNPQRSTVWY&#34;
 
 FEATURES_DICT = defaultdict(lambda: defaultdict(lambda: 0))
@@ -904,9 +943,12 @@ class _PadCollate:
         &#34;&#34;&#34;
 
         chain_M = torch.zeros(batch[&#34;S&#34;].shape)
+        interface_lengths = []
+        non_masked_interface_lengths = []
         for i, coords in enumerate(batch[&#34;X&#34;]):
             chain_index = batch[&#34;chain_id&#34;][i]
             chain_bool = batch[&#34;chain_encoding_all&#34;][i] == chain_index
+
             if self.mask_whole_chains:
                 chain_M[i, chain_bool] = 1
             else:
@@ -914,32 +956,54 @@ class _PadCollate:
                 chain_start = torch.where(chain_bool)[0][0]
                 chain = coords[chain_bool]
                 res_i = None
+                interface = []
+                non_masked_interface = []
                 if len(chains) &gt; 1 and self.force_binding_sites_frac &gt; 0:
-                    if random.uniform(0, 1) &lt; self.force_binding_sites_frac:
-                        intersection_indices = []
-                        for chain_id in chains:
-                            if chain_id == chain_index:
-                                continue
-                            chain_id_bool = batch[&#34;chain_encoding_all&#34;][i] == chain_id
-                            chain_min = (
-                                coords[chain_id_bool][:, 2, :].min(0)[0].unsqueeze(0)
-                            )
-                            chain_max = (
-                                coords[chain_id_bool][:, 2, :].max(0)[0].unsqueeze(0)
-                            )
-                            min_mask = (chain[:, 2, :] &gt;= chain_min - 4).sum(-1) == 3
-                            max_mask = (chain[:, 2, :] - 4 &lt;= chain_max).sum(-1) == 3
-                            intersection_indices += torch.where(min_mask * max_mask)[
-                                0
-                            ].tolist()
-                        if len(intersection_indices) &gt; 0:
-                            res_i = intersection_indices[
-                                random.randint(0, len(intersection_indices) - 1)
+                    if random.uniform(0, 1) &lt;= self.force_binding_sites_frac:
+                        # if torch.cuda.is_available() and coords.device != torch.device(&#39;cuda&#39;):
+                        #     X_copy = coords.cuda()
+                        # else:
+                        X_copy = coords
+
+                        i_indices = (chain_bool == 0).nonzero().flatten()
+                        j_indices = chain_bool.nonzero().flatten()
+
+                        distances = torch.norm(
+                            X_copy[i_indices, 2, :]
+                            - X_copy[j_indices, 2, :].unsqueeze(1),
+                            dim=-1,
+                        ).cpu()
+                        # all_distances = torch.norm(X_copy[:, 2, :] - X_copy[:, 2, :].unsqueeze(1), dim=-1)
+
+                        # close_idx = np.where(torch.min(all_distances[:, i_indices][j_indices, :], dim = 1)[0] &lt;  10)[0]
+                        close_idx = (
+                            np.where(torch.min(distances, dim=1)[0] &lt;= 10)[0]
+                            + chain_start.item()
+                        )
+
+                        no_mask_idx = np.where(batch[&#34;mask&#34;][i][chain_bool])[0]
+                        # mask_idx = np.where(batch[&#39;mask&#39;][i] == 0)[0]
+                        interface = np.intersect1d(close_idx, j_indices)
+
+                        not_end_mask = np.where(
+                            ((X_copy[:, 2, :].cpu() == 0).sum(-1) != 3)
+                        )[0]
+                        interface = np.intersect1d(interface, not_end_mask)
+
+                        non_masked_interface = np.intersect1d(interface, no_mask_idx)
+                        interpolate = True
+                        if len(non_masked_interface) &gt; 0:
+                            res_i = non_masked_interface[
+                                random.randint(0, len(non_masked_interface) - 1)
                             ]
+                        elif len(interface) &gt; 0 and interpolate:
+                            res_i = interface[random.randint(0, len(interface) - 1)]
+                        else:
+                            res_i = no_mask_idx[random.randint(0, len(no_mask_idx) - 1)]
                 if res_i is None:
                     non_zero = torch.where(batch[&#34;mask&#34;][i][chain_bool])[0]
                     res_i = non_zero[random.randint(0, len(non_zero) - 1)]
-                res_coords = chain[res_i, 2, :]
+                res_coords = coords[res_i, 2, :]
                 neighbor_indices = torch.where(batch[&#34;mask&#34;][i][chain_bool])[0]
                 if self.mask_frac is not None:
                     assert self.mask_frac &gt; 0 and self.mask_frac &lt; 1
@@ -951,14 +1015,17 @@ class _PadCollate:
                     )  # do not mask more than half of the sequence
                     low = min(up - 1, self.lower_limit)
                     k = random.choice(range(low, up))
-                dist = torch.sum(
-                    (chain[neighbor_indices, 1, :] - res_coords.unsqueeze(0)) ** 2, -1
+                dist = torch.norm(
+                    chain[neighbor_indices, 2, :] - res_coords.unsqueeze(0), dim=-1
                 )
                 closest_indices = neighbor_indices[
                     torch.topk(dist, k, largest=False)[1]
                 ]
                 chain_M[i, closest_indices + chain_start] = 1
+                # interface_lengths.append(len(interface))
+                # non_masked_interface_lengths.append(len(non_masked_interface))
         return chain_M
+        # return [chain_M, interface_lengths, non_masked_interface_lengths] # , torch.Tensor(interface), torch.Tensor(non_masked_interface)
 
     def pad_collate(self, batch):
         # find longest sequence
@@ -1645,24 +1712,69 @@ class ProteinDataset(Dataset):
                         add_name = False
 
                 if self.entry_type == &#34;pair&#34;:
-                    intersect = []
+                    # intersect = []
                     X1 = data[chain_set[0]][&#34;crd_bb&#34;][
                         data[chain_set[0]][&#34;msk&#34;].astype(bool)
                     ]
                     X2 = data[chain_set[1]][&#34;crd_bb&#34;][
                         data[chain_set[1]][&#34;msk&#34;].astype(bool)
                     ]
+                    intersect_dim_X1 = []
+                    intersect_dim_X2 = []
+                    intersect_X1 = np.zeros(len(X1))
+                    intersect_X2 = np.zeros(len(X2))
+                    margin = 30
+                    cutoff = 10
                     for dim in range(3):
-                        min_dim_1 = X1[:, :, dim].min()
-                        max_dim_1 = X1[:, :, dim].max()
-                        min_dim_2 = X2[:, :, dim].min()
-                        max_dim_2 = X2[:, :, dim].max()
-                        if min_dim_1 - 4 &lt;= max_dim_2 and max_dim_1 &gt;= min_dim_2 - 4:
-                            intersect.append(True)
-                        else:
-                            intersect.append(False)
-                            break
-                    if not all(intersect):
+                        min_dim_1 = X1[:, 2, dim].min()
+                        max_dim_1 = X1[:, 2, dim].max()
+                        min_dim_2 = X2[:, 2, dim].min()
+                        max_dim_2 = X2[:, 2, dim].max()
+                        intersect_dim_X1.append(
+                            np.where(
+                                np.logical_and(
+                                    X1[:, 2, dim] &gt;= min_dim_2 - margin,
+                                    X1[:, 2, dim] &lt;= max_dim_2 + margin,
+                                )
+                            )[0]
+                        )
+                        intersect_dim_X2.append(
+                            np.where(
+                                np.logical_and(
+                                    X2[:, 2, dim] &gt;= min_dim_1 - margin,
+                                    X2[:, 2, dim] &lt;= max_dim_1 + margin,
+                                )
+                            )[0]
+                        )
+
+                        # if min_dim_1 - 4 &lt;= max_dim_2 and max_dim_1 &gt;= min_dim_2 - 4:
+                        #     intersect.append(True)
+                        # else:
+                        #     intersect.append(False)
+                        #     break
+                    intersect_X1 = np.intersect1d(
+                        np.intersect1d(intersect_dim_X1[0], intersect_dim_X1[1]),
+                        intersect_dim_X1[2],
+                    )
+                    intersect_X2 = np.intersect1d(
+                        np.intersect1d(intersect_dim_X2[0], intersect_dim_X2[1]),
+                        intersect_dim_X2[2],
+                    )
+
+                    not_end_mask1 = np.where(((X1[:, 2, :] == 0).sum(-1) != 3))[0]
+                    not_end_mask2 = np.where(((X2[:, 2, :] == 0).sum(-1) != 3))[0]
+
+                    intersect_X1 = np.intersect1d(intersect_X1, not_end_mask1)
+                    intersect_X2 = np.intersect1d(intersect_X2, not_end_mask2)
+
+                    # distances = torch.norm(X1[intersect_X1, 2, :] - X2[intersect_X2, 2, :](1), dim=-1)
+                    diff = X1[intersect_X1, 2, np.newaxis, :] - X2[intersect_X2, 2, :]
+                    distances = np.sqrt(np.sum(diff**2, axis=2))
+
+                    intersect_X1 = torch.LongTensor(intersect_X1)
+                    intersect_X2 = torch.LongTensor(intersect_X2)
+                    if np.sum(distances &lt; cutoff) &lt; 3:
+                        # if not all(intersect):
                         pass_set = True
                         add_name = False
             if add_name:
@@ -1734,7 +1846,11 @@ class ProteinDataset(Dataset):
         file = random.choice(self.files[id][chain_id])
         if self.loaded is None:
             with open(file, &#34;rb&#34;) as f:
-                data = pickle.load(f)
+                try:
+                    data = pickle.load(f)
+                except EOFError:
+                    print(&#34;EOFError&#34;, file)
+                    raise
         else:
             data = deepcopy(self.loaded[file])
         data[&#34;chain_id&#34;] = data[&#34;chain_dict&#34;][chain_id]
@@ -1770,9 +1886,9 @@ class ProteinLoader(DataLoader):
         mask_residues=True,
         mask_whole_chains=False,
         mask_frac=None,
+        collate_func=_PadCollate,
         force_binding_sites_frac=0,
         shuffle_batches=True,
-        collate_fn=None,
         *args,
         **kwargs,
     ):
@@ -1796,22 +1912,20 @@ class ProteinLoader(DataLoader):
             if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
         shuffle_batches : bool, default True
             if `True`, the batches are shuffled at each epoch
-        collate_fn : callable, optional
-            a function that takes a list of samples and returns a batch
+        collate_func : callable, optional
+            a function that takes a list of samples and returns a batch and inherits from _PadCollate
         &#34;&#34;&#34;
 
         super().__init__(
             dataset,
-            collate_fn=_PadCollate(
+            collate_fn=collate_func(
                 mask_residues=mask_residues,
                 mask_whole_chains=mask_whole_chains,
                 mask_frac=mask_frac,
                 lower_limit=lower_limit,
                 upper_limit=upper_limit,
                 force_binding_sites_frac=force_binding_sites_frac,
-            )
-            if collate_fn is None
-            else collate_fn,
+            ),
             shuffle=shuffle_batches,
             *args,
             **kwargs,
@@ -3018,24 +3132,69 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
                         add_name = False
 
                 if self.entry_type == &#34;pair&#34;:
-                    intersect = []
+                    # intersect = []
                     X1 = data[chain_set[0]][&#34;crd_bb&#34;][
                         data[chain_set[0]][&#34;msk&#34;].astype(bool)
                     ]
                     X2 = data[chain_set[1]][&#34;crd_bb&#34;][
                         data[chain_set[1]][&#34;msk&#34;].astype(bool)
                     ]
+                    intersect_dim_X1 = []
+                    intersect_dim_X2 = []
+                    intersect_X1 = np.zeros(len(X1))
+                    intersect_X2 = np.zeros(len(X2))
+                    margin = 30
+                    cutoff = 10
                     for dim in range(3):
-                        min_dim_1 = X1[:, :, dim].min()
-                        max_dim_1 = X1[:, :, dim].max()
-                        min_dim_2 = X2[:, :, dim].min()
-                        max_dim_2 = X2[:, :, dim].max()
-                        if min_dim_1 - 4 &lt;= max_dim_2 and max_dim_1 &gt;= min_dim_2 - 4:
-                            intersect.append(True)
-                        else:
-                            intersect.append(False)
-                            break
-                    if not all(intersect):
+                        min_dim_1 = X1[:, 2, dim].min()
+                        max_dim_1 = X1[:, 2, dim].max()
+                        min_dim_2 = X2[:, 2, dim].min()
+                        max_dim_2 = X2[:, 2, dim].max()
+                        intersect_dim_X1.append(
+                            np.where(
+                                np.logical_and(
+                                    X1[:, 2, dim] &gt;= min_dim_2 - margin,
+                                    X1[:, 2, dim] &lt;= max_dim_2 + margin,
+                                )
+                            )[0]
+                        )
+                        intersect_dim_X2.append(
+                            np.where(
+                                np.logical_and(
+                                    X2[:, 2, dim] &gt;= min_dim_1 - margin,
+                                    X2[:, 2, dim] &lt;= max_dim_1 + margin,
+                                )
+                            )[0]
+                        )
+
+                        # if min_dim_1 - 4 &lt;= max_dim_2 and max_dim_1 &gt;= min_dim_2 - 4:
+                        #     intersect.append(True)
+                        # else:
+                        #     intersect.append(False)
+                        #     break
+                    intersect_X1 = np.intersect1d(
+                        np.intersect1d(intersect_dim_X1[0], intersect_dim_X1[1]),
+                        intersect_dim_X1[2],
+                    )
+                    intersect_X2 = np.intersect1d(
+                        np.intersect1d(intersect_dim_X2[0], intersect_dim_X2[1]),
+                        intersect_dim_X2[2],
+                    )
+
+                    not_end_mask1 = np.where(((X1[:, 2, :] == 0).sum(-1) != 3))[0]
+                    not_end_mask2 = np.where(((X2[:, 2, :] == 0).sum(-1) != 3))[0]
+
+                    intersect_X1 = np.intersect1d(intersect_X1, not_end_mask1)
+                    intersect_X2 = np.intersect1d(intersect_X2, not_end_mask2)
+
+                    # distances = torch.norm(X1[intersect_X1, 2, :] - X2[intersect_X2, 2, :](1), dim=-1)
+                    diff = X1[intersect_X1, 2, np.newaxis, :] - X2[intersect_X2, 2, :]
+                    distances = np.sqrt(np.sum(diff**2, axis=2))
+
+                    intersect_X1 = torch.LongTensor(intersect_X1)
+                    intersect_X2 = torch.LongTensor(intersect_X2)
+                    if np.sum(distances &lt; cutoff) &lt; 3:
+                        # if not all(intersect):
                         pass_set = True
                         add_name = False
             if add_name:
@@ -3107,7 +3266,11 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
         file = random.choice(self.files[id][chain_id])
         if self.loaded is None:
             with open(file, &#34;rb&#34;) as f:
-                data = pickle.load(f)
+                try:
+                    data = pickle.load(f)
+                except EOFError:
+                    print(&#34;EOFError&#34;, file)
+                    raise
         else:
             data = deepcopy(self.loaded[file])
         data[&#34;chain_id&#34;] = data[&#34;chain_dict&#34;][chain_id]
@@ -3121,7 +3284,7 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
 </dd>
 <dt id="proteinflow.ProteinLoader"><code class="flex name class">
 <span>class <span class="ident">ProteinLoader</span></span>
-<span>(</span><span>dataset, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, force_binding_sites_frac=0, shuffle_batches=True, collate_fn=None, *args, **kwargs)</span>
+<span>(</span><span>dataset, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, collate_func=proteinflow._PadCollate, force_binding_sites_frac=0, shuffle_batches=True, *args, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A subclass of <code>torch.data.utils.DataLoader</code> tuned for the <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> dataset</p>
@@ -3156,8 +3319,8 @@ forced to be in a binding site</dd>
 <dd>if <code>True</code>, a new representative is randomly selected for each cluster at each epoch (if <code>clustering_dict_path</code> is given)</dd>
 <dt><strong><code>shuffle_batches</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>if <code>True</code>, the batches are shuffled at each epoch</dd>
-<dt><strong><code>collate_fn</code></strong> :&ensp;<code>callable</code>, optional</dt>
-<dd>a function that takes a list of samples and returns a batch</dd>
+<dt><strong><code>collate_func</code></strong> :&ensp;<code>callable</code>, optional</dt>
+<dd>a function that takes a list of samples and returns a batch and inherits from _PadCollate</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -3192,9 +3355,9 @@ forced to be in a binding site</dd>
         mask_residues=True,
         mask_whole_chains=False,
         mask_frac=None,
+        collate_func=_PadCollate,
         force_binding_sites_frac=0,
         shuffle_batches=True,
-        collate_fn=None,
         *args,
         **kwargs,
     ):
@@ -3218,22 +3381,20 @@ forced to be in a binding site</dd>
             if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
         shuffle_batches : bool, default True
             if `True`, the batches are shuffled at each epoch
-        collate_fn : callable, optional
-            a function that takes a list of samples and returns a batch
+        collate_func : callable, optional
+            a function that takes a list of samples and returns a batch and inherits from _PadCollate
         &#34;&#34;&#34;
 
         super().__init__(
             dataset,
-            collate_fn=_PadCollate(
+            collate_fn=collate_func(
                 mask_residues=mask_residues,
                 mask_whole_chains=mask_whole_chains,
                 mask_frac=mask_frac,
                 lower_limit=lower_limit,
                 upper_limit=upper_limit,
                 force_binding_sites_frac=force_binding_sites_frac,
-            )
-            if collate_fn is None
-            else collate_fn,
+            ),
             shuffle=shuffle_batches,
             *args,
             **kwargs,
@@ -3544,7 +3705,10 @@ def from_args(
 <h1>Index</h1>
 <div class="toc">
 <ul>
-<li><a href="#installation">Installation</a></li>
+<li><a href="#installation">Installation</a><ul>
+<li><a href="#additional-requirements">Additional requirements</a></li>
+</ul>
+</li>
 <li><a href="#usage">Usage</a><ul>
 <li><a href="#downloading-pre-computed-datasets">Downloading pre-computed datasets</a></li>
 <li><a href="#running-the-pipeline">Running the pipeline</a></li>
