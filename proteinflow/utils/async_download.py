@@ -16,9 +16,9 @@ async def _getobj(client, key):
 async def _download_file(client, snapshots, tmp_folder, id):
     pdb_id, biounit = id.lower().split("-")
     prefixes = [
-        "pub/pdb/data/biounit/PDB/all/",
-        "pub/pdb/data/biounit/mmCIF/all/",
-        "pub/pdb/data/assemblies/mmCIF/all/",
+        "/pub/pdb/data/biounit/PDB/all/",
+        "/pub/pdb/data/biounit/mmCIF/all/",
+        "/pub/pdb/data/assemblies/mmCIF/all/",
     ]
     types = ["pdb", "cif", "cif"]
     filenames = {
