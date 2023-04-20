@@ -31,29 +31,29 @@ Here are some of the key features we currently support:
 ---
 
 ## Installation
-Recommended: create a new `conda` environment and install `proteinflow` with `pip`. 
+conda:
 ```bash
-conda create --name proteinflow -y
-conda activate proteinflow
-python -m pip install proteinflow
+conda install -c conda-forge -c bioconda -c adaptyvbio proteinflow
 ```
 
-If you are using `python 3.10` and encountering installation problems, try running `python -m pip install prody==2.4.0` before installing `proteinflow`.
-
-### Additional requirements
-In most cases, running the commands is enough. However, if you are planning to generate a new dataset, there is a couple additional requirements.
-
-First, you will need to install `mmseqs`. The recommended way is to run the following command in your `conda` environment but there are alternative methods you can see [here](https://github.com/soedinglab/MMseqs2).
+pip:
 ```bash
-conda install -y -c conda-forge -c bioconda mmseqs2
+pip install proteinflow
 ```
 
-In addition, `proteinflow` depends on the `rcsbsearch` package and the latest release [v0.2.3](https://github.com/sbliven/rcsbsearch/releases/tag/v0.2.3) is currently not working correctly. Follow the recommended fix:
+docker:
+```bash
+docker pull adaptyvbio/proteinflow
+```
+
+### Troubleshooting
+- If you are using python 3.10 and encountering installation problems, try running `python -m pip install prody==2.4.0` before installing `proteinflow`.
+- If you are planning to generate new datasets and installed `proteinflow` with `pip`, you will need to additionally install [`mmseqs`](https://github.com/soedinglab/MMseqs2).
+- Generating new datasets also depends on the `rcsbsearch` package and the latest release [v0.2.3](https://github.com/sbliven/rcsbsearch/releases/tag/v0.2.3) is currently not working correctly. The recommended fix is installing the version from [this pull request](https://github.com/sbliven/rcsbsearch/pull/6).
 ```bash
 python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
 ```
-
-Finally, you can use our [docker image](https://hub.docker.com/r/adaptyvbio/proteinflow/tags) as an alternative.
+- The docker image can be accessed in interactive mode with this command.
 ```bash
 docker run -it -v /path/to/data:/media adaptyvbio/proteinflow bash
 ```
