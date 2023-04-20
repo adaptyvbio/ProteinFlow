@@ -508,11 +508,11 @@ def _run_processing(
     MISSING_MIDDLE_THR = missing_middle_thr
 
     if not os.path.exists(TMP_FOLDER):
-        os.mkdir(TMP_FOLDER)
+        os.makedirs(TMP_FOLDER)
     if not os.path.exists(OUTPUT_FOLDER):
-        os.mkdir(OUTPUT_FOLDER)
+        os.makedirs(OUTPUT_FOLDER)
     if not os.path.exists(log_folder):
-        os.mkdir(log_folder)
+        os.makedirs(log_folder)
 
     if pdb_snapshot is not None:
         load_live = False
@@ -550,7 +550,7 @@ def _run_processing(
     pdb_ids = pdb_ids.exec("assembly")
 
     ordered_folders = [
-        x.key
+        x.key.strip("/")
         for x in _s3list(
             boto3.resource("s3", config=Config(signature_version=UNSIGNED)).Bucket(
                 "pdbsnapshots"
