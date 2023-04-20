@@ -28,7 +28,7 @@ ONE_TO_THREE_LETTER_MAP = {
     "M": "MET",
     "F": "PHE",
     "Y": "TYR",
-    "W": "TRP"
+    "W": "TRP",
 }
 ATOM_MAP_4 = {a: ["N", "C", "CA", "O"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
 ATOM_MAP_1 = {a: ["CA"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
@@ -40,7 +40,7 @@ def coord_generator(coords, atoms_per_res=14, remove_padding=False):
     """Return a generator to iteratively yield self.atoms_per_res atoms at a time."""
     coord_idx = 0
     while coord_idx < coords.shape[0]:
-        _slice = coords[coord_idx:coord_idx + atoms_per_res]
+        _slice = coords[coord_idx : coord_idx + atoms_per_res]
         if remove_padding:
             non_pad_locs = (_slice != GLOBAL_PAD_CHAR).any(axis=1)
             _slice = _slice[non_pad_locs]
@@ -112,9 +112,7 @@ class PdbBuilder(object):
             1,
             3,
         ):
-            raise ValueError(
-                "Invalid atoms_per_res. Must be 1, 3, or 4."
-            )
+            raise ValueError("Invalid atoms_per_res. Must be 1, 3, or 4.")
 
         self.only_ca = only_ca
         self.skip_oxygens = skip_oxygens
