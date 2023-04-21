@@ -272,6 +272,7 @@ from proteinflow.utils.process_pdb import (
     PDBError,
     _s3list,
     SIDECHAIN_ORDER,
+    _retrieve_fasta_chains,
 )
 from proteinflow.utils.cluster_and_partition import (
     _build_dataset_partition,
@@ -310,6 +311,7 @@ from botocore.config import Config
 from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations
+from editdistance import eval as edit_distance
 import requests
 
 
@@ -1196,6 +1198,67 @@ def generate_data(
     return log_dict
 
 
+def _get_excluded_files(
+    tag, local_datasets_folder, tmp_folder, exclude_chains, exclude_threshold
+):
+    &#34;&#34;&#34;
+    Get a list of files to exclude from the dataset.
+
+    Biounits are excluded if they contain chains that are too similar
+    (above `exclude_threshold`) to chains in the list of excluded chains.
+
+    Parameters
+    ----------
+    tag : str
+        the name of the dataset
+    local_datasets_folder : str
+        the path to the folder that stores proteinflow datasets
+    tmp_folder : str
+        the path to the folder that stores temporary files
+    exclude_chains : list of str, optional
+        a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `[&#34;1A2B-A&#34;, &#34;1A2B-B&#34;]`); chain id is the author chain id
+    exclude_threshold : float in [0, 1], default 0.7
+        the sequence similarity threshold for excluding chains
+    &#34;&#34;&#34;
+
+    # download fasta files for excluded chains
+    sequences = []
+    for chain in exclude_chains:
+        pdb_id, chain_id = chain.split(&#34;-&#34;)
+        downloadurl = &#34;https://www.rcsb.org/fasta/entry/&#34;
+        pdbfn = pdb_id + &#34;/download&#34;
+        outfnm = os.path.join(tmp_folder, f&#34;{pdb_id.lower()}.fasta&#34;)
+        url = downloadurl + pdbfn
+        urllib.request.urlretrieve(url, outfnm)
+        chains = _retrieve_fasta_chains(outfnm)
+        sequences.append(chains[chain_id])
+        os.remove(outfnm)
+
+    # iterate over files in the dataset to check similarity
+    exclude_biounits = []
+    for fn in os.listdir(os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;)):
+        if not fn.endswith(&#34;.pickle&#34;):
+            continue
+        fp = os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;, fn)
+        with open(fp, &#34;rb&#34;) as f:
+            entry = pickle.load(f)
+        break_flag = False
+        for chain, chain_data in entry.items():
+            for seq in sequences:
+                if (
+                    edit_distance(seq, chain_data[&#34;seq&#34;]) / len(seq)
+                    &lt; 1 - exclude_threshold
+                ):
+                    exclude_biounits.append(fn)
+                    break_flag = True
+                    break
+            if break_flag:
+                break
+
+    # return list of biounits to exclude
+    return exclude_biounits
+
+
 def split_data(
     tag,
     local_datasets_folder=&#34;./data&#34;,
@@ -1204,6 +1267,8 @@ def split_data(
     valid_split=0.05,
     ignore_existing=False,
     min_seq_id=0.3,
+    exclude_chains=None,
+    exclude_threshold=0.7,
 ):
     &#34;&#34;&#34;
     Split `proteinflow` entry files into training, test and validation.
@@ -1218,6 +1283,9 @@ def split_data(
     from those clusters,
     3. split connected components of the graph into training, test and validation subsets while keeping the proportion
     of single chains, homomers and heteromers close to that in the full dataset (within `split_tolerance`).
+
+    Biounits that contain chains similar to those in the `exclude_chains` list (with `exclude_threshold` sequence identity)
+    are excluded from the splitting and placed into a separate folder.
 
 
     Parameters
@@ -1236,12 +1304,27 @@ def split_data(
         If `True`, overwrite existing dictionaries for this tag; otherwise, load the existing dictionary
     min_seq_id : float in [0, 1], default 0.3
         minimum sequence identity for `mmseqs`
+    exclude_chains : list of str, optional
+        a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `[&#34;1A2B-A&#34;, &#34;1A2B-B&#34;]`); chain id is the author chain id
+    exclude_threshold : float in [0, 1], default 0.7
+        the sequence similarity threshold for excluding chains
 
     Returns
     -------
     log : dict
         a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
     &#34;&#34;&#34;
+
+    if exclude_chains is None:
+        excluded_biounits = []
+    else:
+        excluded_biounits = _get_excluded_files(
+            tag,
+            local_datasets_folder,
+            os.path.join(local_datasets_folder, &#34;tmp&#34;),
+            exclude_chains,
+            exclude_threshold,
+        )
 
     _check_mmseqs()
     tmp_folder = os.path.join(local_datasets_folder, &#34;tmp&#34;)
@@ -1266,7 +1349,7 @@ def split_data(
             min_seq_id=min_seq_id,
         )
 
-    _split_data(output_folder)
+    _split_data(output_folder, excluded_biounits)
 
 
 class ProteinDataset(Dataset):
@@ -2500,7 +2583,7 @@ coordinates in the <code>'crd_sc'</code> array generated by the <code>run_proces
 </details>
 </dd>
 <dt id="proteinflow.split_data"><code class="name flex">
-<span>def <span class="ident">split_data</span></span>(<span>tag, local_datasets_folder='./data', split_tolerance=0.2, test_split=0.05, valid_split=0.05, ignore_existing=False, min_seq_id=0.3)</span>
+<span>def <span class="ident">split_data</span></span>(<span>tag, local_datasets_folder='./data', split_tolerance=0.2, test_split=0.05, valid_split=0.05, ignore_existing=False, min_seq_id=0.3, exclude_chains=None, exclude_threshold=0.7)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Split <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> entry files into training, test and validation.</p>
@@ -2514,6 +2597,8 @@ from those clusters,</li>
 <li>split connected components of the graph into training, test and validation subsets while keeping the proportion
 of single chains, homomers and heteromers close to that in the full dataset (within <code>split_tolerance</code>).</li>
 </ol>
+<p>Biounits that contain chains similar to those in the <code>exclude_chains</code> list (with <code>exclude_threshold</code> sequence identity)
+are excluded from the splitting and placed into a separate folder.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>tag</code></strong> :&ensp;<code>str</code></dt>
@@ -2530,6 +2615,10 @@ of single chains, homomers and heteromers close to that in the full dataset (wit
 <dd>If <code>True</code>, overwrite existing dictionaries for this tag; otherwise, load the existing dictionary</dd>
 <dt><strong><code>min_seq_id</code></strong> :&ensp;<code>float in [0, 1]</code>, default <code>0.3</code></dt>
 <dd>minimum sequence identity for <code>mmseqs</code></dd>
+<dt><strong><code>exclude_chains</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
+<dd>a list of chains (<code>{pdb_id}-{chain_id}</code>) to exclude from the splitting (e.g. <code>["1A2B-A", "1A2B-B"]</code>); chain id is the author chain id</dd>
+<dt><strong><code>exclude_threshold</code></strong> :&ensp;<code>float in [0, 1]</code>, default <code>0.7</code></dt>
+<dd>the sequence similarity threshold for excluding chains</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -2548,6 +2637,8 @@ of single chains, homomers and heteromers close to that in the full dataset (wit
     valid_split=0.05,
     ignore_existing=False,
     min_seq_id=0.3,
+    exclude_chains=None,
+    exclude_threshold=0.7,
 ):
     &#34;&#34;&#34;
     Split `proteinflow` entry files into training, test and validation.
@@ -2562,6 +2653,9 @@ of single chains, homomers and heteromers close to that in the full dataset (wit
     from those clusters,
     3. split connected components of the graph into training, test and validation subsets while keeping the proportion
     of single chains, homomers and heteromers close to that in the full dataset (within `split_tolerance`).
+
+    Biounits that contain chains similar to those in the `exclude_chains` list (with `exclude_threshold` sequence identity)
+    are excluded from the splitting and placed into a separate folder.
 
 
     Parameters
@@ -2580,12 +2674,27 @@ of single chains, homomers and heteromers close to that in the full dataset (wit
         If `True`, overwrite existing dictionaries for this tag; otherwise, load the existing dictionary
     min_seq_id : float in [0, 1], default 0.3
         minimum sequence identity for `mmseqs`
+    exclude_chains : list of str, optional
+        a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `[&#34;1A2B-A&#34;, &#34;1A2B-B&#34;]`); chain id is the author chain id
+    exclude_threshold : float in [0, 1], default 0.7
+        the sequence similarity threshold for excluding chains
 
     Returns
     -------
     log : dict
         a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
     &#34;&#34;&#34;
+
+    if exclude_chains is None:
+        excluded_biounits = []
+    else:
+        excluded_biounits = _get_excluded_files(
+            tag,
+            local_datasets_folder,
+            os.path.join(local_datasets_folder, &#34;tmp&#34;),
+            exclude_chains,
+            exclude_threshold,
+        )
 
     _check_mmseqs()
     tmp_folder = os.path.join(local_datasets_folder, &#34;tmp&#34;)
@@ -2610,7 +2719,7 @@ of single chains, homomers and heteromers close to that in the full dataset (wit
             min_seq_id=min_seq_id,
         )
 
-    _split_data(output_folder)</code></pre>
+    _split_data(output_folder, excluded_biounits)</code></pre>
 </details>
 </dd>
 </dl>

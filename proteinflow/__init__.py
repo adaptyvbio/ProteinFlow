@@ -1071,12 +1071,12 @@ def generate_data(
 
 
 def _get_excluded_files(
-        tag, local_datasets_folder, tmp_folder, exclude_chains, exclude_threshold
+    tag, local_datasets_folder, tmp_folder, exclude_chains, exclude_threshold
 ):
     """
     Get a list of files to exclude from the dataset.
 
-    Biounits are excluded if they contain chains that are too similar 
+    Biounits are excluded if they contain chains that are too similar
     (above `exclude_threshold`) to chains in the list of excluded chains.
 
     Parameters
@@ -1105,7 +1105,7 @@ def _get_excluded_files(
         chains = _retrieve_fasta_chains(outfnm)
         sequences.append(chains[chain_id])
         os.remove(outfnm)
-    
+
     # iterate over files in the dataset to check similarity
     exclude_biounits = []
     for fn in os.listdir(os.path.join(local_datasets_folder, f"proteinflow_{tag}")):
@@ -1117,7 +1117,10 @@ def _get_excluded_files(
         break_flag = False
         for chain, chain_data in entry.items():
             for seq in sequences:
-                if edit_distance(seq, chain_data["seq"]) / len(seq) < 1 - exclude_threshold:
+                if (
+                    edit_distance(seq, chain_data["seq"]) / len(seq)
+                    < 1 - exclude_threshold
+                ):
                     exclude_biounits.append(fn)
                     break_flag = True
                     break
@@ -1188,7 +1191,11 @@ def split_data(
         excluded_biounits = []
     else:
         excluded_biounits = _get_excluded_files(
-            tag, local_datasets_folder, os.path.join(local_datasets_folder, "tmp"), exclude_chains, exclude_threshold
+            tag,
+            local_datasets_folder,
+            os.path.join(local_datasets_folder, "tmp"),
+            exclude_chains,
+            exclude_threshold,
         )
 
     _check_mmseqs()
