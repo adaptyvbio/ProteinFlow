@@ -22,11 +22,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: publish-to-conda
-      uses: maxibor/conda-package-publish-action@v1.1
-      with:
-        subDir: '.conda'
-        AnacondaToken: ${{ secrets.ANACONDA_TOKEN }}
+    - name: Set up conda access
+      run: |
+        export ANACONDA_API_TOKEN={{ secrets.ANACONDA_TOKEN }}
+        conda config --set anaconda_upload yes
+    - name: Build package
+      run: conda build -c conda-forge -c bioconda .conda
     
     
   # other:
