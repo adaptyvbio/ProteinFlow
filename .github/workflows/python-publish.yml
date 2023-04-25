@@ -25,6 +25,7 @@ jobs:
     - name: Build package
       run: |
         export ANACONDA_API_TOKEN=${{ secrets.ANACONDA_TOKEN }}
+        conda update -y conda
         conda install -y conda-build
         conda config --set anaconda_upload yes
         conda build -c conda-forge -c bioconda .conda
