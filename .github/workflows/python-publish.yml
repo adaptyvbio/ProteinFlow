@@ -16,6 +16,17 @@ permissions:
   contents: read
 
 jobs:
+  publish-to-conda:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: publish-to-conda
+      uses: MichaelsJP/conda-package-publish-action@v1.0.0
+      with:
+        subDir: '.conda'
+        AnacondaToken: ${{ secrets.ANACONDA_TOKEN }}
+        override: true
+    
   deploy:
 
     runs-on: ubuntu-latest
