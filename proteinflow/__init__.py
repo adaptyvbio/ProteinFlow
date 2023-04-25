@@ -1112,7 +1112,9 @@ def _get_excluded_files(
     # iterate over files in the dataset to check similarity
     print("Checking excluded chains similarity...")
     exclude_biounits = []
-    for fn in tqdm(os.listdir(os.path.join(local_datasets_folder, f"proteinflow_{tag}"))):
+    for fn in tqdm(
+        os.listdir(os.path.join(local_datasets_folder, f"proteinflow_{tag}"))
+    ):
         if not fn.endswith(".pickle"):
             continue
         fp = os.path.join(local_datasets_folder, f"proteinflow_{tag}", fn)
