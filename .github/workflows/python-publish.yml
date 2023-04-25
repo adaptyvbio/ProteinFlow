@@ -22,13 +22,17 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Build package
-      run: |
-        export ANACONDA_API_TOKEN=${{ secrets.ANACONDA_TOKEN }}
-        conda update -y conda
-        conda install -y conda-build
-        conda config --set anaconda_upload yes
-        conda build -c conda-forge -c bioconda .conda
+    - name: publish-to-conda
+      uses: amauryval/publish_conda_package_action@2.0.3
+      with:
+        # CondaDir: locate the directory containing your meta.yml, conda_build_config.yaml (...) files
+        CondaDir: '.conda'
+        # Channels: You can add more channel with a space separator
+        Channels: 'conda-forge bioconda' 
+        # Platforms: remove one or more of these platforms
+        Platforms: 'linux-64'
+        CondaUsername: ${{ secrets.CONDA_USERNAME }}
+        CondaPassword: ${{ secrets.CONDA_PASSWORD }}
     
     
   # other:
