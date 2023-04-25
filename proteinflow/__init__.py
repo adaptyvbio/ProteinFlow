@@ -1094,6 +1094,8 @@ def _get_excluded_files(
     """
 
     # download fasta files for excluded chains
+    if not os.path.exists(tmp_folder):
+        os.makedirs(tmp_folder)
     sequences = []
     for chain in exclude_chains:
         pdb_id, chain_id = chain.split("-")
@@ -1107,8 +1109,9 @@ def _get_excluded_files(
         os.remove(outfnm)
     
     # iterate over files in the dataset to check similarity
+    print("Checking excluded chains similarity...")
     exclude_biounits = []
-    for fn in os.listdir(os.path.join(local_datasets_folder, f"proteinflow_{tag}")):
+    for fn in tqdm(os.listdir(os.path.join(local_datasets_folder, f"proteinflow_{tag}"))):
         if not fn.endswith(".pickle"):
             continue
         fp = os.path.join(local_datasets_folder, f"proteinflow_{tag}", fn)

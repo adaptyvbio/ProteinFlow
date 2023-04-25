@@ -105,6 +105,7 @@ jobs:
         run: |
           git pull
           conda run -n proteinflow . make_docs.sh
+          echo ${{ needs.test.outputs.update }}
       - uses: stefanzweifel/git-auto-commit-action@v4
         if: ${{ needs.test.outputs.update }}
         with:

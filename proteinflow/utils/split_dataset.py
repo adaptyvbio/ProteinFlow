@@ -23,6 +23,8 @@ def _biounits_in_clusters_dict(clusters_dict, excluded_files=None):
 
     if excluded_files is None:
         excluded_files = []
+    if len(clusters_dict) == 0:
+        return np.array([])
     return np.unique([c[0] for c in list(np.concatenate(list(clusters_dict.values()))) if c[0] not in excluded_files])
 
 
