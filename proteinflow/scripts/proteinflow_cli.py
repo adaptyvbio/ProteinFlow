@@ -181,6 +181,19 @@ def generate(**kwargs):
     type=float,
     help="Minimum sequence identity for mmseqs clustering",
 )
+@click.option(
+    "--exclude_chains",
+    "-e",
+    multiple=True,
+    type=str,
+    help="Exclude specific chains from the dataset ({pdb_id}-{chain_id}, e.g. -e 1a2b-A)",
+)
+@click.option(
+    "--exclude_threshold",
+    default=0.7,
+    type=float,
+    help="Exclude chains with sequence identity to exclude_chains above this threshold",
+)
 @cli.command(
     "split",
     help="Split an existing ProteinFlow dataset into training, validation and test subset according to MMseqs clustering and homomer/heteromer/single chain proportions",
