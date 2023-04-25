@@ -79,12 +79,14 @@ python -m pip install proteinflow
 </code></pre>
 <p>See <code><a title="proteinflow.split_data" href="#proteinflow.split_data">split_data()</a></code> (or run <code>proteinflow split --help</code>) for more information.</p>
 <h3 id="using-the-data">Using the data</h3>
-<p>The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:
-- <code>'crd_bb'</code>: a <code>numpy</code> array of shape <code>(L, 4, 3)</code> with backbone atom coordinates (N, C, CA, O),
-- <code>'crd_sc'</code>: a <code>numpy</code> array of shape <code>(L, 10, 3)</code> with sidechain atom coordinates (check <code><a title="proteinflow.sidechain_order" href="#proteinflow.sidechain_order">sidechain_order()</a></code> for the order of atoms),
-- <code>'msk'</code>: a <code>numpy</code> array of shape <code>(L,)</code> where ones correspond to residues with known coordinates and
-zeros to missing values,
-- <code>'seq'</code>: a string of length <code>L</code> with residue types.</p>
+<p>The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:</p>
+<ul>
+<li><code>'crd_bb'</code>: a <code>numpy</code> array of shape <code>(L, 4, 3)</code> with backbone atom coordinates (N, C, CA, O),</li>
+<li><code>'crd_sc'</code>: a <code>numpy</code> array of shape <code>(L, 10, 3)</code> with sidechain atom coordinates (check <code><a title="proteinflow.sidechain_order" href="#proteinflow.sidechain_order">sidechain_order()</a></code> for the order of atoms),</li>
+<li><code>'msk'</code>: a <code>numpy</code> array of shape <code>(L,)</code> where ones correspond to residues with known coordinates and
+zeros to missing values,</li>
+<li><code>'seq'</code>: a string of length <code>L</code> with residue types.</li>
+</ul>
 <p>Once your data is ready, you can open the files directly with <code>pickle</code> to access this data.</p>
 <pre><code class="language-python">import pickle
 import os
@@ -209,6 +211,7 @@ See `proteinflow.split_data` (or run `proteinflow split --help`) for more inform
 
 ### Using the data
 The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:
+
 - `&#39;crd_bb&#39;`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),
 - `&#39;crd_sc&#39;`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (check `proteinflow.sidechain_order()` for the order of atoms),
 - `&#39;msk&#39;`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and
