@@ -63,7 +63,7 @@ docker run -it -v /path/to/data:/media adaptyvbio/proteinflow bash
 ### Downloading pre-computed datasets (stable)
 Already precomputed datasets with consensus set of parameters and can be accessed and downloaded using the `proteinflow`. package. Check the output of `proteinflow check_tags` for a list of available tags.
 ```bash
-proteinflow download --tag 20221110 
+proteinflow download --tag 20230102_stable 
 ```
 
 ### Running the pipeline
