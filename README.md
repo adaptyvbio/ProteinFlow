@@ -34,6 +34,7 @@ Here are some of the key features we currently support:
 ## Installation
 conda:
 ```bash
+# This should take a few minutes, be patient
 conda install -c conda-forge -c bioconda -c adaptyvbio proteinflow
 ```
 
