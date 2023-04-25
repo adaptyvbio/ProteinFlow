@@ -22,13 +22,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Set up conda access
+    - name: Build package
       run: |
         export ANACONDA_API_TOKEN=${{ secrets.ANACONDA_TOKEN }}
         conda install -y conda-build
         conda config --set anaconda_upload yes
-    - name: Build package
-      run: conda build -c conda-forge -c bioconda .conda
+        conda build -c conda-forge -c bioconda .conda
     
     
   # other:
