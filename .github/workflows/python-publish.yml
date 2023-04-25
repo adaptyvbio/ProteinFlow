@@ -25,6 +25,7 @@ jobs:
     - name: Set up conda access
       run: |
         export ANACONDA_API_TOKEN=${{ secrets.ANACONDA_TOKEN }}
+        conda install -y conda-build
         conda config --set anaconda_upload yes
     - name: Build package
       run: conda build -c conda-forge -c bioconda .conda
