@@ -1,8 +1,6 @@
 from Bio import pairwise2
 import numpy as np
 from typing import Dict
-import subprocess
-import urllib.request
 import os
 import numpy as np
 from biopandas.pdb import PandasPdb
@@ -10,9 +8,8 @@ from proteinflow.utils.mmcif_fix import CustomMmcif
 import os
 from collections import namedtuple
 from operator import attrgetter
-import requests
-import shutil
 import warnings
+from collections import defaultdict
 
 
 SIDECHAIN_ORDER = {
@@ -62,6 +59,15 @@ d3to1 = {
     "MET": "M",
 }
 S3Obj = namedtuple("S3Obj", ["key", "mtime", "size", "ETag"])
+CDR_ENDS = {
+    "L": {"L1": (26, 32), "L2": (50, 52), "L3": (91, 96)},
+    "H": {"H1": (26, 32), "H2": (52, 56), "H3": (96, 101)},
+}
+CDR_VALUES = {"L": defaultdict(lambda: "-"), "H": defaultdict(lambda: "-")}
+for chain_type in ["L", "H"]:
+    for key, (start, end) in CDR_ENDS[chain_type].items():
+        for x in range(start, end + 1):
+            CDR_VALUES[chain_type][x] = key
 
 
 class PDBError(ValueError):
@@ -286,6 +292,9 @@ def _open_structure(file_path: str, tmp_folder: str) -> Dict:
         pass
     return out_dict
 
+def _get_chothia_cdr(num_array, chain_type):
+    arr = [CDR_VALUES[chain_type][int(x.split("_")[0])] for x in num_array]
+    return np.array(arr)
 
 def _align_structure(
     pdb_dict: Dict,
@@ -293,6 +302,7 @@ def _align_structure(
     max_length: int = None,
     max_missing_middle: float = 0.1,
     max_missing_ends: float = 0.3,
+    chain_id_string: str = None,
 ) -> Dict:
     """
     Align and filter a PDB dictionary
@@ -310,6 +320,9 @@ def _align_structure(
         zeros to missing values,
     - `'seq'`: a string of length `L` with residue types.
 
+    If `chain_id_string` is provided, the output dictionary will also contain the following keys:
+    - `'cdr'`: a `numpy` array of shape `(L,)` with CDR types (according to Chothia definition).
+
     Parameters
     ----------
     pdb_dict : Dict
@@ -318,6 +331,8 @@ def _align_structure(
         the minimum number of non-missing residues per chain
     max_length : int, optional
         the maximum number of residues per chain
+    chain_id_string: str, optional
+        chain id string in the form of `"{pdb_id}_H_L_A1|...|An"` (for SAbDab)
 
     Returns
     -------
@@ -336,8 +351,26 @@ def _align_structure(
 
     if not crd["residue_name"].isin(d3to1.keys()).all():
         raise PDBError("Unnatural amino acids found")
+    
+    chains_unique = crd["chain_id"].unique()
+    chain_types = ["-" for _ in chains_unique]
+    if chain_id_string is not None:
+        H_chain, L_chain, A_chains = chain_id_string.split("_")
+        A_chains = A_chains.split("|")
+        if H_chain == "NA":
+            H_chain = None
+        if L_chain == "NA":
+            L_chain = None
+        if not set(A_chains).issubset(set(chains_unique)):
+            raise PDBError("Antigen chains not found")
+        if H_chain is not None and H_chain not in chains_unique:
+            raise PDBError("Heavy chain not found")
+        if L_chain is not None and L_chain not in chains_unique:
+            raise PDBError("Light chain not found")
+        chains_unique = [H_chain, L_chain] + A_chains
+        chain_types = ["H", "L"] + ["-" for _ in A_chains]
 
-    for chain in crd["chain_id"].unique():
+    for chain, chain_type in zip(chains_unique, chain_types):
         pdb_dict[chain] = {}
         chain_crd = crd[crd["chain_id"] == chain].reset_index()
 
@@ -376,6 +409,11 @@ def _align_structure(
             end - start
         ):
             raise PDBError("Too many missing values in the middle")
+        if chain_id_string is not None:
+            cdr_arr = np.array(["-"] * len(aligned_seq))
+            if chain_type in ["H", "L"]:
+                cdr_arr[aligned_seq_arr != "-"] = _get_chothia_cdr(unique_numbers, chain_type)
+            pdb_dict[chain]["cdr"] = cdr_arr
         pdb_dict[chain]["seq"] = fasta[chain]
         pdb_dict[chain]["msk"] = (aligned_seq_arr != "-").astype(int)
         l = sum(pdb_dict[chain]["msk"])

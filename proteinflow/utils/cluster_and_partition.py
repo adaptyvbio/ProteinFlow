@@ -77,7 +77,7 @@ def _merge_chains(seqs_dict_):
     return seqs_dict
 
 
-def _load_pdbs(dir):
+def _load_pdbs(dir, cdr=None):
     """
     Load biounits and group their sequences by PDB and similarity (90%)
     """
@@ -90,7 +90,13 @@ def _load_pdbs(dir):
             continue
         with open(load_path, "rb") as f:
             pdb_dict = pkl.load(f)
-        seqs = [(chain, pdb_dict[chain]["seq"]) for chain in pdb_dict.keys()]
+        if cdr is None:
+            seqs = [(chain, pdb_dict[chain]["seq"]) for chain in pdb_dict.keys()]
+        else:
+            seqs = [
+                (chain, np.array(pdb_dict[chain]["seq"])[pdb_dict[chain]["cdr"] == cdr].tostring())
+                for chain in pdb_dict.keys()
+            ]
         seqs_dict[file[:4]] += seqs
 
     return seqs_dict
@@ -108,7 +114,7 @@ def _write_fasta(fasta_path, merged_seqs_dict):
                 f.write(seq + "\n")
 
 
-def _run_mmseqs2(fasta_file, tmp_folder, min_seq_id):
+def _run_mmseqs2(fasta_file, tmp_folder, min_seq_id, cdr=None):
     """
     Run the MMSeqs2 command with the parameters we want
 
@@ -116,26 +122,31 @@ def _run_mmseqs2(fasta_file, tmp_folder, min_seq_id):
     """
 
     os.makedirs(os.path.join(tmp_folder, "MMSeqs2_results"), exist_ok=True)
+    folder = "MMSeqs2_results" if cdr is None else os.path.join("MMSeqs2_results", cdr)
     subprocess.run(
         [
             "mmseqs",
             "easy-cluster",
             fasta_file,
-            os.path.join(tmp_folder, "MMSeqs2_results/clusterRes"),
-            os.path.join(tmp_folder, "MMSeqs2_results/tmp"),
+            os.path.join(tmp_folder, folder, "clusterRes"),
+            os.path.join(tmp_folder, folder, "tmp"),
             "--min-seq-id",
             str(min_seq_id),
         ]
     )
 
 
-def _read_clusters(cluster_file_fasta):
+def _read_clusters(tmp_folder, cdr=None):
     """
     Read the output from MMSeqs2 and produces 2 dictionaries that store the clusters information
 
-    In cluster_dict, keys are the full names (pdb + chains) whereas in cluster_pdb_dict, keys are just the PDB ids (so less clusters but bigger).
+    In cluster_dict, values are the full names (pdb + chains) whereas in cluster_pdb_dict, values are just the PDB ids (so less clusters but bigger).
     """
 
+    if cdr is None:
+        cluster_file_fasta = os.path.join(tmp_folder, "MMSeqs2_results", "clusterRes", "cluster.tsv")
+    else:
+        cluster_file_fasta = os.path.join(tmp_folder, "MMSeqs2_results", cdr, "clusterRes", "cluster.tsv")
     with open(cluster_file_fasta, "r") as f:
         cluster_dict = defaultdict(lambda: [])
         cluster_pdb_dict = defaultdict(lambda: [])
@@ -146,6 +157,8 @@ def _read_clusters(cluster_file_fasta):
             if line[0] == ">" and found_header:
                 cluster_name = line[1:-1]
                 sequence_name = line[1:-1]
+                if cdr is not None:
+                    cluster_name += "__" + cdr
 
             elif line[0] == ">":
                 sequence_name = line[1:-1]
@@ -971,6 +984,7 @@ def _build_dataset_partition(
     test_split=0.05,
     tolerance=0.2,
     min_seq_id=0.3,
+    sabdab=False,
 ):
     """
     Build training, validation and test sets from a curated dataset of biounit, using MMSeqs2 for clustering
@@ -985,6 +999,8 @@ def _build_dataset_partition(
         the test split ratio
     min_seq_id : float in [0, 1], default 0.3
         minimum sequence identity for `mmseqs`
+    sabdab : bool, default False
+        whether the dataset is the SAbDab dataset or not
 
     Output
     ------
@@ -1004,20 +1020,28 @@ def _build_dataset_partition(
         see train_classes_dict but for test set
     """
 
-    # retrieve all sequences and create a merged_seqs_dict
-    merged_seqs_dict = _load_pdbs(dataset_dir)
-    merged_seqs_dict = _merge_chains(merged_seqs_dict)
+    cdrs = ["L1", "L2", "L3", "H1", "H2", "H3"] if sabdab else [None]
+    for cdr in cdrs:
+        # retrieve all sequences and create a merged_seqs_dict
+        merged_seqs_dict = _load_pdbs(dataset_dir, cdr=cdr) # keys: pdb_id, values: list of chains and sequences
+        merged_seqs_dict = _merge_chains(merged_seqs_dict) # remove redundant chains
 
-    # write sequences to a fasta file for clustering with MMSeqs2, run MMSeqs2 and delete the fasta file
-    fasta_file = os.path.join(tmp_folder, "all_seqs.fasta")
-    _write_fasta(fasta_file, merged_seqs_dict)
-    _run_mmseqs2(fasta_file, tmp_folder, min_seq_id)
-    subprocess.run(["rm", fasta_file])
+        # write sequences to a fasta file for clustering with MMSeqs2, run MMSeqs2 and delete the fasta file
+        fasta_file = os.path.join(tmp_folder, "all_seqs.fasta") 
+        _write_fasta(fasta_file, merged_seqs_dict) # write all sequences from merged_seqs_dict to fasta file
+        _run_mmseqs2(fasta_file, tmp_folder, min_seq_id, cdr=cdr) # run MMSeqs2 on fasta file
+        subprocess.run(["rm", fasta_file])
 
-    # retrieve MMSeqs2 clusters and build a graph with these clusters
-    clusters_dict, clusters_pdb_dict = _read_clusters(
-        os.path.join(tmp_folder, "MMSeqs2_results/clusterRes_all_seqs.fasta")
-    )
+    clusters_dict = {}
+    clusters_pdb_dict = {}
+    for cdr in cdrs:
+        # retrieve MMSeqs2 clusters and build a graph with these clusters
+        c_dict, c_pdb_dict = _read_clusters(
+            tmp_folder=tmp_folder, cdr=cdr,
+        )
+        clusters_dict.update(c_dict)
+        clusters_pdb_dict.update(c_pdb_dict)
+
     subprocess.run(["rm", "-r", os.path.join(tmp_folder, "MMSeqs2_results")])
     graph = _make_graph(clusters_pdb_dict)
 

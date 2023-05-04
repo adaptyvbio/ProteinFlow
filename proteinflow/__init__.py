@@ -186,7 +186,9 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations
 from editdistance import eval as edit_distance
 import requests
-
+import zipfile
+from bs4 import BeautifulSoup
+import urllib.request
 
 MAIN_ATOMS = {
     "GLY": None,
@@ -436,6 +438,9 @@ def _run_processing(
     tag=None,
     pdb_snapshot=None,
     load_live=False,
+    sabdab=False,
+    zip_path=None,
+    require_antigen=False,
 ):
     """
     Download and parse PDB files that meet filtering criteria
@@ -492,9 +497,15 @@ def _run_processing(
     tag : str, optional
         A tag to add to the log file
     pdb_snapshot : str, optional
-        the PDB snapshot to use, by default the latest is used
+        the PDB snapshot to use, by default the latest is used (if `sabdab` is `True`, you can use any date in the format YYYYMMDD as a cutoff)
     load_live : bool, default False
         if `True`, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to `False` if `pdb_snapshot` is not `None`)
+    sabdab : bool, default False
+        if `True`, download the SAbDab database instead of PDB
+    zip_path : str, optional
+        path to a zip file containing SAbDab files (only used if `sabdab` is `True`)
+    require_antigen : bool, default False
+        if `True`, only keep files with antigen chains (only used if `sabdab` is `True`)
 
     Returns
     -------
@@ -517,9 +528,6 @@ def _run_processing(
     if not os.path.exists(log_folder):
         os.makedirs(log_folder)
 
-    if pdb_snapshot is not None:
-        load_live = False
-
     i = 0
     while os.path.exists(os.path.join(log_folder, f"log_{i}.txt")):
         i += 1
@@ -532,89 +540,15 @@ def _run_processing(
         if tag is not None:
             f.write(f"tag: {tag} \n\n")
 
-    # get filtered PDB ids from PDB API
-    pdb_ids = (
-        Attr("rcsb_entry_info.selected_polymer_entity_types")
-        .__eq__("Protein (only)")
-        .or_("rcsb_entry_info.polymer_composition")
-        .__eq__("protein/oligosaccharide")
-    )
-    # if include_na:
-    #     pdb_ids = pdb_ids.or_('rcsb_entry_info.polymer_composition').in_(["protein/NA", "protein/NA/oligosaccharide"])
-
-    if RESOLUTION_THR is not None:
-        pdb_ids = pdb_ids.and_("rcsb_entry_info.resolution_combined").__le__(
-            RESOLUTION_THR
-        )
-    if filter_methods:
-        pdb_ids = pdb_ids.and_("exptl.method").in_(
-            ["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"]
-        )
-    pdb_ids = pdb_ids.exec("assembly")
-
-    ordered_folders = [
-        x.key.strip("/")
-        for x in _s3list(
-            boto3.resource("s3", config=Config(signature_version=UNSIGNED)).Bucket(
-                "pdbsnapshots"
-            ),
-            "",
-            recursive=False,
-            list_objs=False,
-        )
-    ]
-    ordered_folders = sorted(
-        ordered_folders, reverse=True
-    )  # a list of PDB snapshots from newest to oldest
-    if pdb_snapshot is not None:
-        if pdb_snapshot not in ordered_folders:
-            raise ValueError(
-                f"The {pdb_snapshot} PDB snapshot not found, please choose from {ordered_folders}"
-            )
-        ind = ordered_folders.index(pdb_snapshot)
-        ordered_folders = ordered_folders[ind:]
-
-    # session = boto3.session.Session()
-    # s3_client = session.client("s3", config=Config(signature_version=UNSIGNED))
-
-    session = get_session()
-
-    def download_live(id):
-        pdb_id, biounit = id.split("-")
-        filenames = {
-            "cif": f"{pdb_id}-assembly{biounit}.cif.gz",
-            "pdb": f"{pdb_id}.pdb{biounit}.gz",
-        }
-        for t in filenames:
-            local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + f".{t}.gz"
-            try:
-                url = f"https://files.rcsb.org/download/{filenames[t]}"
-                response = requests.get(url)
-                open(local_path, "wb").write(response.content)
-                return local_path
-            except:
-                pass
-        return id
-
-    def download_fasta_f(pdb_id, datadir):
-        downloadurl = "https://www.rcsb.org/fasta/entry/"
-        pdbfn = pdb_id + "/download"
-        outfnm = os.path.join(datadir, f"{pdb_id.lower()}.fasta")
-
-        url = downloadurl + pdbfn
-        try:
-            urllib.request.urlretrieve(url, outfnm)
-            return outfnm
-
-        except Exception as err:
-            # print(str(err), file=sys.stderr)
-            return None
-
     def process_f(
         local_path,
         show_error=False,
         force=True,
+        sabdab=False,
     ):
+        chain_id = None
+        if sabdab:
+            local_path, chain_id = local_path
         try:
             # local_path = download_f(pdb_id, s3_client=s3_client, load_live=load_live)
             fn = os.path.basename(local_path)
@@ -633,6 +567,7 @@ def _run_processing(
                 max_length=MAX_LENGTH,
                 max_missing_ends=MISSING_ENDS_THR,
                 max_missing_middle=MISSING_MIDDLE_THR,
+                chain_id_string=chain_id,
             )
             # save
             if pdb_dict is not None:
@@ -648,43 +583,18 @@ def _run_processing(
     #     process_f(x, show_error=True, force=force)
 
     try:
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            print("Get a file list...")
-            ids = []
-            for i, x in enumerate(tqdm(pdb_ids)):
-                ids.append(x)
-                if n is not None and i == n:
-                    break
-            print("Download fasta files...")
-            pdbs = set([x.split("-")[0] for x in ids])
-            future_to_key = {
-                executor.submit(
-                    lambda x: download_fasta_f(x, datadir=tmp_folder), key
-                ): key
-                for key in pdbs
-            }
-            _ = [
-                x.result()
-                for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))
-            ]
-
-        # _ = [process_f(x, force=force, load_live=load_live) for x in tqdm(ids)]
-        print("Download structure files...")
-        paths = _download_s3_parallel(
-            pdb_ids=ids, tmp_folder=tmp_folder, snapshots=[ordered_folders[0]]
+        paths, error_ids = _load_files(
+            resolution_thr=RESOLUTION_THR,
+            filter_methods=filter_methods,
+            pdb_snapshot=pdb_snapshot,
+            log_folder=log_folder,
+            n=n,
+            tmp_folder=TMP_FOLDER,
+            load_live=load_live,
+            sabdab=sabdab,
+            zip_path=zip_path,
+            require_antigen=require_antigen,
         )
-        paths = [item for sublist in paths for item in sublist]
-        error_ids = [x for x in paths if not x.endswith(".gz")]
-        paths = [x for x in paths if x.endswith(".gz")]
-        if load_live:
-            print("Download newest structure files...")
-            live_paths = p_map(download_live, error_ids)
-            error_ids = []
-            for x in live_paths:
-                if x.endswith(".gz"):
-                    paths.append(x)
-                else:
-                    error_ids.append(x)
         for id in error_ids:
             with open(LOG_FILE, "a") as f:
                 f.write(f"<<< Could not download PDB/mmCIF file: {id} \n")
@@ -927,7 +837,208 @@ class _PadCollate:
 
     def __call__(self, batch):
         return self.pad_collate(batch)
+    
+def _get_pdb_ids(resolution_thr=3.5, pdb_snapshot=None, filter_methods=True, log_folder='data/tmp/logs'):
+    # get filtered PDB ids from PDB API
+    pdb_ids = (
+        Attr("rcsb_entry_info.selected_polymer_entity_types")
+        .__eq__("Protein (only)")
+        .or_("rcsb_entry_info.polymer_composition")
+        .__eq__("protein/oligosaccharide")
+    )
+    # if include_na:
+    #     pdb_ids = pdb_ids.or_('rcsb_entry_info.polymer_composition').in_(["protein/NA", "protein/NA/oligosaccharide"])
 
+    if resolution_thr is not None:
+        pdb_ids = pdb_ids.and_("rcsb_entry_info.resolution_combined").__le__(
+            resolution_thr
+        )
+    if filter_methods:
+        pdb_ids = pdb_ids.and_("exptl.method").in_(
+            ["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"]
+        )
+    pdb_ids = pdb_ids.exec("assembly")
+
+    ordered_folders = [
+        x.key.strip("/")
+        for x in _s3list(
+            boto3.resource("s3", config=Config(signature_version=UNSIGNED)).Bucket(
+                "pdbsnapshots"
+            ),
+            "",
+            recursive=False,
+            list_objs=False,
+        )
+    ]
+    ordered_folders = sorted(
+        ordered_folders, reverse=True
+    )  # a list of PDB snapshots from newest to oldest
+    if pdb_snapshot is not None:
+        if pdb_snapshot not in ordered_folders:
+            raise ValueError(
+                f"The {pdb_snapshot} PDB snapshot not found, please choose from {ordered_folders}"
+            )
+        ind = ordered_folders.index(pdb_snapshot)
+        ordered_folders = ordered_folders[ind:]
+    return ordered_folders, pdb_ids
+    
+def _download_live(id, tmp_folder):
+    pdb_id, biounit = id.split("-")
+    filenames = {
+        "cif": f"{pdb_id}-assembly{biounit}.cif.gz",
+        "pdb": f"{pdb_id}.pdb{biounit}.gz",
+    }
+    for t in filenames:
+        local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + f".{t}.gz"
+        try:
+            url = f"https://files.rcsb.org/download/{filenames[t]}"
+            response = requests.get(url)
+            open(local_path, "wb").write(response.content)
+            return local_path
+        except:
+            pass
+    return id
+
+def _download_fasta_f(pdb_id, datadir):
+    downloadurl = "https://www.rcsb.org/fasta/entry/"
+    pdbfn = pdb_id + "/download"
+    outfnm = os.path.join(datadir, f"{pdb_id.lower()}.fasta")
+
+    url = downloadurl + pdbfn
+    try:
+        urllib.request.urlretrieve(url, outfnm)
+        return outfnm
+
+    except Exception as err:
+        # print(str(err), file=sys.stderr)
+        return None
+    
+def _load_pdb(resolution_thr=3.5, pdb_snapshot=None, filter_methods=True, log_folder='data/tmp/logs', n=None, tmp_folder='data/tmp', load_live=False):
+    ordered_folders, pdb_ids = _get_pdb_ids(
+        resolution_thr=resolution_thr,
+        pdb_snapshot=pdb_snapshot,
+        filter_methods=filter_methods,
+        log_folder=log_folder,
+    )
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        print("Getting a file list...")
+        ids = []
+        for i, x in enumerate(tqdm(pdb_ids)):
+            ids.append(x)
+            if n is not None and i == n:
+                break
+        print("Downloading fasta files...")
+        pdbs = set([x.split("-")[0] for x in ids])
+        future_to_key = {
+            executor.submit(
+                lambda x: _download_fasta_f(x, datadir=tmp_folder), key
+            ): key
+            for key in pdbs
+        }
+        _ = [
+            x.result()
+            for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))
+        ]
+
+    # _ = [process_f(x, force=force, load_live=load_live) for x in tqdm(ids)]
+    print("Downloading structure files...")
+    paths = _download_s3_parallel(
+        pdb_ids=ids, tmp_folder=tmp_folder, snapshots=[ordered_folders[0]]
+    )
+    paths = [item for sublist in paths for item in sublist]
+    error_ids = [x for x in paths if not x.endswith(".gz")]
+    paths = [x for x in paths if x.endswith(".gz")]
+    if load_live:
+        print("Downloading newest structure files...")
+        live_paths = p_map(lambda x: _download_live(x, tmp_folder=tmp_folder), error_ids)
+        error_ids = []
+        for x in live_paths:
+            if x.endswith(".gz"):
+                paths.append(x)
+            else:
+                error_ids.append(x)
+    return paths, error_ids
+
+def _make_sabdab_html(method, resolution_thr):
+    html = f"https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/search/?ABtype=All&method={'+'.join(method)}&species=All&resolution={resolution_thr}&rfactor=&antigen=All&ltype=All&constantregion=All&affinity=All&isin_covabdab=All&isin_therasabdab=All&chothiapos=&restype=ALA&field_0=Antigens&keyword_0=#downloads"
+    return html
+
+def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp_folder="data/tmp", zip_path=None, require_antigen=True):
+    if not os.path.exists(tmp_folder):
+        os.makedirs(tmp_folder)
+    if pdb_snapshot is not None:
+        pdb_snapshot = datetime.strptime(pdb_snapshot, "%Y%m%d")
+    if filter_methods:
+        methods = ["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"]
+    else:
+        methods = ["All"]
+    if zip_path is None:
+        methods = [x.split() for x in methods]
+        for method in methods:
+            html = _make_sabdab_html(method, resolution_thr)
+            page = requests.get(html)
+            soup = BeautifulSoup(page.text, "html.parser")
+            zip_ref = soup.find_all(lambda t: t.name == "a" and t.text.startswith("zip"))[0]["href"]
+            zip_ref = "https://opig.stats.ox.ac.uk" + zip_ref
+            print(f'Downloading {" ".join(method)} structure files...')
+            urllib.request.urlretrieve(zip_ref, os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip"))
+        zip_paths = [os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip") for method in methods]
+    else:
+        zip_paths = [zip_path]
+    ids = []
+    print('Moving files...')
+    for zip_path in zip_paths:
+        dir_path = zip_path.split('.')[0]
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(dir_path)
+        os.remove(zip_path)
+        summary_path = None
+        for file in os.listdir(dir_path):
+            if file.endswith(".tsv"):
+                summary_path = os.path.join(dir_path, file)
+                break
+        if summary_path is None:
+            raise ValueError("Summary file not found")
+        summary = pd.read_csv(summary_path, sep="\t")
+        if require_antigen:
+            summary = summary[summary["antigen_chain"] != "NA"]
+        if pdb_snapshot is not None:
+            date = pd.to_datetime(summary["date"], format="%m/%d/%Y")
+            summary = summary[date <= pdb_snapshot]
+        if zip_path is not None:
+            summary = summary[summary["resolution"] <= resolution_thr]
+            if filter_methods:
+                summary = summary[summary["method"].isin(methods)]
+        ids_method = summary["pdb"].unique().tolist()
+        for id in ids_method:
+            pdb_path = os.path.join(dir_path, "chothia", f"{id}.pdb")
+            shutil.move(pdb_path, os.path.join(tmp_folder, f"{id}.pdb"))
+        shutil.rmtree(dir_path)
+        ids_full = summary.apply(lambda x: (x['pdb'], f"{x['Hchain']}_{x['Lchain']}_{x['antigen_chain']}"), axis=1).tolist()
+        ids += ids_full
+    print("Downloading fasta files...")
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        pdbs = set([x.split("-")[0] for x in ids])
+        future_to_key = {
+            executor.submit(
+                lambda x: _download_fasta_f(x, datadir=tmp_folder), key
+            ): key
+            for key in pdbs
+        }
+        _ = [
+            x.result()
+            for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))
+        ]
+    paths = [(os.path.join(tmp_folder, f"{x[0]}.pdb"), x[1]) for x in ids]
+    error_ids = []
+    return paths, error_ids
+
+def _load_files(resolution_thr=3.5, pdb_snapshot=None, filter_methods=True, log_folder='data/tmp/logs', n=None, tmp_folder='data/tmp', load_live=False, sabdab=False, zip_path=None, require_antigen=False):
+    if sabdab:
+        out = _load_sabdab(resolution_thr=resolution_thr, filter_methods=filter_methods, pdb_snapshot=pdb_snapshot, tmp_folder=tmp_folder, zip_path=zip_path, require_antigen=require_antigen)
+    else:
+        out = _load_pdb(resolution_thr=resolution_thr, filter_methods=filter_methods, pdb_snapshot=pdb_snapshot, tmp_folder=tmp_folder, load_live=load_live, n=n, log_folder=log_folder)
+    return out
 
 def download_data(tag, local_datasets_folder="./data", skip_splitting=False):
     """
@@ -968,6 +1079,8 @@ def generate_data(
     pdb_snapshot=None,
     load_live=False,
     min_seq_id=0.3,
+    sabdab=False,
+    zip_path=None,
 ):
     """
     Download and parse PDB files that meet filtering criteria
@@ -1023,6 +1136,10 @@ def generate_data(
         if `True`, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to `False` if `pdb_snapshot` is not `None`)
     min_seq_id : float in [0, 1], default 0.3
         minimum sequence identity for `mmseqs`
+    sabdab : bool, default False
+        if `True`, download the SAbDab database instead of PDB
+    zip_path : str, optional
+        path to a zip file containing SAbDab files (only used if `sabdab` is `True`)
 
     Returns
     -------
@@ -1055,6 +1172,8 @@ def generate_data(
         tag=tag,
         pdb_snapshot=pdb_snapshot,
         load_live=load_live,
+        sabdab=sabdab,
+        zip_path=zip_path,
     )
     if not skip_splitting:
         _get_split_dictionaries(
