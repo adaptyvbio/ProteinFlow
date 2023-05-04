@@ -222,7 +222,7 @@ def _retrieve_fasta_chains(fasta_file):
     return out_dict
 
 
-def _open_structure(file_path: str, tmp_folder: str) -> Dict:
+def _open_structure(file_path: str, tmp_folder: str, sabdab=False, chain_id=None) -> Dict:
     """
     Read a PDB file and parse it into a dictionary if it meets criteria
 
@@ -240,8 +240,11 @@ def _open_structure(file_path: str, tmp_folder: str) -> Dict:
         the path to the .pdb.gz file
     tmp_folder : str
         the path to the temporary data folder
-    thr_resolution : float, default 3.5
-        the resolution threshold
+    sabdab : bool, default False
+        whether the file is a SAbDab file
+    chain_id : str, optional
+        chain id string in the form of `"{pdb_id}_H_L_A1|...|An"` (for SAbDab)
+    
 
     Output
     ------
@@ -250,7 +253,10 @@ def _open_structure(file_path: str, tmp_folder: str) -> Dict:
     """
 
     cif = file_path.endswith("cif.gz")
-    pdb, biounit = os.path.basename(file_path).split(".")[0].split("-")
+    if sabdab:
+        pdb = os.path.basename(file_path).split(".")[0]
+    else:
+        pdb, _ = os.path.basename(file_path).split(".")[0].split("-")
     out_dict = {}
 
     # download fasta and check if it contains only proteins
@@ -279,17 +285,24 @@ def _open_structure(file_path: str, tmp_folder: str) -> Dict:
     #     out_dict[key] = metadata.get(key)
 
     # retrieve sequences that are relevant for this PDB from the fasta file
-    chains = p.df["ATOM"]["chain_id"].unique()
+    if chain_id is None:
+        chains = p.df["ATOM"]["chain_id"].unique()
+    else:
+        H, L, A = chain_id.split("_")
+        chains = [H, L] + A.split(" | ")
+        chains = [x for x in chains if x != "nan"]
+    seqs_dict = {k.upper(): v for k, v in seqs_dict.items()}
 
-    if not set([x.split("-")[0] for x in chains]).issubset(set(list(seqs_dict.keys()))):
+    if not set([x.split("-")[0].upper() for x in chains]).issubset(set(list(seqs_dict.keys()))):
         raise PDBError("Some chains in the PDB do not appear in the fasta file")
 
-    out_dict["fasta"] = {k: seqs_dict[k.split("-")[0]] for k in chains}
-
-    try:
-        os.remove(file_path)
-    except OSError:
-        pass
+    out_dict["fasta"] = {k: seqs_dict[k.split("-")[0].upper()] for k in chains}
+    
+    if not sabdab:
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
     return out_dict
 
 def _get_chothia_cdr(num_array, chain_type):
@@ -356,19 +369,29 @@ def _align_structure(
     chain_types = ["-" for _ in chains_unique]
     if chain_id_string is not None:
         H_chain, L_chain, A_chains = chain_id_string.split("_")
-        A_chains = A_chains.split("|")
-        if H_chain == "NA":
+        A_chains = A_chains.split(" | ")
+        if H_chain in ["NA", "nan"]:
             H_chain = None
-        if L_chain == "NA":
+        if L_chain in ["NA", "nan"]:
             L_chain = None
+        if A_chains[0] in ["NA", "nan"]:
+            A_chains = []
         if not set(A_chains).issubset(set(chains_unique)):
             raise PDBError("Antigen chains not found")
         if H_chain is not None and H_chain not in chains_unique:
             raise PDBError("Heavy chain not found")
         if L_chain is not None and L_chain not in chains_unique:
             raise PDBError("Light chain not found")
-        chains_unique = [H_chain, L_chain] + A_chains
-        chain_types = ["H", "L"] + ["-" for _ in A_chains]
+        chains_unique = []
+        chain_types = []
+        if H_chain is not None:
+            chains_unique.append(H_chain)
+            chain_types.append("H")
+        if L_chain is not None:
+            chains_unique.append(L_chain)
+            chain_types.append("L")
+        chains_unique.extend(A_chains)
+        chain_types.extend(["-"] * len(A_chains))
 
     for chain, chain_type in zip(chains_unique, chain_types):
         pdb_dict[chain] = {}
@@ -410,7 +433,7 @@ def _align_structure(
         ):
             raise PDBError("Too many missing values in the middle")
         if chain_id_string is not None:
-            cdr_arr = np.array(["-"] * len(aligned_seq))
+            cdr_arr = np.array(["-"] * len(aligned_seq), dtype=object)
             if chain_type in ["H", "L"]:
                 cdr_arr[aligned_seq_arr != "-"] = _get_chothia_cdr(unique_numbers, chain_type)
             pdb_dict[chain]["cdr"] = cdr_arr

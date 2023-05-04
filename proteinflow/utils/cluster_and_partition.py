@@ -93,10 +93,12 @@ def _load_pdbs(dir, cdr=None):
         if cdr is None:
             seqs = [(chain, pdb_dict[chain]["seq"]) for chain in pdb_dict.keys()]
         else:
+            chain = list(pdb_dict.keys())[0]
             seqs = [
-                (chain, np.array(pdb_dict[chain]["seq"])[pdb_dict[chain]["cdr"] == cdr].tostring())
+                (chain, "".join(np.array(list(pdb_dict[chain]["seq"]))[pdb_dict[chain]["cdr"] == cdr].tolist()))
                 for chain in pdb_dict.keys()
             ]
+            seqs = [(chain, seq) for chain, seq in seqs if len(seq) > 0]
         seqs_dict[file[:4]] += seqs
 
     return seqs_dict
@@ -121,17 +123,20 @@ def _run_mmseqs2(fasta_file, tmp_folder, min_seq_id, cdr=None):
     Results are stored in the tmp_folder/MMSeqs2 directory.
     """
 
-    os.makedirs(os.path.join(tmp_folder, "MMSeqs2_results"), exist_ok=True)
     folder = "MMSeqs2_results" if cdr is None else os.path.join("MMSeqs2_results", cdr)
+    os.makedirs(os.path.join(tmp_folder, folder), exist_ok=True)
+    method = "easy-linclust" if cdr is not None else "easy-cluster"
     subprocess.run(
         [
             "mmseqs",
-            "easy-cluster",
+            method,
             fasta_file,
             os.path.join(tmp_folder, folder, "clusterRes"),
             os.path.join(tmp_folder, folder, "tmp"),
             "--min-seq-id",
             str(min_seq_id),
+            "-v",
+            "1"
         ]
     )
 
@@ -142,11 +147,11 @@ def _read_clusters(tmp_folder, cdr=None):
 
     In cluster_dict, values are the full names (pdb + chains) whereas in cluster_pdb_dict, values are just the PDB ids (so less clusters but bigger).
     """
-
+    
     if cdr is None:
-        cluster_file_fasta = os.path.join(tmp_folder, "MMSeqs2_results", "clusterRes", "cluster.tsv")
+        cluster_file_fasta = os.path.join(tmp_folder, "MMSeqs2_results", "clusterRes_all_seqs.fasta")
     else:
-        cluster_file_fasta = os.path.join(tmp_folder, "MMSeqs2_results", cdr, "clusterRes", "cluster.tsv")
+        cluster_file_fasta = os.path.join(tmp_folder, "MMSeqs2_results", cdr, "clusterRes_all_seqs.fasta")
     with open(cluster_file_fasta, "r") as f:
         cluster_dict = defaultdict(lambda: [])
         cluster_pdb_dict = defaultdict(lambda: [])
@@ -1022,8 +1027,15 @@ def _build_dataset_partition(
 
     cdrs = ["L1", "L2", "L3", "H1", "H2", "H3"] if sabdab else [None]
     for cdr in cdrs:
+        if cdr is not None:
+            print(f"Clustering with MMSeqs2 for CDR {cdr}...")
+        else:
+            print("Clustering with MMSeqs2...")
         # retrieve all sequences and create a merged_seqs_dict
         merged_seqs_dict = _load_pdbs(dataset_dir, cdr=cdr) # keys: pdb_id, values: list of chains and sequences
+        lengths = []
+        for k, v in merged_seqs_dict.items():
+            lengths += [len(x[1]) for x in v]
         merged_seqs_dict = _merge_chains(merged_seqs_dict) # remove redundant chains
 
         # write sequences to a fasta file for clustering with MMSeqs2, run MMSeqs2 and delete the fasta file

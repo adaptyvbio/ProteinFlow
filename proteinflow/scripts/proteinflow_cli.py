@@ -138,6 +138,21 @@ def download(**kwargs):
     type=float,
     help="Minimum sequence identity for mmseqs clustering",
 )
+@click.option(
+    "--sabdab",
+    is_flag=True,
+    help="Use this flag to generate a dataset from SAbDab files instead of PDB",
+)
+@click.option(
+    "--zip_path",
+    type=str,
+    help="Path to a zip file containing SAbDab files (only used if `sabdab` is `True`)",
+)
+@click.option(
+    "--require_antigen",
+    is_flag=True,
+    help="Use this flag to require that the SAbDab files contain an antigen",
+)
 @cli.command("generate", help="Generate a new ProteinFlow dataset")
 def generate(**kwargs):
     generate_data(**kwargs)

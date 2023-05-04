@@ -189,6 +189,8 @@ import requests
 import zipfile
 from bs4 import BeautifulSoup
 import urllib.request
+from pretty_downloader import pretty_downloader
+import string
 
 MAIN_ATOMS = {
     "GLY": None,
@@ -329,12 +331,15 @@ def _clean(pdb_id, tmp_folder):
             )
 
 
-def _log_exception(exception, log_file, pdb_id, tmp_folder):
+def _log_exception(exception, log_file, pdb_id, tmp_folder, chain_id=None):
     """
     Record the error in the log file
     """
-
-    _clean(pdb_id, tmp_folder)
+    
+    if chain_id is None:
+        _clean(pdb_id, tmp_folder)
+    else:
+        pdb_id = pdb_id + "-" + chain_id
     if isinstance(exception, PDBError):
         with open(log_file, "a") as f:
             f.write(f"<<< {str(exception)}: {pdb_id} \n")
@@ -385,6 +390,10 @@ def _get_split_dictionaries(
         minimum sequence identity for `mmseqs`
     """
 
+    sample_file = os.listdir(output_folder)[0]
+    ind = sample_file.split('.')[0].split('-')[0]
+    sabdab = not ind.isnumeric()
+    
     os.makedirs(out_split_dict_folder, exist_ok=True)
     (
         train_clusters_dict,
@@ -400,6 +409,7 @@ def _get_split_dictionaries(
         test_split=test_split,
         tolerance=split_tolerance,
         min_seq_id=min_seq_id,
+        sabdab=sabdab,
     )
     with open(os.path.join(out_split_dict_folder, "train.pickle"), "wb") as f:
         pickle.dump(train_clusters_dict, f)
@@ -549,16 +559,19 @@ def _run_processing(
         chain_id = None
         if sabdab:
             local_path, chain_id = local_path
+        fn = os.path.basename(local_path)
+        pdb_id = fn.split(".")[0]
         try:
             # local_path = download_f(pdb_id, s3_client=s3_client, load_live=load_live)
-            fn = os.path.basename(local_path)
-            pdb_id = fn.split(".")[0]
-            target_file = os.path.join(OUTPUT_FOLDER, pdb_id + ".pickle")
+            name = pdb_id if not sabdab else pdb_id + "-" + chain_id
+            target_file = os.path.join(OUTPUT_FOLDER, name + ".pickle")
             if not force and os.path.exists(target_file):
                 raise PDBError("File already exists")
             pdb_dict = _open_structure(
                 local_path,
                 tmp_folder=TMP_FOLDER,
+                sabdab=sabdab,
+                chain_id=chain_id,
             )
             # filter and convert
             pdb_dict = _align_structure(
@@ -577,11 +590,7 @@ def _run_processing(
             if show_error:
                 raise e
             else:
-                _log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER)
-
-    # for x in ["1a52-3", "1a52-4", "1a52-2", "1a52-1"]:
-    #     process_f(x, show_error=True, force=force)
-
+                _log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER, chain_id=chain_id)
     try:
         paths, error_ids = _load_files(
             resolution_thr=RESOLUTION_THR,
@@ -598,8 +607,11 @@ def _run_processing(
         for id in error_ids:
             with open(LOG_FILE, "a") as f:
                 f.write(f"<<< Could not download PDB/mmCIF file: {id} \n")
+        # for x in [("data/tmp/5ivn.pdb", "A_nan_B")]:
+        #     process_f(x, show_error=True, force=force, sabdab=True)
         print("Filter and process...")
-        _ = p_map(lambda x: process_f(x, force=force), paths)
+        _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
+        # _ = [process_f(x, force=force, sabdab=sabdab, show_error=True) for x in tqdm(paths)]
     except Exception as e:
         _raise_rcsbsearch(e)
 
@@ -612,7 +624,11 @@ def _run_processing(
         with open(f"{LOG_FILE}_tmp", "a") as f:
             for line in lines:
                 f.write(line)
-        _ = p_map(lambda x: process_f(x, force=force), stats[not_found_error])
+        if sabdab:
+            paths = [(os.path.join(TMP_FOLDER, x.split("-")[0] + ".pdb"), x.split("-")[1]) for x in stats[not_found_error]]
+        else:
+            paths = stats[not_found_error]
+        _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
         stats = get_error_summary(LOG_FILE, verbose=False)
     if os.path.exists(f"{LOG_FILE}_tmp"):
         with open(LOG_FILE, "r") as f:
@@ -963,7 +979,7 @@ def _make_sabdab_html(method, resolution_thr):
     html = f"https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/search/?ABtype=All&method={'+'.join(method)}&species=All&resolution={resolution_thr}&rfactor=&antigen=All&ltype=All&constantregion=All&affinity=All&isin_covabdab=All&isin_therasabdab=All&chothiapos=&restype=ALA&field_0=Antigens&keyword_0=#downloads"
     return html
 
-def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp_folder="data/tmp", zip_path=None, require_antigen=True):
+def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp_folder="data/tmp", zip_path=None, require_antigen=True, n=None):
     if not os.path.exists(tmp_folder):
         os.makedirs(tmp_folder)
     if pdb_snapshot is not None:
@@ -972,8 +988,8 @@ def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp
         methods = ["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"]
     else:
         methods = ["All"]
+    methods = [x.split() for x in methods]
     if zip_path is None:
-        methods = [x.split() for x in methods]
         for method in methods:
             html = _make_sabdab_html(method, resolution_thr)
             page = requests.get(html)
@@ -981,17 +997,24 @@ def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp
             zip_ref = soup.find_all(lambda t: t.name == "a" and t.text.startswith("zip"))[0]["href"]
             zip_ref = "https://opig.stats.ox.ac.uk" + zip_ref
             print(f'Downloading {" ".join(method)} structure files...')
-            urllib.request.urlretrieve(zip_ref, os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip"))
+            pretty_downloader.download(
+                url=zip_ref,
+                file_path=tmp_folder,
+                file_name=f"pdb_{'_'.join(method)}.zip",
+                bar_name=None,
+            )
         zip_paths = [os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip") for method in methods]
     else:
         zip_paths = [zip_path]
     ids = []
+    pdb_ids = []
     print('Moving files...')
-    for zip_path in zip_paths:
-        dir_path = zip_path.split('.')[0]
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+    for path in zip_paths:
+        dir_path = path[:-4]
+        with zipfile.ZipFile(path, 'r') as zip_ref:
             zip_ref.extractall(dir_path)
-        os.remove(zip_path)
+        if zip_path is None:
+            os.remove(path)
         summary_path = None
         for file in os.listdir(dir_path):
             if file.endswith(".tsv"):
@@ -1001,14 +1024,16 @@ def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp
             raise ValueError("Summary file not found")
         summary = pd.read_csv(summary_path, sep="\t")
         if require_antigen:
-            summary = summary[summary["antigen_chain"] != "NA"]
+            summary = summary[~summary["antigen_chain"].isna()]
         if pdb_snapshot is not None:
             date = pd.to_datetime(summary["date"], format="%m/%d/%Y")
             summary = summary[date <= pdb_snapshot]
         if zip_path is not None:
             summary = summary[summary["resolution"] <= resolution_thr]
             if filter_methods:
-                summary = summary[summary["method"].isin(methods)]
+                summary = summary[summary["method"].isin([" ".join(m) for m in methods])]
+        if n is not None:
+            summary = summary.iloc[:n]
         ids_method = summary["pdb"].unique().tolist()
         for id in ids_method:
             pdb_path = os.path.join(dir_path, "chothia", f"{id}.pdb")
@@ -1016,18 +1041,18 @@ def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp
         shutil.rmtree(dir_path)
         ids_full = summary.apply(lambda x: (x['pdb'], f"{x['Hchain']}_{x['Lchain']}_{x['antigen_chain']}"), axis=1).tolist()
         ids += ids_full
+        pdb_ids += ids_method
     print("Downloading fasta files...")
     with ThreadPoolExecutor(max_workers=8) as executor:
-        pdbs = set([x.split("-")[0] for x in ids])
         future_to_key = {
             executor.submit(
                 lambda x: _download_fasta_f(x, datadir=tmp_folder), key
             ): key
-            for key in pdbs
+            for key in pdb_ids
         }
         _ = [
             x.result()
-            for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))
+            for x in tqdm(futures.as_completed(future_to_key), total=len(pdb_ids))
         ]
     paths = [(os.path.join(tmp_folder, f"{x[0]}.pdb"), x[1]) for x in ids]
     error_ids = []
@@ -1035,7 +1060,7 @@ def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp
 
 def _load_files(resolution_thr=3.5, pdb_snapshot=None, filter_methods=True, log_folder='data/tmp/logs', n=None, tmp_folder='data/tmp', load_live=False, sabdab=False, zip_path=None, require_antigen=False):
     if sabdab:
-        out = _load_sabdab(resolution_thr=resolution_thr, filter_methods=filter_methods, pdb_snapshot=pdb_snapshot, tmp_folder=tmp_folder, zip_path=zip_path, require_antigen=require_antigen)
+        out = _load_sabdab(resolution_thr=resolution_thr, filter_methods=filter_methods, pdb_snapshot=pdb_snapshot, tmp_folder=tmp_folder, zip_path=zip_path, require_antigen=require_antigen, n=n)
     else:
         out = _load_pdb(resolution_thr=resolution_thr, filter_methods=filter_methods, pdb_snapshot=pdb_snapshot, tmp_folder=tmp_folder, load_live=load_live, n=n, log_folder=log_folder)
     return out
@@ -1081,6 +1106,7 @@ def generate_data(
     min_seq_id=0.3,
     sabdab=False,
     zip_path=None,
+    require_antigen=False,
 ):
     """
     Download and parse PDB files that meet filtering criteria
@@ -1140,6 +1166,8 @@ def generate_data(
         if `True`, download the SAbDab database instead of PDB
     zip_path : str, optional
         path to a zip file containing SAbDab files (only used if `sabdab` is `True`)
+    require_antigen : bool, default False
+        if `True`, only use SAbDab files with an antigen
 
     Returns
     -------
@@ -1150,10 +1178,14 @@ def generate_data(
     _check_mmseqs()
     filter_methods = not not_filter_methods
     remove_redundancies = not not_remove_redundancies
-    tmp_folder = os.path.join(local_datasets_folder, "tmp")
+    tmp_id = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5))
+    tmp_folder = os.path.join(local_datasets_folder, "tmp", tag + tmp_id)
     output_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
     log_folder = os.path.join(local_datasets_folder, "logs")
     out_split_dict_folder = os.path.join(output_folder, "splits_dict")
+
+    if force and os.path.exists(output_folder):
+        shutil.rmtree(output_folder)
 
     log_dict = _run_processing(
         tmp_folder=tmp_folder,
@@ -1174,6 +1206,7 @@ def generate_data(
         load_live=load_live,
         sabdab=sabdab,
         zip_path=zip_path,
+        require_antigen=require_antigen,
     )
     if not skip_splitting:
         _get_split_dictionaries(
@@ -1187,6 +1220,7 @@ def generate_data(
         )
 
         _split_data(output_folder)
+    shutil.rmtree(tmp_folder)
     return log_dict
 
 
@@ -1315,6 +1349,7 @@ def split_data(
     if exclude_chains is None:
         excluded_biounits = []
     else:
+        print(f'{exclude_chains=}')
         excluded_biounits = _get_excluded_files(
             tag,
             local_datasets_folder,
