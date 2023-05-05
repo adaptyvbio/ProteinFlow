@@ -275,15 +275,23 @@ def _divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
         if type(file_names) == str:
             file_names = [file_names]
         seqs = pdb_seqs_dict[pdb]
+        if pdb == "7uvq":
+            print(f'{seqs=}')
         if len(seqs) == 1 and len(seqs[0].split("-")) == 1:
+            if pdb == "7uvq":
+                print("0 here")
             for file_name in file_names:
                 single_chains.append((file_name, seqs[0]))
 
         elif len(seqs) == 1 and len(file_names) == 1:
+            if pdb == "7uvq":
+                print("1 here")
             for chain in seqs[0].split("-"):
                 homomers.append((file_names[0], chain))
 
         elif len(seqs) == 1:
+            if pdb == "7uvq":
+                print("2 here")
             correspondances = _find_correspondances(file_names, dataset_dir)
             for biounit in correspondances.keys():
                 if len(correspondances[biounit]) == 1:
@@ -293,6 +301,8 @@ def _divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
                         homomers.append((biounit, chain))
 
         else:
+            if pdb == "7uvq":
+                print("3 here")
             correspondances = _find_correspondances(file_names, dataset_dir)
             for biounit in correspondances.keys():
                 if len(correspondances[biounit]) == 1:
@@ -851,6 +861,9 @@ def _split_dataset(
         the list of all biounit chains (string names) that are in a heteromeric state (in their biounit)
     """
 
+    sample_cluster = list(clusters_dict.keys())[0]
+    sabdab = "__" in sample_cluster
+
     subgraphs = np.array(
         [
             graph.subgraph(c)
@@ -858,12 +871,28 @@ def _split_dataset(
         ],
         dtype=object,
     )
+    print(f'{min([len(x) for x in clusters_dict.values()])=}')
+    for v in clusters_dict.values():
+        for i in v:
+            if "7uvq" in i:
+                print(f"CLUSTER {i=}")
     remaining_indices = list(np.arange(1, len(subgraphs)))
-    seqs_names_list = _retrieve_seqs_names_list(merged_seqs_dict)
+    if sabdab:
+        seqs_names_list = []
+        for x in clusters_dict.values():
+            seqs_names_list += x
+        seqs_names_list = list(set(seqs_names_list))
+    else:
+        seqs_names_list = _merge_chains(merged_seqs_dict)
+    print(f'{seqs_names_list[:5]=}, {len(seqs_names_list)=}, {len(set(seqs_names_list))=}')
     pdb_seqs_dict = _create_pdb_seqs_dict(seqs_names_list)
+    print(f'{sum([len(v) for v in pdb_seqs_dict.values()])=}')
+
     single_chains, homomers, heteromers = _divide_according_to_chains_interactions(
         pdb_seqs_dict, dataset_dir
-    )
+    ) # (biounit, chain) lists
+    print(f'{len(single_chains)=}, {len(homomers)=}, {len(heteromers)=}')
+    print(f'{len(seqs_names_list)=}')
     biounit_chains_array = np.array(single_chains + homomers + heteromers)
     pdbs_array = np.array([c[0][:4] for c in biounit_chains_array])
     chains_array = np.array([c[1] for c in biounit_chains_array])
@@ -895,6 +924,8 @@ def _split_dataset(
     n_samples_valid, n_samples_test = int(valid_split * len(subgraphs)), int(
         test_split * len(subgraphs)
     )
+    print(f'{n_samples_test=}, {n_samples_valid=}')
+    print(f'{len(remaining_indices)=}, {len(subgraphs)=}')
 
     (
         valid_clusters_dict,
@@ -913,6 +944,7 @@ def _split_dataset(
         remaining_indices,
         tolerance=tolerance,
     )
+    print(f'{len(remaining_indices)=}')
 
     (
         test_clusters_dict,
@@ -931,6 +963,7 @@ def _split_dataset(
         remaining_indices,
         tolerance=tolerance,
     )
+    print(f'{len(remaining_indices)=}')
 
     remaining_indices.append(
         0
@@ -942,32 +975,34 @@ def _split_dataset(
         n_homomers_train,
         n_heteromers_train,
     ) = _construct_dataset(dict_list, size_array, remaining_indices)
+    print(f'{min([len(x) for x in train_clusters_dict.values()])}')
 
-    print("Classes distribution (single chain / homomer / heteromer):")
-    print(
-        "Train set:",
-        int(n_single_chains_train),
-        "/",
-        int(n_homomers_train),
-        "/",
-        int(n_heteromers_train),
-    )
-    print(
-        "Validation set:",
-        int(n_single_chains_valid),
-        "/",
-        int(n_homomers_valid),
-        "/",
-        int(n_heteromers_valid),
-    )
-    print(
-        "Test set:",
-        int(n_single_chains_test),
-        "/",
-        int(n_homomers_test),
-        "/",
-        int(n_heteromers_test),
-    )
+    if "__" not in list(graph.nodes)[0]: # skip for sabdab
+        print("Classes distribution (single chain / homomer / heteromer):")
+        print(
+            "Train set:",
+            int(n_single_chains_train),
+            "/",
+            int(n_homomers_train),
+            "/",
+            int(n_heteromers_train),
+        )
+        print(
+            "Validation set:",
+            int(n_single_chains_valid),
+            "/",
+            int(n_homomers_valid),
+            "/",
+            int(n_heteromers_valid),
+        )
+        print(
+            "Test set:",
+            int(n_single_chains_test),
+            "/",
+            int(n_homomers_test),
+            "/",
+            int(n_heteromers_test),
+        )
 
     return (
         train_clusters_dict,
@@ -1044,10 +1079,10 @@ def _build_dataset_partition(
         _run_mmseqs2(fasta_file, tmp_folder, min_seq_id, cdr=cdr) # run MMSeqs2 on fasta file
         subprocess.run(["rm", fasta_file])
 
+    # retrieve MMSeqs2 clusters and build a graph with these clusters
     clusters_dict = {}
     clusters_pdb_dict = {}
     for cdr in cdrs:
-        # retrieve MMSeqs2 clusters and build a graph with these clusters
         c_dict, c_pdb_dict = _read_clusters(
             tmp_folder=tmp_folder, cdr=cdr,
         )
@@ -1056,6 +1091,10 @@ def _build_dataset_partition(
 
     subprocess.run(["rm", "-r", os.path.join(tmp_folder, "MMSeqs2_results")])
     graph = _make_graph(clusters_pdb_dict)
+
+    import pickle
+    with open("graph.pickle", "wb") as f:
+        pickle.dump(graph, f)
 
     # perform the splitting into train, validation and tesst sets
     (

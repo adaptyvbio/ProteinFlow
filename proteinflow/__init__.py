@@ -191,6 +191,7 @@ from bs4 import BeautifulSoup
 import urllib.request
 from pretty_downloader import pretty_downloader
 import string
+from einops import rearrange
 
 MAIN_ATOMS = {
     "GLY": None,
@@ -316,6 +317,9 @@ _PMAP = lambda x: [
     FEATURES_DICT["acceptor"][x],
     FEATURES_DICT["donor"][x],
 ]
+CDR = {
+    "-": 0, "H1": 1, "H2": 2, "H3": 3, "L1": 4, "L2": 5, "L3": 6
+}
 
 
 def _clean(pdb_id, tmp_folder):
@@ -744,89 +748,87 @@ class _PadCollate:
         """
 
         chain_M = torch.zeros(batch["S"].shape)
-        interface_lengths = []
-        non_masked_interface_lengths = []
-        for i, coords in enumerate(batch["X"]):
-            chain_index = batch["chain_id"][i]
-            chain_bool = batch["chain_encoding_all"][i] == chain_index
+        if "cdr" in batch:
+            cdrs = []
+            for i in range(len(batch["cdr"])):
+                chain_index = batch["chain_id"][i]
+                chain_bool = batch["chain_encoding_all"][i] == chain_index
+                u = batch["cdr"][i][chain_bool].unique()
+                u = [x for x in u if x != 0]
+                cdrs.append(random.choice(u))
+            chain_M[batch["cdr"] == rearrange(cdrs, "b -> b 1")] = 1
+        else:
+            for i, coords in enumerate(batch["X"]):
+                chain_index = batch["chain_id"][i]
+                chain_bool = batch["chain_encoding_all"][i] == chain_index
 
-            if self.mask_whole_chains:
-                chain_M[i, chain_bool] = 1
-            else:
-                chains = torch.unique(batch["chain_encoding_all"][i])
-                chain_start = torch.where(chain_bool)[0][0]
-                chain = coords[chain_bool]
-                res_i = None
-                interface = []
-                non_masked_interface = []
-                if len(chains) > 1 and self.force_binding_sites_frac > 0:
-                    if random.uniform(0, 1) <= self.force_binding_sites_frac:
-                        # if torch.cuda.is_available() and coords.device != torch.device('cuda'):
-                        #     X_copy = coords.cuda()
-                        # else:
-                        X_copy = coords
-
-                        i_indices = (chain_bool == 0).nonzero().flatten()
-                        j_indices = chain_bool.nonzero().flatten()
-
-                        distances = torch.norm(
-                            X_copy[i_indices, 2, :]
-                            - X_copy[j_indices, 2, :].unsqueeze(1),
-                            dim=-1,
-                        ).cpu()
-                        # all_distances = torch.norm(X_copy[:, 2, :] - X_copy[:, 2, :].unsqueeze(1), dim=-1)
-
-                        # close_idx = np.where(torch.min(all_distances[:, i_indices][j_indices, :], dim = 1)[0] <  10)[0]
-                        close_idx = (
-                            np.where(torch.min(distances, dim=1)[0] <= 10)[0]
-                            + chain_start.item()
-                        )
-
-                        no_mask_idx = np.where(batch["mask"][i][chain_bool])[0]
-                        # mask_idx = np.where(batch['mask'][i] == 0)[0]
-                        interface = np.intersect1d(close_idx, j_indices)
-
-                        not_end_mask = np.where(
-                            ((X_copy[:, 2, :].cpu() == 0).sum(-1) != 3)
-                        )[0]
-                        interface = np.intersect1d(interface, not_end_mask)
-
-                        non_masked_interface = np.intersect1d(interface, no_mask_idx)
-                        interpolate = True
-                        if len(non_masked_interface) > 0:
-                            res_i = non_masked_interface[
-                                random.randint(0, len(non_masked_interface) - 1)
-                            ]
-                        elif len(interface) > 0 and interpolate:
-                            res_i = interface[random.randint(0, len(interface) - 1)]
-                        else:
-                            res_i = no_mask_idx[random.randint(0, len(no_mask_idx) - 1)]
-                if res_i is None:
-                    non_zero = torch.where(batch["mask"][i][chain_bool])[0]
-                    res_i = non_zero[random.randint(0, len(non_zero) - 1)]
-                res_coords = coords[res_i, 2, :]
-                neighbor_indices = torch.where(batch["mask"][i][chain_bool])[0]
-                if self.mask_frac is not None:
-                    assert self.mask_frac > 0 and self.mask_frac < 1
-                    k = int(len(neighbor_indices) * self.mask_frac)
-                    k = max(k, 10)
+                if self.mask_whole_chains:
+                    chain_M[i, chain_bool] = 1
                 else:
-                    up = min(
-                        self.upper_limit, int(len(neighbor_indices) * 0.5)
-                    )  # do not mask more than half of the sequence
-                    low = min(up - 1, self.lower_limit)
-                    k = random.choice(range(low, up))
-                dist = torch.norm(
-                    chain[neighbor_indices, 2, :] - res_coords.unsqueeze(0), dim=-1
-                )
-                closest_indices = neighbor_indices[
-                    torch.topk(dist, k, largest=False)[1]
-                ]
-                chain_M[i, closest_indices + chain_start] = 1
-                # interface_lengths.append(len(interface))
-                # non_masked_interface_lengths.append(len(non_masked_interface))
+                    chains = torch.unique(batch["chain_encoding_all"][i])
+                    chain_start = torch.where(chain_bool)[0][0]
+                    chain = coords[chain_bool]
+                    res_i = None
+                    interface = []
+                    non_masked_interface = []
+                    if len(chains) > 1 and self.force_binding_sites_frac > 0:
+                        if random.uniform(0, 1) <= self.force_binding_sites_frac:
+                            X_copy = coords
+
+                            i_indices = (chain_bool == 0).nonzero().flatten()
+                            j_indices = chain_bool.nonzero().flatten()
+
+                            distances = torch.norm(
+                                X_copy[i_indices, 2, :]
+                                - X_copy[j_indices, 2, :].unsqueeze(1),
+                                dim=-1,
+                            ).cpu()
+                            close_idx = (
+                                np.where(torch.min(distances, dim=1)[0] <= 10)[0]
+                                + chain_start.item()
+                            )
+
+                            no_mask_idx = np.where(batch["mask"][i][chain_bool])[0]
+                            interface = np.intersect1d(close_idx, j_indices)
+
+                            not_end_mask = np.where(
+                                ((X_copy[:, 2, :].cpu() == 0).sum(-1) != 3)
+                            )[0]
+                            interface = np.intersect1d(interface, not_end_mask)
+
+                            non_masked_interface = np.intersect1d(interface, no_mask_idx)
+                            interpolate = True
+                            if len(non_masked_interface) > 0:
+                                res_i = non_masked_interface[
+                                    random.randint(0, len(non_masked_interface) - 1)
+                                ]
+                            elif len(interface) > 0 and interpolate:
+                                res_i = interface[random.randint(0, len(interface) - 1)]
+                            else:
+                                res_i = no_mask_idx[random.randint(0, len(no_mask_idx) - 1)]
+                    if res_i is None:
+                        non_zero = torch.where(batch["mask"][i][chain_bool])[0]
+                        res_i = non_zero[random.randint(0, len(non_zero) - 1)]
+                    res_coords = coords[res_i, 2, :]
+                    neighbor_indices = torch.where(batch["mask"][i][chain_bool])[0]
+                    if self.mask_frac is not None:
+                        assert self.mask_frac > 0 and self.mask_frac < 1
+                        k = int(len(neighbor_indices) * self.mask_frac)
+                        k = max(k, 10)
+                    else:
+                        up = min(
+                            self.upper_limit, int(len(neighbor_indices) * 0.5)
+                        )  # do not mask more than half of the sequence
+                        low = min(up - 1, self.lower_limit)
+                        k = random.choice(range(low, up))
+                    dist = torch.norm(
+                        chain[neighbor_indices, 2, :] - res_coords.unsqueeze(0), dim=-1
+                    )
+                    closest_indices = neighbor_indices[
+                        torch.topk(dist, k, largest=False)[1]
+                    ]
+                    chain_M[i, closest_indices + chain_start] = 1
         return chain_M
-        # return [chain_M, interface_lengths, non_masked_interface_lengths] # , torch.Tensor(interface), torch.Tensor(non_masked_interface)
 
     def pad_collate(self, batch):
         # find longest sequence
@@ -997,12 +999,20 @@ def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp
             zip_ref = soup.find_all(lambda t: t.name == "a" and t.text.startswith("zip"))[0]["href"]
             zip_ref = "https://opig.stats.ox.ac.uk" + zip_ref
             print(f'Downloading {" ".join(method)} structure files...')
-            pretty_downloader.download(
-                url=zip_ref,
-                file_path=tmp_folder,
-                file_name=f"pdb_{'_'.join(method)}.zip",
-                bar_name=None,
+            subprocess.run(
+                [
+                    "wget",
+                    zip_ref,
+                    "-O",
+                    os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip"),
+                ]
             )
+            # pretty_downloader.download(
+            #     url=zip_ref,
+            #     file_path=tmp_folder,
+            #     file_name=f"pdb_{'_'.join(method)}.zip",
+            #     bar_name=None,
+            # )
         zip_paths = [os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip") for method in methods]
     else:
         zip_paths = [zip_path]
@@ -1011,6 +1021,7 @@ def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp
     print('Moving files...')
     for path in zip_paths:
         dir_path = path[:-4]
+        print(f'{path=}')
         with zipfile.ZipFile(path, 'r') as zip_ref:
             zip_ref.extractall(dir_path)
         if zip_path is None:
@@ -1346,10 +1357,9 @@ def split_data(
         a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
     """
 
-    if exclude_chains is None:
+    if exclude_chains is None or len(exclude_chains) == 0:
         excluded_biounits = []
     else:
-        print(f'{exclude_chains=}')
         excluded_biounits = _get_excluded_files(
             tag,
             local_datasets_folder,
@@ -1411,7 +1421,11 @@ class ProteinDataset(Dataset):
     - `'dihedral'`: the dihedral angles, `(total_L, 2)`,
     - `'chemical'`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`,
     - `'secondary_structure'`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 3)`,
-    - `'sidechain_coords'`: the coordinates of the sidechain atoms (see `proteinflow.sidechain_order()` for the order), `(total_L, 10, 3)`,
+    - `'sidechain_coords'`: the coordinates of the sidechain atoms (see `proteinflow.sidechain_order()` for the order), `(total_L, 10, 3)`.
+
+    If the dataset contains a `'cdr'` key, the output files will additionally contain a `'cdr'` key with a CDR tensor of length `total_L`.
+    In the array, the CDR residues are marked with the corresponding CDR type (H1=1, H2=2, H3=3, L1=4, L2=5, L3=6) and the rest of 
+    the residues are marked with 0s.
 
     In order to compute additional features, use the `feature_functions` parameter. It should be a dictionary with keys
     corresponding to the feature names and values corresponding to the functions that compute the features. The functions
@@ -1817,6 +1831,7 @@ class ProteinDataset(Dataset):
                 mask_original = []
                 chain_encoding_all = []
                 residue_idx = []
+                cdr = []
                 node_features = defaultdict(lambda: [])
                 last_idx = 0
                 chain_dict = {}
@@ -1910,6 +1925,10 @@ class ProteinDataset(Dataset):
                 X.append(data[chain]["crd_bb"])
                 mask.append(data[chain]["msk"])
                 residue_idx.append(torch.arange(len(data[chain]["seq"])) + last_idx)
+                if "cdr" in data[chain]:
+                    u, inv = np.unique(data[chain]["cdr"], return_inverse = True)
+                    cdr_chain = np.array([CDR[x] for x in u])[inv].reshape(data[chain]["cdr"].shape)
+                    cdr.append(cdr_chain)
                 last_idx = residue_idx[-1][-1] + 100
                 chain_encoding_all.append(torch.ones(len(data[chain]["seq"])) * chain_i)
                 chain_dict[chain] = chain_i
@@ -1928,6 +1947,8 @@ class ProteinDataset(Dataset):
             out["residue_idx"] = torch.cat(residue_idx)
             out["chain_dict"] = chain_dict
             out["pdb_id"] = no_extension_name.split("-")[0]
+            if len(cdr) != 0:
+                out["cdr"] = torch.cat(cdr)
             for key, value_list in node_features.items():
                 out[key] = torch.from_numpy(np.concatenate(value_list))
             with open(output_file, "wb") as f:

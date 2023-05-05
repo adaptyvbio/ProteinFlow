@@ -34,11 +34,11 @@ def _compare_seqs(seqs1, seqs2, threshold):
     """
 
     for seq in seqs1:
-        if not _compare_identity(seq, seqs1, threshold):
+        if not _compare_identity(seq, seqs2, threshold):
             return False
 
     for seq in seqs2:
-        if not _compare_identity(seq, seqs2, threshold):
+        if not _compare_identity(seq, seqs1, threshold):
             return False
 
     return True
@@ -61,6 +61,7 @@ def _check_biounits(biounits_list, threshold):
 
                 b2_seqs = [b2[chain]["seq"] for chain in b2.keys()]
                 if _compare_seqs(b1_seqs, b2_seqs, threshold):
+                    print(f'{biounits_list[k]} and {biounits_list[k + l + 1]} are redundant')
                     indexes.append(k + l + 1)
 
     return indexes
