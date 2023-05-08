@@ -1423,7 +1423,7 @@ class ProteinDataset(Dataset):
     - `'secondary_structure'`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 3)`,
     - `'sidechain_coords'`: the coordinates of the sidechain atoms (see `proteinflow.sidechain_order()` for the order), `(total_L, 10, 3)`.
 
-    If the dataset contains a `'cdr'` key, the output files will additionally contain a `'cdr'` key with a CDR tensor of length `total_L`.
+    If the dataset contains a `'cdr'` key, the output files will also additionally contain a `'cdr'` key with a CDR tensor of length `total_L`.
     In the array, the CDR residues are marked with the corresponding CDR type (H1=1, H2=2, H3=3, L1=4, L2=5, L3=6) and the rest of 
     the residues are marked with 0s.
 

@@ -275,23 +275,15 @@ def _divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
         if type(file_names) == str:
             file_names = [file_names]
         seqs = pdb_seqs_dict[pdb]
-        if pdb == "7uvq":
-            print(f'{seqs=}')
         if len(seqs) == 1 and len(seqs[0].split("-")) == 1:
-            if pdb == "7uvq":
-                print("0 here")
             for file_name in file_names:
                 single_chains.append((file_name, seqs[0]))
 
         elif len(seqs) == 1 and len(file_names) == 1:
-            if pdb == "7uvq":
-                print("1 here")
             for chain in seqs[0].split("-"):
                 homomers.append((file_names[0], chain))
 
         elif len(seqs) == 1:
-            if pdb == "7uvq":
-                print("2 here")
             correspondances = _find_correspondances(file_names, dataset_dir)
             for biounit in correspondances.keys():
                 if len(correspondances[biounit]) == 1:
@@ -301,8 +293,6 @@ def _divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
                         homomers.append((biounit, chain))
 
         else:
-            if pdb == "7uvq":
-                print("3 here")
             correspondances = _find_correspondances(file_names, dataset_dir)
             for biounit in correspondances.keys():
                 if len(correspondances[biounit]) == 1:
@@ -801,6 +791,57 @@ def _fill_dataset(
         heteromers_size,
     )
 
+def _get_subgraph_files(
+        subgraphs,
+        clusters_dict,
+        pdb_arr,
+        chain_arr,
+        files_arr,
+    ):
+    out = {} # cluster: [(file, chain__cdr)]
+    for subgraph in subgraphs:
+        for cluster in subgraph.nodes:
+            chains = []
+            _, cdr = cluster.split("__")
+            for chain in clusters_dict[cluster]:
+                pdb, chain_ids = chain.split("_")
+                for chain_id in chain_ids.split("-"):
+                    mask = (pdb_arr == pdb) & (chain_arr == chain_id)
+                    chains += [(x, chain_id + "__" + cdr) for x in files_arr[mask]]
+            out[cluster] = chains
+    return out
+
+def _split_subgraphs(
+        lengths,
+        num_clusters_valid, 
+        num_clusters_test,
+        tolerance,
+    ):
+    for _ in range(50):
+        indices = np.random.permutation(np.arange(1, len(lengths)))
+        valid_indices = []
+        test_indices = []
+        train_indices = [0]
+        valid_sum = 0
+        test_sum = 0
+        for i in indices:
+            if valid_sum < num_clusters_valid:
+                if valid_sum < num_clusters_valid * (1 - tolerance) or lengths[i] < tolerance * num_clusters_valid:
+                    valid_indices.append(i)
+                    valid_sum += lengths[i]
+                    continue
+            if test_sum < num_clusters_test:
+                if test_sum < num_clusters_test * (1 - tolerance) or lengths[i] < tolerance * num_clusters_test:
+                    test_indices.append(i)
+                    test_sum += lengths[i]
+                    continue
+            train_indices.append(i)
+        valid_ok = valid_sum >= num_clusters_valid * (1 - tolerance) and valid_sum <= num_clusters_valid * (1 + tolerance)
+        test_ok = test_sum >= num_clusters_test * (1 - tolerance) and test_sum <= num_clusters_test * (1 + tolerance)
+        if valid_ok and test_ok:
+            break
+    return train_indices, valid_indices, test_indices
+
 
 def _split_dataset(
     graph,
@@ -871,113 +912,100 @@ def _split_dataset(
         ],
         dtype=object,
     )
-    print(f'{min([len(x) for x in clusters_dict.values()])=}')
-    for v in clusters_dict.values():
-        for i in v:
-            if "7uvq" in i:
-                print(f"CLUSTER {i=}")
-    remaining_indices = list(np.arange(1, len(subgraphs)))
-    if sabdab:
-        seqs_names_list = []
-        for x in clusters_dict.values():
-            seqs_names_list += x
-        seqs_names_list = list(set(seqs_names_list))
-    else:
-        seqs_names_list = _merge_chains(merged_seqs_dict)
-    print(f'{seqs_names_list[:5]=}, {len(seqs_names_list)=}, {len(set(seqs_names_list))=}')
-    pdb_seqs_dict = _create_pdb_seqs_dict(seqs_names_list)
-    print(f'{sum([len(v) for v in pdb_seqs_dict.values()])=}')
 
-    single_chains, homomers, heteromers = _divide_according_to_chains_interactions(
-        pdb_seqs_dict, dataset_dir
-    ) # (biounit, chain) lists
-    print(f'{len(single_chains)=}, {len(homomers)=}, {len(heteromers)=}')
-    print(f'{len(seqs_names_list)=}')
-    biounit_chains_array = np.array(single_chains + homomers + heteromers)
-    pdbs_array = np.array([c[0][:4] for c in biounit_chains_array])
-    chains_array = np.array([c[1] for c in biounit_chains_array])
+    if "__" not in list(graph.nodes)[0]: # if not sabdab
+        n_samples_valid, n_samples_test = int(valid_split * len(subgraphs)), int(
+            test_split * len(subgraphs)
+        )
+        remaining_indices = list(np.arange(1, len(subgraphs)))
+        if sabdab:
+            seqs_names_list = []
+            for x in clusters_dict.values():
+                seqs_names_list += x
+            seqs_names_list = list(set(seqs_names_list))
+        else:
+            seqs_names_list = _merge_chains(merged_seqs_dict)
+        pdb_seqs_dict = _create_pdb_seqs_dict(seqs_names_list)
 
-    (
-        dict_list,
-        size_array,
-        n_single_chains,
-        n_homomers,
-        n_heteromers,
-    ) = _find_subgraphs_infos(
-        subgraphs,
-        clusters_dict,
-        biounit_chains_array,
-        pdbs_array,
-        chains_array,
-        homomers,
-        heteromers,
-    )
+        single_chains, homomers, heteromers = _divide_according_to_chains_interactions(
+            pdb_seqs_dict, dataset_dir
+        ) # (biounit, chain) lists
+        biounit_chains_array = np.array(single_chains + homomers + heteromers)
+        pdbs_array = np.array([c[0][:4] for c in biounit_chains_array])
+        chains_array = np.array([c[1] for c in biounit_chains_array])
 
-    (
-        n_single_chains_valid,
-        n_homomers_valid,
-        n_heteromers_valid,
-    ) = valid_split * np.array([n_single_chains, n_homomers, n_heteromers])
-    n_single_chains_test, n_homomers_test, n_heteromers_test = test_split * np.array(
-        [n_single_chains, n_homomers, n_heteromers]
-    )
-    n_samples_valid, n_samples_test = int(valid_split * len(subgraphs)), int(
-        test_split * len(subgraphs)
-    )
-    print(f'{n_samples_test=}, {n_samples_valid=}')
-    print(f'{len(remaining_indices)=}, {len(subgraphs)=}')
+        (
+            dict_list,
+            size_array,
+            n_single_chains,
+            n_homomers,
+            n_heteromers,
+        ) = _find_subgraphs_infos(
+            subgraphs,
+            clusters_dict,
+            biounit_chains_array,
+            pdbs_array,
+            chains_array,
+            homomers,
+            heteromers,
+        )
 
-    (
-        valid_clusters_dict,
-        valid_classes_dict,
-        remaining_indices,
-        n_single_chains_valid,
-        n_homomers_valid,
-        n_heteromers_valid,
-    ) = _fill_dataset(
-        dict_list,
-        size_array,
-        n_samples_valid,
-        n_single_chains_valid,
-        n_homomers_valid,
-        n_heteromers_valid,
-        remaining_indices,
-        tolerance=tolerance,
-    )
-    print(f'{len(remaining_indices)=}')
+        (
+            n_single_chains_valid,
+            n_homomers_valid,
+            n_heteromers_valid,
+        ) = valid_split * np.array([n_single_chains, n_homomers, n_heteromers])
+        n_single_chains_test, n_homomers_test, n_heteromers_test = test_split * np.array(
+            [n_single_chains, n_homomers, n_heteromers]
+        )
 
-    (
-        test_clusters_dict,
-        test_classes_dict,
-        remaining_indices,
-        n_single_chains_test,
-        n_homomers_test,
-        n_heteromers_test,
-    ) = _fill_dataset(
-        dict_list,
-        size_array,
-        n_samples_test,
-        n_single_chains_test,
-        n_homomers_test,
-        n_heteromers_test,
-        remaining_indices,
-        tolerance=tolerance,
-    )
-    print(f'{len(remaining_indices)=}')
+        (
+            valid_clusters_dict,
+            valid_classes_dict,
+            remaining_indices,
+            n_single_chains_valid,
+            n_homomers_valid,
+            n_heteromers_valid,
+        ) = _fill_dataset(
+            dict_list,
+            size_array,
+            n_samples_valid,
+            n_single_chains_valid,
+            n_homomers_valid,
+            n_heteromers_valid,
+            remaining_indices,
+            tolerance=tolerance,
+        )
 
-    remaining_indices.append(
-        0
-    )  # add the big first cluster, that we always want in the training set
-    (
-        train_clusters_dict,
-        train_classes_dict,
-        n_single_chains_train,
-        n_homomers_train,
-        n_heteromers_train,
-    ) = _construct_dataset(dict_list, size_array, remaining_indices)
-    print(f'{min([len(x) for x in train_clusters_dict.values()])}')
+        (
+            test_clusters_dict,
+            test_classes_dict,
+            remaining_indices,
+            n_single_chains_test,
+            n_homomers_test,
+            n_heteromers_test,
+        ) = _fill_dataset(
+            dict_list,
+            size_array,
+            n_samples_test,
+            n_single_chains_test,
+            n_homomers_test,
+            n_heteromers_test,
+            remaining_indices,
+            tolerance=tolerance,
+        )
 
-    if "__" not in list(graph.nodes)[0]: # skip for sabdab
+        remaining_indices.append(
+            0
+        )  # add the big first cluster, that we always want in the training set
+        (
+            train_clusters_dict,
+            train_classes_dict,
+            n_single_chains_train,
+            n_homomers_train,
+            n_heteromers_train,
+        ) = _construct_dataset(dict_list, size_array, remaining_indices)
+
         print("Classes distribution (single chain / homomer / heteromer):")
         print(
             "Train set:",
@@ -1003,6 +1031,50 @@ def _split_dataset(
             "/",
             int(n_heteromers_test),
         )
+    
+    else:
+        n_samples_valid, n_samples_test = int(valid_split * len(clusters_dict)), int(
+            test_split * len(clusters_dict)
+        )
+        train_indices, val_indices, test_indices = _split_subgraphs(
+            [len(x) for x in subgraphs], n_samples_valid, n_samples_test, tolerance
+        )
+        files_arr = []
+        pdb_arr = []
+        chain_arr = []
+        for file in os.listdir(dataset_dir):
+            if not file.endswith(".pickle"):
+                continue
+            chains = [x for x in file.split('-')[1].split('.')[0].split('_') if x != "nan"]
+            chain_arr += chains
+            pdb_arr += [file.split('-')[0]] * len(chains)
+            files_arr += [file] * len(chains)
+        files_arr = np.array(files_arr)
+        pdb_arr = np.array(pdb_arr)
+        chain_arr = np.array(chain_arr)
+        train_clusters_dict = _get_subgraph_files(
+            subgraphs=subgraphs[train_indices],
+            clusters_dict=clusters_dict,
+            files_arr=files_arr,
+            pdb_arr=pdb_arr,
+            chain_arr=chain_arr,
+        )
+        valid_clusters_dict = _get_subgraph_files(
+            subgraphs=subgraphs[val_indices],
+            clusters_dict=clusters_dict,
+            files_arr=files_arr,
+            pdb_arr=pdb_arr,
+            chain_arr=chain_arr,
+        )
+        test_clusters_dict = _get_subgraph_files(
+            subgraphs=subgraphs[test_indices],
+            clusters_dict=clusters_dict,
+            files_arr=files_arr,
+            pdb_arr=pdb_arr,
+            chain_arr=chain_arr,
+        )
+        train_classes_dict, valid_classes_dict, test_classes_dict = {}, {}, {}
+        single_chains, homomers, heteromers = [], [], []
 
     return (
         train_clusters_dict,
@@ -1104,9 +1176,7 @@ def _build_dataset_partition(
         valid_classes_dict,
         test_clusters_dict,
         test_classes_dict,
-        _,
-        _,
-        _,
+        *_
     ) = _split_dataset(
         graph,
         clusters_dict,
