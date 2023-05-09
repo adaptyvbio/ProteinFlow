@@ -9,5 +9,5 @@ proteinmpnn/
 rcsbsearch/
 .pytest_cache/
 *ipynb
-*zip
+./*zip
 pulchra304
