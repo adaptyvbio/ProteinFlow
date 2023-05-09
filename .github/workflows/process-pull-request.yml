@@ -52,6 +52,7 @@ jobs:
       - name: Install dependencies
         if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
         run: |
+          conda update conda -y
           conda create --name proteinflow -y python=${{ matrix.version }}
           conda install -n proteinflow -c conda-forge -c bioconda mmseqs2
           conda run -n proteinflow python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
