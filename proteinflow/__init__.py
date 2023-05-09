@@ -1063,6 +1063,10 @@ def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp
         if summary_path is None:
             raise ValueError("Summary file not found")
         summary = pd.read_csv(summary_path, sep="\t")
+        # filter out structures with repeating chains
+        summary = summary[summary["antigen_chain"] != summary["Hchain"]]
+        summary = summary[summary["antigen_chain"] != summary["Lchain"]]
+        summary = summary[summary["Lchain"] != summary["Hchain"]]
         if require_antigen:
             summary = summary[~summary["antigen_chain"].isna()]
         if pdb_snapshot is not None:
