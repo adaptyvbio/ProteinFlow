@@ -61,7 +61,6 @@ def _check_biounits(biounits_list, threshold):
 
                 b2_seqs = [b2[chain]["seq"] for chain in b2.keys()]
                 if _compare_seqs(b1_seqs, b2_seqs, threshold):
-                    print(f'{biounits_list[k]} and {biounits_list[k + l + 1]} are redundant')
                     indexes.append(k + l + 1)
 
     return indexes

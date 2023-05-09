@@ -798,6 +798,10 @@ def _get_subgraph_files(
         chain_arr,
         files_arr,
     ):
+    """
+    Given a list of subgraphs, return a dictionary of the form {cluster: [(filename, chain__cdr)]}
+    """
+
     out = {} # cluster: [(file, chain__cdr)]
     for subgraph in subgraphs:
         for cluster in subgraph.nodes:
@@ -817,6 +821,10 @@ def _split_subgraphs(
         num_clusters_test,
         tolerance,
     ):
+    """
+    Split the list of subgraphs into three sets (train, valid, test) according to the number of biounits in each subgraph
+    """
+    
     for _ in range(50):
         indices = np.random.permutation(np.arange(1, len(lengths)))
         valid_indices = []
