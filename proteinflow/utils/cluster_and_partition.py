@@ -93,7 +93,6 @@ def _load_pdbs(dir, cdr=None):
         if cdr is None:
             seqs = [(chain, pdb_dict[chain]["seq"]) for chain in pdb_dict.keys()]
         else:
-            chain = list(pdb_dict.keys())[0]
             seqs = [
                 (chain, "".join(np.array(list(pdb_dict[chain]["seq"]))[pdb_dict[chain]["cdr"] == cdr].tolist()))
                 for chain in pdb_dict.keys()

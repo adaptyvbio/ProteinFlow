@@ -1212,6 +1212,7 @@ def generate_data(
         path to a zip file containing SAbDab files (only used if `sabdab` is `True`)
     require_antigen : bool, default False
         if `True`, only use SAbDab files with an antigen
+    
 
     Returns
     -------
@@ -1344,6 +1345,8 @@ def split_data(
     min_seq_id=0.3,
     exclude_chains=None,
     exclude_threshold=0.7,
+    exclude_clusters=False,
+    exclude_based_on_cdr=None,
 ):
     """
     Split `proteinflow` entry files into training, test and validation.
@@ -1383,6 +1386,10 @@ def split_data(
         a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `["1A2B-A", "1A2B-B"]`); chain id is the author chain id
     exclude_threshold : float in [0, 1], default 0.7
         the sequence similarity threshold for excluding chains
+    exclude_clusters : bool, default False
+        if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
+    exclude_based_on_cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}, optional
+        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
 
     Returns
     -------
@@ -1424,7 +1431,7 @@ def split_data(
             min_seq_id=min_seq_id,
         )
 
-    _split_data(output_folder, excluded_biounits)
+    _split_data(output_folder, excluded_biounits, exclude_clusters, exclude_based_on_cdr)
 
 
 class ProteinDataset(Dataset):

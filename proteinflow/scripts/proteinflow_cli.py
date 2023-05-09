@@ -209,6 +209,16 @@ def generate(**kwargs):
     type=float,
     help="Exclude chains with sequence identity to exclude_chains above this threshold",
 )
+@click.option(
+    "--exclude_clusters",
+    is_flag=True,
+    help="Exclude clusters that contain chains similar to chains to exclude",
+)
+@click.option(
+    "--exclude_based_on_cdr",
+    type=click.Choice(["L1", "L2", "L3", "H1", "H2", "H3"]),
+    help="if given and exclude_clusters is true + the dataset is SAbDab, exclude files based on only the given CDR clusters"
+)
 @cli.command(
     "split",
     help="Split an existing ProteinFlow dataset into training, validation and test subset according to MMseqs clustering and homomer/heteromer/single chain proportions",
