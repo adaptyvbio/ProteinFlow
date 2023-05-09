@@ -29,6 +29,7 @@ def test_generate_sabdab():
         max_length=1000,
     )
     batch = next(iter(train_loader))
+    print(f'{batch.keys()=}')
     assert set(batch.keys()) == {
         "X", #
         "S", #

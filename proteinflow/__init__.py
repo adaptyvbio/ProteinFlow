@@ -849,7 +849,7 @@ class _PadCollate:
         out["masked_res"] = self._get_masked_sequence(out)
         out["chain_dict"] = [b["chain_dict"] for b in batch]
         out["pdb_id"] = [b["pdb_id"] for b in batch]
-        if "cdr_id" in batch:
+        if "cdr_id" in batch[0]:
             out["cdr_id"] = torch.tensor([b["cdr_id"] for b in batch])
         return out
 
