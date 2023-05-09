@@ -920,23 +920,13 @@ def _split_dataset(
         dtype=object,
     )
 
-    if "__" not in list(graph.nodes)[0]: # if not sabdab
-        n_samples_valid, n_samples_test = int(valid_split * len(subgraphs)), int(
-            test_split * len(subgraphs)
-        )
+    if not sabdab:
         remaining_indices = list(np.arange(1, len(subgraphs)))
-        if sabdab:
-            seqs_names_list = []
-            for x in clusters_dict.values():
-                seqs_names_list += x
-            seqs_names_list = list(set(seqs_names_list))
-        else:
-            seqs_names_list = _merge_chains(merged_seqs_dict)
+        seqs_names_list = _retrieve_seqs_names_list(merged_seqs_dict)
         pdb_seqs_dict = _create_pdb_seqs_dict(seqs_names_list)
-
         single_chains, homomers, heteromers = _divide_according_to_chains_interactions(
             pdb_seqs_dict, dataset_dir
-        ) # (biounit, chain) lists
+        )
         biounit_chains_array = np.array(single_chains + homomers + heteromers)
         pdbs_array = np.array([c[0][:4] for c in biounit_chains_array])
         chains_array = np.array([c[1] for c in biounit_chains_array])
@@ -964,6 +954,9 @@ def _split_dataset(
         ) = valid_split * np.array([n_single_chains, n_homomers, n_heteromers])
         n_single_chains_test, n_homomers_test, n_heteromers_test = test_split * np.array(
             [n_single_chains, n_homomers, n_heteromers]
+        )
+        n_samples_valid, n_samples_test = int(valid_split * len(subgraphs)), int(
+            test_split * len(subgraphs)
         )
 
         (
@@ -1038,7 +1031,7 @@ def _split_dataset(
             "/",
             int(n_heteromers_test),
         )
-    
+        
     else:
         n_samples_valid, n_samples_test = int(valid_split * len(clusters_dict)), int(
             test_split * len(clusters_dict)

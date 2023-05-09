@@ -394,7 +394,7 @@ def _get_split_dictionaries(
     """
 
     sample_file = os.listdir(output_folder)[0]
-    ind = sample_file.split('.')[0].split('-')[0]
+    ind = sample_file.split('.')[0].split('-')[1]
     sabdab = not ind.isnumeric()
     
     os.makedirs(out_split_dict_folder, exist_ok=True)
@@ -846,10 +846,11 @@ class _PadCollate:
                 0,
             )
         out["chain_id"] = torch.tensor([b["chain_id"] for b in batch])
-        out["cdr_id"] = torch.tensor([b["cdr_id"] for b in batch])
         out["masked_res"] = self._get_masked_sequence(out)
         out["chain_dict"] = [b["chain_dict"] for b in batch]
         out["pdb_id"] = [b["pdb_id"] for b in batch]
+        if "cdr_id" in batch:
+            out["cdr_id"] = torch.tensor([b["cdr_id"] for b in batch])
         return out
 
     def __call__(self, batch):
@@ -1988,6 +1989,7 @@ class ProteinDataset(Dataset):
 
     def __getitem__(self, idx):
         chain_id = None
+        cdr = None
         idx = self.indices[idx]
         if self.clusters is None:
             id = self.data[idx]  # data is already filtered by length
@@ -1995,7 +1997,6 @@ class ProteinDataset(Dataset):
         else:
             cluster = self.data[idx]
             id = None
-            cdr = None
             chain_n = -1
             while (
                 id is None or len(self.files[id][chain_id]) == 0
