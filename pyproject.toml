@@ -28,6 +28,7 @@ dependencies = [
     "biotite==0.35.0",
     "aiobotocore==2.4.2",
     "awscli==1.25.60",
+    "bs4==0.0.1",
     "rcsbsearch",
 ]
 keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning"]
