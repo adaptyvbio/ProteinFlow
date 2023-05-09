@@ -134,6 +134,8 @@ def _run_mmseqs2(fasta_file, tmp_folder, min_seq_id, cdr=None):
             os.path.join(tmp_folder, folder, "tmp"),
             "--min-seq-id",
             str(min_seq_id),
+            "--createdb-mode",
+            "0",
             "-v",
             "1"
         ]
