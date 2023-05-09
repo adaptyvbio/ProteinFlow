@@ -125,20 +125,21 @@ def _run_mmseqs2(fasta_file, tmp_folder, min_seq_id, cdr=None):
     folder = "MMSeqs2_results" if cdr is None else os.path.join("MMSeqs2_results", cdr)
     os.makedirs(os.path.join(tmp_folder, folder), exist_ok=True)
     method = "easy-linclust" if cdr is not None else "easy-cluster"
+    args = [
+        "mmseqs",
+        method,
+        fasta_file,
+        os.path.join(tmp_folder, folder, "clusterRes"),
+        os.path.join(tmp_folder, folder, "tmp"),
+        "--min-seq-id",
+        str(min_seq_id),
+        "-v",
+        "1",
+    ]
+    if cdr is not None:
+        args += ["-k", "5", "--spaced-kmer-mode", "0", "--comp-bias-corr", "0", "--mask", "0"]
     subprocess.run(
-        [
-            "mmseqs",
-            method,
-            fasta_file,
-            os.path.join(tmp_folder, folder, "clusterRes"),
-            os.path.join(tmp_folder, folder, "tmp"),
-            "--min-seq-id",
-            str(min_seq_id),
-            "--createdb-mode",
-            "0",
-            "-v",
-            "1"
-        ]
+        args
     )
 
 
