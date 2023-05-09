@@ -217,7 +217,7 @@ def generate(**kwargs):
 @click.option(
     "--exclude_based_on_cdr",
     type=click.Choice(["L1", "L2", "L3", "H1", "H2", "H3"]),
-    help="if given and exclude_clusters is true + the dataset is SAbDab, exclude files based on only the given CDR clusters"
+    help="if given and exclude_clusters is true + the dataset is SAbDab, exclude files based on only the given CDR clusters",
 )
 @cli.command(
     "split",
