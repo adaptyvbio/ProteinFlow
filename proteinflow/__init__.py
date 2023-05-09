@@ -189,7 +189,6 @@ import requests
 import zipfile
 from bs4 import BeautifulSoup
 import urllib.request
-from pretty_downloader import pretty_downloader
 import string
 from einops import rearrange
 
@@ -1037,12 +1036,6 @@ def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp
                     os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip"),
                 ]
             )
-            # pretty_downloader.download(
-            #     url=zip_ref,
-            #     file_path=tmp_folder,
-            #     file_name=f"pdb_{'_'.join(method)}.zip",
-            #     bar_name=None,
-            # )
         zip_paths = [os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip") for method in methods]
     else:
         zip_paths = [zip_path]
