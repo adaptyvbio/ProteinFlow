@@ -138,6 +138,21 @@ def download(**kwargs):
     type=float,
     help="Minimum sequence identity for mmseqs clustering",
 )
+@click.option(
+    "--sabdab",
+    is_flag=True,
+    help="Use this flag to generate a dataset from SAbDab files instead of PDB",
+)
+@click.option(
+    "--zip_path",
+    type=str,
+    help="Path to a zip file containing SAbDab files (only used if `sabdab` is `True`)",
+)
+@click.option(
+    "--require_antigen",
+    is_flag=True,
+    help="Use this flag to require that the SAbDab files contain an antigen",
+)
 @cli.command("generate", help="Generate a new ProteinFlow dataset")
 def generate(**kwargs):
     generate_data(**kwargs)
@@ -193,6 +208,16 @@ def generate(**kwargs):
     default=0.7,
     type=float,
     help="Exclude chains with sequence identity to exclude_chains above this threshold",
+)
+@click.option(
+    "--exclude_clusters",
+    is_flag=True,
+    help="Exclude clusters that contain chains similar to chains to exclude",
+)
+@click.option(
+    "--exclude_based_on_cdr",
+    type=click.Choice(["L1", "L2", "L3", "H1", "H2", "H3"]),
+    help="if given and exclude_clusters is true + the dataset is SAbDab, exclude files based on only the given CDR clusters",
 )
 @cli.command(
     "split",

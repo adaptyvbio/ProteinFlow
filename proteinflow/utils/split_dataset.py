@@ -55,7 +55,12 @@ def _download_dataset_dicts_from_s3(dict_folder_path, s3_path):
     )
 
 
-def _split_data(dataset_path="./data/proteinflow_20221110/", excluded_files=None):
+def _split_data(
+    dataset_path="./data/proteinflow_20221110/",
+    excluded_files=None,
+    exclude_clusters=False,
+    exclude_based_on_cdr=None,
+):
     """
     Rearrange files into folders according to the dataset split dictionaries at `dataset_path/splits_dict`
 
@@ -65,6 +70,10 @@ def _split_data(dataset_path="./data/proteinflow_20221110/", excluded_files=None
         The path to the dataset folder containing pre-processed entries and a `splits_dict` folder with split dictionaries (downloaded or generated with `get_split_dictionaries`)
     exculded_files : list, optional
         A list of files to exclude from the dataset
+    exclude_clusters : bool, default False
+        If True, exclude all files in a cluster if at least one file in the cluster is in `excluded_files`
+    exclude_based_on_cdr : str, optional
+        If not `None`, exclude all files in a cluster if the cluster name does not end with `exclude_based_on_cdr`
     """
 
     if excluded_files is None:
@@ -96,6 +105,20 @@ def _split_data(dataset_path="./data/proteinflow_20221110/", excluded_files=None
         os.makedirs(test_path)
 
     if len(excluded_files) > 0:
+        excluded_set = set(excluded_files)
+        if exclude_clusters:
+            for cluster, files in train_clusters_dict.items():
+                exclude = False
+                for biounit in files:
+                    if biounit in excluded_set:
+                        exclude = True
+                        break
+                if exclude:
+                    if exclude_based_on_cdr is not None:
+                        if not cluster.endswith(exclude_based_on_cdr):
+                            continue
+                    for biounit in files:
+                        excluded_files.append(biounit)
         excluded_path = os.path.join(dataset_path, "excluded")
         if not os.path.exists(excluded_path):
             os.makedirs(excluded_path)

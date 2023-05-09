@@ -186,7 +186,11 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import combinations
 from editdistance import eval as edit_distance
 import requests
-
+import zipfile
+from bs4 import BeautifulSoup
+import urllib.request
+import string
+from einops import rearrange
 
 MAIN_ATOMS = {
     "GLY": None,
@@ -312,6 +316,7 @@ _PMAP = lambda x: [
     FEATURES_DICT["acceptor"][x],
     FEATURES_DICT["donor"][x],
 ]
+CDR = {"-": 0, "H1": 1, "H2": 2, "H3": 3, "L1": 4, "L2": 5, "L3": 6}
 
 
 def _clean(pdb_id, tmp_folder):
@@ -327,12 +332,15 @@ def _clean(pdb_id, tmp_folder):
             )
 
 
-def _log_exception(exception, log_file, pdb_id, tmp_folder):
+def _log_exception(exception, log_file, pdb_id, tmp_folder, chain_id=None):
     """
     Record the error in the log file
     """
 
-    _clean(pdb_id, tmp_folder)
+    if chain_id is None:
+        _clean(pdb_id, tmp_folder)
+    else:
+        pdb_id = pdb_id + "-" + chain_id
     if isinstance(exception, PDBError):
         with open(log_file, "a") as f:
             f.write(f"<<< {str(exception)}: {pdb_id} \n")
@@ -383,6 +391,10 @@ def _get_split_dictionaries(
         minimum sequence identity for `mmseqs`
     """
 
+    sample_file = os.listdir(output_folder)[0]
+    ind = sample_file.split(".")[0].split("-")[1]
+    sabdab = not ind.isnumeric()
+
     os.makedirs(out_split_dict_folder, exist_ok=True)
     (
         train_clusters_dict,
@@ -398,6 +410,7 @@ def _get_split_dictionaries(
         test_split=test_split,
         tolerance=split_tolerance,
         min_seq_id=min_seq_id,
+        sabdab=sabdab,
     )
     with open(os.path.join(out_split_dict_folder, "train.pickle"), "wb") as f:
         pickle.dump(train_clusters_dict, f)
@@ -411,6 +424,10 @@ def _get_split_dictionaries(
 
 
 def _raise_rcsbsearch(e):
+    """
+    Raise a RuntimeError if the error is due to rcsbsearch
+    """
+
     if "404 Client Error" in str(e):
         raise RuntimeError(
             'Quering rcsbsearch is failing. Please install a version of rcsbsearch where this error is solved:\npython -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"'
@@ -436,6 +453,9 @@ def _run_processing(
     tag=None,
     pdb_snapshot=None,
     load_live=False,
+    sabdab=False,
+    zip_path=None,
+    require_antigen=False,
 ):
     """
     Download and parse PDB files that meet filtering criteria
@@ -492,9 +512,15 @@ def _run_processing(
     tag : str, optional
         A tag to add to the log file
     pdb_snapshot : str, optional
-        the PDB snapshot to use, by default the latest is used
+        the PDB snapshot to use, by default the latest is used (if `sabdab` is `True`, you can use any date in the format YYYYMMDD as a cutoff)
     load_live : bool, default False
         if `True`, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to `False` if `pdb_snapshot` is not `None`)
+    sabdab : bool, default False
+        if `True`, download the SAbDab database instead of PDB
+    zip_path : str, optional
+        path to a zip file containing SAbDab files (only used if `sabdab` is `True`)
+    require_antigen : bool, default False
+        if `True`, only keep files with antigen chains (only used if `sabdab` is `True`)
 
     Returns
     -------
@@ -517,9 +543,6 @@ def _run_processing(
     if not os.path.exists(log_folder):
         os.makedirs(log_folder)
 
-    if pdb_snapshot is not None:
-        load_live = False
-
     i = 0
     while os.path.exists(os.path.join(log_folder, f"log_{i}.txt")):
         i += 1
@@ -532,99 +555,28 @@ def _run_processing(
         if tag is not None:
             f.write(f"tag: {tag} \n\n")
 
-    # get filtered PDB ids from PDB API
-    pdb_ids = (
-        Attr("rcsb_entry_info.selected_polymer_entity_types")
-        .__eq__("Protein (only)")
-        .or_("rcsb_entry_info.polymer_composition")
-        .__eq__("protein/oligosaccharide")
-    )
-    # if include_na:
-    #     pdb_ids = pdb_ids.or_('rcsb_entry_info.polymer_composition').in_(["protein/NA", "protein/NA/oligosaccharide"])
-
-    if RESOLUTION_THR is not None:
-        pdb_ids = pdb_ids.and_("rcsb_entry_info.resolution_combined").__le__(
-            RESOLUTION_THR
-        )
-    if filter_methods:
-        pdb_ids = pdb_ids.and_("exptl.method").in_(
-            ["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"]
-        )
-    pdb_ids = pdb_ids.exec("assembly")
-
-    ordered_folders = [
-        x.key.strip("/")
-        for x in _s3list(
-            boto3.resource("s3", config=Config(signature_version=UNSIGNED)).Bucket(
-                "pdbsnapshots"
-            ),
-            "",
-            recursive=False,
-            list_objs=False,
-        )
-    ]
-    ordered_folders = sorted(
-        ordered_folders, reverse=True
-    )  # a list of PDB snapshots from newest to oldest
-    if pdb_snapshot is not None:
-        if pdb_snapshot not in ordered_folders:
-            raise ValueError(
-                f"The {pdb_snapshot} PDB snapshot not found, please choose from {ordered_folders}"
-            )
-        ind = ordered_folders.index(pdb_snapshot)
-        ordered_folders = ordered_folders[ind:]
-
-    # session = boto3.session.Session()
-    # s3_client = session.client("s3", config=Config(signature_version=UNSIGNED))
-
-    session = get_session()
-
-    def download_live(id):
-        pdb_id, biounit = id.split("-")
-        filenames = {
-            "cif": f"{pdb_id}-assembly{biounit}.cif.gz",
-            "pdb": f"{pdb_id}.pdb{biounit}.gz",
-        }
-        for t in filenames:
-            local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + f".{t}.gz"
-            try:
-                url = f"https://files.rcsb.org/download/{filenames[t]}"
-                response = requests.get(url)
-                open(local_path, "wb").write(response.content)
-                return local_path
-            except:
-                pass
-        return id
-
-    def download_fasta_f(pdb_id, datadir):
-        downloadurl = "https://www.rcsb.org/fasta/entry/"
-        pdbfn = pdb_id + "/download"
-        outfnm = os.path.join(datadir, f"{pdb_id.lower()}.fasta")
-
-        url = downloadurl + pdbfn
-        try:
-            urllib.request.urlretrieve(url, outfnm)
-            return outfnm
-
-        except Exception as err:
-            # print(str(err), file=sys.stderr)
-            return None
-
     def process_f(
         local_path,
         show_error=False,
         force=True,
+        sabdab=False,
     ):
+        chain_id = None
+        if sabdab:
+            local_path, chain_id = local_path
+        fn = os.path.basename(local_path)
+        pdb_id = fn.split(".")[0]
         try:
             # local_path = download_f(pdb_id, s3_client=s3_client, load_live=load_live)
-            fn = os.path.basename(local_path)
-            pdb_id = fn.split(".")[0]
-            target_file = os.path.join(OUTPUT_FOLDER, pdb_id + ".pickle")
+            name = pdb_id if not sabdab else pdb_id + "-" + chain_id
+            target_file = os.path.join(OUTPUT_FOLDER, name + ".pickle")
             if not force and os.path.exists(target_file):
                 raise PDBError("File already exists")
             pdb_dict = _open_structure(
                 local_path,
                 tmp_folder=TMP_FOLDER,
+                sabdab=sabdab,
+                chain_id=chain_id,
             )
             # filter and convert
             pdb_dict = _align_structure(
@@ -633,6 +585,7 @@ def _run_processing(
                 max_length=MAX_LENGTH,
                 max_missing_ends=MISSING_ENDS_THR,
                 max_missing_middle=MISSING_MIDDLE_THR,
+                chain_id_string=chain_id,
             )
             # save
             if pdb_dict is not None:
@@ -642,54 +595,29 @@ def _run_processing(
             if show_error:
                 raise e
             else:
-                _log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER)
-
-    # for x in ["1a52-3", "1a52-4", "1a52-2", "1a52-1"]:
-    #     process_f(x, show_error=True, force=force)
+                _log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER, chain_id=chain_id)
 
     try:
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            print("Get a file list...")
-            ids = []
-            for i, x in enumerate(tqdm(pdb_ids)):
-                ids.append(x)
-                if n is not None and i == n:
-                    break
-            print("Download fasta files...")
-            pdbs = set([x.split("-")[0] for x in ids])
-            future_to_key = {
-                executor.submit(
-                    lambda x: download_fasta_f(x, datadir=tmp_folder), key
-                ): key
-                for key in pdbs
-            }
-            _ = [
-                x.result()
-                for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))
-            ]
-
-        # _ = [process_f(x, force=force, load_live=load_live) for x in tqdm(ids)]
-        print("Download structure files...")
-        paths = _download_s3_parallel(
-            pdb_ids=ids, tmp_folder=tmp_folder, snapshots=[ordered_folders[0]]
+        paths, error_ids = _load_files(
+            resolution_thr=RESOLUTION_THR,
+            filter_methods=filter_methods,
+            pdb_snapshot=pdb_snapshot,
+            log_folder=log_folder,
+            n=n,
+            tmp_folder=TMP_FOLDER,
+            load_live=load_live,
+            sabdab=sabdab,
+            zip_path=zip_path,
+            require_antigen=require_antigen,
         )
-        paths = [item for sublist in paths for item in sublist]
-        error_ids = [x for x in paths if not x.endswith(".gz")]
-        paths = [x for x in paths if x.endswith(".gz")]
-        if load_live:
-            print("Download newest structure files...")
-            live_paths = p_map(download_live, error_ids)
-            error_ids = []
-            for x in live_paths:
-                if x.endswith(".gz"):
-                    paths.append(x)
-                else:
-                    error_ids.append(x)
         for id in error_ids:
             with open(LOG_FILE, "a") as f:
                 f.write(f"<<< Could not download PDB/mmCIF file: {id} \n")
+        # for x in [("data/tmp/5ivn.pdb", "A_nan_B")]:
+        #     process_f(x, show_error=True, force=force, sabdab=True)
         print("Filter and process...")
-        _ = p_map(lambda x: process_f(x, force=force), paths)
+        _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
+        # _ = [process_f(x, force=force, sabdab=sabdab, show_error=True) for x in tqdm(paths)]
     except Exception as e:
         _raise_rcsbsearch(e)
 
@@ -702,7 +630,14 @@ def _run_processing(
         with open(f"{LOG_FILE}_tmp", "a") as f:
             for line in lines:
                 f.write(line)
-        _ = p_map(lambda x: process_f(x, force=force), stats[not_found_error])
+        if sabdab:
+            paths = [
+                (os.path.join(TMP_FOLDER, x.split("-")[0] + ".pdb"), x.split("-")[1])
+                for x in stats[not_found_error]
+            ]
+        else:
+            paths = stats[not_found_error]
+        _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
         stats = get_error_summary(LOG_FILE, verbose=False)
     if os.path.exists(f"{LOG_FILE}_tmp"):
         with open(LOG_FILE, "r") as f:
@@ -817,90 +752,87 @@ class _PadCollate:
             0 is everything else
         """
 
-        chain_M = torch.zeros(batch["S"].shape)
-        interface_lengths = []
-        non_masked_interface_lengths = []
-        for i, coords in enumerate(batch["X"]):
-            chain_index = batch["chain_id"][i]
-            chain_bool = batch["chain_encoding_all"][i] == chain_index
+        if "cdr" in batch and "cdr_id" in batch:
+            chain_M = torch.zeros_like(batch["cdr"])
+            for i, cdr_arr in enumerate(batch["cdr"]):
+                chain_M[i] = cdr_arr == batch["cdr_id"][i]
+        else:
+            chain_M = torch.zeros(batch["S"].shape)
+            for i, coords in enumerate(batch["X"]):
+                chain_index = batch["chain_id"][i]
+                chain_bool = batch["chain_encoding_all"][i] == chain_index
 
-            if self.mask_whole_chains:
-                chain_M[i, chain_bool] = 1
-            else:
-                chains = torch.unique(batch["chain_encoding_all"][i])
-                chain_start = torch.where(chain_bool)[0][0]
-                chain = coords[chain_bool]
-                res_i = None
-                interface = []
-                non_masked_interface = []
-                if len(chains) > 1 and self.force_binding_sites_frac > 0:
-                    if random.uniform(0, 1) <= self.force_binding_sites_frac:
-                        # if torch.cuda.is_available() and coords.device != torch.device('cuda'):
-                        #     X_copy = coords.cuda()
-                        # else:
-                        X_copy = coords
-
-                        i_indices = (chain_bool == 0).nonzero().flatten()
-                        j_indices = chain_bool.nonzero().flatten()
-
-                        distances = torch.norm(
-                            X_copy[i_indices, 2, :]
-                            - X_copy[j_indices, 2, :].unsqueeze(1),
-                            dim=-1,
-                        ).cpu()
-                        # all_distances = torch.norm(X_copy[:, 2, :] - X_copy[:, 2, :].unsqueeze(1), dim=-1)
-
-                        # close_idx = np.where(torch.min(all_distances[:, i_indices][j_indices, :], dim = 1)[0] <  10)[0]
-                        close_idx = (
-                            np.where(torch.min(distances, dim=1)[0] <= 10)[0]
-                            + chain_start.item()
-                        )
-
-                        no_mask_idx = np.where(batch["mask"][i][chain_bool])[0]
-                        # mask_idx = np.where(batch['mask'][i] == 0)[0]
-                        interface = np.intersect1d(close_idx, j_indices)
-
-                        not_end_mask = np.where(
-                            ((X_copy[:, 2, :].cpu() == 0).sum(-1) != 3)
-                        )[0]
-                        interface = np.intersect1d(interface, not_end_mask)
-
-                        non_masked_interface = np.intersect1d(interface, no_mask_idx)
-                        interpolate = True
-                        if len(non_masked_interface) > 0:
-                            res_i = non_masked_interface[
-                                random.randint(0, len(non_masked_interface) - 1)
-                            ]
-                        elif len(interface) > 0 and interpolate:
-                            res_i = interface[random.randint(0, len(interface) - 1)]
-                        else:
-                            res_i = no_mask_idx[random.randint(0, len(no_mask_idx) - 1)]
-                if res_i is None:
-                    non_zero = torch.where(batch["mask"][i][chain_bool])[0]
-                    res_i = non_zero[random.randint(0, len(non_zero) - 1)]
-                res_coords = coords[res_i, 2, :]
-                neighbor_indices = torch.where(batch["mask"][i][chain_bool])[0]
-                if self.mask_frac is not None:
-                    assert self.mask_frac > 0 and self.mask_frac < 1
-                    k = int(len(neighbor_indices) * self.mask_frac)
-                    k = max(k, 10)
+                if self.mask_whole_chains:
+                    chain_M[i, chain_bool] = 1
                 else:
-                    up = min(
-                        self.upper_limit, int(len(neighbor_indices) * 0.5)
-                    )  # do not mask more than half of the sequence
-                    low = min(up - 1, self.lower_limit)
-                    k = random.choice(range(low, up))
-                dist = torch.norm(
-                    chain[neighbor_indices, 2, :] - res_coords.unsqueeze(0), dim=-1
-                )
-                closest_indices = neighbor_indices[
-                    torch.topk(dist, k, largest=False)[1]
-                ]
-                chain_M[i, closest_indices + chain_start] = 1
-                # interface_lengths.append(len(interface))
-                # non_masked_interface_lengths.append(len(non_masked_interface))
+                    chains = torch.unique(batch["chain_encoding_all"][i])
+                    chain_start = torch.where(chain_bool)[0][0]
+                    chain = coords[chain_bool]
+                    res_i = None
+                    interface = []
+                    non_masked_interface = []
+                    if len(chains) > 1 and self.force_binding_sites_frac > 0:
+                        if random.uniform(0, 1) <= self.force_binding_sites_frac:
+                            X_copy = coords
+
+                            i_indices = (chain_bool == 0).nonzero().flatten()
+                            j_indices = chain_bool.nonzero().flatten()
+
+                            distances = torch.norm(
+                                X_copy[i_indices, 2, :]
+                                - X_copy[j_indices, 2, :].unsqueeze(1),
+                                dim=-1,
+                            ).cpu()
+                            close_idx = (
+                                np.where(torch.min(distances, dim=1)[0] <= 10)[0]
+                                + chain_start.item()
+                            )
+
+                            no_mask_idx = np.where(batch["mask"][i][chain_bool])[0]
+                            interface = np.intersect1d(close_idx, j_indices)
+
+                            not_end_mask = np.where(
+                                ((X_copy[:, 2, :].cpu() == 0).sum(-1) != 3)
+                            )[0]
+                            interface = np.intersect1d(interface, not_end_mask)
+
+                            non_masked_interface = np.intersect1d(
+                                interface, no_mask_idx
+                            )
+                            interpolate = True
+                            if len(non_masked_interface) > 0:
+                                res_i = non_masked_interface[
+                                    random.randint(0, len(non_masked_interface) - 1)
+                                ]
+                            elif len(interface) > 0 and interpolate:
+                                res_i = interface[random.randint(0, len(interface) - 1)]
+                            else:
+                                res_i = no_mask_idx[
+                                    random.randint(0, len(no_mask_idx) - 1)
+                                ]
+                    if res_i is None:
+                        non_zero = torch.where(batch["mask"][i][chain_bool])[0]
+                        res_i = non_zero[random.randint(0, len(non_zero) - 1)]
+                    res_coords = coords[res_i, 2, :]
+                    neighbor_indices = torch.where(batch["mask"][i][chain_bool])[0]
+                    if self.mask_frac is not None:
+                        assert self.mask_frac > 0 and self.mask_frac < 1
+                        k = int(len(neighbor_indices) * self.mask_frac)
+                        k = max(k, 10)
+                    else:
+                        up = min(
+                            self.upper_limit, int(len(neighbor_indices) * 0.5)
+                        )  # do not mask more than half of the sequence
+                        low = min(up - 1, self.lower_limit)
+                        k = random.choice(range(low, up))
+                    dist = torch.norm(
+                        chain[neighbor_indices, 2, :] - res_coords.unsqueeze(0), dim=-1
+                    )
+                    closest_indices = neighbor_indices[
+                        torch.topk(dist, k, largest=False)[1]
+                    ]
+                    chain_M[i, closest_indices + chain_start] = 1
         return chain_M
-        # return [chain_M, interface_lengths, non_masked_interface_lengths] # , torch.Tensor(interface), torch.Tensor(non_masked_interface)
 
     def pad_collate(self, batch):
         # find longest sequence
@@ -910,7 +842,7 @@ class _PadCollate:
         # pad according to max_len
         to_pad = [max_len - b["S"].shape[0] for b in batch]
         for key in batch[0].keys():
-            if key in ["chain_id", "chain_dict", "pdb_id"]:
+            if key in ["chain_id", "chain_dict", "pdb_id", "cdr_id"]:
                 continue
             out[key] = torch.stack(
                 [
@@ -923,10 +855,334 @@ class _PadCollate:
         out["masked_res"] = self._get_masked_sequence(out)
         out["chain_dict"] = [b["chain_dict"] for b in batch]
         out["pdb_id"] = [b["pdb_id"] for b in batch]
+        if "cdr_id" in batch[0]:
+            out["cdr_id"] = torch.tensor([b["cdr_id"] for b in batch])
         return out
 
     def __call__(self, batch):
         return self.pad_collate(batch)
+
+
+def _get_pdb_ids(
+    resolution_thr=3.5,
+    pdb_snapshot=None,
+    filter_methods=True,
+    log_folder="data/tmp/logs",
+):
+    """
+    Get PDB ids from PDB API
+    """
+
+    # get filtered PDB ids from PDB API
+    pdb_ids = (
+        Attr("rcsb_entry_info.selected_polymer_entity_types")
+        .__eq__("Protein (only)")
+        .or_("rcsb_entry_info.polymer_composition")
+        .__eq__("protein/oligosaccharide")
+    )
+    # if include_na:
+    #     pdb_ids = pdb_ids.or_('rcsb_entry_info.polymer_composition').in_(["protein/NA", "protein/NA/oligosaccharide"])
+
+    if resolution_thr is not None:
+        pdb_ids = pdb_ids.and_("rcsb_entry_info.resolution_combined").__le__(
+            resolution_thr
+        )
+    if filter_methods:
+        pdb_ids = pdb_ids.and_("exptl.method").in_(
+            ["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"]
+        )
+    pdb_ids = pdb_ids.exec("assembly")
+
+    ordered_folders = [
+        x.key.strip("/")
+        for x in _s3list(
+            boto3.resource("s3", config=Config(signature_version=UNSIGNED)).Bucket(
+                "pdbsnapshots"
+            ),
+            "",
+            recursive=False,
+            list_objs=False,
+        )
+    ]
+    ordered_folders = sorted(
+        ordered_folders, reverse=True
+    )  # a list of PDB snapshots from newest to oldest
+    if pdb_snapshot is not None:
+        if pdb_snapshot not in ordered_folders:
+            raise ValueError(
+                f"The {pdb_snapshot} PDB snapshot not found, please choose from {ordered_folders}"
+            )
+        ind = ordered_folders.index(pdb_snapshot)
+        ordered_folders = ordered_folders[ind:]
+    return ordered_folders, pdb_ids
+
+
+def _download_live(id, tmp_folder):
+    """
+    Download a PDB file from the PDB website
+    """
+
+    pdb_id, biounit = id.split("-")
+    filenames = {
+        "cif": f"{pdb_id}-assembly{biounit}.cif.gz",
+        "pdb": f"{pdb_id}.pdb{biounit}.gz",
+    }
+    for t in filenames:
+        local_path = os.path.join(tmp_folder, f"{pdb_id}-{biounit}") + f".{t}.gz"
+        try:
+            url = f"https://files.rcsb.org/download/{filenames[t]}"
+            response = requests.get(url)
+            open(local_path, "wb").write(response.content)
+            return local_path
+        except:
+            pass
+    return id
+
+
+def _download_fasta_f(pdb_id, datadir):
+    """
+    Download a fasta file from the PDB website
+    """
+
+    downloadurl = "https://www.rcsb.org/fasta/entry/"
+    pdbfn = pdb_id + "/download"
+    outfnm = os.path.join(datadir, f"{pdb_id.lower()}.fasta")
+
+    url = downloadurl + pdbfn
+    try:
+        urllib.request.urlretrieve(url, outfnm)
+        return outfnm
+
+    except Exception as err:
+        # print(str(err), file=sys.stderr)
+        return None
+
+
+def _load_pdb(
+    resolution_thr=3.5,
+    pdb_snapshot=None,
+    filter_methods=True,
+    log_folder="data/tmp/logs",
+    n=None,
+    tmp_folder="data/tmp",
+    load_live=False,
+):
+    """
+    Download filtered PDB files and return a list of local file paths
+    """
+
+    ordered_folders, pdb_ids = _get_pdb_ids(
+        resolution_thr=resolution_thr,
+        pdb_snapshot=pdb_snapshot,
+        filter_methods=filter_methods,
+        log_folder=log_folder,
+    )
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        print("Getting a file list...")
+        ids = []
+        for i, x in enumerate(tqdm(pdb_ids)):
+            ids.append(x)
+            if n is not None and i == n:
+                break
+        print("Downloading fasta files...")
+        pdbs = set([x.split("-")[0] for x in ids])
+        future_to_key = {
+            executor.submit(
+                lambda x: _download_fasta_f(x, datadir=tmp_folder), key
+            ): key
+            for key in pdbs
+        }
+        _ = [
+            x.result()
+            for x in tqdm(futures.as_completed(future_to_key), total=len(pdbs))
+        ]
+
+    # _ = [process_f(x, force=force, load_live=load_live) for x in tqdm(ids)]
+    print("Downloading structure files...")
+    paths = _download_s3_parallel(
+        pdb_ids=ids, tmp_folder=tmp_folder, snapshots=[ordered_folders[0]]
+    )
+    paths = [item for sublist in paths for item in sublist]
+    error_ids = [x for x in paths if not x.endswith(".gz")]
+    paths = [x for x in paths if x.endswith(".gz")]
+    if load_live:
+        print("Downloading newest structure files...")
+        live_paths = p_map(
+            lambda x: _download_live(x, tmp_folder=tmp_folder), error_ids
+        )
+        error_ids = []
+        for x in live_paths:
+            if x.endswith(".gz"):
+                paths.append(x)
+            else:
+                error_ids.append(x)
+    return paths, error_ids
+
+
+def _make_sabdab_html(method, resolution_thr):
+    """
+    Make a URL for SAbDab search
+    """
+
+    html = f"https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/search/?ABtype=All&method={'+'.join(method)}&species=All&resolution={resolution_thr}&rfactor=&antigen=All&ltype=All&constantregion=All&affinity=All&isin_covabdab=All&isin_therasabdab=All&chothiapos=&restype=ALA&field_0=Antigens&keyword_0=#downloads"
+    return html
+
+
+def _load_sabdab(
+    resolution_thr=3.5,
+    filter_methods=True,
+    pdb_snapshot=None,
+    tmp_folder="data/tmp",
+    zip_path=None,
+    require_antigen=True,
+    n=None,
+):
+    """
+    Download filtered SAbDab files and return a list of local file paths
+    """
+
+    if not os.path.exists(tmp_folder):
+        os.makedirs(tmp_folder)
+    if pdb_snapshot is not None:
+        pdb_snapshot = datetime.strptime(pdb_snapshot, "%Y%m%d")
+    if filter_methods:
+        methods = ["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"]
+    else:
+        methods = ["All"]
+    methods = [x.split() for x in methods]
+    if zip_path is None:
+        for method in methods:
+            html = _make_sabdab_html(method, resolution_thr)
+            page = requests.get(html)
+            soup = BeautifulSoup(page.text, "html.parser")
+            try:
+                zip_ref = soup.find_all(
+                    lambda t: t.name == "a" and t.text.startswith("zip")
+                )[0]["href"]
+                zip_ref = "https://opig.stats.ox.ac.uk" + zip_ref
+            except:
+                error = soup.find_all(
+                    lambda t: t.name == "h1" and t.text.startswith("Internal")
+                )
+                if len(error) > 0:
+                    raise RuntimeError(
+                        "Internal SAbDab server error -> try again in some time"
+                    )
+                raise RuntimeError("No link found")
+            print(f'Downloading {" ".join(method)} structure files...')
+            subprocess.run(
+                [
+                    "wget",
+                    zip_ref,
+                    "-O",
+                    os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip"),
+                ]
+            )
+        zip_paths = [
+            os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip")
+            for method in methods
+        ]
+    else:
+        zip_paths = [zip_path]
+    ids = []
+    pdb_ids = []
+    print("Moving files...")
+    for path in zip_paths:
+        dir_path = path[:-4]
+        with zipfile.ZipFile(path, "r") as zip_ref:
+            zip_ref.extractall(dir_path)
+        if zip_path is None:
+            os.remove(path)
+        summary_path = None
+        for file in os.listdir(dir_path):
+            if file.endswith(".tsv"):
+                summary_path = os.path.join(dir_path, file)
+                break
+        if summary_path is None:
+            raise ValueError("Summary file not found")
+        summary = pd.read_csv(summary_path, sep="\t")
+        # filter out structures with repeating chains
+        summary = summary[summary["antigen_chain"] != summary["Hchain"]]
+        summary = summary[summary["antigen_chain"] != summary["Lchain"]]
+        summary = summary[summary["Lchain"] != summary["Hchain"]]
+        if require_antigen:
+            summary = summary[~summary["antigen_chain"].isna()]
+        if pdb_snapshot is not None:
+            date = pd.to_datetime(summary["date"], format="%m/%d/%Y")
+            summary = summary[date <= pdb_snapshot]
+        if zip_path is not None:
+            summary = summary[summary["resolution"] <= resolution_thr]
+            if filter_methods:
+                summary = summary[
+                    summary["method"].isin([" ".join(m) for m in methods])
+                ]
+        if n is not None:
+            summary = summary.iloc[:n]
+        ids_method = summary["pdb"].unique().tolist()
+        for id in ids_method:
+            pdb_path = os.path.join(dir_path, "chothia", f"{id}.pdb")
+            shutil.move(pdb_path, os.path.join(tmp_folder, f"{id}.pdb"))
+        shutil.rmtree(dir_path)
+        ids_full = summary.apply(
+            lambda x: (x["pdb"], f"{x['Hchain']}_{x['Lchain']}_{x['antigen_chain']}"),
+            axis=1,
+        ).tolist()
+        ids += ids_full
+        pdb_ids += ids_method
+    print("Downloading fasta files...")
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        future_to_key = {
+            executor.submit(
+                lambda x: _download_fasta_f(x, datadir=tmp_folder), key
+            ): key
+            for key in pdb_ids
+        }
+        _ = [
+            x.result()
+            for x in tqdm(futures.as_completed(future_to_key), total=len(pdb_ids))
+        ]
+    paths = [(os.path.join(tmp_folder, f"{x[0]}.pdb"), x[1]) for x in ids]
+    error_ids = []
+    return paths, error_ids
+
+
+def _load_files(
+    resolution_thr=3.5,
+    pdb_snapshot=None,
+    filter_methods=True,
+    log_folder="data/tmp/logs",
+    n=None,
+    tmp_folder="data/tmp",
+    load_live=False,
+    sabdab=False,
+    zip_path=None,
+    require_antigen=False,
+):
+    """
+    Download filtered structure files and return a list of local file paths
+    """
+
+    if sabdab:
+        out = _load_sabdab(
+            resolution_thr=resolution_thr,
+            filter_methods=filter_methods,
+            pdb_snapshot=pdb_snapshot,
+            tmp_folder=tmp_folder,
+            zip_path=zip_path,
+            require_antigen=require_antigen,
+            n=n,
+        )
+    else:
+        out = _load_pdb(
+            resolution_thr=resolution_thr,
+            filter_methods=filter_methods,
+            pdb_snapshot=pdb_snapshot,
+            tmp_folder=tmp_folder,
+            load_live=load_live,
+            n=n,
+            log_folder=log_folder,
+        )
+    return out
 
 
 def download_data(tag, local_datasets_folder="./data", skip_splitting=False):
@@ -968,6 +1224,9 @@ def generate_data(
     pdb_snapshot=None,
     load_live=False,
     min_seq_id=0.3,
+    sabdab=False,
+    zip_path=None,
+    require_antigen=False,
 ):
     """
     Download and parse PDB files that meet filtering criteria
@@ -1023,6 +1282,13 @@ def generate_data(
         if `True`, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to `False` if `pdb_snapshot` is not `None`)
     min_seq_id : float in [0, 1], default 0.3
         minimum sequence identity for `mmseqs`
+    sabdab : bool, default False
+        if `True`, download the SAbDab database instead of PDB
+    zip_path : str, optional
+        path to a zip file containing SAbDab files (only used if `sabdab` is `True`)
+    require_antigen : bool, default False
+        if `True`, only use SAbDab files with an antigen
+
 
     Returns
     -------
@@ -1033,10 +1299,16 @@ def generate_data(
     _check_mmseqs()
     filter_methods = not not_filter_methods
     remove_redundancies = not not_remove_redundancies
-    tmp_folder = os.path.join(local_datasets_folder, "tmp")
+    tmp_id = "".join(
+        random.choice(string.ascii_uppercase + string.digits) for _ in range(5)
+    )
+    tmp_folder = os.path.join("", "tmp", tag + tmp_id)
     output_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
     log_folder = os.path.join(local_datasets_folder, "logs")
     out_split_dict_folder = os.path.join(output_folder, "splits_dict")
+
+    if force and os.path.exists(output_folder):
+        shutil.rmtree(output_folder)
 
     log_dict = _run_processing(
         tmp_folder=tmp_folder,
@@ -1055,6 +1327,9 @@ def generate_data(
         tag=tag,
         pdb_snapshot=pdb_snapshot,
         load_live=load_live,
+        sabdab=sabdab,
+        zip_path=zip_path,
+        require_antigen=require_antigen,
     )
     if not skip_splitting:
         _get_split_dictionaries(
@@ -1068,6 +1343,7 @@ def generate_data(
         )
 
         _split_data(output_folder)
+    shutil.rmtree(tmp_folder)
     return log_dict
 
 
@@ -1147,6 +1423,8 @@ def split_data(
     min_seq_id=0.3,
     exclude_chains=None,
     exclude_threshold=0.7,
+    exclude_clusters=False,
+    exclude_based_on_cdr=None,
 ):
     """
     Split `proteinflow` entry files into training, test and validation.
@@ -1186,6 +1464,10 @@ def split_data(
         a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `["1A2B-A", "1A2B-B"]`); chain id is the author chain id
     exclude_threshold : float in [0, 1], default 0.7
         the sequence similarity threshold for excluding chains
+    exclude_clusters : bool, default False
+        if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
+    exclude_based_on_cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}, optional
+        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
 
     Returns
     -------
@@ -1193,7 +1475,7 @@ def split_data(
         a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
     """
 
-    if exclude_chains is None:
+    if exclude_chains is None or len(exclude_chains) == 0:
         excluded_biounits = []
     else:
         excluded_biounits = _get_excluded_files(
@@ -1227,7 +1509,9 @@ def split_data(
             min_seq_id=min_seq_id,
         )
 
-    _split_data(output_folder, excluded_biounits)
+    _split_data(
+        output_folder, excluded_biounits, exclude_clusters, exclude_based_on_cdr
+    )
 
 
 class ProteinDataset(Dataset):
@@ -1235,7 +1519,7 @@ class ProteinDataset(Dataset):
     Dataset to load proteinflow data
 
     Saves the model input tensors as pickle files in `features_folder`. When `clustering_dict_path` is provided,
-    at each iteration a random bionit from a cluster is sampled.
+    at each iteration a random biounit from a cluster is sampled.
 
     If a complex contains multiple chains, they are concatenated. The sequence identity information is preserved in the
     `'chain_encoding_all'` object and in the `'residue_idx'` arrays the chain change is denoted by a +100 jump.
@@ -1257,7 +1541,11 @@ class ProteinDataset(Dataset):
     - `'dihedral'`: the dihedral angles, `(total_L, 2)`,
     - `'chemical'`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`,
     - `'secondary_structure'`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 3)`,
-    - `'sidechain_coords'`: the coordinates of the sidechain atoms (see `proteinflow.sidechain_order()` for the order), `(total_L, 10, 3)`,
+    - `'sidechain_coords'`: the coordinates of the sidechain atoms (see `proteinflow.sidechain_order()` for the order), `(total_L, 10, 3)`.
+
+    If the dataset contains a `'cdr'` key, the output files will also additionally contain a `'cdr'` key with a CDR tensor of length `total_L`.
+    In the array, the CDR residues are marked with the corresponding CDR type (H1=1, H2=2, H3=3, L1=4, L2=5, L3=6) and the rest of
+    the residues are marked with 0s.
 
     In order to compute additional features, use the `feature_functions` parameter. It should be a dictionary with keys
     corresponding to the feature names and values corresponding to the functions that compute the features. The functions
@@ -1384,7 +1672,6 @@ class ProteinDataset(Dataset):
             to_process = list(to_process)
         if debug:
             to_process = to_process[:1000]
-        # output_tuples = [self._process(x, rewrite=rewrite) for x in tqdm(to_process)]
         if self.entry_type == "pair":
             print(
                 "Please note that the pair entry type takes longer to process than the other two. The progress bar is not linear because of the varying number of chains per file."
@@ -1398,32 +1685,6 @@ class ProteinDataset(Dataset):
             for id, filename, chain_set in output_tuples:
                 for chain in chain_set:
                     self.files[id][chain].append(filename)
-        # filter by length
-        # seen = set()
-        # if max_length is not None:
-        #     to_remove = []
-        #     for id, chain_dict in self.files.items():
-        #         for chain, file_list in chain_dict.items():
-        #             for file in file_list:
-        #                 if file in seen:
-        #                     continue
-        #                 seen.add(file)
-        #                 with open(file, "rb") as f:
-        #                     data = pickle.load(f)
-        #                     if len(data["S"]) > max_length:
-        #                         to_remove.append(file)
-        #     for id in list(self.files.keys()):
-        #         chain_dict = self.files[id]
-        #         for chain in list(chain_dict.keys()):
-        #             file_list = chain_dict[chain]
-        #             for file in file_list:
-        #                 if file in to_remove:
-        #                     self.files[id][chain].remove(file)
-        #                     if len(self.files[id][chain]) == 0:
-        #                         self.files[id].pop(chain)
-        #                     if len(self.files[id]) == 0:
-        #                         self.files.pop(id)
-        # load the clusters
         if classes_to_exclude is None:
             classes_to_exclude = []
         elif clustering_dict_path is None:
@@ -1464,7 +1725,7 @@ class ProteinDataset(Dataset):
         else:
             self.clusters = None
             self.data = list(self.files.keys())
-        # create a smaller dataset if necessary
+        # create a smaller dataset if necessary (if we have clustering it's applied earlier)
         if clustering_dict_path is None and use_fraction < 1:
             self.data = sorted(self.data)[: int(len(self.data) * use_fraction)]
         if load_to_ram:
@@ -1479,6 +1740,8 @@ class ProteinDataset(Dataset):
                         seen.add(file)
                         with open(file, "rb") as f:
                             self.loaded[file] = pickle.load(f)
+        self.cdr = 0
+        self.set_cdr(None)
 
     def _interpolate(self, crd_i, mask_i):
         """
@@ -1663,6 +1926,7 @@ class ProteinDataset(Dataset):
                 mask_original = []
                 chain_encoding_all = []
                 residue_idx = []
+                cdr = []
                 node_features = defaultdict(lambda: [])
                 last_idx = 0
                 chain_dict = {}
@@ -1738,13 +2002,10 @@ class ProteinDataset(Dataset):
                         # if not all(intersect):
                         pass_set = True
                         add_name = False
-            if add_name:
-                output_names.append(
-                    (os.path.basename(no_extension_name), output_file, chain_set)
-                )
             if pass_set:
                 continue
 
+            cdr_chain_set = set()
             for chain_i, chain in enumerate(chain_set):
                 seq = torch.tensor([self.alphabet_dict[x] for x in data[chain]["seq"]])
                 S.append(seq)
@@ -1756,6 +2017,13 @@ class ProteinDataset(Dataset):
                 X.append(data[chain]["crd_bb"])
                 mask.append(data[chain]["msk"])
                 residue_idx.append(torch.arange(len(data[chain]["seq"])) + last_idx)
+                if "cdr" in data[chain]:
+                    u, inv = np.unique(data[chain]["cdr"], return_inverse=True)
+                    cdr_chain = np.array([CDR[x] for x in u])[inv].reshape(
+                        data[chain]["cdr"].shape
+                    )
+                    cdr.append(cdr_chain)
+                    cdr_chain_set.update([f"{chain}__{cdr}" for cdr in u])
                 last_idx = residue_idx[-1][-1] + 100
                 chain_encoding_all.append(torch.ones(len(data[chain]["seq"])) * chain_i)
                 chain_dict[chain] = chain_i
@@ -1764,6 +2032,15 @@ class ProteinDataset(Dataset):
                         continue
                     func = self.feature_functions[name]
                     node_features[name].append(func(data[chain], seq))
+
+            if add_name:
+                output_names.append(
+                    (
+                        os.path.basename(no_extension_name),
+                        output_file,
+                        chain_set if len(cdr_chain_set) == 0 else cdr_chain_set,
+                    )
+                )
 
             out = {}
             out["X"] = torch.from_numpy(np.concatenate(X, 0))
@@ -1774,25 +2051,53 @@ class ProteinDataset(Dataset):
             out["residue_idx"] = torch.cat(residue_idx)
             out["chain_dict"] = chain_dict
             out["pdb_id"] = no_extension_name.split("-")[0]
+            if len(cdr) != 0:
+                out["cdr"] = torch.from_numpy(np.concatenate(cdr))
             for key, value_list in node_features.items():
                 out[key] = torch.from_numpy(np.concatenate(value_list))
             with open(output_file, "wb") as f:
                 pickle.dump(out, f)
         return output_names
 
+    def set_cdr(self, cdr):
+        if cdr == self.cdr:
+            return
+        self.cdr = cdr
+        if cdr is None:
+            self.indices = list(range(len(self.data)))
+        else:
+            self.indices = []
+            print(f"Setting CDR to {cdr}...")
+            for i, data in tqdm(enumerate(self.data)):
+                if self.clusters is not None:
+                    if data.split("__")[1] == cdr:
+                        self.indices.append(i)
+                else:
+                    add = False
+                    for chain in self.files[data]:
+                        if chain.split("__")[1] == cdr:
+                            add = True
+                            break
+                    if add:
+                        self.indices.append(i)
+
     def __len__(self):
-        return len(self.data)
+        return len(self.indices)
 
     def __getitem__(self, idx):
         chain_id = None
+        cdr = None
+        idx = self.indices[idx]
         if self.clusters is None:
             id = self.data[idx]  # data is already filtered by length
             chain_id = random.choice(list(self.files[id].keys()))
+            if self.cdr is not None:
+                while self.cdr != chain_id.split("__")[1]:
+                    chain_id = random.choice(list(self.files[id].keys()))
         else:
             cluster = self.data[idx]
             id = None
             chain_n = -1
-            # print(f'{self.clusters[cluster]=}')
             while (
                 id is None or len(self.files[id][chain_id]) == 0
             ):  # some IDs can be filtered out by length
@@ -1803,8 +2108,9 @@ class ProteinDataset(Dataset):
                 id, chain_id = self.clusters[cluster][
                     chain_n
                 ]  # get id and chain from cluster
-                # print(f'{id=}, {len(self.files[id][chain_id])=}')
         file = random.choice(self.files[id][chain_id])
+        if "__" in chain_id:
+            chain_id, cdr = chain_id.split("__")
         if self.loaded is None:
             with open(file, "rb") as f:
                 try:
@@ -1815,6 +2121,8 @@ class ProteinDataset(Dataset):
         else:
             data = deepcopy(self.loaded[file])
         data["chain_id"] = data["chain_dict"][chain_id]
+        if cdr is not None:
+            data["cdr_id"] = CDR[cdr]
         return data
 
 
