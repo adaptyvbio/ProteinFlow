@@ -1981,8 +1981,18 @@ class ProteinDataset(Dataset):
             self.indices = []
             print(f"Setting CDR to {cdr}...")
             for i, data in tqdm(enumerate(self.data)):
-                if data.split("__")[1] == cdr:
-                    self.indices.append(i)
+                if self.clusters is not None:
+                    if data.split("__")[1] == cdr:
+                        self.indices.append(i)
+                else:
+                    add = False
+                    for chain in self.files[data]:
+                        if chain.split("__")[1] == cdr:
+                            add = True
+                            break
+                    if add:
+                        self.indices.append(i)
+
 
     def __len__(self):
         return len(self.indices)
@@ -1994,6 +2004,9 @@ class ProteinDataset(Dataset):
         if self.clusters is None:
             id = self.data[idx]  # data is already filtered by length
             chain_id = random.choice(list(self.files[id].keys()))
+            if self.cdr is not None:
+                while self.cdr != chain_id.split("__")[1]:
+                    chain_id = random.choice(list(self.files[id].keys()))
         else:
             cluster = self.data[idx]
             id = None

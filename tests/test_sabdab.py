@@ -18,14 +18,13 @@ def test_generate_sabdab():
         shutil.rmtree(folder)
     start = time()
     # generate_data(tag="test", n=50, sabdab=True, resolution_thr=1)
-    generate_data(tag="test", sabdab=True, zip_path="./sample_data/sabdab.zip", require_antigen=True)
+    generate_data(tag="test", sabdab=True, zip_path="./sample_data/sabdab.zip", require_antigen=True, skip_splitting=True)
     end = time()
     assert all(["nan_nan" not in file for file in os.listdir(folder)])
     train_loader = ProteinLoader.from_args(
-        dataset_folder=os.path.join(folder, "train"),
+        dataset_folder=folder,
         batch_size=8,
         rewrite=True,
-        clustering_dict_path="./data/proteinflow_test/splits_dict/train.pickle",
         max_length=1000,
     )
     batch = next(iter(train_loader))
