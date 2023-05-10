@@ -1125,7 +1125,8 @@ def _load_sabdab(
             summary = summary[date <= pdb_snapshot]
         if sabdab_data_path is not None:
             summary.loc[summary["resolution"] == "NOT", "resolution"] = 0
-            summary["resolution"] = summary["resolution"].str.split(", ").str[0]
+            if summary["resolution"].dtype != float:
+                summary["resolution"] = summary["resolution"].str.split(", ").str[0]
             summary = summary[summary["resolution"].astype(float) <= resolution_thr]
             if filter_methods:
                 summary = summary[
@@ -1376,7 +1377,7 @@ def generate_data(
             exclude_threshold=exclude_threshold,
             exclude_clusters=exclude_clusters,
             exclude_based_on_cdr=exclude_based_on_cdr,
-        ):
+        )
     shutil.rmtree(tmp_folder)
     return log_dict
 
@@ -2112,7 +2113,9 @@ class ProteinDataset(Dataset):
             The CDR to be iterated over. Set to `None` to go back to iterating over all chains.
         """
 
-        if cdr == self.cdr or not self.sabdab:
+        if not self.sabdab:
+            cdr = None
+        if cdr == self.cdr:
             return
         self.cdr = cdr
         if cdr is None:
