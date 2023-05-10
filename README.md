@@ -93,7 +93,7 @@ Alternatively, it can be used together with the tag `--sabdab_data_path` to proc
 
 SAbDab sequences clustering is done across all 6 Complementary Determining Regions (CDRs) - H1, H2, H3, L1, L2, L3, based on the [Chothia numbering](https://pubmed.ncbi.nlm.nih.gov/9367782/) implemented by SabDab. CDRs from nanobodies and other synthetic constructs are clustered together with other heavy chain CDRs. The resulting CDR clusters are split into training, test and validation in a way that ensures that every PDB file only appears in one subset.
 
-Individual output pickle files represent heavy chain - light chain - antigen complexes (created from SAbDab annotation).
+Individual output pickle files represent heavy chain - light chain - antigen complexes (created from SAbDab annotation, sometimes more than one per PDB entry). Each of the elements (heavy chain, light chain, antigen) can be missing in specific entries and there can be multiple antigen chains. In order to filter for at least one antigen chain, use the `--require_antigen` option.
 
 For instance, let's generate a dataset with the following description:
 - SabDab version: latest (up-to-date),
