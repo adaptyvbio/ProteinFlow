@@ -1038,7 +1038,7 @@ def _load_sabdab(
     filter_methods=True,
     pdb_snapshot=None,
     tmp_folder="data/tmp",
-    zip_path=None,
+    sabdab_data_path=None,
     require_antigen=True,
     n=None,
 ):
@@ -1168,7 +1168,7 @@ def _load_files(
     tmp_folder="data/tmp",
     load_live=False,
     sabdab=False,
-    zip_path=None,
+    sabdab_data_path=None,
     require_antigen=False,
 ):
     """
@@ -1181,7 +1181,7 @@ def _load_files(
             filter_methods=filter_methods,
             pdb_snapshot=pdb_snapshot,
             tmp_folder=tmp_folder,
-            zip_path=zip_path,
+            sabdab_data_path=sabdab_data_path,
             require_antigen=require_antigen,
             n=n,
         )
