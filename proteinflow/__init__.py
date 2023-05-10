@@ -472,6 +472,10 @@ def _run_processing(
         zeros to missing values,
     - `'seq'`: a string of length `L` with residue types.
 
+    When creating a SAbDab dataset, an additional key is added to the dictionary:
+    - `'cdr'`: a `'numpy'` array of shape `(L,)` where CDR residues are marked with the corresponding type (`'H1'`, `'L1'`, ...) 
+        and non-CDR residues are marked with `'-'`.
+
     All errors including reasons for filtering a file out are logged in a log file.
 
     Parameters
@@ -1164,6 +1168,10 @@ def generate_data(
     sabdab=False,
     sabdab_data_path=None,
     require_antigen=False,
+    exclude_chains=None,
+    exclude_threshold=0.7,
+    exclude_clusters=False,
+    exclude_based_on_cdr=None,
 ):
     """
     Download and parse PDB files that meet filtering criteria
@@ -1177,8 +1185,16 @@ def generate_data(
         zeros to missing values,
     - `'seq'`: a string of length `L` with residue types.
 
-    All errors including reasons for filtering a file out are logged in the log file.
+    When creating a SAbDab dataset, an additional key is added to the dictionary:
+    - `'cdr'`: a `'numpy'` array of shape `(L,)` where CDR residues are marked with the corresponding type (`'H1'`, `'L1'`, ...) 
+        and non-CDR residues are marked with `'-'`.
+    
+    PDB datasets are split into clusters according to sequence identity and SAbDab datasets are split according to CDR similarity.
 
+    All errors including reasons for filtering a file out are logged in the log file. 
+
+    For more information on the splitting procedure and options, check out the `proteinflow.split_data` documentation.
+        
     Parameters
     ----------
     tag : str
@@ -1225,7 +1241,14 @@ def generate_data(
         path to a zip file or a directory containing SAbDab files (only used if `sabdab` is `True`)
     require_antigen : bool, default False
         if `True`, only use SAbDab files with an antigen
-    
+    exclude_chains : list of str, optional
+        a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `["1A2B-A", "1A2B-B"]`); chain id is the author chain id
+    exclude_threshold : float in [0, 1], default 0.7
+        the sequence similarity threshold for excluding chains
+    exclude_clusters : bool, default False
+        if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
+    exclude_based_on_cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}, optional
+        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
 
     Returns
     -------
@@ -1267,17 +1290,19 @@ def generate_data(
         require_antigen=require_antigen,
     )
     if not skip_splitting:
-        _get_split_dictionaries(
-            tmp_folder=tmp_folder,
-            output_folder=output_folder,
+        split_data(
+            tag=tag,
+            local_datasets_folder=local_datasets_folder,
             split_tolerance=split_tolerance,
             test_split=test_split,
             valid_split=valid_split,
-            out_split_dict_folder=out_split_dict_folder,
+            ignore_existing=True,
             min_seq_id=min_seq_id,
-        )
-
-        _split_data(output_folder)
+            exclude_chains=exclude_chains,
+            exclude_threshold=exclude_threshold,
+            exclude_clusters=exclude_clusters,
+            exclude_based_on_cdr=exclude_based_on_cdr,
+        ):
     shutil.rmtree(tmp_folder)
     return log_dict
 
@@ -1375,10 +1400,14 @@ def split_data(
     3. split connected components of the graph into training, test and validation subsets while keeping the proportion
     of single chains, homomers and heteromers close to that in the full dataset (within `split_tolerance`).
 
+    For SAbDab datasets, instead of sequence identity, we use CDR cluster identity to cluster chains. We also connect the clusters
+    in the graph if CDRs from those clusters are seen in the same PDB.
+
     Biounits that contain chains similar to those in the `exclude_chains` list (with `exclude_threshold` sequence identity)
-    are excluded from the splitting and placed into a separate folder.
-
-
+    are excluded from the splitting and placed into a separate folder. If you want to exclude clusters containing those chains
+    as well, set `exclude_clusters` to `True`. For SAbDab datasets, you can additionally choose to only exclude based on specific 
+    CDR clusters. To do so, set `exclude_based_on_cdr` to the CDR type.
+    
     Parameters
     ----------
     tag : str
@@ -1476,9 +1505,11 @@ class ProteinDataset(Dataset):
     - `'secondary_structure'`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 3)`,
     - `'sidechain_coords'`: the coordinates of the sidechain atoms (see `proteinflow.sidechain_order()` for the order), `(total_L, 10, 3)`.
 
-    If the dataset contains a `'cdr'` key, the output files will also additionally contain a `'cdr'` key with a CDR tensor of length `total_L`.
-    In the array, the CDR residues are marked with the corresponding CDR type (H1=1, H2=2, H3=3, L1=4, L2=5, L3=6) and the rest of 
-    the residues are marked with 0s.
+    If the dataset contains a `'cdr'` key (if it was generated from SAbDab files), the output files will also additionally contain a `'cdr'` 
+    key with a CDR tensor of length `total_L`. In the array, the CDR residues are marked with the corresponding CDR type 
+    (H1=1, H2=2, H3=3, L1=4, L2=5, L3=6) and the rest of the residues are marked with 0s. 
+
+    Use the `set_cdr` method to only iterate over biounits that contain specific CDRs.
 
     In order to compute additional features, use the `feature_functions` parameter. It should be a dictionary with keys
     corresponding to the feature names and values corresponding to the functions that compute the features. The functions
@@ -1673,6 +1704,9 @@ class ProteinDataset(Dataset):
                         seen.add(file)
                         with open(file, "rb") as f:
                             self.loaded[file] = pickle.load(f)
+        sample_file = list(self.files.keys())[0]
+        sample_chain = list(self.files[sample_file].keys())[0]
+        self.sabdab = "__" in sample_chain
         self.cdr = 0
         self.set_cdr(None)
 
@@ -1987,7 +2021,16 @@ class ProteinDataset(Dataset):
         return output_names
     
     def set_cdr(self, cdr):
-        if cdr == self.cdr:
+        """
+        Set the CDR to be iterated over (only for SAbDab datasets).
+
+        Parameters
+        ----------
+        cdr : str
+            The CDR to be iterated over. Set to `None` to go back to iterating over all chains.
+        """
+
+        if cdr == self.cdr or not self.sabdab:
             return
         self.cdr = cdr
         if cdr is None:
@@ -2059,7 +2102,7 @@ class ProteinLoader(DataLoader):
     A subclass of `torch.data.utils.DataLoader` tuned for the `proteinflow` dataset
 
     Creates and iterates over an instance of `ProteinDataset`, omitting the `'chain_dict'` keys.
-    See the `ProteinDataset` docs for more information.
+    See the `ProteinDataset` documentation for more information.
 
     If batch size is larger than one, all objects are padded with zeros at the ends to reach the length of the
     longest protein in the batch.
@@ -2067,12 +2110,13 @@ class ProteinLoader(DataLoader):
     If `mask_residues` is `True`, an additional `'masked_res'` key is added to the output. The value is a binary
     tensor shaped `(B, L)` where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated
     according to the following rules:
-    - if `mask_whole_chains` is `True`, the whole chain is masked
+    - if the dataset is generated from SAbDab files, the sampled CDR is masked,
+    - if `mask_whole_chains` is `True`, the whole chain is masked,
     - if `mask_frac` is given, the number of residues to mask is `mask_frac` times the length of the chain,
     - otherwise, the number of residues to mask is sampled uniformly from the range [`lower_limit`, `upper_limit`].
 
     If `force_binding_sites_frac` > 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
-    from a polymer is sampled, the center of the masked region will be forced to be in a binding site.
+    from a polymer is sampled, the center of the masked region will be forced to be in a binding site (in PDB datasets).
     """
 
     def __init__(
