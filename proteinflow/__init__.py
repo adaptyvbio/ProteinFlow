@@ -317,9 +317,7 @@ _PMAP = lambda x: [
     FEATURES_DICT["acceptor"][x],
     FEATURES_DICT["donor"][x],
 ]
-CDR = {
-    "-": 0, "H1": 1, "H2": 2, "H3": 3, "L1": 4, "L2": 5, "L3": 6
-}
+CDR = {"-": 0, "H1": 1, "H2": 2, "H3": 3, "L1": 4, "L2": 5, "L3": 6}
 
 
 def _clean(pdb_id, tmp_folder):
@@ -339,7 +337,7 @@ def _log_exception(exception, log_file, pdb_id, tmp_folder, chain_id=None):
     """
     Record the error in the log file
     """
-    
+
     if chain_id is None:
         _clean(pdb_id, tmp_folder)
     else:
@@ -395,9 +393,9 @@ def _get_split_dictionaries(
     """
 
     sample_file = os.listdir(output_folder)[0]
-    ind = sample_file.split('.')[0].split('-')[1]
+    ind = sample_file.split(".")[0].split("-")[1]
     sabdab = not ind.isnumeric()
-    
+
     os.makedirs(out_split_dict_folder, exist_ok=True)
     (
         train_clusters_dict,
@@ -599,6 +597,7 @@ def _run_processing(
                 raise e
             else:
                 _log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER, chain_id=chain_id)
+
     try:
         paths, error_ids = _load_files(
             resolution_thr=RESOLUTION_THR,
@@ -633,7 +632,10 @@ def _run_processing(
             for line in lines:
                 f.write(line)
         if sabdab:
-            paths = [(os.path.join(TMP_FOLDER, x.split("-")[0] + ".pdb"), x.split("-")[1]) for x in stats[not_found_error]]
+            paths = [
+                (os.path.join(TMP_FOLDER, x.split("-")[0] + ".pdb"), x.split("-")[1])
+                for x in stats[not_found_error]
+            ]
         else:
             paths = stats[not_found_error]
         _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
@@ -795,7 +797,9 @@ class _PadCollate:
                             )[0]
                             interface = np.intersect1d(interface, not_end_mask)
 
-                            non_masked_interface = np.intersect1d(interface, no_mask_idx)
+                            non_masked_interface = np.intersect1d(
+                                interface, no_mask_idx
+                            )
                             interpolate = True
                             if len(non_masked_interface) > 0:
                                 res_i = non_masked_interface[
@@ -804,7 +808,9 @@ class _PadCollate:
                             elif len(interface) > 0 and interpolate:
                                 res_i = interface[random.randint(0, len(interface) - 1)]
                             else:
-                                res_i = no_mask_idx[random.randint(0, len(no_mask_idx) - 1)]
+                                res_i = no_mask_idx[
+                                    random.randint(0, len(no_mask_idx) - 1)
+                                ]
                     if res_i is None:
                         non_zero = torch.where(batch["mask"][i][chain_bool])[0]
                         res_i = non_zero[random.randint(0, len(non_zero) - 1)]
@@ -856,8 +862,14 @@ class _PadCollate:
 
     def __call__(self, batch):
         return self.pad_collate(batch)
-    
-def _get_pdb_ids(resolution_thr=3.5, pdb_snapshot=None, filter_methods=True, log_folder='data/tmp/logs'):
+
+
+def _get_pdb_ids(
+    resolution_thr=3.5,
+    pdb_snapshot=None,
+    filter_methods=True,
+    log_folder="data/tmp/logs",
+):
     """
     Get PDB ids from PDB API
     """
@@ -904,7 +916,8 @@ def _get_pdb_ids(resolution_thr=3.5, pdb_snapshot=None, filter_methods=True, log
         ind = ordered_folders.index(pdb_snapshot)
         ordered_folders = ordered_folders[ind:]
     return ordered_folders, pdb_ids
-    
+
+
 def _download_live(id, tmp_folder):
     """
     Download a PDB file from the PDB website
@@ -926,6 +939,7 @@ def _download_live(id, tmp_folder):
             pass
     return id
 
+
 def _download_fasta_f(pdb_id, datadir):
     """
     Download a fasta file from the PDB website
@@ -943,8 +957,17 @@ def _download_fasta_f(pdb_id, datadir):
     except Exception as err:
         # print(str(err), file=sys.stderr)
         return None
-    
-def _load_pdb(resolution_thr=3.5, pdb_snapshot=None, filter_methods=True, log_folder='data/tmp/logs', n=None, tmp_folder='data/tmp', load_live=False):
+
+
+def _load_pdb(
+    resolution_thr=3.5,
+    pdb_snapshot=None,
+    filter_methods=True,
+    log_folder="data/tmp/logs",
+    n=None,
+    tmp_folder="data/tmp",
+    load_live=False,
+):
     """
     Download filtered PDB files and return a list of local file paths
     """
@@ -985,7 +1008,9 @@ def _load_pdb(resolution_thr=3.5, pdb_snapshot=None, filter_methods=True, log_fo
     paths = [x for x in paths if x.endswith(".gz")]
     if load_live:
         print("Downloading newest structure files...")
-        live_paths = p_map(lambda x: _download_live(x, tmp_folder=tmp_folder), error_ids)
+        live_paths = p_map(
+            lambda x: _download_live(x, tmp_folder=tmp_folder), error_ids
+        )
         error_ids = []
         for x in live_paths:
             if x.endswith(".gz"):
@@ -993,6 +1018,7 @@ def _load_pdb(resolution_thr=3.5, pdb_snapshot=None, filter_methods=True, log_fo
             else:
                 error_ids.append(x)
     return paths, error_ids
+
 
 def _make_sabdab_html(method, resolution_thr):
     """
@@ -1002,7 +1028,16 @@ def _make_sabdab_html(method, resolution_thr):
     html = f"https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/search/?ABtype=All&method={'+'.join(method)}&species=All&resolution={resolution_thr}&rfactor=&antigen=All&ltype=All&constantregion=All&affinity=All&isin_covabdab=All&isin_therasabdab=All&chothiapos=&restype=ALA&field_0=Antigens&keyword_0=#downloads"
     return html
 
-def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp_folder="data/tmp", sabdab_data_path=None, require_antigen=True, n=None):
+
+def _load_sabdab(
+    resolution_thr=3.5,
+    filter_methods=True,
+    pdb_snapshot=None,
+    tmp_folder="data/tmp",
+    zip_path=None,
+    require_antigen=True,
+    n=None,
+):
     """
     Download filtered SAbDab files and return a list of local file paths
     """
@@ -1022,12 +1057,18 @@ def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp
             page = requests.get(html)
             soup = BeautifulSoup(page.text, "html.parser")
             try:
-                zip_ref = soup.find_all(lambda t: t.name == "a" and t.text.startswith("zip"))[0]["href"]
+                zip_ref = soup.find_all(
+                    lambda t: t.name == "a" and t.text.startswith("zip")
+                )[0]["href"]
                 zip_ref = "https://opig.stats.ox.ac.uk" + zip_ref
             except:
-                error = soup.find_all(lambda t: t.name == "h1" and t.text.startswith("Internal"))
+                error = soup.find_all(
+                    lambda t: t.name == "h1" and t.text.startswith("Internal")
+                )
                 if len(error) > 0:
-                    raise RuntimeError("Internal SAbDab server error -> try again in some time")
+                    raise RuntimeError(
+                        "Internal SAbDab server error -> try again in some time"
+                    )
                 raise RuntimeError("No link found")
             print(f'Downloading {" ".join(method)} structure files...')
             subprocess.run(
@@ -1083,7 +1124,9 @@ def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp
             summary["resolution"] = summary["resolution"].str.split(", ").str[0]
             summary = summary[summary["resolution"].astype(float) <= resolution_thr]
             if filter_methods:
-                summary = summary[summary["method"].isin([" ".join(m) for m in methods])]
+                summary = summary[
+                    summary["method"].isin([" ".join(m) for m in methods])
+                ]
         if n is not None:
             summary = summary.iloc[:n]
         ids_method = summary["pdb"].unique().tolist()
@@ -1111,16 +1154,45 @@ def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp
     error_ids = []
     return paths, error_ids
 
-def _load_files(resolution_thr=3.5, pdb_snapshot=None, filter_methods=True, log_folder='data/tmp/logs', n=None, tmp_folder='data/tmp', load_live=False, sabdab=False, sabdab_data_path=None, require_antigen=False):
+
+def _load_files(
+    resolution_thr=3.5,
+    pdb_snapshot=None,
+    filter_methods=True,
+    log_folder="data/tmp/logs",
+    n=None,
+    tmp_folder="data/tmp",
+    load_live=False,
+    sabdab=False,
+    zip_path=None,
+    require_antigen=False,
+):
     """
     Download filtered structure files and return a list of local file paths
     """
 
     if sabdab:
-        out = _load_sabdab(resolution_thr=resolution_thr, filter_methods=filter_methods, pdb_snapshot=pdb_snapshot, tmp_folder=tmp_folder, sabdab_data_path=sabdab_data_path, require_antigen=require_antigen, n=n)
+        out = _load_sabdab(
+            resolution_thr=resolution_thr,
+            filter_methods=filter_methods,
+            pdb_snapshot=pdb_snapshot,
+            tmp_folder=tmp_folder,
+            zip_path=zip_path,
+            require_antigen=require_antigen,
+            n=n,
+        )
     else:
-        out = _load_pdb(resolution_thr=resolution_thr, filter_methods=filter_methods, pdb_snapshot=pdb_snapshot, tmp_folder=tmp_folder, load_live=load_live, n=n, log_folder=log_folder)
+        out = _load_pdb(
+            resolution_thr=resolution_thr,
+            filter_methods=filter_methods,
+            pdb_snapshot=pdb_snapshot,
+            tmp_folder=tmp_folder,
+            load_live=load_live,
+            n=n,
+            log_folder=log_folder,
+        )
     return out
+
 
 def download_data(tag, local_datasets_folder="./data", skip_splitting=False):
     """
@@ -1225,7 +1297,7 @@ def generate_data(
         path to a zip file or a directory containing SAbDab files (only used if `sabdab` is `True`)
     require_antigen : bool, default False
         if `True`, only use SAbDab files with an antigen
-    
+
 
     Returns
     -------
@@ -1236,8 +1308,10 @@ def generate_data(
     _check_mmseqs()
     filter_methods = not not_filter_methods
     remove_redundancies = not not_remove_redundancies
-    tmp_id = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5))
-    tmp_folder = os.path.join(tempfile.gettempdir(), tag + tmp_id)
+    tmp_id = "".join(
+        random.choice(string.ascii_uppercase + string.digits) for _ in range(5)
+    )
+    tmp_folder = os.path.join("", "tmp", tag + tmp_id)
     output_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
     log_folder = os.path.join(local_datasets_folder, "logs")
     out_split_dict_folder = os.path.join(output_folder, "splits_dict")
@@ -1444,7 +1518,9 @@ def split_data(
             min_seq_id=min_seq_id,
         )
 
-    _split_data(output_folder, excluded_biounits, exclude_clusters, exclude_based_on_cdr)
+    _split_data(
+        output_folder, excluded_biounits, exclude_clusters, exclude_based_on_cdr
+    )
 
 
 class ProteinDataset(Dataset):
@@ -1477,7 +1553,7 @@ class ProteinDataset(Dataset):
     - `'sidechain_coords'`: the coordinates of the sidechain atoms (see `proteinflow.sidechain_order()` for the order), `(total_L, 10, 3)`.
 
     If the dataset contains a `'cdr'` key, the output files will also additionally contain a `'cdr'` key with a CDR tensor of length `total_L`.
-    In the array, the CDR residues are marked with the corresponding CDR type (H1=1, H2=2, H3=3, L1=4, L2=5, L3=6) and the rest of 
+    In the array, the CDR residues are marked with the corresponding CDR type (H1=1, H2=2, H3=3, L1=4, L2=5, L3=6) and the rest of
     the residues are marked with 0s.
 
     In order to compute additional features, use the `feature_functions` parameter. It should be a dictionary with keys
@@ -1951,8 +2027,10 @@ class ProteinDataset(Dataset):
                 mask.append(data[chain]["msk"])
                 residue_idx.append(torch.arange(len(data[chain]["seq"])) + last_idx)
                 if "cdr" in data[chain]:
-                    u, inv = np.unique(data[chain]["cdr"], return_inverse = True)
-                    cdr_chain = np.array([CDR[x] for x in u])[inv].reshape(data[chain]["cdr"].shape)
+                    u, inv = np.unique(data[chain]["cdr"], return_inverse=True)
+                    cdr_chain = np.array([CDR[x] for x in u])[inv].reshape(
+                        data[chain]["cdr"].shape
+                    )
                     cdr.append(cdr_chain)
                     cdr_chain_set.update([f"{chain}__{cdr}" for cdr in u])
                 last_idx = residue_idx[-1][-1] + 100
@@ -1966,7 +2044,11 @@ class ProteinDataset(Dataset):
 
             if add_name:
                 output_names.append(
-                    (os.path.basename(no_extension_name), output_file, chain_set if len(cdr_chain_set) == 0 else cdr_chain_set)
+                    (
+                        os.path.basename(no_extension_name),
+                        output_file,
+                        chain_set if len(cdr_chain_set) == 0 else cdr_chain_set,
+                    )
                 )
 
             out = {}
@@ -1985,7 +2067,7 @@ class ProteinDataset(Dataset):
             with open(output_file, "wb") as f:
                 pickle.dump(out, f)
         return output_names
-    
+
     def set_cdr(self, cdr):
         if cdr == self.cdr:
             return
@@ -2007,7 +2089,6 @@ class ProteinDataset(Dataset):
                             break
                     if add:
                         self.indices.append(i)
-
 
     def __len__(self):
         return len(self.indices)

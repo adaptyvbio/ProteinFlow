@@ -222,7 +222,9 @@ def _retrieve_fasta_chains(fasta_file):
     return out_dict
 
 
-def _open_structure(file_path: str, tmp_folder: str, sabdab=False, chain_id=None) -> Dict:
+def _open_structure(
+    file_path: str, tmp_folder: str, sabdab=False, chain_id=None
+) -> Dict:
     """
     Read a PDB file and parse it into a dictionary if it meets criteria
 
@@ -244,7 +246,7 @@ def _open_structure(file_path: str, tmp_folder: str, sabdab=False, chain_id=None
         whether the file is a SAbDab file
     chain_id : str, optional
         chain id string in the form of `"{pdb_id}_H_L_A1|...|An"` (for SAbDab)
-    
+
 
     Output
     ------
@@ -293,11 +295,13 @@ def _open_structure(file_path: str, tmp_folder: str, sabdab=False, chain_id=None
         chains = [x for x in chains if x != "nan"]
     seqs_dict = {k.upper(): v for k, v in seqs_dict.items()}
 
-    if not set([x.split("-")[0].upper() for x in chains]).issubset(set(list(seqs_dict.keys()))):
+    if not set([x.split("-")[0].upper() for x in chains]).issubset(
+        set(list(seqs_dict.keys()))
+    ):
         raise PDBError("Some chains in the PDB do not appear in the fasta file")
 
     out_dict["fasta"] = {k: seqs_dict[k.split("-")[0].upper()] for k in chains}
-    
+
     if not sabdab:
         try:
             os.remove(file_path)
@@ -305,9 +309,11 @@ def _open_structure(file_path: str, tmp_folder: str, sabdab=False, chain_id=None
             pass
     return out_dict
 
+
 def _get_chothia_cdr(num_array, chain_type):
     arr = [CDR_VALUES[chain_type][int(x.split("_")[0])] for x in num_array]
     return np.array(arr)
+
 
 def _align_structure(
     pdb_dict: Dict,
@@ -364,7 +370,7 @@ def _align_structure(
 
     if not crd["residue_name"].isin(d3to1.keys()).all():
         raise PDBError("Unnatural amino acids found")
-    
+
     chains_unique = crd["chain_id"].unique()
     chain_types = ["-" for _ in chains_unique]
     if chain_id_string is not None:
@@ -435,7 +441,9 @@ def _align_structure(
         if chain_id_string is not None:
             cdr_arr = np.array(["-"] * len(aligned_seq), dtype=object)
             if chain_type in ["H", "L"]:
-                cdr_arr[aligned_seq_arr != "-"] = _get_chothia_cdr(unique_numbers, chain_type)
+                cdr_arr[aligned_seq_arr != "-"] = _get_chothia_cdr(
+                    unique_numbers, chain_type
+                )
             pdb_dict[chain]["cdr"] = cdr_arr
         pdb_dict[chain]["seq"] = fasta[chain]
         pdb_dict[chain]["msk"] = (aligned_seq_arr != "-").astype(int)

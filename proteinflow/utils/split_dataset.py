@@ -56,11 +56,11 @@ def _download_dataset_dicts_from_s3(dict_folder_path, s3_path):
 
 
 def _split_data(
-        dataset_path="./data/proteinflow_20221110/", 
-        excluded_files=None,
-        exclude_clusters=False,
-        exclude_based_on_cdr=None,
-    ):
+    dataset_path="./data/proteinflow_20221110/",
+    excluded_files=None,
+    exclude_clusters=False,
+    exclude_based_on_cdr=None,
+):
     """
     Rearrange files into folders according to the dataset split dictionaries at `dataset_path/splits_dict`
 
