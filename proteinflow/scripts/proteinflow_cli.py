@@ -144,9 +144,9 @@ def download(**kwargs):
     help="Use this flag to generate a dataset from SAbDab files instead of PDB",
 )
 @click.option(
-    "--zip_path",
+    "--sabdab_data_path",
     type=str,
-    help="Path to a zip file containing SAbDab files (only used if `sabdab` is `True`)",
+    help="Path to a zip file or a directory containing SAbDab files (only used if `sabdab` is `True`)",
 )
 @click.option(
     "--require_antigen",

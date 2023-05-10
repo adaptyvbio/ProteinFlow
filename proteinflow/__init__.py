@@ -191,6 +191,7 @@ from bs4 import BeautifulSoup
 import urllib.request
 import string
 from einops import rearrange
+import tempfile
 
 MAIN_ATOMS = {
     "GLY": None,
@@ -456,7 +457,7 @@ def _run_processing(
     pdb_snapshot=None,
     load_live=False,
     sabdab=False,
-    zip_path=None,
+    sabdab_data_path=None,
     require_antigen=False,
 ):
     """
@@ -519,8 +520,8 @@ def _run_processing(
         if `True`, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to `False` if `pdb_snapshot` is not `None`)
     sabdab : bool, default False
         if `True`, download the SAbDab database instead of PDB
-    zip_path : str, optional
-        path to a zip file containing SAbDab files (only used if `sabdab` is `True`)
+    sabdab_data_path : str, optional
+        path to a zip file or a directory containing SAbDab files (only used if `sabdab` is `True`)
     require_antigen : bool, default False
         if `True`, only keep files with antigen chains (only used if `sabdab` is `True`)
 
@@ -608,7 +609,7 @@ def _run_processing(
             tmp_folder=TMP_FOLDER,
             load_live=load_live,
             sabdab=sabdab,
-            zip_path=zip_path,
+            sabdab_data_path=sabdab_data_path,
             require_antigen=require_antigen,
         )
         for id in error_ids:
@@ -1001,7 +1002,7 @@ def _make_sabdab_html(method, resolution_thr):
     html = f"https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/search/?ABtype=All&method={'+'.join(method)}&species=All&resolution={resolution_thr}&rfactor=&antigen=All&ltype=All&constantregion=All&affinity=All&isin_covabdab=All&isin_therasabdab=All&chothiapos=&restype=ALA&field_0=Antigens&keyword_0=#downloads"
     return html
 
-def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp_folder="data/tmp", zip_path=None, require_antigen=True, n=None):
+def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp_folder="data/tmp", sabdab_data_path=None, require_antigen=True, n=None):
     """
     Download filtered SAbDab files and return a list of local file paths
     """
@@ -1015,7 +1016,7 @@ def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp
     else:
         methods = ["All"]
     methods = [x.split() for x in methods]
-    if zip_path is None:
+    if sabdab_data_path is None:
         for method in methods:
             html = _make_sabdab_html(method, resolution_thr)
             page = requests.get(html)
@@ -1037,18 +1038,29 @@ def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp
                     os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip"),
                 ]
             )
-        zip_paths = [os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip") for method in methods]
+        paths = [os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip") for method in methods]
     else:
-        zip_paths = [zip_path]
+        paths = [sabdab_data_path]
     ids = []
     pdb_ids = []
     print('Moving files...')
-    for path in zip_paths:
-        dir_path = path[:-4]
-        with zipfile.ZipFile(path, 'r') as zip_ref:
-            zip_ref.extractall(dir_path)
-        if zip_path is None:
-            os.remove(path)
+    for path in paths:
+        if not os.path.isdir(path):
+            if not path.endswith(".zip"):
+                raise ValueError("SAbDab data path should be a zip file or a directory")
+            dir_path = path[:-4]
+            print(f'Unzipping {path}...')
+            with zipfile.ZipFile(path, 'r') as zip_ref:
+                for member in tqdm(zip_ref.infolist()):
+                    try:
+                        zip_ref.extract(member, dir_path)
+                    except zipfile.error as e:
+                        pass
+            if sabdab_data_path is None:
+                os.remove(path)
+        else:
+            dir_path = path
+        print('Filtering...')
         summary_path = None
         for file in os.listdir(dir_path):
             if file.endswith(".tsv"):
@@ -1066,17 +1078,20 @@ def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp
         if pdb_snapshot is not None:
             date = pd.to_datetime(summary["date"], format="%m/%d/%Y")
             summary = summary[date <= pdb_snapshot]
-        if zip_path is not None:
-            summary = summary[summary["resolution"] <= resolution_thr]
+        if sabdab_data_path is not None:
+            summary.loc[summary["resolution"] == "NOT", "resolution"] = 0
+            summary["resolution"] = summary["resolution"].str.split(", ").str[0]
+            summary = summary[summary["resolution"].astype(float) <= resolution_thr]
             if filter_methods:
                 summary = summary[summary["method"].isin([" ".join(m) for m in methods])]
         if n is not None:
             summary = summary.iloc[:n]
         ids_method = summary["pdb"].unique().tolist()
-        for id in ids_method:
+        for id in tqdm(ids_method):
             pdb_path = os.path.join(dir_path, "chothia", f"{id}.pdb")
             shutil.move(pdb_path, os.path.join(tmp_folder, f"{id}.pdb"))
-        shutil.rmtree(dir_path)
+        if sabdab_data_path is None or sabdab_data_path.endswith(".zip"):
+            shutil.rmtree(dir_path)
         ids_full = summary.apply(lambda x: (x['pdb'], f"{x['Hchain']}_{x['Lchain']}_{x['antigen_chain']}"), axis=1).tolist()
         ids += ids_full
         pdb_ids += ids_method
@@ -1096,13 +1111,13 @@ def _load_sabdab(resolution_thr=3.5, filter_methods=True, pdb_snapshot=None, tmp
     error_ids = []
     return paths, error_ids
 
-def _load_files(resolution_thr=3.5, pdb_snapshot=None, filter_methods=True, log_folder='data/tmp/logs', n=None, tmp_folder='data/tmp', load_live=False, sabdab=False, zip_path=None, require_antigen=False):
+def _load_files(resolution_thr=3.5, pdb_snapshot=None, filter_methods=True, log_folder='data/tmp/logs', n=None, tmp_folder='data/tmp', load_live=False, sabdab=False, sabdab_data_path=None, require_antigen=False):
     """
     Download filtered structure files and return a list of local file paths
     """
 
     if sabdab:
-        out = _load_sabdab(resolution_thr=resolution_thr, filter_methods=filter_methods, pdb_snapshot=pdb_snapshot, tmp_folder=tmp_folder, zip_path=zip_path, require_antigen=require_antigen, n=n)
+        out = _load_sabdab(resolution_thr=resolution_thr, filter_methods=filter_methods, pdb_snapshot=pdb_snapshot, tmp_folder=tmp_folder, sabdab_data_path=sabdab_data_path, require_antigen=require_antigen, n=n)
     else:
         out = _load_pdb(resolution_thr=resolution_thr, filter_methods=filter_methods, pdb_snapshot=pdb_snapshot, tmp_folder=tmp_folder, load_live=load_live, n=n, log_folder=log_folder)
     return out
@@ -1121,9 +1136,9 @@ def download_data(tag, local_datasets_folder="./data", skip_splitting=False):
         if `True`, skip the split dictionary creation and the file moving steps
     """
 
-    data_path = _download_dataset(tag, local_datasets_folder)
+    sabdab_data_path = _download_dataset(tag, local_datasets_folder)
     if not skip_splitting:
-        _split_data(data_path)
+        _split_data(sabdab_data_path)
 
 
 def generate_data(
@@ -1147,7 +1162,7 @@ def generate_data(
     load_live=False,
     min_seq_id=0.3,
     sabdab=False,
-    zip_path=None,
+    sabdab_data_path=None,
     require_antigen=False,
 ):
     """
@@ -1206,8 +1221,8 @@ def generate_data(
         minimum sequence identity for `mmseqs`
     sabdab : bool, default False
         if `True`, download the SAbDab database instead of PDB
-    zip_path : str, optional
-        path to a zip file containing SAbDab files (only used if `sabdab` is `True`)
+    sabdab_data_path : str, optional
+        path to a zip file or a directory containing SAbDab files (only used if `sabdab` is `True`)
     require_antigen : bool, default False
         if `True`, only use SAbDab files with an antigen
     
@@ -1222,7 +1237,7 @@ def generate_data(
     filter_methods = not not_filter_methods
     remove_redundancies = not not_remove_redundancies
     tmp_id = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5))
-    tmp_folder = os.path.join("", "tmp", tag + tmp_id)
+    tmp_folder = os.path.join(tempfile.gettempdir(), tag + tmp_id)
     output_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
     log_folder = os.path.join(local_datasets_folder, "logs")
     out_split_dict_folder = os.path.join(output_folder, "splits_dict")
@@ -1248,7 +1263,7 @@ def generate_data(
         pdb_snapshot=pdb_snapshot,
         load_live=load_live,
         sabdab=sabdab,
-        zip_path=zip_path,
+        sabdab_data_path=sabdab_data_path,
         require_antigen=require_antigen,
     )
     if not skip_splitting:
