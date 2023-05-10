@@ -1592,7 +1592,7 @@ class ProteinDataset(Dataset):
     key with a CDR tensor of length `total_L`. In the array, the CDR residues are marked with the corresponding CDR type
     (H1=1, H2=2, H3=3, L1=4, L2=5, L3=6) and the rest of the residues are marked with 0s.
 
-    Use the `set_cdr` method to only iterate over biounits that contain specific CDRs.
+    Use the `set_cdr` method to only iterate over specific CDRs.
 
     In order to compute additional features, use the `feature_functions` parameter. It should be a dictionary with keys
     corresponding to the feature names and values corresponding to the functions that compute the features. The functions
@@ -2115,7 +2115,7 @@ class ProteinDataset(Dataset):
 
         Parameters
         ----------
-        cdr : str
+        cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}
             The CDR to be iterated over. Set to `None` to go back to iterating over all chains.
         """
 
