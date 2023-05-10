@@ -48,7 +48,7 @@ Already precomputed datasets with consensus set of parameters and can be accesse
 proteinflow download --tag 20230102_stable 
 ```
 
-### Running the pipeline
+### Running the pipeline (PDB)
 You can also run `proteinflow` with your own parameters. Check the output of `proteinflow check_snapshots` for a list of available PDB snapshots (naming rule: `yyyymmdd`).
 
 For instance, let's generate a dataset with the following description:
@@ -68,8 +68,22 @@ See the [docs](https://adaptyvbio.github.io/ProteinFlow/) (or `proteinflow gener
 
 A registry of all the files that are removed during the filtering as well as description with the reason for their removal is created automatically for each `generate` command. The log files are save (at `data/logs` by default) and a summary can be accessed running `proteinflow get_summary {log_path}`.
 
-You can also use the `--sabdab` option to load files from SAbDab and cluster them based on CDRs. Use together with `--zip_path` to process a custom SAbDab-like zip file.
+### Running the pipeline (SAbDab)
+You can also use the `--sabdab` option in `proteinflow generate` to load files from SAbDab and cluster them based on CDRs. By default the `--sabdab` tag will download the latest up-to-date version of the SabDab dataset and cluster the antibodies based on their CDR sequence.
+Alternatively, it can be used together with the tag `--sabdab_data_path` to process a custom SAbDab-like zip file or folder. This allows you to use search and query tools from the [SabDab web interface](https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/) to create a custom dataset by downloading the archived zip file of the structures selected. (Under Downloads section of your SabDab query).
 
+SAbDab sequences clustering is done across all 6 Complementary Determining Regions (CDRs) - CDRH1, CDRH2, CDRH3, CDRL1, CDRL2, CDRL3, based on the [Chothia numbering](https://pubmed.ncbi.nlm.nih.gov/9367782/) implemented by SabDab. CDRs from nanobodies and other synthetic constructs are clustered together with other heavy chain CDRs. The resulting CDR clusters are split into training, test and validation in a way that ensures that every PDB file only appears in one subset.
+
+For instance, let's generate a dataset with the following description:
+- SabDab version: latest (up-to-date),
+- resolution threshold: 5 angstrom,
+- structure methods accepted: all (x-ray christolography, NRM, Cryo-EM),
+- sequence identity threshold for clustering (CDRs): 40%,
+- size of validation subset: 10%.
+
+```bash
+proteinflow generate --sabdab --resolution_thr 5 --not_filter_methods --min_seq_id 0.4 --valid_split 0.1
+```
 ### Splitting
 By default, both `proteinflow generate` and `proteinflow download` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `proteinflow split` command.
 
