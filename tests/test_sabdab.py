@@ -21,7 +21,7 @@ def test_generate_sabdab():
     generate_data(
         tag="test",
         sabdab=True,
-        zip_path="./sample_data/sabdab.zip",
+        sabdab_data_path="./sample_data/sabdab.zip",
         require_antigen=True,
         skip_splitting=True,
     )
