@@ -123,7 +123,7 @@ The output files are pickled nested dictionaries where first-level keys are chai
 - `'seq'`: a string of length `L` with residue types.
 
 In a SAbDab datasets, an additional key is added to the dictionary:
-- `'cdr'`: a `'numpy'` array of shape `(L,)` where CDR residues are marked with the corresponding type (`'H1'`, `'L1'`, ...) 
+- `'cdr'`: a `numpy` array of shape `(L,)` where CDR residues are marked with the corresponding type (`'H1'`, `'L1'`, ...) 
     and non-CDR residues are marked with `'-'`.
 
 Once your data is ready, you can open the files with `pickle`.
