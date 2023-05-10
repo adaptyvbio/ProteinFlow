@@ -1,5 +1,5 @@
 """
-Proteinflow is an open-source Python library that streamlines the pre-processing of protein structure data for deep learning applications. ProteinFlow enables users to efficiently filter, cluster, and generate new datasets from resources like the Protein Data Bank (PDB).
+ProteinFlow is an open-source Python library that streamlines the pre-processing of protein structure data for deep learning applications. ProteinFlow enables users to efficiently filter, cluster, and generate new datasets from resources like the Protein Data Bank (PDB) and SAbDab (The Structural Antibody Database).
 
 Here are some of the key features we currently support:
 
@@ -13,61 +13,62 @@ Here are some of the key features we currently support:
 ---
 
 ## Installation
-Recommended: create a new `conda` environment and install `proteinflow` with `pip`. 
+conda:
 ```bash
-conda create --name proteinflow -y
-conda activate proteinflow
-python -m pip install proteinflow
+# This should take a few minutes, be patient
+conda install -c conda-forge -c bioconda -c adaptyvbio proteinflow
 ```
 
-If you are using `python 3.10` and encountering installation problems, try running `python -m pip install prody==2.4.0` before installing `proteinflow`.
-
-### Additional requirements
-In most cases, running the commands is enough. However, if you are planning to generate a new dataset, there is a couple additional requirements.
-
-First, you will need to install `mmseqs`. The recommended way is to run the following command in your `conda` environment but there are alternative methods you can see [here](https://github.com/soedinglab/MMseqs2).
+pip:
 ```bash
-conda install -y -c conda-forge -c bioconda mmseqs2
+pip install proteinflow
 ```
 
-In addition, `proteinflow` depends on the `rcsbsearch` package and the latest release [v0.2.3](https://github.com/sbliven/rcsbsearch/releases/tag/v0.2.3) is currently not working correctly. Follow the recommended fix:
+docker:
+```bash
+docker pull adaptyvbio/proteinflow
+```
+
+### Troubleshooting
+- If you are using python 3.10 and encountering installation problems, try running `python -m pip install prody==2.4.0` before installing `proteinflow`.
+- If you are planning to generate new datasets and installed `proteinflow` with `pip`, you will need to additionally install [`mmseqs`](https://github.com/soedinglab/MMseqs2).
+- Generating new datasets also depends on the `rcsbsearch` package and the latest release [v0.2.3](https://github.com/sbliven/rcsbsearch/releases/tag/v0.2.3) is currently not working correctly. The recommended fix is installing the version from [this pull request](https://github.com/sbliven/rcsbsearch/pull/6).
 ```bash
 python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
 ```
-
-Finally, you can use our [docker image](https://hub.docker.com/r/adaptyvbio/proteinflow/tags) as an alternative.
+- The docker image can be accessed in interactive mode with this command.
 ```bash
 docker run -it -v /path/to/data:/media adaptyvbio/proteinflow bash
 ```
 
 ## Usage
-### Downloading pre-computed datasets
-We have already run the pipeline with a consensus set of parameters and saved the results at a server. You can download the resulting dataset with `proteinflow`. Check the output of `proteinflow check_tags` for a list of available tags.
+### Downloading pre-computed datasets (stable)
+Already precomputed datasets with consensus set of parameters and can be accessed and downloaded using the `proteinflow`. package. Check the output of `proteinflow check_tags` for a list of available tags.
 ```bash
-proteinflow download --tag paper 
+proteinflow download --tag 20230102_stable 
 ```
 
-See `proteinflow.download_data` (or run `proteinflow download --help`) for more information.
-
 ### Running the pipeline
-You can also run `proteinflow` with your own parameters. Check the output of `proteinflow check_snapshots` for a list of available snapshots (naming rule: `{year}{month}{day}`).
+You can also run `proteinflow` with your own parameters. Check the output of `proteinflow check_snapshots` for a list of available PDB snapshots (naming rule: `yyyymmdd`).
 
 For instance, let's generate a dataset with the following description:
-- resolution threshold 5 $\AA$,
-- PDB snapshot 20190101,
-- all structure methods accepted,
-- sequence identity threshold for clustering 40%,
-- maximum length per sequence 1000 residues,
-- minimum length per sequence 5 residues,
-- maximum fraction of missing values at the ends 10%,
-- validation subset 10%.
+- resolution threshold: 5 angstrom,
+- PDB snapshot: 20190101,
+- structure methods accepted: all (x-ray christolography, NRM, Cryo-EM),
+- sequence identity threshold for clustering: 40% sequence similarity,
+- maximum length per sequence: 1000 residues,
+- minimum length per sequence: 5 residues,
+- maximum fraction of missing values at the ends: 10%,
+- size of validation subset: 10%.
 
 ```bash
 proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods --min_seq_id 0.4 --max_length 1000 --min_length 5 --missing_ends_thr 0.1 --valid_split 0.1
 ```
-See `proteinflow.generate_data` (or run `proteinflow generate --help`) for the full list of parameters and more information.
+See the [docs](https://adaptyvbio.github.io/ProteinFlow/) (or `proteinflow generate --help`) for the full list of parameters and more information.
 
-The reasons for filtering files out are logged in text files (at `data/logs` by default). To get a summary, run `proteinflow get_summary {log_path}`.
+A registry of all the files that are removed during the filtering as well as description with the reason for their removal is created automatically for each `generate` command. The log files are save (at `data/logs` by default) and a summary can be accessed running `proteinflow get_summary {log_path}`.
+
+You can also use the `--sabdab` option to load files from SAbDab and cluster them based on CDRs. Use together with `--zip_path` to process a custom SAbDab-like zip file.
 
 ### Splitting
 By default, both `proteinflow generate` and `proteinflow download` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `proteinflow split` command.
@@ -77,18 +78,21 @@ The following command will perform the splitting with a 10% validation set, a 5%
 proteinflow split --tag new --valid_split 0.1 --test_split 0.5 --min_seq_id 0.5
 ```
 
-See `proteinflow.split_data` (or run `proteinflow split --help`) for more information.
+Use the `--exclude_chains` and `--exclude_threshold` parameters to move all biounits that contain chains similar to what you specify to a separate folder.
 
 ### Using the data
 The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:
-
 - `'crd_bb'`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),
 - `'crd_sc'`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (check `proteinflow.sidechain_order()` for the order of atoms),
 - `'msk'`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and
     zeros to missing values,
 - `'seq'`: a string of length `L` with residue types.
 
-Once your data is ready, you can open the files directly with `pickle` to access this data.
+In a SAbDab datasets, an additional key is added to the dictionary:
+- `'cdr'`: a `'numpy'` array of shape `(L,)` where CDR residues are marked with the corresponding type (`'H1'`, `'L1'`, ...) 
+    and non-CDR residues are marked with `'-'`.
+
+Once your data is ready, you can open the files with `pickle`.
 
 ```python
 import pickle
@@ -110,7 +114,6 @@ For example, here is how we can create a data loader that:
 - samples a different cluster representative at every epoch,
 - extracts dihedral angles, sidechain orientation and secondary structure features,
 - only loads pairs of interacting proteins (larger biounits are broken up into pairs),
-- generates a geometric mask for 10% of one of the chains (random generation at every pass),
 - has batch size 8.
 
 ```python
@@ -120,7 +123,6 @@ train_loader = ProteinLoader.from_args(
     clustering_dict_path="./data/proteinflow_new/splits_dict/train.pickle",
     node_features_type="dihedral+sidechain_orientation+secondary_structure",
     entry_type="pair",
-    mask_frac=0.1,
     batch_size=8,
 )
 for batch in train_loader:
@@ -130,8 +132,6 @@ for batch in train_loader:
     to_predict = batch["masked_res"] #(B, L), 1 where the residues should be masked, 0 otherwise
     ...
 ```
-
-See `proteinflow.ProteinLoader` for more information.
 
 """
 
