@@ -18,7 +18,13 @@ def test_generate_sabdab():
         shutil.rmtree(folder)
     start = time()
     # generate_data(tag="test", n=50, sabdab=True, resolution_thr=1)
-    generate_data(tag="test", sabdab=True, zip_path="./sample_data/sabdab.zip", require_antigen=True, skip_splitting=True)
+    generate_data(
+        tag="test",
+        sabdab=True,
+        zip_path="./sample_data/sabdab.zip",
+        require_antigen=True,
+        skip_splitting=True,
+    )
     end = time()
     assert all(["nan_nan" not in file for file in os.listdir(folder)])
     train_loader = ProteinLoader.from_args(
@@ -29,18 +35,18 @@ def test_generate_sabdab():
     )
     batch = next(iter(train_loader))
     assert set(batch.keys()) == {
-        "X", #
-        "S", #
-        "mask", #
-        "mask_original", #
-        "residue_idx", #
-        "chain_encoding_all", #
-        "chain_id", #
-        "masked_res", #
-        "pdb_id", #
-        "cdr_id", #
-        "chain_dict", #
-        "cdr", #
+        "X",  #
+        "S",  #
+        "mask",  #
+        "mask_original",  #
+        "residue_idx",  #
+        "chain_encoding_all",  #
+        "chain_id",  #
+        "masked_res",  #
+        "pdb_id",  #
+        "cdr_id",  #
+        "chain_dict",  #
+        "cdr",  #
     }
     assert batch["X"].shape == (8, batch["X"].shape[1], 4, 3)
     assert batch["S"].shape == (8, batch["X"].shape[1])
@@ -57,6 +63,7 @@ def test_generate_sabdab():
     # print(f"generation time: {end - start} sec")
     # assert all(["nan_nan" not in file for file in os.listdir(folder)])
     # shutil.rmtree(folder)
+
 
 if __name__ == "__main__":
     test_generate_sabdab()

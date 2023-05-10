@@ -94,7 +94,14 @@ def _load_pdbs(dir, cdr=None):
             seqs = [(chain, pdb_dict[chain]["seq"]) for chain in pdb_dict.keys()]
         else:
             seqs = [
-                (chain, "".join(np.array(list(pdb_dict[chain]["seq"]))[pdb_dict[chain]["cdr"] == cdr].tolist()))
+                (
+                    chain,
+                    "".join(
+                        np.array(list(pdb_dict[chain]["seq"]))[
+                            pdb_dict[chain]["cdr"] == cdr
+                        ].tolist()
+                    ),
+                )
                 for chain in pdb_dict.keys()
             ]
             seqs = [(chain, seq) for chain, seq in seqs if len(seq) > 0]
@@ -137,10 +144,17 @@ def _run_mmseqs2(fasta_file, tmp_folder, min_seq_id, cdr=None):
         "1",
     ]
     if cdr is not None:
-        args += ["-k", "5", "--spaced-kmer-mode", "0", "--comp-bias-corr", "0", "--mask", "0"]
-    subprocess.run(
-        args
-    )
+        args += [
+            "-k",
+            "5",
+            "--spaced-kmer-mode",
+            "0",
+            "--comp-bias-corr",
+            "0",
+            "--mask",
+            "0",
+        ]
+    subprocess.run(args)
 
 
 def _read_clusters(tmp_folder, cdr=None):
@@ -149,11 +163,15 @@ def _read_clusters(tmp_folder, cdr=None):
 
     In cluster_dict, values are the full names (pdb + chains) whereas in cluster_pdb_dict, values are just the PDB ids (so less clusters but bigger).
     """
-    
+
     if cdr is None:
-        cluster_file_fasta = os.path.join(tmp_folder, "MMSeqs2_results", "clusterRes_all_seqs.fasta")
+        cluster_file_fasta = os.path.join(
+            tmp_folder, "MMSeqs2_results", "clusterRes_all_seqs.fasta"
+        )
     else:
-        cluster_file_fasta = os.path.join(tmp_folder, "MMSeqs2_results", cdr, "clusterRes_all_seqs.fasta")
+        cluster_file_fasta = os.path.join(
+            tmp_folder, "MMSeqs2_results", cdr, "clusterRes_all_seqs.fasta"
+        )
     with open(cluster_file_fasta, "r") as f:
         cluster_dict = defaultdict(lambda: [])
         cluster_pdb_dict = defaultdict(lambda: [])
@@ -793,18 +811,19 @@ def _fill_dataset(
         heteromers_size,
     )
 
+
 def _get_subgraph_files(
-        subgraphs,
-        clusters_dict,
-        pdb_arr,
-        chain_arr,
-        files_arr,
-    ):
+    subgraphs,
+    clusters_dict,
+    pdb_arr,
+    chain_arr,
+    files_arr,
+):
     """
     Given a list of subgraphs, return a dictionary of the form {cluster: [(filename, chain__cdr)]}
     """
 
-    out = {} # cluster: [(file, chain__cdr)]
+    out = {}  # cluster: [(file, chain__cdr)]
     for subgraph in subgraphs:
         for cluster in subgraph.nodes:
             chains = []
@@ -817,16 +836,17 @@ def _get_subgraph_files(
             out[cluster] = chains
     return out
 
+
 def _split_subgraphs(
-        lengths,
-        num_clusters_valid, 
-        num_clusters_test,
-        tolerance,
-    ):
+    lengths,
+    num_clusters_valid,
+    num_clusters_test,
+    tolerance,
+):
     """
     Split the list of subgraphs into three sets (train, valid, test) according to the number of biounits in each subgraph
     """
-    
+
     for _ in range(50):
         indices = np.random.permutation(np.arange(1, len(lengths)))
         valid_indices = []
@@ -836,18 +856,28 @@ def _split_subgraphs(
         test_sum = 0
         for i in indices:
             if valid_sum < num_clusters_valid:
-                if valid_sum < num_clusters_valid * (1 - tolerance) or lengths[i] < tolerance * num_clusters_valid:
+                if (
+                    valid_sum < num_clusters_valid * (1 - tolerance)
+                    or lengths[i] < tolerance * num_clusters_valid
+                ):
                     valid_indices.append(i)
                     valid_sum += lengths[i]
                     continue
             if test_sum < num_clusters_test:
-                if test_sum < num_clusters_test * (1 - tolerance) or lengths[i] < tolerance * num_clusters_test:
+                if (
+                    test_sum < num_clusters_test * (1 - tolerance)
+                    or lengths[i] < tolerance * num_clusters_test
+                ):
                     test_indices.append(i)
                     test_sum += lengths[i]
                     continue
             train_indices.append(i)
-        valid_ok = valid_sum >= num_clusters_valid * (1 - tolerance) and valid_sum <= num_clusters_valid * (1 + tolerance)
-        test_ok = test_sum >= num_clusters_test * (1 - tolerance) and test_sum <= num_clusters_test * (1 + tolerance)
+        valid_ok = valid_sum >= num_clusters_valid * (
+            1 - tolerance
+        ) and valid_sum <= num_clusters_valid * (1 + tolerance)
+        test_ok = test_sum >= num_clusters_test * (
+            1 - tolerance
+        ) and test_sum <= num_clusters_test * (1 + tolerance)
         if valid_ok and test_ok:
             break
     return train_indices, valid_indices, test_indices
@@ -955,9 +985,11 @@ def _split_dataset(
             n_homomers_valid,
             n_heteromers_valid,
         ) = valid_split * np.array([n_single_chains, n_homomers, n_heteromers])
-        n_single_chains_test, n_homomers_test, n_heteromers_test = test_split * np.array(
-            [n_single_chains, n_homomers, n_heteromers]
-        )
+        (
+            n_single_chains_test,
+            n_homomers_test,
+            n_heteromers_test,
+        ) = test_split * np.array([n_single_chains, n_homomers, n_heteromers])
         n_samples_valid, n_samples_test = int(valid_split * len(subgraphs)), int(
             test_split * len(subgraphs)
         )
@@ -1034,7 +1066,7 @@ def _split_dataset(
             "/",
             int(n_heteromers_test),
         )
-        
+
     else:
         n_samples_valid, n_samples_test = int(valid_split * len(clusters_dict)), int(
             test_split * len(clusters_dict)
@@ -1048,9 +1080,11 @@ def _split_dataset(
         for file in os.listdir(dataset_dir):
             if not file.endswith(".pickle"):
                 continue
-            chains = [x for x in file.split('-')[1].split('.')[0].split('_') if x != "nan"]
+            chains = [
+                x for x in file.split("-")[1].split(".")[0].split("_") if x != "nan"
+            ]
             chain_arr += chains
-            pdb_arr += [file.split('-')[0]] * len(chains)
+            pdb_arr += [file.split("-")[0]] * len(chains)
             files_arr += [file] * len(chains)
         files_arr = np.array(files_arr)
         pdb_arr = np.array(pdb_arr)
@@ -1142,16 +1176,22 @@ def _build_dataset_partition(
         else:
             print("Clustering with MMSeqs2...")
         # retrieve all sequences and create a merged_seqs_dict
-        merged_seqs_dict = _load_pdbs(dataset_dir, cdr=cdr) # keys: pdb_id, values: list of chains and sequences
+        merged_seqs_dict = _load_pdbs(
+            dataset_dir, cdr=cdr
+        )  # keys: pdb_id, values: list of chains and sequences
         lengths = []
         for k, v in merged_seqs_dict.items():
             lengths += [len(x[1]) for x in v]
-        merged_seqs_dict = _merge_chains(merged_seqs_dict) # remove redundant chains
+        merged_seqs_dict = _merge_chains(merged_seqs_dict)  # remove redundant chains
 
         # write sequences to a fasta file for clustering with MMSeqs2, run MMSeqs2 and delete the fasta file
-        fasta_file = os.path.join(tmp_folder, "all_seqs.fasta") 
-        _write_fasta(fasta_file, merged_seqs_dict) # write all sequences from merged_seqs_dict to fasta file
-        _run_mmseqs2(fasta_file, tmp_folder, min_seq_id, cdr=cdr) # run MMSeqs2 on fasta file
+        fasta_file = os.path.join(tmp_folder, "all_seqs.fasta")
+        _write_fasta(
+            fasta_file, merged_seqs_dict
+        )  # write all sequences from merged_seqs_dict to fasta file
+        _run_mmseqs2(
+            fasta_file, tmp_folder, min_seq_id, cdr=cdr
+        )  # run MMSeqs2 on fasta file
         subprocess.run(["rm", fasta_file])
 
     # retrieve MMSeqs2 clusters and build a graph with these clusters
@@ -1159,7 +1199,8 @@ def _build_dataset_partition(
     clusters_pdb_dict = {}
     for cdr in cdrs:
         c_dict, c_pdb_dict = _read_clusters(
-            tmp_folder=tmp_folder, cdr=cdr,
+            tmp_folder=tmp_folder,
+            cdr=cdr,
         )
         clusters_dict.update(c_dict)
         clusters_pdb_dict.update(c_pdb_dict)
@@ -1168,6 +1209,7 @@ def _build_dataset_partition(
     graph = _make_graph(clusters_pdb_dict)
 
     import pickle
+
     with open("graph.pickle", "wb") as f:
         pickle.dump(graph, f)
 
@@ -1179,7 +1221,7 @@ def _build_dataset_partition(
         valid_classes_dict,
         test_clusters_dict,
         test_classes_dict,
-        *_
+        *_,
     ) = _split_dataset(
         graph,
         clusters_dict,
