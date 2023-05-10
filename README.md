@@ -87,6 +87,8 @@ See the [docs](https://adaptyvbio.github.io/ProteinFlow/) (or `proteinflow gener
 
 A registry of all the files that are removed during the filtering as well as description with the reason for their removal is created automatically for each `generate` command. The log files are save (at `data/logs` by default) and a summary can be accessed running `proteinflow get_summary {log_path}`.
 
+You can also use the `--sabdab` option to load files from SAbDab and cluster them based on CDRs. Use together with `--zip_path` to process a custom SAbDab-like zip file.
+
 ### Splitting
 By default, both `proteinflow generate` and `proteinflow download` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `proteinflow split` command.
 
@@ -94,6 +96,8 @@ The following command will perform the splitting with a 10% validation set, a 5%
 ```bash
 proteinflow split --tag new --valid_split 0.1 --test_split 0.5 --min_seq_id 0.5
 ```
+
+Use the `--exclude_chains` and `--exclude_threshold` parameters to move all biounits that contain chains similar to what you specify to a separate folder.
 
 ### Using the data
 The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:
