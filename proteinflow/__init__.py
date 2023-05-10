@@ -471,7 +471,7 @@ def _run_processing(
     - `'seq'`: a string of length `L` with residue types.
 
     When creating a SAbDab dataset, an additional key is added to the dictionary:
-    - `'cdr'`: a `'numpy'` array of shape `(L,)` where CDR residues are marked with the corresponding type (`'H1'`, `'L1'`, ...) 
+    - `'cdr'`: a `'numpy'` array of shape `(L,)` where CDR residues are marked with the corresponding type (`'H1'`, `'L1'`, ...)
         and non-CDR residues are marked with `'-'`.
 
     All errors including reasons for filtering a file out are logged in a log file.
@@ -1083,19 +1083,22 @@ def _load_sabdab(
                     os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip"),
                 ]
             )
-        paths = [os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip") for method in methods]
+        paths = [
+            os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip")
+            for method in methods
+        ]
     else:
         paths = [sabdab_data_path]
     ids = []
     pdb_ids = []
-    print('Moving files...')
+    print("Moving files...")
     for path in paths:
         if not os.path.isdir(path):
             if not path.endswith(".zip"):
                 raise ValueError("SAbDab data path should be a zip file or a directory")
             dir_path = path[:-4]
-            print(f'Unzipping {path}...')
-            with zipfile.ZipFile(path, 'r') as zip_ref:
+            print(f"Unzipping {path}...")
+            with zipfile.ZipFile(path, "r") as zip_ref:
                 for member in tqdm(zip_ref.infolist()):
                     try:
                         zip_ref.extract(member, dir_path)
@@ -1105,7 +1108,7 @@ def _load_sabdab(
                 os.remove(path)
         else:
             dir_path = path
-        print('Filtering...')
+        print("Filtering...")
         summary_path = None
         for file in os.listdir(dir_path):
             if file.endswith(".tsv"):
@@ -1140,7 +1143,10 @@ def _load_sabdab(
             shutil.move(pdb_path, os.path.join(tmp_folder, f"{id}.pdb"))
         if sabdab_data_path is None or sabdab_data_path.endswith(".zip"):
             shutil.rmtree(dir_path)
-        ids_full = summary.apply(lambda x: (x['pdb'], f"{x['Hchain']}_{x['Lchain']}_{x['antigen_chain']}"), axis=1).tolist()
+        ids_full = summary.apply(
+            lambda x: (x["pdb"], f"{x['Hchain']}_{x['Lchain']}_{x['antigen_chain']}"),
+            axis=1,
+        ).tolist()
         ids += ids_full
         pdb_ids += ids_method
     print("Downloading fasta files...")
@@ -1259,15 +1265,15 @@ def generate_data(
     - `'seq'`: a string of length `L` with residue types.
 
     When creating a SAbDab dataset, an additional key is added to the dictionary:
-    - `'cdr'`: a `'numpy'` array of shape `(L,)` where CDR residues are marked with the corresponding type (`'H1'`, `'L1'`, ...) 
+    - `'cdr'`: a `'numpy'` array of shape `(L,)` where CDR residues are marked with the corresponding type (`'H1'`, `'L1'`, ...)
         and non-CDR residues are marked with `'-'`.
-    
+
     PDB datasets are split into clusters according to sequence identity and SAbDab datasets are split according to CDR similarity.
 
-    All errors including reasons for filtering a file out are logged in the log file. 
+    All errors including reasons for filtering a file out are logged in the log file.
 
     For more information on the splitting procedure and options, check out the `proteinflow.split_data` documentation.
-        
+
     Parameters
     ----------
     tag : str
@@ -1480,9 +1486,9 @@ def split_data(
 
     Biounits that contain chains similar to those in the `exclude_chains` list (with `exclude_threshold` sequence identity)
     are excluded from the splitting and placed into a separate folder. If you want to exclude clusters containing those chains
-    as well, set `exclude_clusters` to `True`. For SAbDab datasets, you can additionally choose to only exclude based on specific 
+    as well, set `exclude_clusters` to `True`. For SAbDab datasets, you can additionally choose to only exclude based on specific
     CDR clusters. To do so, set `exclude_based_on_cdr` to the CDR type.
-    
+
     Parameters
     ----------
     tag : str
@@ -1582,9 +1588,9 @@ class ProteinDataset(Dataset):
     - `'secondary_structure'`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 3)`,
     - `'sidechain_coords'`: the coordinates of the sidechain atoms (see `proteinflow.sidechain_order()` for the order), `(total_L, 10, 3)`.
 
-    If the dataset contains a `'cdr'` key (if it was generated from SAbDab files), the output files will also additionally contain a `'cdr'` 
-    key with a CDR tensor of length `total_L`. In the array, the CDR residues are marked with the corresponding CDR type 
-    (H1=1, H2=2, H3=3, L1=4, L2=5, L3=6) and the rest of the residues are marked with 0s. 
+    If the dataset contains a `'cdr'` key (if it was generated from SAbDab files), the output files will also additionally contain a `'cdr'`
+    key with a CDR tensor of length `total_L`. In the array, the CDR residues are marked with the corresponding CDR type
+    (H1=1, H2=2, H3=3, L1=4, L2=5, L3=6) and the rest of the residues are marked with 0s.
 
     Use the `set_cdr` method to only iterate over biounits that contain specific CDRs.
 
