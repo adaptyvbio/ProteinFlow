@@ -127,8 +127,10 @@ The output files are pickled nested dictionaries where first-level keys are chai
 In a SAbDab datasets, an additional key is added to the dictionary:
 - `'cdr'`: a `numpy` array of shape `(L,)` where CDR residues are marked with the corresponding type (`'H1'`, `'L1'`, ...) 
     and non-CDR residues are marked with `'-'`.
+    
+Note that the sequence information in the PDB files is aligned to the FASTA sequences to identify the missing residues.
 
-Once your data is ready, you can open the files with `pickle`.
+Once your data is ready, you can open the files with `pickle` directly.
 
 ```python
 import pickle
