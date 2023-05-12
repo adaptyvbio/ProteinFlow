@@ -1100,12 +1100,8 @@ def _load_sabdab(
         paths = [sabdab_data_path]
     ids = []
     pdb_ids = []
-<<<<<<< Updated upstream
-    print("Moving files...")
-=======
     error_ids = []
     print('Moving files...')
->>>>>>> Stashed changes
     for path in paths:
         if not os.path.isdir(path):
             if not path.endswith(".zip"):
