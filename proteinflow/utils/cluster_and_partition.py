@@ -84,7 +84,7 @@ def _load_pdbs(dir, cdr=None):
 
     seqs_dict = defaultdict(lambda: [])
 
-    for file in tqdm(os.listdir(dir)):
+    for file in tqdm([x for x in os.listdir(dir) if x.endswith(".pickle")]):
         load_path = os.path.join(dir, file)
         if os.path.isdir(load_path):
             continue

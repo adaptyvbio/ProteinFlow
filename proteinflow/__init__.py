@@ -339,6 +339,7 @@ ALLOWED_AG_TYPES = {
     'protein | protein | protein',
     'protein | protein | protein | protein | protein',
     'protein | protein | protein | protein',
+    np.nan
 }
 
 
@@ -414,7 +415,7 @@ def _get_split_dictionaries(
         minimum sequence identity for `mmseqs`
     """
 
-    sample_file = os.listdir(output_folder)[0]
+    sample_file = [x for x in os.listdir(output_folder) if x.endswith(".pickle")][0]
     ind = sample_file.split(".")[0].split("-")[1]
     sabdab = not ind.isnumeric()
 
@@ -1746,7 +1747,7 @@ class ProteinDataset(Dataset):
         # generate the feature files
         print("Processing files...")
         if debug_file_path is None:
-            to_process = os.listdir(dataset_folder)
+            to_process = [x for x in os.listdir(dataset_folder) if x.endswith(".pickle")]
         else:
             to_process = [debug_file_path]
         if clustering_dict_path is not None and use_fraction < 1:
