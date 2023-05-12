@@ -40,7 +40,7 @@ def test_generate():
     num_files = len(os.listdir(folder))
     split_data(tag="test", valid_split=0.2, test_split=0.1, ignore_existing=True)
     assert os.path.exists(folder)
-    assert len(os.listdir(folder)) == 4
+    assert len(os.listdir(folder)) == 5
     num_files_split = 0
 
     for subset in ["train", "valid", "test"]:
@@ -61,7 +61,7 @@ def test_generate():
                 for file, _ in chain_arr:
                     class_files.add(file)
             assert classes[c] == len(class_files)
-    assert num_files == num_files_split
+    assert num_files == num_files_split + 1
     shutil.rmtree(folder)
     print(f"generation time: {end - start} sec")
 
