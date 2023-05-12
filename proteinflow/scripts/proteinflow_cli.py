@@ -5,6 +5,7 @@ from proteinflow import (
     generate_data,
     split_data,
     get_error_summary,
+    unsplit_data,
 )
 import click
 
@@ -225,6 +226,24 @@ def generate(**kwargs):
 )
 def split(**kwargs):
     split_data(**kwargs)
+
+
+@click.option(
+    "--tag",
+    help="The name of the dataset",
+)
+@click.option(
+    "--local_datasets_folder",
+    default="./data",
+    help="The folder where proteinflow datasets are stored",
+)
+@cli.command(
+    "unsplit",
+    help="Move files from train, test, validation and excluded folders back into the main folder",
+)
+def unsplit(**kwargs):
+    unsplit_data(**kwargs)
+
 
 
 @click.argument("log_path")
