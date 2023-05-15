@@ -333,6 +333,15 @@ _PMAP = lambda x: [
 ]
 CDR = {"-": 0, "H1": 1, "H2": 2, "H3": 3, "L1": 4, "L2": 5, "L3": 6}
 
+ALLOWED_AG_TYPES = {
+    "protein",
+    "protein | protein",
+    "protein | protein | protein",
+    "protein | protein | protein | protein | protein",
+    "protein | protein | protein | protein",
+    np.nan,
+}
+
 
 def _clean(pdb_id, tmp_folder):
     """
@@ -406,7 +415,7 @@ def _get_split_dictionaries(
         minimum sequence identity for `mmseqs`
     """
 
-    sample_file = os.listdir(output_folder)[0]
+    sample_file = [x for x in os.listdir(output_folder) if x.endswith(".pickle")][0]
     ind = sample_file.split(".")[0].split("-")[1]
     sabdab = not ind.isnumeric()
 
@@ -454,7 +463,6 @@ def _raise_rcsbsearch(e):
 def _run_processing(
     tmp_folder="./data/tmp_pdb",
     output_folder="./data/pdb",
-    log_folder="./data/logs",
     min_length=30,
     max_length=10000,
     resolution_thr=3.5,
@@ -496,8 +504,6 @@ def _run_processing(
         The folder where temporary files will be saved
     output_folder : str, default "./data/pdb"
         The folder where the output files will be saved
-    log_folder : str, default "./data/logs"
-        The folder where the log file will be saved
     min_length : int, default 30
         The minimum number of non-missing residues per chain
     max_length : int, default 10000
@@ -559,13 +565,8 @@ def _run_processing(
         os.makedirs(TMP_FOLDER)
     if not os.path.exists(OUTPUT_FOLDER):
         os.makedirs(OUTPUT_FOLDER)
-    if not os.path.exists(log_folder):
-        os.makedirs(log_folder)
 
-    i = 0
-    while os.path.exists(os.path.join(log_folder, f"log_{i}.txt")):
-        i += 1
-    LOG_FILE = os.path.join(log_folder, f"log_{i}.txt")
+    LOG_FILE = os.path.join(OUTPUT_FOLDER, f"log.txt")
     print(f"Log file: {LOG_FILE} \n")
     now = datetime.now()  # current date and time
     date_time = now.strftime("%m/%d/%Y, %H:%M:%S") + "\n\n"
@@ -621,7 +622,6 @@ def _run_processing(
             resolution_thr=RESOLUTION_THR,
             filter_methods=filter_methods,
             pdb_snapshot=pdb_snapshot,
-            log_folder=log_folder,
             n=n,
             tmp_folder=TMP_FOLDER,
             load_live=load_live,
@@ -632,8 +632,7 @@ def _run_processing(
         for id in error_ids:
             with open(LOG_FILE, "a") as f:
                 f.write(f"<<< Could not download PDB/mmCIF file: {id} \n")
-        # for x in [("data/tmp/5ivn.pdb", "A_nan_B")]:
-        #     process_f(x, show_error=True, force=force, sabdab=True)
+        # paths = [(os.path.join(TMP_FOLDER, "6tkb.pdb"), "H_L_nan")]
         print("Filter and process...")
         _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
         # _ = [process_f(x, force=force, sabdab=sabdab, show_error=True) for x in tqdm(paths)]
@@ -886,7 +885,6 @@ def _get_pdb_ids(
     resolution_thr=3.5,
     pdb_snapshot=None,
     filter_methods=True,
-    log_folder="data/tmp/logs",
 ):
     """
     Get PDB ids from PDB API
@@ -981,7 +979,6 @@ def _load_pdb(
     resolution_thr=3.5,
     pdb_snapshot=None,
     filter_methods=True,
-    log_folder="data/tmp/logs",
     n=None,
     tmp_folder="data/tmp",
     load_live=False,
@@ -994,7 +991,6 @@ def _load_pdb(
         resolution_thr=resolution_thr,
         pdb_snapshot=pdb_snapshot,
         filter_methods=filter_methods,
-        log_folder=log_folder,
     )
     with ThreadPoolExecutor(max_workers=8) as executor:
         print("Getting a file list...")
@@ -1105,6 +1101,7 @@ def _load_sabdab(
         paths = [sabdab_data_path]
     ids = []
     pdb_ids = []
+    error_ids = []
     print("Moving files...")
     for path in paths:
         if not os.path.isdir(path):
@@ -1131,10 +1128,13 @@ def _load_sabdab(
         if summary_path is None:
             raise ValueError("Summary file not found")
         summary = pd.read_csv(summary_path, sep="\t")
+        # check antigen type
+        summary = summary[summary["antigen_type"].isin(ALLOWED_AG_TYPES)]
         # filter out structures with repeating chains
         summary = summary[summary["antigen_chain"] != summary["Hchain"]]
         summary = summary[summary["antigen_chain"] != summary["Lchain"]]
         summary = summary[summary["Lchain"] != summary["Hchain"]]
+        # optional filters
         if require_antigen:
             summary = summary[~summary["antigen_chain"].isna()]
         if pdb_snapshot is not None:
@@ -1154,7 +1154,13 @@ def _load_sabdab(
         ids_method = summary["pdb"].unique().tolist()
         for id in tqdm(ids_method):
             pdb_path = os.path.join(dir_path, "chothia", f"{id}.pdb")
-            shutil.move(pdb_path, os.path.join(tmp_folder, f"{id}.pdb"))
+            try:
+                if sabdab_data_path is None or not os.path.isdir(sabdab_data_path):
+                    shutil.move(pdb_path, os.path.join(tmp_folder, f"{id}.pdb"))
+                else:
+                    shutil.copy(pdb_path, os.path.join(tmp_folder, f"{id}.pdb"))
+            except FileNotFoundError:
+                error_ids.append(id)
         if sabdab_data_path is None or sabdab_data_path.endswith(".zip"):
             shutil.rmtree(dir_path)
         ids_full = summary.apply(
@@ -1165,6 +1171,7 @@ def _load_sabdab(
         pdb_ids += ids_method
     print("Downloading fasta files...")
     with ThreadPoolExecutor(max_workers=8) as executor:
+        # pdb_ids = ["6tkb"]
         future_to_key = {
             executor.submit(
                 lambda x: _download_fasta_f(x, datadir=tmp_folder), key
@@ -1176,7 +1183,6 @@ def _load_sabdab(
             for x in tqdm(futures.as_completed(future_to_key), total=len(pdb_ids))
         ]
     paths = [(os.path.join(tmp_folder, f"{x[0]}.pdb"), x[1]) for x in ids]
-    error_ids = []
     return paths, error_ids
 
 
@@ -1184,7 +1190,6 @@ def _load_files(
     resolution_thr=3.5,
     pdb_snapshot=None,
     filter_methods=True,
-    log_folder="data/tmp/logs",
     n=None,
     tmp_folder="data/tmp",
     load_live=False,
@@ -1214,7 +1219,6 @@ def _load_files(
             tmp_folder=tmp_folder,
             load_live=load_live,
             n=n,
-            log_folder=log_folder,
         )
     return out
 
@@ -1349,7 +1353,6 @@ def generate_data(
         a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
 
     """
-    _check_mmseqs()
     filter_methods = not not_filter_methods
     remove_redundancies = not not_remove_redundancies
     tmp_id = "".join(
@@ -1357,7 +1360,6 @@ def generate_data(
     )
     tmp_folder = os.path.join("", "tmp", tag + tmp_id)
     output_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
-    log_folder = os.path.join(local_datasets_folder, "logs")
     out_split_dict_folder = os.path.join(output_folder, "splits_dict")
 
     if force and os.path.exists(output_folder):
@@ -1366,7 +1368,6 @@ def generate_data(
     log_dict = _run_processing(
         tmp_folder=tmp_folder,
         output_folder=output_folder,
-        log_folder=log_folder,
         min_length=min_length,
         max_length=max_length,
         resolution_thr=resolution_thr,
@@ -1545,7 +1546,6 @@ def split_data(
             exclude_threshold,
         )
 
-    _check_mmseqs()
     tmp_folder = os.path.join(local_datasets_folder, "tmp")
     output_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
     out_split_dict_folder = os.path.join(output_folder, "splits_dict")
@@ -1558,6 +1558,7 @@ def split_data(
             )
             exists = True
     if not exists:
+        _check_mmseqs()
         _get_split_dictionaries(
             tmp_folder=tmp_folder,
             output_folder=output_folder,
@@ -1571,6 +1572,36 @@ def split_data(
     _split_data(
         output_folder, excluded_biounits, exclude_clusters, exclude_based_on_cdr
     )
+
+
+def unsplit_data(
+    tag,
+    local_datasets_folder="./data",
+):
+    """
+    Move files from train, test, validation and excluded folders back into the main folder
+
+    Parameters
+    ----------
+    tag : str
+        the name of the dataset
+    local_datasets_folder : str, default "./data"
+        the path to the folder that stores proteinflow datasets
+    """
+
+    for folder in ["excluded", "train", "test", "valid"]:
+        if not os.path.exists(
+            os.path.join(local_datasets_folder, f"proteinflow_{tag}", folder)
+        ):
+            continue
+        for file in os.listdir(
+            os.path.join(local_datasets_folder, f"proteinflow_{tag}", folder)
+        ):
+            shutil.move(
+                os.path.join(local_datasets_folder, f"proteinflow_{tag}", folder, file),
+                os.path.join(local_datasets_folder, f"proteinflow_{tag}", file),
+            )
+        shutil.rmtree(os.path.join(local_datasets_folder, f"proteinflow_{tag}", folder))
 
 
 class ProteinDataset(Dataset):
@@ -1720,7 +1751,9 @@ class ProteinDataset(Dataset):
         # generate the feature files
         print("Processing files...")
         if debug_file_path is None:
-            to_process = os.listdir(dataset_folder)
+            to_process = [
+                x for x in os.listdir(dataset_folder) if x.endswith(".pickle")
+            ]
         else:
             to_process = [debug_file_path]
         if clustering_dict_path is not None and use_fraction < 1:

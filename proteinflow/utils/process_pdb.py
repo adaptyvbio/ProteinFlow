@@ -281,19 +281,16 @@ def _open_structure(
     out_dict["crd_raw"] = p.df["ATOM"]
     out_dict["seq_df"] = p.amino3to1()
 
-    # # add metadata
-    # metadata = parse_pdb_header(file_path)
-    # for key in ["structure_method"]:
-    #     out_dict[key] = metadata.get(key)
-
     # retrieve sequences that are relevant for this PDB from the fasta file
     if chain_id is None:
         chains = p.df["ATOM"]["chain_id"].unique()
     else:
-        H, L, A = chain_id.split("_")
-        chains = [H, L] + A.split(" | ")
+        h, l, a = chain_id.split("_")
+        chains = [h, l] + a.split(" | ")
         chains = [x for x in chains if x != "nan"]
     seqs_dict = {k.upper(): v for k, v in seqs_dict.items()}
+    if all([len(x) == 3 and len(set(list(x))) == 1 for x in seqs_dict.keys()]):
+        seqs_dict = {k[0]: v for k, v in seqs_dict.items()}
 
     if not set([x.split("-")[0].upper() for x in chains]).issubset(
         set(list(seqs_dict.keys()))
@@ -369,6 +366,7 @@ def _align_structure(
         raise PDBError("No chains found")
 
     if not crd["residue_name"].isin(d3to1.keys()).all():
+        print(f'{crd[~crd["residue_name"].isin(d3to1.keys())]["residue_name"]=}')
         raise PDBError("Unnatural amino acids found")
 
     chains_unique = crd["chain_id"].unique()
