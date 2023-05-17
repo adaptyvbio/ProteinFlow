@@ -1208,10 +1208,10 @@ def _build_dataset_partition(
     subprocess.run(["rm", "-r", os.path.join(tmp_folder, "MMSeqs2_results")])
     graph = _make_graph(clusters_pdb_dict)
 
-    import pickle
+    # import pickle
 
-    with open("graph.pickle", "wb") as f:
-        pickle.dump(graph, f)
+    # with open("graph.pickle", "wb") as f:
+    #     pickle.dump(graph, f)
 
     # perform the splitting into train, validation and tesst sets
     (
