@@ -651,7 +651,10 @@ def _run_processing(
                     f.write(line)
             if sabdab:
                 paths = [
-                    (os.path.join(TMP_FOLDER, x.split("-")[0] + ".pdb"), x.split("-")[1])
+                    (
+                        os.path.join(TMP_FOLDER, x.split("-")[0] + ".pdb"),
+                        x.split("-")[1],
+                    )
                     for x in stats[not_found_error]
                 ]
             else:
