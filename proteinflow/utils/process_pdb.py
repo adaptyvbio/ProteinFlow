@@ -366,7 +366,6 @@ def _align_structure(
         raise PDBError("No chains found")
 
     if not crd["residue_name"].isin(d3to1.keys()).all():
-        print(f'{crd[~crd["residue_name"].isin(d3to1.keys())]["residue_name"]=}')
         raise PDBError("Unnatural amino acids found")
 
     chains_unique = crd["chain_id"].unique()
