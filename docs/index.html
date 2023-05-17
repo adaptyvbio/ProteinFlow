@@ -133,10 +133,10 @@ train_loader = ProteinLoader.from_args(
     batch_size=8,
 )
 for batch in train_loader:
-    crd_bb = batch[&quot;X&quot;] #(B, L, 4, 3)
-    seq = batch[&quot;S&quot;] #(B, L)
-    sse = batch[&quot;secondary_structure&quot;] #(B, L, 3)
-    to_predict = batch[&quot;masked_res&quot;] #(B, L), 1 where the residues should be masked, 0 otherwise
+    crd_bb = batch[&quot;X&quot;] # (B, L, 4, 3)
+    seq = batch[&quot;S&quot;] # (B, L)
+    sse = batch[&quot;secondary_structure&quot;] # (B, L, 3)
+    to_predict = batch[&quot;masked_res&quot;] # (B, L), 1 where the residues should be masked, 0 otherwise
     ...
 </code></pre>
 <details class="source">
@@ -285,10 +285,10 @@ train_loader = ProteinLoader.from_args(
     batch_size=8,
 )
 for batch in train_loader:
-    crd_bb = batch[&#34;X&#34;] #(B, L, 4, 3)
-    seq = batch[&#34;S&#34;] #(B, L)
-    sse = batch[&#34;secondary_structure&#34;] #(B, L, 3)
-    to_predict = batch[&#34;masked_res&#34;] #(B, L), 1 where the residues should be masked, 0 otherwise
+    crd_bb = batch[&#34;X&#34;] # (B, L, 4, 3)
+    seq = batch[&#34;S&#34;] # (B, L)
+    sse = batch[&#34;secondary_structure&#34;] # (B, L, 3)
+    to_predict = batch[&#34;masked_res&#34;] # (B, L), 1 where the residues should be masked, 0 otherwise
     ...
 ```
 
@@ -786,22 +786,26 @@ def _run_processing(
 
     stats = get_error_summary(LOG_FILE, verbose=False)
     not_found_error = &#34;&lt;&lt;&lt; PDB / mmCIF file downloaded but not found&#34;
-    while not_found_error in stats:
-        with open(LOG_FILE, &#34;r&#34;) as f:
-            lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
-        os.remove(LOG_FILE)
-        with open(f&#34;{LOG_FILE}_tmp&#34;, &#34;a&#34;) as f:
-            for line in lines:
-                f.write(line)
-        if sabdab:
-            paths = [
-                (os.path.join(TMP_FOLDER, x.split(&#34;-&#34;)[0] + &#34;.pdb&#34;), x.split(&#34;-&#34;)[1])
-                for x in stats[not_found_error]
-            ]
-        else:
-            paths = stats[not_found_error]
-        _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
-        stats = get_error_summary(LOG_FILE, verbose=False)
+    if not sabdab:
+        while not_found_error in stats:
+            with open(LOG_FILE, &#34;r&#34;) as f:
+                lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
+            os.remove(LOG_FILE)
+            with open(f&#34;{LOG_FILE}_tmp&#34;, &#34;a&#34;) as f:
+                for line in lines:
+                    f.write(line)
+            if sabdab:
+                paths = [
+                    (
+                        os.path.join(TMP_FOLDER, x.split(&#34;-&#34;)[0] + &#34;.pdb&#34;),
+                        x.split(&#34;-&#34;)[1],
+                    )
+                    for x in stats[not_found_error]
+                ]
+            else:
+                paths = stats[not_found_error]
+            _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
+            stats = get_error_summary(LOG_FILE, verbose=False)
     if os.path.exists(f&#34;{LOG_FILE}_tmp&#34;):
         with open(LOG_FILE, &#34;r&#34;) as f:
             lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
