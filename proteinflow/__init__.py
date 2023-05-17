@@ -334,12 +334,12 @@ _PMAP = lambda x: [
 CDR = {"-": 0, "H1": 1, "H2": 2, "H3": 3, "L1": 4, "L2": 5, "L3": 6}
 
 ALLOWED_AG_TYPES = {
-    'protein',
-    'protein | protein',
-    'protein | protein | protein',
-    'protein | protein | protein | protein | protein',
-    'protein | protein | protein | protein',
-    np.nan
+    "protein",
+    "protein | protein",
+    "protein | protein | protein",
+    "protein | protein | protein | protein | protein",
+    "protein | protein | protein | protein",
+    np.nan,
 }
 
 
@@ -1056,7 +1056,7 @@ def _load_sabdab(
     """
     Download filtered SAbDab files and return a list of local file paths
     """
-    
+
     if not os.path.exists(tmp_folder):
         os.makedirs(tmp_folder)
     if pdb_snapshot is not None:
@@ -1103,7 +1103,7 @@ def _load_sabdab(
     ids = []
     pdb_ids = []
     error_ids = []
-    print('Moving files...')
+    print("Moving files...")
     for path in paths:
         if not os.path.isdir(path):
             if not path.endswith(".zip"):
@@ -1574,6 +1574,7 @@ def split_data(
         output_folder, excluded_biounits, exclude_clusters, exclude_based_on_cdr
     )
 
+
 def unsplit_data(
     tag,
     local_datasets_folder="./data",
@@ -1590,15 +1591,18 @@ def unsplit_data(
     """
 
     for folder in ["excluded", "train", "test", "valid"]:
-        if not os.path.exists(os.path.join(local_datasets_folder, f"proteinflow_{tag}", folder)):
+        if not os.path.exists(
+            os.path.join(local_datasets_folder, f"proteinflow_{tag}", folder)
+        ):
             continue
-        for file in os.listdir(os.path.join(local_datasets_folder, f"proteinflow_{tag}", folder)):
+        for file in os.listdir(
+            os.path.join(local_datasets_folder, f"proteinflow_{tag}", folder)
+        ):
             shutil.move(
-                os.path.join(local_datasets_folder, f"proteinflow_{tag}", folder, file), 
-                os.path.join(local_datasets_folder, f"proteinflow_{tag}", file)
+                os.path.join(local_datasets_folder, f"proteinflow_{tag}", folder, file),
+                os.path.join(local_datasets_folder, f"proteinflow_{tag}", file),
             )
         shutil.rmtree(os.path.join(local_datasets_folder, f"proteinflow_{tag}", folder))
-    
 
 
 class ProteinDataset(Dataset):
@@ -1748,7 +1752,9 @@ class ProteinDataset(Dataset):
         # generate the feature files
         print("Processing files...")
         if debug_file_path is None:
-            to_process = [x for x in os.listdir(dataset_folder) if x.endswith(".pickle")]
+            to_process = [
+                x for x in os.listdir(dataset_folder) if x.endswith(".pickle")
+            ]
         else:
             to_process = [debug_file_path]
         if clustering_dict_path is not None and use_fraction < 1:
