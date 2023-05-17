@@ -245,7 +245,6 @@ def unsplit(**kwargs):
     unsplit_data(**kwargs)
 
 
-
 @click.argument("log_path")
 @cli.command("get_summary", help="Get a summary of filtering reasons from a log file")
 def get_summary(log_path):
