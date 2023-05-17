@@ -21,6 +21,8 @@ def _biounits_in_clusters_dict(clusters_dict, excluded_files=None):
     Return the list of all biounit files present in clusters_dict
     """
 
+    if len(clusters_dict) == 0:
+        return np.array([])
     if excluded_files is None:
         excluded_files = []
     return np.unique(
