@@ -140,10 +140,10 @@ train_loader = ProteinLoader.from_args(
     batch_size=8,
 )
 for batch in train_loader:
-    crd_bb = batch["X"] #(B, L, 4, 3)
-    seq = batch["S"] #(B, L)
-    sse = batch["secondary_structure"] #(B, L, 3)
-    to_predict = batch["masked_res"] #(B, L), 1 where the residues should be masked, 0 otherwise
+    crd_bb = batch["X"] # (B, L, 4, 3)
+    seq = batch["S"] # (B, L)
+    sse = batch["secondary_structure"] # (B, L, 3)
+    to_predict = batch["masked_res"] # (B, L), 1 where the residues should be masked, 0 otherwise
     ...
 ```
 
@@ -641,22 +641,23 @@ def _run_processing(
 
     stats = get_error_summary(LOG_FILE, verbose=False)
     not_found_error = "<<< PDB / mmCIF file downloaded but not found"
-    while not_found_error in stats:
-        with open(LOG_FILE, "r") as f:
-            lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
-        os.remove(LOG_FILE)
-        with open(f"{LOG_FILE}_tmp", "a") as f:
-            for line in lines:
-                f.write(line)
-        if sabdab:
-            paths = [
-                (os.path.join(TMP_FOLDER, x.split("-")[0] + ".pdb"), x.split("-")[1])
-                for x in stats[not_found_error]
-            ]
-        else:
-            paths = stats[not_found_error]
-        _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
-        stats = get_error_summary(LOG_FILE, verbose=False)
+    if not sabdab:
+        while not_found_error in stats:
+            with open(LOG_FILE, "r") as f:
+                lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
+            os.remove(LOG_FILE)
+            with open(f"{LOG_FILE}_tmp", "a") as f:
+                for line in lines:
+                    f.write(line)
+            if sabdab:
+                paths = [
+                    (os.path.join(TMP_FOLDER, x.split("-")[0] + ".pdb"), x.split("-")[1])
+                    for x in stats[not_found_error]
+                ]
+            else:
+                paths = stats[not_found_error]
+            _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
+            stats = get_error_summary(LOG_FILE, verbose=False)
     if os.path.exists(f"{LOG_FILE}_tmp"):
         with open(LOG_FILE, "r") as f:
             lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
