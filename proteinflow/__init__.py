@@ -1767,7 +1767,7 @@ class ProteinDataset(Dataset):
             to_process = set()
             for key in keys:
                 to_process.update([x[0] for x in clusters[key]])
-            to_process = list(to_process)
+            to_process = [x for x in to_process if x in os.listdir(dataset_folder)]
         if debug:
             to_process = to_process[:1000]
         if self.entry_type == "pair":
