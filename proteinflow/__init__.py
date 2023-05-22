@@ -774,6 +774,7 @@ class _PadCollate:
             0 is everything else
         """
 
+        print(f'{batch.keys()=}')
         if "cdr" in batch and "cdr_id" in batch:
             chain_M = torch.zeros_like(batch["cdr"])
             for i, cdr_arr in enumerate(batch["cdr"]):
@@ -874,11 +875,11 @@ class _PadCollate:
                 0,
             )
         out["chain_id"] = torch.tensor([b["chain_id"] for b in batch])
+        if "cdr_id" in batch[0]:
+            out["cdr_id"] = torch.tensor([b["cdr_id"] for b in batch])
         out["masked_res"] = self._get_masked_sequence(out)
         out["chain_dict"] = [b["chain_dict"] for b in batch]
         out["pdb_id"] = [b["pdb_id"] for b in batch]
-        if "cdr_id" in batch[0]:
-            out["cdr_id"] = torch.tensor([b["cdr_id"] for b in batch])
         return out
 
     def __call__(self, batch):
