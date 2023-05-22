@@ -774,7 +774,7 @@ class _PadCollate:
             0 is everything else
         """
 
-        print(f'{batch.keys()=}')
+        print(f"{batch.keys()=}")
         if "cdr" in batch and "cdr_id" in batch:
             chain_M = torch.zeros_like(batch["cdr"])
             for i, cdr_arr in enumerate(batch["cdr"]):
