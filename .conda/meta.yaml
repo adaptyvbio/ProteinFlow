@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 {% set version = "1.3.6" %}
+=======
+{% set version = "1.3.5" %}
+>>>>>>> cfdb7b40fba5f0c9d8d6bcd2705cd9cb5a4cd280
 package:
   name: "proteinflow"
   version: {{ version }}
