@@ -1662,6 +1662,7 @@ class ProteinDataset(Dataset):
         entry_type="biounit",  # biounit, chain, pair
         classes_to_exclude=None,  # heteromers, homomers, single_chains
         shuffle_clusters=True,
+        min_cdr_length=None,
         feature_functions=None,
     ):
         """
@@ -1696,6 +1697,8 @@ class ProteinDataset(Dataset):
             a list of classes to exclude from the dataset (select from `"single_chains"`, `"heteromers"`, `"homomers"`)
         shuffle_clusters : bool, default True
             if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
+        min_cdr_length : int, optional
+            for SAbDab datasets, biounits with CDRs shorter than `min_cdr_length` will be excluded
         feature_functions : dict, optional
             a dictionary of functions to compute additional features (keys are the names of the features, values are the functions)
         """
@@ -1763,7 +1766,9 @@ class ProteinDataset(Dataset):
             to_process = set()
             for key in keys:
                 to_process.update([x[0] for x in clusters[key]])
-            to_process = [x for x in to_process if x in os.listdir(dataset_folder)]
+            
+            file_set = set(os.listdir(dataset_folder))
+            to_process = [x for x in to_process if x in file_set]
         if debug:
             to_process = to_process[:1000]
         if self.entry_type == "pair":
@@ -1771,7 +1776,7 @@ class ProteinDataset(Dataset):
                 "Please note that the pair entry type takes longer to process than the other two. The progress bar is not linear because of the varying number of chains per file."
             )
         output_tuples_list = p_map(
-            lambda x: self._process(x, rewrite=rewrite, max_length=max_length),
+            lambda x: self._process(x, rewrite=rewrite, max_length=max_length, min_cdr_length=min_cdr_length),
             to_process,
         )
         # save the file names
@@ -1984,7 +1989,7 @@ class ProteinDataset(Dataset):
         crd_sc = chain_dict["crd_sc"]
         return crd_sc
 
-    def _process(self, filename, rewrite=False, max_length=None):
+    def _process(self, filename, rewrite=False, max_length=None, min_cdr_length=None):
         """
         Process a proteinflow file and save it as ProteinMPNN features
         """
@@ -2016,6 +2021,14 @@ class ProteinDataset(Dataset):
                 if max_length is not None:
                     if sum([len(data[x]["seq"]) for x in chain_set]) > max_length:
                         add_name = False
+                if min_cdr_length is not None:
+                    for chain in chain_set:
+                        if "cdr" not in data[chain]:
+                            continue
+                        u = np.unique(data[chain]["cdr"])
+                        for cdr_ in u:
+                            if (data[chain]["cdr"] == cdr_).sum() < min_cdr_length:
+                                add_name = False
             else:
                 X = []
                 S = []
@@ -2032,6 +2045,15 @@ class ProteinDataset(Dataset):
                     if sum([len(data[x]["seq"]) for x in chain_set]) > max_length:
                         pass_set = True
                         add_name = False
+                if min_cdr_length is not None:
+                    for chain in chain_set:
+                        if "cdr" not in data[chain]:
+                            continue
+                        u = np.unique(data[chain]["cdr"])
+                        for cdr_ in u:
+                            if (data[chain]["cdr"] == cdr_).sum() < min_cdr_length:
+                                add_name = False
+                                pass_set = True
 
                 if self.entry_type == "pair":
                     # intersect = []
