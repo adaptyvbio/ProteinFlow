@@ -766,7 +766,7 @@ class _PadCollate:
             a `(B, L)` shaped binary tensor where 1 denotes the part that needs to be predicted and
             0 is everything else
         """
-        
+
         if "cdr" in batch and "cdr_id" in batch:
             chain_M = torch.zeros_like(batch["cdr"])
             for i, cdr_arr in enumerate(batch["cdr"]):
@@ -1766,7 +1766,7 @@ class ProteinDataset(Dataset):
             to_process = set()
             for key in keys:
                 to_process.update([x[0] for x in clusters[key]])
-            
+
             file_set = set(os.listdir(dataset_folder))
             to_process = [x for x in to_process if x in file_set]
         if debug:
@@ -1776,7 +1776,9 @@ class ProteinDataset(Dataset):
                 "Please note that the pair entry type takes longer to process than the other two. The progress bar is not linear because of the varying number of chains per file."
             )
         output_tuples_list = p_map(
-            lambda x: self._process(x, rewrite=rewrite, max_length=max_length, min_cdr_length=min_cdr_length),
+            lambda x: self._process(
+                x, rewrite=rewrite, max_length=max_length, min_cdr_length=min_cdr_length
+            ),
             to_process,
         )
         # save the file names
