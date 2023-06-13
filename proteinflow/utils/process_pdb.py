@@ -4,7 +4,7 @@ from typing import Dict
 import os
 import numpy as np
 from biopandas.pdb import PandasPdb
-from proteinflow.utils.mmcif_fix import CustomMmcif
+from proteinflow.custom_mmcif import CustomMmcif
 import os
 from collections import namedtuple
 from operator import attrgetter
