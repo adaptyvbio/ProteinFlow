@@ -10,7 +10,7 @@ from tqdm import tqdm
 from collections import defaultdict
 from itertools import combinations
 
-from proteinflow.common_utils import test_availability
+from proteinflow.utils.common_utils import test_availability
 
 
 def _unique_chains(seqs_list):
