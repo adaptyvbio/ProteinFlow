@@ -10,7 +10,7 @@ from biopandas.pdb import PandasPdb
 from proteinflow.common_utils import split_every
 from proteinflow.constants import ALPHABET_PDB, ATOM_MAP_1, ATOM_MAP_3, ATOM_MAP_4, BACKBONE_ORDER, D3TO1, GLOBAL_PAD_CHAR, ONE_TO_THREE_LETTER_MAP, SIDECHAIN_ORDER
 from proteinflow.custom_mmcif import CustomMmcif
-from proteinflow.sequences import _get_chothia_cdr, _retrieve_fasta_chains
+from proteinflow.sequences import _compare_seqs, _get_chothia_cdr, _retrieve_fasta_chains
 
 
 class PdbBuilder(object):
@@ -575,3 +575,25 @@ def _open_structure(
         except OSError:
             pass
     return out_dict
+
+
+def _check_biounits(biounits_list, threshold):
+    """
+    Return the indexes of the redundant biounits within the list of files given by `biounits_list`
+    """
+
+    biounits = [_open_pdb(b) for b in biounits_list]
+    indexes = []
+
+    for k, b1 in enumerate(biounits):
+        if k not in indexes:
+            b1_seqs = [b1[chain]["seq"] for chain in b1.keys()]
+            for l, b2 in enumerate(biounits[k + 1 :]):
+                if len(b1.keys()) != len(b2.keys()):
+                    continue
+
+                b2_seqs = [b2[chain]["seq"] for chain in b2.keys()]
+                if _compare_seqs(b1_seqs, b2_seqs, threshold):
+                    indexes.append(k + l + 1)
+
+    return indexes

@@ -16,8 +16,8 @@ from tqdm import tqdm
 from proteinflow.boto_utils import _download_dataset_dicts_from_s3, _download_dataset_from_s3, _get_s3_paths_from_tag
 
 from proteinflow.constants import _PMAP, ALPHABET, CDR, D3TO1, MAIN_ATOMS
+from proteinflow.pdb import _check_biounits
 from proteinflow.utils.biotite_sse import _annotate_sse
-from proteinflow.utils.filter_database import _check_biounits
 
 class ProteinDataset(Dataset):
     """
