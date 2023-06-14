@@ -883,7 +883,7 @@ def _split_subgraphs(
     return train_indices, valid_indices, test_indices
 
 
-def _split_dataset(
+def _split_dataset_with_graphs(
     graph,
     clusters_dict,
     merged_seqs_dict,
@@ -1222,7 +1222,7 @@ def _build_dataset_partition(
         test_clusters_dict,
         test_classes_dict,
         *_,
-    ) = _split_dataset(
+    ) = _split_dataset_with_graphs(
         graph,
         clusters_dict,
         merged_seqs_dict,
