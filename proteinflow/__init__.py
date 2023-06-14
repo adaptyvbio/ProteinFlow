@@ -152,9 +152,9 @@ for batch in train_loader:
 __pdoc__ = {"utils": False, "scripts": False}
 __docformat__ = "numpy"
 
-from proteinflow.boto_utils import _download_dataset, _download_s3_parallel, _s3list
+from proteinflow.boto_utils import _download_s3_parallel, _s3list
 from proteinflow.constants import _PMAP, ALLOWED_AG_TYPES, ALPHABET, CDR, D3TO1, MAIN_ATOMS
-from proteinflow.protein_dataset import ProteinDataset
+from proteinflow.protein_dataset import ProteinDataset, _download_dataset, _split_data
 from proteinflow.protein_loader import ProteinLoader
 from proteinflow.utils.filter_database import _remove_database_redundancies
 from proteinflow.utils.process_pdb import (
@@ -168,7 +168,6 @@ from proteinflow.utils.cluster_and_partition import (
     _build_dataset_partition,
     _check_mmseqs,
 )
-from proteinflow.utils.split_dataset import _split_data
 from proteinflow.utils.biotite_sse import _annotate_sse
 
 from aiobotocore.session import get_session
