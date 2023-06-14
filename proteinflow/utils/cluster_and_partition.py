@@ -10,6 +10,8 @@ from tqdm import tqdm
 from collections import defaultdict
 from itertools import combinations
 
+from proteinflow.common_utils import test_availability
+
 
 def _unique_chains(seqs_list):
     """
@@ -712,18 +714,6 @@ def _adjust_dataset(
         heteromers_size,
         remaining_indices,
     )
-
-
-def test_availability(
-    size_array,
-    n_samples,
-):
-    """
-    Test if there are enough groups in each class to construct a dataset with the required number of samples
-    """
-
-    present = np.sum(size_array != 0, axis=0)
-    return present[0] > n_samples, present[1] > n_samples, present[2] > n_samples
 
 
 def _fill_dataset(
