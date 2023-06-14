@@ -1,10 +1,11 @@
-from collections import defaultdict
+from collections import Counter, defaultdict
 from copy import deepcopy
 from itertools import combinations
 import os
 import pickle
 import random
 import shutil
+import subprocess
 import pandas as pd
 import numpy as np
 from numpy import linalg
@@ -16,6 +17,7 @@ from proteinflow.boto_utils import _download_dataset_dicts_from_s3, _download_da
 
 from proteinflow.constants import _PMAP, ALPHABET, CDR, D3TO1, MAIN_ATOMS
 from proteinflow.utils.biotite_sse import _annotate_sse
+from proteinflow.utils.filter_database import _check_biounits
 
 class ProteinDataset(Dataset):
     """
@@ -799,3 +801,42 @@ def _split_data(
     print("Moving files in the test set...")
     for biounit in tqdm(test_biounits):
         shutil.move(os.path.join(dataset_path, biounit), test_path)
+
+
+def _remove_database_redundancies(dir, seq_identity_threshold=0.9):
+    """
+    Remove all biounits in the database that are copies to another biounits in terms of sequence
+
+    Sequence identity is definded by the 'seq_identity_threshold' parameter for robust detection of sequence similarity (missing residues, point mutations, ...).
+
+    Parameters
+    ----------
+    dir : str
+        the path to the database where all the biounits are stored in pickle files after their processing
+    seq_identity_threshold : float, default .9
+        the threshold that determines up to what percentage identity sequences are considered as the same
+
+    Returns
+    -------
+    total_removed : int
+        the total number of removed biounits
+    """
+
+    all_files = np.array(os.listdir(dir))
+    all_pdbs = np.array([file[:4] for file in all_files])
+    pdb_counts = Counter(all_pdbs)
+    pdbs_to_check = [pdb for pdb in pdb_counts.keys() if pdb_counts[pdb] > 1]
+    total_removed = []
+
+    for pdb in tqdm(pdbs_to_check):
+        biounits_list = np.array(
+            [os.path.join(dir, file) for file in all_files[all_pdbs == pdb]]
+        )
+        biounits_list = sorted(biounits_list)
+        redundancies = _check_biounits(biounits_list, seq_identity_threshold)
+        if redundancies != []:
+            for k in redundancies:
+                total_removed.append(os.path.basename(biounits_list[k]).split(".")[0])
+                subprocess.run(["rm", biounits_list[k]])
+
+    return total_removed

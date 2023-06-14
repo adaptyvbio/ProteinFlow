@@ -143,9 +143,76 @@ ALLOWED_AG_TYPES = {
     np.nan,
 }
 
+SIDECHAIN_ORDER = {
+    "CYS": ["CB", "SG"],
+    "ASP": ["CB", "CG", "OD1", "OD2"],
+    "SER": ["CB", "OG"],
+    "GLN": ["CB", "CG", "CD", "OE1", "NE2"],
+    "LYS": ["CB", "CG", "CD", "CE", "NZ"],
+    "ILE": ["CB", "CG1", "CG2", "CD1"],
+    "PRO": ["CB", "CG", "CD"],
+    "THR": ["CB", "OG1", "CG2"],
+    "PHE": ["CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ"],
+    "ASN": ["CB", "CG", "OD1", "ND2"],
+    "GLY": [],
+    "HIS": ["CB", "CG", "ND1", "CD2", "CE1", "NE2"],
+    "LEU": ["CB", "CG", "CD1", "CD2"],
+    "ARG": ["CB", "CG", "CD", "NE", "CZ", "NH1", "NH2"],
+    "TRP": ["CB", "CG", "CD1", "CD2", "NE1", "CE2", "CE3", "CZ2", "CZ3", "CH2"],
+    "ALA": ["CB"],
+    "VAL": ["CB", "CG1", "CG2"],
+    "GLU": ["CB", "CG", "CD", "OE1", "OE2"],
+    "TYR": ["CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ", "OH"],
+    "MET": ["CB", "CG", "SD", "CE"],
+}
+
+BACKBONE_ORDER = ["N", "C", "CA", "O"]
+CDR_ENDS = {
+    "L": {"L1": (26, 32), "L2": (50, 52), "L3": (91, 96)},
+    "H": {"H1": (26, 32), "H2": (52, 56), "H3": (96, 101)},
+}
+CDR_VALUES = {"L": defaultdict(lambda: "-"), "H": defaultdict(lambda: "-")}
+for chain_type in ["L", "H"]:
+    for key, (start, end) in CDR_ENDS[chain_type].items():
+        for x in range(start, end + 1):
+            CDR_VALUES[chain_type][x] = key
+
 
 ###################################################################################
 ################################## S3 Constants ###################################
 ###################################################################################
 
 S3Obj = namedtuple("S3Obj", ["key", "mtime", "size", "ETag"])
+
+
+###################################################################################
+################################# PDB Constants ###################################
+###################################################################################
+ALPHABET_PDB = "XACDEFGHIKLMNPQRSTVWY"
+
+GLOBAL_PAD_CHAR = 0
+ONE_TO_THREE_LETTER_MAP = {
+    "R": "ARG",
+    "H": "HIS",
+    "K": "LYS",
+    "D": "ASP",
+    "E": "GLU",
+    "S": "SER",
+    "T": "THR",
+    "N": "ASN",
+    "Q": "GLN",
+    "C": "CYS",
+    "G": "GLY",
+    "P": "PRO",
+    "A": "ALA",
+    "V": "VAL",
+    "I": "ILE",
+    "L": "LEU",
+    "M": "MET",
+    "F": "PHE",
+    "Y": "TYR",
+    "W": "TRP",
+}
+ATOM_MAP_4 = {a: ["N", "C", "CA", "O"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
+ATOM_MAP_1 = {a: ["CA"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
+ATOM_MAP_3 = {a: ["N", "C", "CA"] for a in ONE_TO_THREE_LETTER_MAP.keys()}

@@ -153,17 +153,12 @@ __pdoc__ = {"utils": False, "scripts": False}
 __docformat__ = "numpy"
 
 from proteinflow.boto_utils import _download_s3_parallel, _s3list
-from proteinflow.constants import _PMAP, ALLOWED_AG_TYPES, ALPHABET, CDR, D3TO1, MAIN_ATOMS
-from proteinflow.protein_dataset import ProteinDataset, _download_dataset, _split_data
+from proteinflow.constants import _PMAP, ALLOWED_AG_TYPES, ALPHABET, CDR, D3TO1, MAIN_ATOMS, SIDECHAIN_ORDER
+from proteinflow.pdb import PDBError, _align_structure, _open_structure
+from proteinflow.protein_dataset import ProteinDataset, _download_dataset, _remove_database_redundancies, _split_data
 from proteinflow.protein_loader import ProteinLoader
-from proteinflow.utils.filter_database import _remove_database_redundancies
-from proteinflow.utils.process_pdb import (
-    _align_structure,
-    _open_structure,
-    PDBError,
-    SIDECHAIN_ORDER,
-    _retrieve_fasta_chains,
-)
+from proteinflow.sequences import _retrieve_fasta_chains
+
 from proteinflow.utils.cluster_and_partition import (
     _build_dataset_partition,
     _check_mmseqs,
