@@ -152,7 +152,7 @@ for batch in train_loader:
 __pdoc__ = {"utils": False, "scripts": False}
 __docformat__ = "numpy"
 
-from proteinflow.boto_utils import _download_s3_parallel, _s3list
+from proteinflow.utils.boto_utils import _download_s3_parallel, _s3list
 from proteinflow.common_utils import _log_exception, _log_removed, _make_sabdab_html, _raise_rcsbsearch
 from proteinflow.constants import _PMAP, ALLOWED_AG_TYPES, ALPHABET, CDR, D3TO1, MAIN_ATOMS, SIDECHAIN_ORDER
 from proteinflow.pdb import PDBError, _align_structure, _open_structure

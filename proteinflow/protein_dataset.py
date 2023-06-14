@@ -13,7 +13,7 @@ from p_tqdm import p_map
 import torch
 from torch.utils.data import Dataset
 from tqdm import tqdm
-from proteinflow.boto_utils import _download_dataset_dicts_from_s3, _download_dataset_from_s3, _get_s3_paths_from_tag
+from proteinflow.utils.boto_utils import _download_dataset_dicts_from_s3, _download_dataset_from_s3, _get_s3_paths_from_tag
 
 from proteinflow.constants import _PMAP, ALPHABET, CDR, D3TO1, MAIN_ATOMS
 from proteinflow.pdb import _check_biounits
