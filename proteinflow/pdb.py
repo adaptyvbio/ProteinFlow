@@ -7,7 +7,7 @@ import pickle
 
 from Bio import pairwise2
 from biopandas.pdb import PandasPdb
-from proteinflow.utils.common_utils import split_every
+from proteinflow.utils.common_utils import PDBError, split_every
 from proteinflow.constants import ALPHABET_PDB, ATOM_MAP_1, ATOM_MAP_3, ATOM_MAP_4, BACKBONE_ORDER, D3TO1, GLOBAL_PAD_CHAR, ONE_TO_THREE_LETTER_MAP, SIDECHAIN_ORDER
 from proteinflow.custom_mmcif import CustomMmcif
 from proteinflow.sequences import _compare_seqs, _get_chothia_cdr, _retrieve_fasta_chains
@@ -305,11 +305,6 @@ class PdbBuilder(object):
         pymol.cmd.color("oxygen", title)
         pymol.cmd.save(path, quiet=True)
         pymol.cmd.delete("all")
-
-
-
-class PDBError(ValueError):
-    pass
 
 
 def _open_pdb(file):

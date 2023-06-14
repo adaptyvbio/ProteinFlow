@@ -1,11 +1,13 @@
+from collections import defaultdict
 import itertools
 import os
 import subprocess
 import traceback
-
+import pickle
 import numpy as np
 
-from proteinflow.pdb import PDBError
+class PDBError(ValueError):
+    pass
 
 
 def split_every(n, iterable):
@@ -91,3 +93,19 @@ def test_availability(
 
     present = np.sum(size_array != 0, axis=0)
     return present[0] > n_samples, present[1] > n_samples, present[2] > n_samples
+
+
+def _find_correspondances(files, dataset_dir):
+    """
+    Return a dictionary that contains all the biounits in the database (keys) and the list of all the chains that are in these biounits (values)
+    """
+
+    correspondances = defaultdict(lambda: [])
+    for file in files:
+        biounit = file
+        with open(os.path.join(dataset_dir, file), "rb") as f:
+            keys = pickle.load(f)
+            for k in keys:
+                correspondances[biounit].append(k)
+
+    return correspondances
