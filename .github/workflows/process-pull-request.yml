@@ -6,7 +6,6 @@ on:
 
 env:
   MY_REF: ${{ format('refs/heads/{0}', github.event.pull_request.head.ref) }}
-  ACTIONS_ALLOW_UNSECURE_COMMANDS: true
 
 jobs:
 
