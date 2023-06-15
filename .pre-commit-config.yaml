@@ -3,9 +3,9 @@ repos:
     rev: stable
     hooks:
     - id: black
-# -   repo: local
-#     hooks:
-#     - id: pdoc
-#       name: pdoc
-#       language: system
-#       entry: python -m pip install pdoc3 
+-   repo: local
+    hooks:
+    - id: pdoc
+      name: pdoc
+      language: system
+      entry: echo hello
