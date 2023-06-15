@@ -62,19 +62,6 @@ def _clean(pdb_id, tmp_folder):
             )
 
 
-def _raise_rcsbsearch(e):
-    """
-    Raise a RuntimeError if the error is due to rcsbsearch
-    """
-
-    if "404 Client Error" in str(e):
-        raise RuntimeError(
-            'Quering rcsbsearch is failing. Please install a version of rcsbsearch where this error is solved:\npython -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"'
-        )
-    else:
-        raise e
-
-
 def _make_sabdab_html(method, resolution_thr):
     """
     Make a URL for SAbDab search

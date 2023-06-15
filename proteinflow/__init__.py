@@ -32,10 +32,6 @@ docker pull adaptyvbio/proteinflow
 ### Troubleshooting
 - If you are using python 3.10 and encountering installation problems, try running `python -m pip install prody==2.4.0` before installing `proteinflow`.
 - If you are planning to generate new datasets and installed `proteinflow` with `pip`, you will need to additionally install [`mmseqs`](https://github.com/soedinglab/MMseqs2).
-- Generating new datasets also depends on the `rcsbsearch` package and the latest release [v0.2.3](https://github.com/sbliven/rcsbsearch/releases/tag/v0.2.3) is currently not working correctly. The recommended fix is installing the version from [this pull request](https://github.com/sbliven/rcsbsearch/pull/6).
-```bash
-python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
-```
 - The docker image can be accessed in interactive mode with this command.
 ```bash
 docker run -it -v /path/to/data:/media adaptyvbio/proteinflow bash
@@ -165,7 +161,6 @@ from proteinflow.utils.common_utils import (
     _log_exception,
     _log_removed,
     _make_sabdab_html,
-    _raise_rcsbsearch,
 )
 from proteinflow.constants import (
     _PMAP,
@@ -450,27 +445,24 @@ def _run_processing(
             else:
                 _log_exception(e, LOG_FILE, pdb_id, TMP_FOLDER, chain_id=chain_id)
 
-    try:
-        paths, error_ids = _load_files(
-            resolution_thr=RESOLUTION_THR,
-            filter_methods=filter_methods,
-            pdb_snapshot=pdb_snapshot,
-            n=n,
-            tmp_folder=TMP_FOLDER,
-            load_live=load_live,
-            sabdab=sabdab,
-            sabdab_data_path=sabdab_data_path,
-            require_antigen=require_antigen,
-        )
-        for id in error_ids:
-            with open(LOG_FILE, "a") as f:
-                f.write(f"<<< Could not download PDB/mmCIF file: {id} \n")
-        # paths = [(os.path.join(TMP_FOLDER, "6tkb.pdb"), "H_L_nan")]
-        print("Filter and process...")
-        _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
-        # _ = [process_f(x, force=force, sabdab=sabdab, show_error=True) for x in tqdm(paths)]
-    except Exception as e:
-        _raise_rcsbsearch(e)
+    paths, error_ids = _load_files(
+        resolution_thr=RESOLUTION_THR,
+        filter_methods=filter_methods,
+        pdb_snapshot=pdb_snapshot,
+        n=n,
+        tmp_folder=TMP_FOLDER,
+        load_live=load_live,
+        sabdab=sabdab,
+        sabdab_data_path=sabdab_data_path,
+        require_antigen=require_antigen,
+    )
+    for id in error_ids:
+        with open(LOG_FILE, "a") as f:
+            f.write(f"<<< Could not download PDB/mmCIF file: {id} \n")
+    # paths = [(os.path.join(TMP_FOLDER, "6tkb.pdb"), "H_L_nan")]
+    print("Filter and process...")
+    _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
+    # _ = [process_f(x, force=force, sabdab=sabdab, show_error=True) for x in tqdm(paths)]
 
     stats = get_error_summary(LOG_FILE, verbose=False)
     not_found_error = "<<< PDB / mmCIF file downloaded but not found"
