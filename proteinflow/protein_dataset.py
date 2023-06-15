@@ -13,11 +13,16 @@ from p_tqdm import p_map
 import torch
 from torch.utils.data import Dataset
 from tqdm import tqdm
-from proteinflow.utils.boto_utils import _download_dataset_dicts_from_s3, _download_dataset_from_s3, _get_s3_paths_from_tag
+from proteinflow.utils.boto_utils import (
+    _download_dataset_dicts_from_s3,
+    _download_dataset_from_s3,
+    _get_s3_paths_from_tag,
+)
 
 from proteinflow.constants import _PMAP, ALPHABET, CDR, D3TO1, MAIN_ATOMS
 from proteinflow.pdb import _check_biounits
 from proteinflow.utils.biotite_sse import _annotate_sse
+
 
 class ProteinDataset(Dataset):
     """
@@ -672,6 +677,7 @@ class ProteinDataset(Dataset):
             data["cdr_id"] = CDR[cdr]
         return data
 
+
 def _download_dataset(tag, local_datasets_folder="./data/"):
     """
     Download the pre-processed data and the split dictionaries
@@ -719,7 +725,6 @@ def _biounits_in_clusters_dict(clusters_dict, excluded_files=None):
             if c[0] not in excluded_files
         ]
     )
-
 
 
 def _split_data(

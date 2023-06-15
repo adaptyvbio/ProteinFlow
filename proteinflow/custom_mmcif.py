@@ -6,8 +6,8 @@ import pandas as pd
 
 class CustomMmcif(PandasMmcif):
     """
-    A modification of `PandasMmcif` 
-    
+    A modification of `PandasMmcif`
+
     Adds a `get_model` method and renames the columns to match PDB format.
     """
 

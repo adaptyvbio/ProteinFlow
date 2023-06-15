@@ -390,4 +390,3 @@ class ProteinLoader(DataLoader):
             *args,
             **kwargs,
         )
-
