@@ -33,6 +33,7 @@ def _download_dataset_dicts_from_s3(dict_folder_path, s3_path):
         ["aws", "s3", "cp", "--no-sign-request", test_path, dict_folder_path]
     )
 
+
 def _s3list(
     bucket,
     path,
@@ -134,6 +135,7 @@ def _s3list(
                 return
             yield p
 
+
 def _download_dataset_from_s3(
     dataset_path="./data/proteinflow_20221110/",
     s3_path="s3://ml4-main-storage/proteinflow_20221110/",
@@ -150,6 +152,7 @@ def _download_dataset_from_s3(
         print("Done!")
     else:
         shutil.move(s3_path, dataset_path)
+
 
 def _get_s3_paths_from_tag(tag):
     """

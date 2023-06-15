@@ -149,14 +149,40 @@ for batch in train_loader:
 
 """
 
-__pdoc__ = {"utils": False, "scripts": False, "constants": False, "custom_mmcif": False, "pdb": False, "sequences": False}
+__pdoc__ = {
+    "utils": False,
+    "scripts": False,
+    "constants": False,
+    "custom_mmcif": False,
+    "pdb": False,
+    "sequences": False,
+}
 __docformat__ = "numpy"
 
 from proteinflow.utils.boto_utils import _download_s3_parallel, _s3list
-from proteinflow.utils.common_utils import PDBError, _log_exception, _log_removed, _make_sabdab_html, _raise_rcsbsearch
-from proteinflow.constants import _PMAP, ALLOWED_AG_TYPES, ALPHABET, CDR, D3TO1, MAIN_ATOMS, SIDECHAIN_ORDER
+from proteinflow.utils.common_utils import (
+    PDBError,
+    _log_exception,
+    _log_removed,
+    _make_sabdab_html,
+    _raise_rcsbsearch,
+)
+from proteinflow.constants import (
+    _PMAP,
+    ALLOWED_AG_TYPES,
+    ALPHABET,
+    CDR,
+    D3TO1,
+    MAIN_ATOMS,
+    SIDECHAIN_ORDER,
+)
 from proteinflow.pdb import _align_structure, _open_structure
-from proteinflow.protein_dataset import ProteinDataset, _download_dataset, _remove_database_redundancies, _split_data
+from proteinflow.protein_dataset import (
+    ProteinDataset,
+    _download_dataset,
+    _remove_database_redundancies,
+    _split_data,
+)
 from proteinflow.protein_loader import ProteinLoader
 from proteinflow.sequences import _retrieve_fasta_chains
 

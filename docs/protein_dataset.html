@@ -1,0 +1,1706 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>proteinflow.protein_dataset API documentation</title>
+<meta name="description" content="" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+<link rel="shortcut icon" type="image/x-icon" href="favicon.png?">
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>proteinflow.protein_dataset</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">from collections import Counter, defaultdict
+from copy import deepcopy
+from itertools import combinations
+import os
+import pickle
+import random
+import shutil
+import subprocess
+import pandas as pd
+import numpy as np
+from numpy import linalg
+from p_tqdm import p_map
+import torch
+from torch.utils.data import Dataset
+from tqdm import tqdm
+from proteinflow.utils.boto_utils import _download_dataset_dicts_from_s3, _download_dataset_from_s3, _get_s3_paths_from_tag
+
+from proteinflow.constants import _PMAP, ALPHABET, CDR, D3TO1, MAIN_ATOMS
+from proteinflow.pdb import _check_biounits
+from proteinflow.utils.biotite_sse import _annotate_sse
+
+class ProteinDataset(Dataset):
+    &#34;&#34;&#34;
+    Dataset to load proteinflow data
+
+    Saves the model input tensors as pickle files in `features_folder`. When `clustering_dict_path` is provided,
+    at each iteration a random biounit from a cluster is sampled.
+
+    If a complex contains multiple chains, they are concatenated. The sequence identity information is preserved in the
+    `&#39;chain_encoding_all&#39;` object and in the `&#39;residue_idx&#39;` arrays the chain change is denoted by a +100 jump.
+
+    Returns dictionaries with the following keys and values (all values are `torch` tensors):
+
+    - `&#39;X&#39;`: 3D coordinates of N, C, Ca, O, `(total_L, 4, 3)`,
+    - `&#39;S&#39;`: sequence indices (shape `(total_L)`),
+    - `&#39;mask&#39;`: residue mask (0 where coordinates are missing, 1 otherwise; with interpolation 0s are replaced with 1s), `(total_L)`,
+    - `&#39;mask_original&#39;`: residue mask (0 where coordinates are missing, 1 otherwise; not changed with interpolation), `(total_L)`,
+    - `&#39;residue_idx&#39;`: residue indices (from 0 to length of sequence, +100 where chains change), `(total_L)`,
+    - `&#39;chain_encoding_all&#39;`: chain indices, `(total_L)`,
+    - `&#39;chain_id`&#39;: a sampled chain index,
+    - `&#39;chain_dict&#39;`: a dictionary of chain ids (keys are chain ids, e.g. `&#39;A&#39;`, values are the indices used in `&#39;chain_id&#39;` and `&#39;chain_encoding_all&#39;` objects)
+
+    You can also choose to include additional features (set in the `node_features_type` parameter):
+
+    - `&#39;sidechain_orientation&#39;`: a unit vector in the direction of the sidechain, `(total_L, 3)`,
+    - `&#39;dihedral&#39;`: the dihedral angles, `(total_L, 2)`,
+    - `&#39;chemical&#39;`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`,
+    - `&#39;secondary_structure&#39;`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 3)`,
+    - `&#39;sidechain_coords&#39;`: the coordinates of the sidechain atoms (see `proteinflow.sidechain_order()` for the order), `(total_L, 10, 3)`.
+
+    If the dataset contains a `&#39;cdr&#39;` key (if it was generated from SAbDab files), the output files will also additionally contain a `&#39;cdr&#39;`
+    key with a CDR tensor of length `total_L`. In the array, the CDR residues are marked with the corresponding CDR type
+    (H1=1, H2=2, H3=3, L1=4, L2=5, L3=6) and the rest of the residues are marked with 0s.
+
+    Use the `set_cdr` method to only iterate over specific CDRs.
+
+    In order to compute additional features, use the `feature_functions` parameter. It should be a dictionary with keys
+    corresponding to the feature names and values corresponding to the functions that compute the features. The functions
+    should take a chain dictionary and an integer representation of the sequence as input (the dictionary is in `proteinflow` format,
+    see the docs for `generate_data` for details) and return a `numpy` array shaped as `(#residues, #features)`.
+
+    &#34;&#34;&#34;
+
+    def __init__(
+        self,
+        dataset_folder,
+        features_folder=&#34;./data/tmp/&#34;,
+        clustering_dict_path=None,
+        max_length=None,
+        rewrite=False,
+        use_fraction=1,
+        load_to_ram=False,
+        debug=False,
+        interpolate=&#34;none&#34;,
+        node_features_type=&#34;zeros&#34;,
+        debug_file_path=None,
+        entry_type=&#34;biounit&#34;,  # biounit, chain, pair
+        classes_to_exclude=None,  # heteromers, homomers, single_chains
+        shuffle_clusters=True,
+        min_cdr_length=None,
+        feature_functions=None,
+    ):
+        &#34;&#34;&#34;
+        Parameters
+        ----------
+        dataset_folder : str
+            the path to the folder with proteinflow format input files (assumes that files are named {biounit_id}.pickle)
+        features_folder : str, default &#34;./data/tmp/&#34;
+            the path to the folder where the ProteinMPNN features will be saved
+        clustering_dict_path : str, optional
+            path to the pickled clustering dictionary (keys are cluster ids, values are (biounit id, chain id) tuples)
+        max_length : int, optional
+            entries with total length of chains larger than `max_length` will be disregarded
+        rewrite : bool, default False
+            if `False`, existing feature files are not overwritten
+        use_fraction : float, default 1
+            the fraction of the clusters to use (first N in alphabetic order)
+        load_to_ram : bool, default False
+            if `True`, the data will be stored in RAM (use with caution! if RAM isn&#39;t big enough the machine might crash)
+        debug : bool, default False
+            only process 1000 files
+        interpolate : {&#34;none&#34;, &#34;only_middle&#34;, &#34;all&#34;}
+            `&#34;none&#34;` for no interpolation, `&#34;only_middle&#34;` for only linear interpolation in the middle, `&#34;all&#34;` for linear interpolation + ends generation
+        node_features_type : {&#34;zeros&#34;, &#34;dihedral&#34;, &#34;sidechain_orientation&#34;, &#34;chemical&#34;, &#34;secondary_structure&#34; or combinations with &#34;+&#34;}
+            the type of node features, e.g. `&#34;dihedral&#34;` or `&#34;sidechain_orientation+chemical&#34;`
+        debug_file_path : str, optional
+            if not `None`, open this single file instead of loading the dataset
+        entry_type : {&#34;biounit&#34;, &#34;chain&#34;, &#34;pair&#34;}
+            the type of entries to generate (`&#34;biounit&#34;` for biounit-level complexes, `&#34;chain&#34;` for chain-level, `&#34;pair&#34;`
+            for chain-chain pairs (all pairs that are seen in the same biounit and have intersecting coordinate clouds))
+        classes_to_exclude : list of str, optional
+            a list of classes to exclude from the dataset (select from `&#34;single_chains&#34;`, `&#34;heteromers&#34;`, `&#34;homomers&#34;`)
+        shuffle_clusters : bool, default True
+            if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
+        min_cdr_length : int, optional
+            for SAbDab datasets, biounits with CDRs shorter than `min_cdr_length` will be excluded
+        feature_functions : dict, optional
+            a dictionary of functions to compute additional features (keys are the names of the features, values are the functions)
+        &#34;&#34;&#34;
+
+        alphabet = ALPHABET
+        self.alphabet_dict = defaultdict(lambda: 0)
+        for i, letter in enumerate(alphabet):
+            self.alphabet_dict[letter] = i
+        self.alphabet_dict[&#34;X&#34;] = 0
+        self.files = defaultdict(lambda: defaultdict(list))  # file path by biounit id
+        self.loaded = None
+        self.dataset_folder = dataset_folder
+        self.features_folder = features_folder
+        self.feature_types = []
+        if node_features_type is not None:
+            self.feature_types = node_features_type.split(&#34;+&#34;)
+        self.entry_type = entry_type
+        self.shuffle_clusters = shuffle_clusters
+        self.feature_functions = {
+            &#34;sidechain_orientation&#34;: self._sidechain,
+            &#34;dihedral&#34;: self._dihedral,
+            &#34;chemical&#34;: self._chemical,
+            &#34;secondary_structure&#34;: self._sse,
+            &#34;sidechain_coords&#34;: self._sidechain_coords,
+        }
+        self.feature_functions.update(feature_functions or {})
+        if classes_to_exclude is not None and not all(
+            [
+                x in [&#34;single_chains&#34;, &#34;heteromers&#34;, &#34;homomers&#34;]
+                for x in classes_to_exclude
+            ]
+        ):
+            raise ValueError(
+                &#34;Invalid class to exclude, choose from &#39;single_chains&#39;, &#39;heteromers&#39;, &#39;homomers&#39;&#34;
+            )
+
+        if debug_file_path is not None:
+            self.dataset_folder = os.path.dirname(debug_file_path)
+            debug_file_path = os.path.basename(debug_file_path)
+
+        self.main_atom_dict = defaultdict(lambda: None)
+        d1to3 = {v: k for k, v in D3TO1.items()}
+        for i, letter in enumerate(alphabet):
+            if i == 0:
+                continue
+            self.main_atom_dict[i] = MAIN_ATOMS[d1to3[letter]]
+
+        # create feature folder if it does not exist
+        if not os.path.exists(self.features_folder):
+            os.makedirs(self.features_folder)
+
+        self.interpolate = interpolate
+        # generate the feature files
+        print(&#34;Processing files...&#34;)
+        if debug_file_path is None:
+            to_process = [
+                x for x in os.listdir(dataset_folder) if x.endswith(&#34;.pickle&#34;)
+            ]
+        else:
+            to_process = [debug_file_path]
+        if clustering_dict_path is not None and use_fraction &lt; 1:
+            with open(clustering_dict_path, &#34;rb&#34;) as f:
+                clusters = pickle.load(f)
+            keys = sorted(clusters.keys())[: int(len(clusters) * use_fraction)]
+            to_process = set()
+            for key in keys:
+                to_process.update([x[0] for x in clusters[key]])
+
+            file_set = set(os.listdir(dataset_folder))
+            to_process = [x for x in to_process if x in file_set]
+        if debug:
+            to_process = to_process[:1000]
+        if self.entry_type == &#34;pair&#34;:
+            print(
+                &#34;Please note that the pair entry type takes longer to process than the other two. The progress bar is not linear because of the varying number of chains per file.&#34;
+            )
+        output_tuples_list = p_map(
+            lambda x: self._process(
+                x, rewrite=rewrite, max_length=max_length, min_cdr_length=min_cdr_length
+            ),
+            to_process,
+        )
+        # save the file names
+        for output_tuples in output_tuples_list:
+            for id, filename, chain_set in output_tuples:
+                for chain in chain_set:
+                    self.files[id][chain].append(filename)
+        if classes_to_exclude is None:
+            classes_to_exclude = []
+        elif clustering_dict_path is None:
+            raise ValueError(
+                &#34;classes_to_exclude is not None, but clustering_dict_path is None&#34;
+            )
+        if clustering_dict_path is not None:
+            if entry_type == &#34;pair&#34;:
+                classes_to_exclude = set(classes_to_exclude)
+                classes_to_exclude.add(&#34;single_chains&#34;)
+                classes_to_exclude = list(classes_to_exclude)
+            with open(clustering_dict_path, &#34;rb&#34;) as f:
+                self.clusters = pickle.load(f)  # list of biounit ids by cluster id
+                classes = pickle.load(f)
+            to_exclude = set()
+            for c in classes_to_exclude:
+                for key, id_arr in classes.get(c, {}).items():
+                    for id, _ in id_arr:
+                        to_exclude.add(id)
+            for key in list(self.clusters.keys()):
+                cluster_list = []
+                for x in self.clusters[key]:
+                    if x[0] in to_exclude:
+                        continue
+                    id = x[0].split(&#34;.&#34;)[0]
+                    chain = x[1]
+                    if id not in self.files:
+                        continue
+                    if chain not in self.files[id]:
+                        continue
+                    if len(self.files[id][chain]) == 0:
+                        continue
+                    cluster_list.append([id, chain])
+                self.clusters[key] = cluster_list
+                if len(self.clusters[key]) == 0:
+                    self.clusters.pop(key)
+            self.data = list(self.clusters.keys())
+        else:
+            self.clusters = None
+            self.data = list(self.files.keys())
+        # create a smaller dataset if necessary (if we have clustering it&#39;s applied earlier)
+        if clustering_dict_path is None and use_fraction &lt; 1:
+            self.data = sorted(self.data)[: int(len(self.data) * use_fraction)]
+        if load_to_ram:
+            print(&#34;Loading to RAM...&#34;)
+            self.loaded = {}
+            seen = set()
+            for id in self.files:
+                for chain, file_list in self.files[id].items():
+                    for file in file_list:
+                        if file in seen:
+                            continue
+                        seen.add(file)
+                        with open(file, &#34;rb&#34;) as f:
+                            self.loaded[file] = pickle.load(f)
+        sample_file = list(self.files.keys())[0]
+        sample_chain = list(self.files[sample_file].keys())[0]
+        self.sabdab = &#34;__&#34; in sample_chain
+        self.cdr = 0
+        self.set_cdr(None)
+
+    def _interpolate(self, crd_i, mask_i):
+        &#34;&#34;&#34;
+        Fill in missing values in the middle with linear interpolation and (if fill_ends is true) build an initialization for the ends
+
+        For the ends, the first 10 residues are 3.6 A apart from each other on a straight line from the last known value away from the center.
+        Next they are 3.6 A apart in a random direction.
+        &#34;&#34;&#34;
+
+        if self.interpolate in [&#34;all&#34;, &#34;only_middle&#34;]:
+            crd_i[(1 - mask_i).astype(bool)] = np.nan
+            df = pd.DataFrame(crd_i.reshape((crd_i.shape[0], -1)))
+            crd_i = df.interpolate(limit_area=&#34;inside&#34;).values.reshape(crd_i.shape)
+        if self.interpolate == &#34;all&#34;:
+            non_nans = np.where(~np.isnan(crd_i[:, 0, 0]))[0]
+            known_start = non_nans[0]
+            known_end = non_nans[-1] + 1
+            if known_end &lt; len(crd_i) or known_start &gt; 0:
+                center = crd_i[non_nans, 2, :].mean(0)
+                if known_start &gt; 0:
+                    direction = crd_i[known_start, 2, :] - center
+                    direction = direction / linalg.norm(direction)
+                    for i in range(0, min(known_start, 10)):
+                        crd_i[known_start - i - 1] = (
+                            crd_i[known_start - i] + direction * 3.6
+                        )
+                    for i in range(min(known_start, 10), known_start):
+                        v = np.random.rand(3)
+                        v = v / linalg.norm(v)
+                        crd_i[known_start - i - 1] = crd_i[known_start - i] + v * 3.6
+                if known_end &lt; len(crd_i):
+                    to_add = len(crd_i) - known_end
+                    direction = crd_i[known_end - 1, 2, :] - center
+                    direction = direction / linalg.norm(direction)
+                    for i in range(0, min(to_add, 10)):
+                        crd_i[known_end + i] = (
+                            crd_i[known_end + i - 1] + direction * 3.6
+                        )
+                    for i in range(min(to_add, 10), to_add):
+                        v = np.random.rand(3)
+                        v = v / linalg.norm(v)
+                        crd_i[known_end + i] = crd_i[known_end + i - 1] + v * 3.6
+            mask_i = np.ones(mask_i.shape)
+        if self.interpolate in [&#34;only_middle&#34;]:
+            nan_mask = np.isnan(crd_i)  # in the middle the nans have been interpolated
+            mask_i[~np.isnan(crd_i[:, 0, 0])] = 1
+            crd_i[nan_mask] = 0
+        if self.interpolate == &#34;zeros&#34;:
+            non_nans = np.where(mask_i != 0)[0]
+            known_start = non_nans[0]
+            known_end = non_nans[-1] + 1
+            mask_i[known_start:known_end] = 1
+        return crd_i, mask_i
+
+    def _dihedral_angle(self, crd, msk):
+        &#34;&#34;&#34;Praxeolitic formula
+        1 sqrt, 1 cross product&#34;&#34;&#34;
+
+        p0 = crd[..., 0, :]
+        p1 = crd[..., 1, :]
+        p2 = crd[..., 2, :]
+        p3 = crd[..., 3, :]
+
+        b0 = -1.0 * (p1 - p0)
+        b1 = p2 - p1
+        b2 = p3 - p2
+
+        b1 /= np.expand_dims(np.linalg.norm(b1, axis=-1), -1) + 1e-7
+
+        v = b0 - np.expand_dims(np.einsum(&#34;bi,bi-&gt;b&#34;, b0, b1), -1) * b1
+        w = b2 - np.expand_dims(np.einsum(&#34;bi,bi-&gt;b&#34;, b2, b1), -1) * b1
+
+        x = np.einsum(&#34;bi,bi-&gt;b&#34;, v, w)
+        y = np.einsum(&#34;bi,bi-&gt;b&#34;, np.cross(b1, v), w)
+        dh = np.degrees(np.arctan2(y, x))
+        dh[1 - msk] = 0
+        return dh
+
+    def _dihedral(self, chain_dict, seq):
+        &#34;&#34;&#34;
+        Dihedral angles
+        &#34;&#34;&#34;
+
+        crd = chain_dict[&#34;crd_bb&#34;]
+        msk = chain_dict[&#34;msk&#34;]
+        angles = []
+        # N, C, Ca, O
+        # psi
+        p = crd[:-1, [0, 2, 1], :]
+        p = np.concatenate([p, crd[1:, [0], :]], 1)
+        p = np.pad(p, ((0, 1), (0, 0), (0, 0)))
+        angles.append(self._dihedral_angle(p, msk))
+        # phi
+        p = crd[:-1, [1], :]
+        p = np.concatenate([p, crd[1:, [0, 2, 1]]], 1)
+        p = np.pad(p, ((1, 0), (0, 0), (0, 0)))
+        angles.append(self._dihedral_angle(p, msk))
+        angles = np.stack(angles, -1)
+        return angles
+
+    def _sidechain(self, chain_dict, seq):
+        &#34;&#34;&#34;
+        Sidechain orientation (defined by the &#39;main atoms&#39; in the `main_atom_dict` dictionary)
+        &#34;&#34;&#34;
+
+        crd_sc = chain_dict[&#34;crd_sc&#34;]
+        crd_bb = chain_dict[&#34;crd_bb&#34;]
+        orientation = np.zeros((crd_sc.shape[0], 3))
+        for i in range(1, 21):
+            if self.main_atom_dict[i] is not None:
+                orientation[seq == i] = (
+                    crd_sc[seq == i, self.main_atom_dict[i], :] - crd_bb[seq == i, 2, :]
+                )
+            else:
+                S_mask = seq == i
+                orientation[S_mask] = np.random.rand(*orientation[S_mask].shape)
+        orientation /= np.expand_dims(linalg.norm(orientation, axis=-1), -1) + 1e-7
+        return orientation
+
+    def _chemical(self, chain_dict, seq):
+        &#34;&#34;&#34;
+        Chemical features (hydropathy, volume, charge, polarity, acceptor/donor)
+        &#34;&#34;&#34;
+
+        features = np.array([_PMAP(x) for x in seq])
+        return features
+
+    def _sse(self, chain_dict, seq):
+        &#34;&#34;&#34;
+        Secondary structure features
+        &#34;&#34;&#34;
+
+        sse_map = {&#34;c&#34;: [0, 0, 1], &#34;b&#34;: [0, 1, 0], &#34;a&#34;: [1, 0, 0], &#34;&#34;: [0, 0, 0]}
+        sse = _annotate_sse(chain_dict[&#34;crd_bb&#34;])
+        sse = np.array([sse_map[x] for x in sse]) * chain_dict[&#34;msk&#34;][:, None]
+        return sse
+
+    def _sidechain_coords(self, chain_dict, seq):
+        &#34;&#34;&#34;
+        Sidechain coordinates
+        &#34;&#34;&#34;
+
+        crd_sc = chain_dict[&#34;crd_sc&#34;]
+        return crd_sc
+
+    def _process(self, filename, rewrite=False, max_length=None, min_cdr_length=None):
+        &#34;&#34;&#34;
+        Process a proteinflow file and save it as ProteinMPNN features
+        &#34;&#34;&#34;
+
+        input_file = os.path.join(self.dataset_folder, filename)
+        no_extension_name = filename.split(&#34;.&#34;)[0]
+        with open(input_file, &#34;rb&#34;) as f:
+            data = pickle.load(f)
+        chains = sorted(data.keys())
+        if self.entry_type == &#34;biounit&#34;:
+            chain_sets = [chains]
+        elif self.entry_type == &#34;chain&#34;:
+            chain_sets = [[x] for x in chains]
+        elif self.entry_type == &#34;pair&#34;:
+            chain_sets = list(combinations(chains, 2))
+        else:
+            raise RuntimeError(
+                &#34;Unknown entry type, please choose from [&#39;biounit&#39;, &#39;chain&#39;, &#39;pair&#39;]&#34;
+            )
+        output_names = []
+        for chains_i, chain_set in enumerate(chain_sets):
+            output_file = os.path.join(
+                self.features_folder, no_extension_name + f&#34;_{chains_i}.pickle&#34;
+            )
+            pass_set = False
+            add_name = True
+            if os.path.exists(output_file) and not rewrite:
+                pass_set = True
+                if max_length is not None:
+                    if sum([len(data[x][&#34;seq&#34;]) for x in chain_set]) &gt; max_length:
+                        add_name = False
+                if min_cdr_length is not None:
+                    for chain in chain_set:
+                        if &#34;cdr&#34; not in data[chain]:
+                            continue
+                        u = np.unique(data[chain][&#34;cdr&#34;])
+                        for cdr_ in u:
+                            if (data[chain][&#34;cdr&#34;] == cdr_).sum() &lt; min_cdr_length:
+                                add_name = False
+            else:
+                X = []
+                S = []
+                mask = []
+                mask_original = []
+                chain_encoding_all = []
+                residue_idx = []
+                cdr = []
+                node_features = defaultdict(lambda: [])
+                last_idx = 0
+                chain_dict = {}
+
+                if max_length is not None:
+                    if sum([len(data[x][&#34;seq&#34;]) for x in chain_set]) &gt; max_length:
+                        pass_set = True
+                        add_name = False
+                if min_cdr_length is not None:
+                    for chain in chain_set:
+                        if &#34;cdr&#34; not in data[chain]:
+                            continue
+                        u = np.unique(data[chain][&#34;cdr&#34;])
+                        for cdr_ in u:
+                            if (data[chain][&#34;cdr&#34;] == cdr_).sum() &lt; min_cdr_length:
+                                add_name = False
+                                pass_set = True
+
+                if self.entry_type == &#34;pair&#34;:
+                    # intersect = []
+                    X1 = data[chain_set[0]][&#34;crd_bb&#34;][
+                        data[chain_set[0]][&#34;msk&#34;].astype(bool)
+                    ]
+                    X2 = data[chain_set[1]][&#34;crd_bb&#34;][
+                        data[chain_set[1]][&#34;msk&#34;].astype(bool)
+                    ]
+                    intersect_dim_X1 = []
+                    intersect_dim_X2 = []
+                    intersect_X1 = np.zeros(len(X1))
+                    intersect_X2 = np.zeros(len(X2))
+                    margin = 30
+                    cutoff = 10
+                    for dim in range(3):
+                        min_dim_1 = X1[:, 2, dim].min()
+                        max_dim_1 = X1[:, 2, dim].max()
+                        min_dim_2 = X2[:, 2, dim].min()
+                        max_dim_2 = X2[:, 2, dim].max()
+                        intersect_dim_X1.append(
+                            np.where(
+                                np.logical_and(
+                                    X1[:, 2, dim] &gt;= min_dim_2 - margin,
+                                    X1[:, 2, dim] &lt;= max_dim_2 + margin,
+                                )
+                            )[0]
+                        )
+                        intersect_dim_X2.append(
+                            np.where(
+                                np.logical_and(
+                                    X2[:, 2, dim] &gt;= min_dim_1 - margin,
+                                    X2[:, 2, dim] &lt;= max_dim_1 + margin,
+                                )
+                            )[0]
+                        )
+
+                        # if min_dim_1 - 4 &lt;= max_dim_2 and max_dim_1 &gt;= min_dim_2 - 4:
+                        #     intersect.append(True)
+                        # else:
+                        #     intersect.append(False)
+                        #     break
+                    intersect_X1 = np.intersect1d(
+                        np.intersect1d(intersect_dim_X1[0], intersect_dim_X1[1]),
+                        intersect_dim_X1[2],
+                    )
+                    intersect_X2 = np.intersect1d(
+                        np.intersect1d(intersect_dim_X2[0], intersect_dim_X2[1]),
+                        intersect_dim_X2[2],
+                    )
+
+                    not_end_mask1 = np.where(((X1[:, 2, :] == 0).sum(-1) != 3))[0]
+                    not_end_mask2 = np.where(((X2[:, 2, :] == 0).sum(-1) != 3))[0]
+
+                    intersect_X1 = np.intersect1d(intersect_X1, not_end_mask1)
+                    intersect_X2 = np.intersect1d(intersect_X2, not_end_mask2)
+
+                    # distances = torch.norm(X1[intersect_X1, 2, :] - X2[intersect_X2, 2, :](1), dim=-1)
+                    diff = X1[intersect_X1, 2, np.newaxis, :] - X2[intersect_X2, 2, :]
+                    distances = np.sqrt(np.sum(diff**2, axis=2))
+
+                    intersect_X1 = torch.LongTensor(intersect_X1)
+                    intersect_X2 = torch.LongTensor(intersect_X2)
+                    if np.sum(distances &lt; cutoff) &lt; 3:
+                        # if not all(intersect):
+                        pass_set = True
+                        add_name = False
+            if pass_set:
+                continue
+
+            cdr_chain_set = set()
+            for chain_i, chain in enumerate(chain_set):
+                seq = torch.tensor([self.alphabet_dict[x] for x in data[chain][&#34;seq&#34;]])
+                S.append(seq)
+                mask_original.append(deepcopy(data[chain][&#34;msk&#34;]))
+                if self.interpolate != &#34;none&#34;:
+                    data[chain][&#34;crd_bb&#34;], data[chain][&#34;msk&#34;] = self._interpolate(
+                        data[chain][&#34;crd_bb&#34;], data[chain][&#34;msk&#34;]
+                    )
+                X.append(data[chain][&#34;crd_bb&#34;])
+                mask.append(data[chain][&#34;msk&#34;])
+                residue_idx.append(torch.arange(len(data[chain][&#34;seq&#34;])) + last_idx)
+                if &#34;cdr&#34; in data[chain]:
+                    u, inv = np.unique(data[chain][&#34;cdr&#34;], return_inverse=True)
+                    cdr_chain = np.array([CDR[x] for x in u])[inv].reshape(
+                        data[chain][&#34;cdr&#34;].shape
+                    )
+                    cdr.append(cdr_chain)
+                    cdr_chain_set.update([f&#34;{chain}__{cdr}&#34; for cdr in u])
+                last_idx = residue_idx[-1][-1] + 100
+                chain_encoding_all.append(torch.ones(len(data[chain][&#34;seq&#34;])) * chain_i)
+                chain_dict[chain] = chain_i
+                for name in self.feature_types:
+                    if name not in self.feature_functions:
+                        continue
+                    func = self.feature_functions[name]
+                    node_features[name].append(func(data[chain], seq))
+
+            if add_name:
+                output_names.append(
+                    (
+                        os.path.basename(no_extension_name),
+                        output_file,
+                        chain_set if len(cdr_chain_set) == 0 else cdr_chain_set,
+                    )
+                )
+
+            out = {}
+            out[&#34;X&#34;] = torch.from_numpy(np.concatenate(X, 0))
+            out[&#34;S&#34;] = torch.cat(S)
+            out[&#34;mask&#34;] = torch.from_numpy(np.concatenate(mask))
+            out[&#34;mask_original&#34;] = torch.from_numpy(np.concatenate(mask_original))
+            out[&#34;chain_encoding_all&#34;] = torch.cat(chain_encoding_all)
+            out[&#34;residue_idx&#34;] = torch.cat(residue_idx)
+            out[&#34;chain_dict&#34;] = chain_dict
+            out[&#34;pdb_id&#34;] = no_extension_name.split(&#34;-&#34;)[0]
+            if len(cdr) != 0:
+                out[&#34;cdr&#34;] = torch.from_numpy(np.concatenate(cdr))
+            for key, value_list in node_features.items():
+                out[key] = torch.from_numpy(np.concatenate(value_list))
+            with open(output_file, &#34;wb&#34;) as f:
+                pickle.dump(out, f)
+        return output_names
+
+    def set_cdr(self, cdr):
+        &#34;&#34;&#34;
+        Set the CDR to be iterated over (only for SAbDab datasets).
+
+        Parameters
+        ----------
+        cdr : {&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;}
+            The CDR to be iterated over. Set to `None` to go back to iterating over all chains.
+        &#34;&#34;&#34;
+
+        if not self.sabdab:
+            cdr = None
+        if cdr == self.cdr:
+            return
+        self.cdr = cdr
+        if cdr is None:
+            self.indices = list(range(len(self.data)))
+        else:
+            self.indices = []
+            print(f&#34;Setting CDR to {cdr}...&#34;)
+            for i, data in tqdm(enumerate(self.data)):
+                if self.clusters is not None:
+                    if data.split(&#34;__&#34;)[1] == cdr:
+                        self.indices.append(i)
+                else:
+                    add = False
+                    for chain in self.files[data]:
+                        if chain.split(&#34;__&#34;)[1] == cdr:
+                            add = True
+                            break
+                    if add:
+                        self.indices.append(i)
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        chain_id = None
+        cdr = None
+        idx = self.indices[idx]
+        if self.clusters is None:
+            id = self.data[idx]  # data is already filtered by length
+            chain_id = random.choice(list(self.files[id].keys()))
+            if self.cdr is not None:
+                while self.cdr != chain_id.split(&#34;__&#34;)[1]:
+                    chain_id = random.choice(list(self.files[id].keys()))
+        else:
+            cluster = self.data[idx]
+            id = None
+            chain_n = -1
+            while (
+                id is None or len(self.files[id][chain_id]) == 0
+            ):  # some IDs can be filtered out by length
+                if self.shuffle_clusters:
+                    chain_n = random.randint(0, len(self.clusters[cluster]) - 1)
+                else:
+                    chain_n += 1
+                id, chain_id = self.clusters[cluster][
+                    chain_n
+                ]  # get id and chain from cluster
+        file = random.choice(self.files[id][chain_id])
+        if &#34;__&#34; in chain_id:
+            chain_id, cdr = chain_id.split(&#34;__&#34;)
+        if self.loaded is None:
+            with open(file, &#34;rb&#34;) as f:
+                try:
+                    data = pickle.load(f)
+                except EOFError:
+                    print(&#34;EOFError&#34;, file)
+                    raise
+        else:
+            data = deepcopy(self.loaded[file])
+        data[&#34;chain_id&#34;] = data[&#34;chain_dict&#34;][chain_id]
+        if cdr is not None:
+            data[&#34;cdr_id&#34;] = CDR[cdr]
+        return data
+
+def _download_dataset(tag, local_datasets_folder=&#34;./data/&#34;):
+    &#34;&#34;&#34;
+    Download the pre-processed data and the split dictionaries
+
+    Parameters
+    ----------
+    tag : str
+        name of the dataset (check `get_available_tags` to see the options)
+    local_dataset_folder : str, default &#34;./data/&#34;
+        the local folder that will contain proteinflow dataset folders, temporary files and logs
+
+    Returns
+    -------
+    data_folder : str
+        the path to the downloaded data folder
+    &#34;&#34;&#34;
+
+    s3_data_path, s3_dict_path = _get_s3_paths_from_tag(tag)
+    data_folder = os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;)
+    dict_folder = os.path.join(
+        local_datasets_folder, f&#34;proteinflow_{tag}&#34;, &#34;splits_dict&#34;
+    )
+
+    print(&#34;Downloading dictionaries for splitting the dataset...&#34;)
+    _download_dataset_dicts_from_s3(dict_folder, s3_dict_path)
+    print(&#34;Done!&#34;)
+
+    _download_dataset_from_s3(dataset_path=data_folder, s3_path=s3_data_path)
+    return data_folder
+
+
+def _biounits_in_clusters_dict(clusters_dict, excluded_files=None):
+    &#34;&#34;&#34;
+    Return the list of all biounit files present in clusters_dict
+    &#34;&#34;&#34;
+
+    if len(clusters_dict) == 0:
+        return np.array([])
+    if excluded_files is None:
+        excluded_files = []
+    return np.unique(
+        [
+            c[0]
+            for c in list(np.concatenate(list(clusters_dict.values())))
+            if c[0] not in excluded_files
+        ]
+    )
+
+
+
+def _split_data(
+    dataset_path=&#34;./data/proteinflow_20221110/&#34;,
+    excluded_files=None,
+    exclude_clusters=False,
+    exclude_based_on_cdr=None,
+):
+    &#34;&#34;&#34;
+    Rearrange files into folders according to the dataset split dictionaries at `dataset_path/splits_dict`
+
+    Parameters
+    ----------
+    dataset_path : str, default &#34;./data/proteinflow_20221110/&#34;
+        The path to the dataset folder containing pre-processed entries and a `splits_dict` folder with split dictionaries (downloaded or generated with `get_split_dictionaries`)
+    exculded_files : list, optional
+        A list of files to exclude from the dataset
+    exclude_clusters : bool, default False
+        If True, exclude all files in a cluster if at least one file in the cluster is in `excluded_files`
+    exclude_based_on_cdr : str, optional
+        If not `None`, exclude all files in a cluster if the cluster name does not end with `exclude_based_on_cdr`
+    &#34;&#34;&#34;
+
+    if excluded_files is None:
+        excluded_files = []
+
+    dict_folder = os.path.join(dataset_path, &#34;splits_dict&#34;)
+    with open(os.path.join(dict_folder, &#34;train.pickle&#34;), &#34;rb&#34;) as f:
+        train_clusters_dict = pickle.load(f)
+    with open(os.path.join(dict_folder, &#34;valid.pickle&#34;), &#34;rb&#34;) as f:
+        valid_clusters_dict = pickle.load(f)
+    with open(os.path.join(dict_folder, &#34;test.pickle&#34;), &#34;rb&#34;) as f:
+        test_clusters_dict = pickle.load(f)
+
+    train_biounits = _biounits_in_clusters_dict(train_clusters_dict, excluded_files)
+    valid_biounits = _biounits_in_clusters_dict(valid_clusters_dict, excluded_files)
+    test_biounits = _biounits_in_clusters_dict(test_clusters_dict, excluded_files)
+    train_path = os.path.join(dataset_path, &#34;train&#34;)
+    valid_path = os.path.join(dataset_path, &#34;valid&#34;)
+    test_path = os.path.join(dataset_path, &#34;test&#34;)
+
+    if not os.path.exists(dataset_path):
+        os.makedirs(dataset_path)
+
+    if not os.path.exists(train_path):
+        os.makedirs(train_path)
+    if not os.path.exists(valid_path):
+        os.makedirs(valid_path)
+    if not os.path.exists(test_path):
+        os.makedirs(test_path)
+
+    if len(excluded_files) &gt; 0:
+        excluded_set = set(excluded_files)
+        if exclude_clusters:
+            for cluster, files in train_clusters_dict.items():
+                exclude = False
+                for biounit in files:
+                    if biounit in excluded_set:
+                        exclude = True
+                        break
+                if exclude:
+                    if exclude_based_on_cdr is not None:
+                        if not cluster.endswith(exclude_based_on_cdr):
+                            continue
+                    for biounit in files:
+                        excluded_files.append(biounit)
+        excluded_path = os.path.join(dataset_path, &#34;excluded&#34;)
+        if not os.path.exists(excluded_path):
+            os.makedirs(excluded_path)
+        print(&#34;Moving excluded files...&#34;)
+        for biounit in tqdm(excluded_files):
+            shutil.move(os.path.join(dataset_path, biounit), excluded_path)
+    print(&#34;Moving files in the train set...&#34;)
+    for biounit in tqdm(train_biounits):
+        shutil.move(os.path.join(dataset_path, biounit), train_path)
+    print(&#34;Moving files in the validation set...&#34;)
+    for biounit in tqdm(valid_biounits):
+        shutil.move(os.path.join(dataset_path, biounit), valid_path)
+    print(&#34;Moving files in the test set...&#34;)
+    for biounit in tqdm(test_biounits):
+        shutil.move(os.path.join(dataset_path, biounit), test_path)
+
+
+def _remove_database_redundancies(dir, seq_identity_threshold=0.9):
+    &#34;&#34;&#34;
+    Remove all biounits in the database that are copies to another biounits in terms of sequence
+
+    Sequence identity is definded by the &#39;seq_identity_threshold&#39; parameter for robust detection of sequence similarity (missing residues, point mutations, ...).
+
+    Parameters
+    ----------
+    dir : str
+        the path to the database where all the biounits are stored in pickle files after their processing
+    seq_identity_threshold : float, default .9
+        the threshold that determines up to what percentage identity sequences are considered as the same
+
+    Returns
+    -------
+    total_removed : int
+        the total number of removed biounits
+    &#34;&#34;&#34;
+
+    all_files = np.array(os.listdir(dir))
+    all_pdbs = np.array([file[:4] for file in all_files])
+    pdb_counts = Counter(all_pdbs)
+    pdbs_to_check = [pdb for pdb in pdb_counts.keys() if pdb_counts[pdb] &gt; 1]
+    total_removed = []
+
+    for pdb in tqdm(pdbs_to_check):
+        biounits_list = np.array(
+            [os.path.join(dir, file) for file in all_files[all_pdbs == pdb]]
+        )
+        biounits_list = sorted(biounits_list)
+        redundancies = _check_biounits(biounits_list, seq_identity_threshold)
+        if redundancies != []:
+            for k in redundancies:
+                total_removed.append(os.path.basename(biounits_list[k]).split(&#34;.&#34;)[0])
+                subprocess.run([&#34;rm&#34;, biounits_list[k]])
+
+    return total_removed</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="proteinflow.protein_dataset.ProteinDataset"><code class="flex name class">
+<span>class <span class="ident">ProteinDataset</span></span>
+<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', debug_file_path=None, entry_type='biounit', classes_to_exclude=None, shuffle_clusters=True, min_cdr_length=None, feature_functions=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Dataset to load proteinflow data</p>
+<p>Saves the model input tensors as pickle files in <code>features_folder</code>. When <code>clustering_dict_path</code> is provided,
+at each iteration a random biounit from a cluster is sampled.</p>
+<p>If a complex contains multiple chains, they are concatenated. The sequence identity information is preserved in the
+<code>'chain_encoding_all'</code> object and in the <code>'residue_idx'</code> arrays the chain change is denoted by a +100 jump.</p>
+<p>Returns dictionaries with the following keys and values (all values are <code>torch</code> tensors):</p>
+<ul>
+<li><code>'X'</code>: 3D coordinates of N, C, Ca, O, <code>(total_L, 4, 3)</code>,</li>
+<li><code>'S'</code>: sequence indices (shape <code>(total_L)</code>),</li>
+<li><code>'mask'</code>: residue mask (0 where coordinates are missing, 1 otherwise; with interpolation 0s are replaced with 1s), <code>(total_L)</code>,</li>
+<li><code>'mask_original'</code>: residue mask (0 where coordinates are missing, 1 otherwise; not changed with interpolation), <code>(total_L)</code>,</li>
+<li><code>'residue_idx'</code>: residue indices (from 0 to length of sequence, +100 where chains change), <code>(total_L)</code>,</li>
+<li><code>'chain_encoding_all'</code>: chain indices, <code>(total_L)</code>,</li>
+<li><code>'chain_id</code>': a sampled chain index,</li>
+<li><code>'chain_dict'</code>: a dictionary of chain ids (keys are chain ids, e.g. <code>'A'</code>, values are the indices used in <code>'chain_id'</code> and <code>'chain_encoding_all'</code> objects)</li>
+</ul>
+<p>You can also choose to include additional features (set in the <code>node_features_type</code> parameter):</p>
+<ul>
+<li><code>'sidechain_orientation'</code>: a unit vector in the direction of the sidechain, <code>(total_L, 3)</code>,</li>
+<li><code>'dihedral'</code>: the dihedral angles, <code>(total_L, 2)</code>,</li>
+<li><code>'chemical'</code>: hydropathy, volume, charge, polarity, acceptor/donor features, <code>(total_L, 6)</code>,</li>
+<li><code>'secondary_structure'</code>: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), <code>(total_L, 3)</code>,</li>
+<li><code>'sidechain_coords'</code>: the coordinates of the sidechain atoms (see <code><a title="proteinflow.sidechain_order" href="index.html#proteinflow.sidechain_order">sidechain_order()</a></code> for the order), <code>(total_L, 10, 3)</code>.</li>
+</ul>
+<p>If the dataset contains a <code>'cdr'</code> key (if it was generated from SAbDab files), the output files will also additionally contain a <code>'cdr'</code>
+key with a CDR tensor of length <code>total_L</code>. In the array, the CDR residues are marked with the corresponding CDR type
+(H1=1, H2=2, H3=3, L1=4, L2=5, L3=6) and the rest of the residues are marked with 0s.</p>
+<p>Use the <code>set_cdr</code> method to only iterate over specific CDRs.</p>
+<p>In order to compute additional features, use the <code>feature_functions</code> parameter. It should be a dictionary with keys
+corresponding to the feature names and values corresponding to the functions that compute the features. The functions
+should take a chain dictionary and an integer representation of the sequence as input (the dictionary is in <code><a title="proteinflow" href="index.html">proteinflow</a></code> format,
+see the docs for <code>generate_data</code> for details) and return a <code>numpy</code> array shaped as <code>(#residues, #features)</code>.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>dataset_folder</code></strong> :&ensp;<code>str</code></dt>
+<dd>the path to the folder with proteinflow format input files (assumes that files are named {biounit_id}.pickle)</dd>
+<dt><strong><code>features_folder</code></strong> :&ensp;<code>str</code>, default <code>"./data/tmp/"</code></dt>
+<dd>the path to the folder where the ProteinMPNN features will be saved</dd>
+<dt><strong><code>clustering_dict_path</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>path to the pickled clustering dictionary (keys are cluster ids, values are (biounit id, chain id) tuples)</dd>
+<dt><strong><code>max_length</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>entries with total length of chains larger than <code>max_length</code> will be disregarded</dd>
+<dt><strong><code>rewrite</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>False</code>, existing feature files are not overwritten</dd>
+<dt><strong><code>use_fraction</code></strong> :&ensp;<code>float</code>, default <code>1</code></dt>
+<dd>the fraction of the clusters to use (first N in alphabetic order)</dd>
+<dt><strong><code>load_to_ram</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, the data will be stored in RAM (use with caution! if RAM isn't big enough the machine might crash)</dd>
+<dt><strong><code>debug</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>only process 1000 files</dd>
+<dt><strong><code>interpolate</code></strong> :&ensp;<code>{"none", "only_middle", "all"}</code></dt>
+<dd><code>"none"</code> for no interpolation, <code>"only_middle"</code> for only linear interpolation in the middle, <code>"all"</code> for linear interpolation + ends generation</dd>
+<dt><strong><code>node_features_type</code></strong> :&ensp;<code>{"zeros", "dihedral", "sidechain_orientation", "chemical", "secondary_structure"</code> or <code>combinations with "+"}</code></dt>
+<dd>the type of node features, e.g. <code>"dihedral"</code> or <code>"sidechain_orientation+chemical"</code></dd>
+<dt><strong><code>debug_file_path</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>if not <code>None</code>, open this single file instead of loading the dataset</dd>
+<dt><strong><code>entry_type</code></strong> :&ensp;<code>{"biounit", "chain", "pair"}</code></dt>
+<dd>the type of entries to generate (<code>"biounit"</code> for biounit-level complexes, <code>"chain"</code> for chain-level, <code>"pair"</code>
+for chain-chain pairs (all pairs that are seen in the same biounit and have intersecting coordinate clouds))</dd>
+<dt><strong><code>classes_to_exclude</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
+<dd>a list of classes to exclude from the dataset (select from <code>"single_chains"</code>, <code>"heteromers"</code>, <code>"homomers"</code>)</dd>
+<dt><strong><code>shuffle_clusters</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
+<dd>if <code>True</code>, a new representative is randomly selected for each cluster at each epoch (if <code>clustering_dict_path</code> is given)</dd>
+<dt><strong><code>min_cdr_length</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>for SAbDab datasets, biounits with CDRs shorter than <code>min_cdr_length</code> will be excluded</dd>
+<dt><strong><code>feature_functions</code></strong> :&ensp;<code>dict</code>, optional</dt>
+<dd>a dictionary of functions to compute additional features (keys are the names of the features, values are the functions)</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ProteinDataset(Dataset):
+    &#34;&#34;&#34;
+    Dataset to load proteinflow data
+
+    Saves the model input tensors as pickle files in `features_folder`. When `clustering_dict_path` is provided,
+    at each iteration a random biounit from a cluster is sampled.
+
+    If a complex contains multiple chains, they are concatenated. The sequence identity information is preserved in the
+    `&#39;chain_encoding_all&#39;` object and in the `&#39;residue_idx&#39;` arrays the chain change is denoted by a +100 jump.
+
+    Returns dictionaries with the following keys and values (all values are `torch` tensors):
+
+    - `&#39;X&#39;`: 3D coordinates of N, C, Ca, O, `(total_L, 4, 3)`,
+    - `&#39;S&#39;`: sequence indices (shape `(total_L)`),
+    - `&#39;mask&#39;`: residue mask (0 where coordinates are missing, 1 otherwise; with interpolation 0s are replaced with 1s), `(total_L)`,
+    - `&#39;mask_original&#39;`: residue mask (0 where coordinates are missing, 1 otherwise; not changed with interpolation), `(total_L)`,
+    - `&#39;residue_idx&#39;`: residue indices (from 0 to length of sequence, +100 where chains change), `(total_L)`,
+    - `&#39;chain_encoding_all&#39;`: chain indices, `(total_L)`,
+    - `&#39;chain_id`&#39;: a sampled chain index,
+    - `&#39;chain_dict&#39;`: a dictionary of chain ids (keys are chain ids, e.g. `&#39;A&#39;`, values are the indices used in `&#39;chain_id&#39;` and `&#39;chain_encoding_all&#39;` objects)
+
+    You can also choose to include additional features (set in the `node_features_type` parameter):
+
+    - `&#39;sidechain_orientation&#39;`: a unit vector in the direction of the sidechain, `(total_L, 3)`,
+    - `&#39;dihedral&#39;`: the dihedral angles, `(total_L, 2)`,
+    - `&#39;chemical&#39;`: hydropathy, volume, charge, polarity, acceptor/donor features, `(total_L, 6)`,
+    - `&#39;secondary_structure&#39;`: a one-hot encoding of secondary structure ([alpha-helix, beta-sheet, coil]), `(total_L, 3)`,
+    - `&#39;sidechain_coords&#39;`: the coordinates of the sidechain atoms (see `proteinflow.sidechain_order()` for the order), `(total_L, 10, 3)`.
+
+    If the dataset contains a `&#39;cdr&#39;` key (if it was generated from SAbDab files), the output files will also additionally contain a `&#39;cdr&#39;`
+    key with a CDR tensor of length `total_L`. In the array, the CDR residues are marked with the corresponding CDR type
+    (H1=1, H2=2, H3=3, L1=4, L2=5, L3=6) and the rest of the residues are marked with 0s.
+
+    Use the `set_cdr` method to only iterate over specific CDRs.
+
+    In order to compute additional features, use the `feature_functions` parameter. It should be a dictionary with keys
+    corresponding to the feature names and values corresponding to the functions that compute the features. The functions
+    should take a chain dictionary and an integer representation of the sequence as input (the dictionary is in `proteinflow` format,
+    see the docs for `generate_data` for details) and return a `numpy` array shaped as `(#residues, #features)`.
+
+    &#34;&#34;&#34;
+
+    def __init__(
+        self,
+        dataset_folder,
+        features_folder=&#34;./data/tmp/&#34;,
+        clustering_dict_path=None,
+        max_length=None,
+        rewrite=False,
+        use_fraction=1,
+        load_to_ram=False,
+        debug=False,
+        interpolate=&#34;none&#34;,
+        node_features_type=&#34;zeros&#34;,
+        debug_file_path=None,
+        entry_type=&#34;biounit&#34;,  # biounit, chain, pair
+        classes_to_exclude=None,  # heteromers, homomers, single_chains
+        shuffle_clusters=True,
+        min_cdr_length=None,
+        feature_functions=None,
+    ):
+        &#34;&#34;&#34;
+        Parameters
+        ----------
+        dataset_folder : str
+            the path to the folder with proteinflow format input files (assumes that files are named {biounit_id}.pickle)
+        features_folder : str, default &#34;./data/tmp/&#34;
+            the path to the folder where the ProteinMPNN features will be saved
+        clustering_dict_path : str, optional
+            path to the pickled clustering dictionary (keys are cluster ids, values are (biounit id, chain id) tuples)
+        max_length : int, optional
+            entries with total length of chains larger than `max_length` will be disregarded
+        rewrite : bool, default False
+            if `False`, existing feature files are not overwritten
+        use_fraction : float, default 1
+            the fraction of the clusters to use (first N in alphabetic order)
+        load_to_ram : bool, default False
+            if `True`, the data will be stored in RAM (use with caution! if RAM isn&#39;t big enough the machine might crash)
+        debug : bool, default False
+            only process 1000 files
+        interpolate : {&#34;none&#34;, &#34;only_middle&#34;, &#34;all&#34;}
+            `&#34;none&#34;` for no interpolation, `&#34;only_middle&#34;` for only linear interpolation in the middle, `&#34;all&#34;` for linear interpolation + ends generation
+        node_features_type : {&#34;zeros&#34;, &#34;dihedral&#34;, &#34;sidechain_orientation&#34;, &#34;chemical&#34;, &#34;secondary_structure&#34; or combinations with &#34;+&#34;}
+            the type of node features, e.g. `&#34;dihedral&#34;` or `&#34;sidechain_orientation+chemical&#34;`
+        debug_file_path : str, optional
+            if not `None`, open this single file instead of loading the dataset
+        entry_type : {&#34;biounit&#34;, &#34;chain&#34;, &#34;pair&#34;}
+            the type of entries to generate (`&#34;biounit&#34;` for biounit-level complexes, `&#34;chain&#34;` for chain-level, `&#34;pair&#34;`
+            for chain-chain pairs (all pairs that are seen in the same biounit and have intersecting coordinate clouds))
+        classes_to_exclude : list of str, optional
+            a list of classes to exclude from the dataset (select from `&#34;single_chains&#34;`, `&#34;heteromers&#34;`, `&#34;homomers&#34;`)
+        shuffle_clusters : bool, default True
+            if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
+        min_cdr_length : int, optional
+            for SAbDab datasets, biounits with CDRs shorter than `min_cdr_length` will be excluded
+        feature_functions : dict, optional
+            a dictionary of functions to compute additional features (keys are the names of the features, values are the functions)
+        &#34;&#34;&#34;
+
+        alphabet = ALPHABET
+        self.alphabet_dict = defaultdict(lambda: 0)
+        for i, letter in enumerate(alphabet):
+            self.alphabet_dict[letter] = i
+        self.alphabet_dict[&#34;X&#34;] = 0
+        self.files = defaultdict(lambda: defaultdict(list))  # file path by biounit id
+        self.loaded = None
+        self.dataset_folder = dataset_folder
+        self.features_folder = features_folder
+        self.feature_types = []
+        if node_features_type is not None:
+            self.feature_types = node_features_type.split(&#34;+&#34;)
+        self.entry_type = entry_type
+        self.shuffle_clusters = shuffle_clusters
+        self.feature_functions = {
+            &#34;sidechain_orientation&#34;: self._sidechain,
+            &#34;dihedral&#34;: self._dihedral,
+            &#34;chemical&#34;: self._chemical,
+            &#34;secondary_structure&#34;: self._sse,
+            &#34;sidechain_coords&#34;: self._sidechain_coords,
+        }
+        self.feature_functions.update(feature_functions or {})
+        if classes_to_exclude is not None and not all(
+            [
+                x in [&#34;single_chains&#34;, &#34;heteromers&#34;, &#34;homomers&#34;]
+                for x in classes_to_exclude
+            ]
+        ):
+            raise ValueError(
+                &#34;Invalid class to exclude, choose from &#39;single_chains&#39;, &#39;heteromers&#39;, &#39;homomers&#39;&#34;
+            )
+
+        if debug_file_path is not None:
+            self.dataset_folder = os.path.dirname(debug_file_path)
+            debug_file_path = os.path.basename(debug_file_path)
+
+        self.main_atom_dict = defaultdict(lambda: None)
+        d1to3 = {v: k for k, v in D3TO1.items()}
+        for i, letter in enumerate(alphabet):
+            if i == 0:
+                continue
+            self.main_atom_dict[i] = MAIN_ATOMS[d1to3[letter]]
+
+        # create feature folder if it does not exist
+        if not os.path.exists(self.features_folder):
+            os.makedirs(self.features_folder)
+
+        self.interpolate = interpolate
+        # generate the feature files
+        print(&#34;Processing files...&#34;)
+        if debug_file_path is None:
+            to_process = [
+                x for x in os.listdir(dataset_folder) if x.endswith(&#34;.pickle&#34;)
+            ]
+        else:
+            to_process = [debug_file_path]
+        if clustering_dict_path is not None and use_fraction &lt; 1:
+            with open(clustering_dict_path, &#34;rb&#34;) as f:
+                clusters = pickle.load(f)
+            keys = sorted(clusters.keys())[: int(len(clusters) * use_fraction)]
+            to_process = set()
+            for key in keys:
+                to_process.update([x[0] for x in clusters[key]])
+
+            file_set = set(os.listdir(dataset_folder))
+            to_process = [x for x in to_process if x in file_set]
+        if debug:
+            to_process = to_process[:1000]
+        if self.entry_type == &#34;pair&#34;:
+            print(
+                &#34;Please note that the pair entry type takes longer to process than the other two. The progress bar is not linear because of the varying number of chains per file.&#34;
+            )
+        output_tuples_list = p_map(
+            lambda x: self._process(
+                x, rewrite=rewrite, max_length=max_length, min_cdr_length=min_cdr_length
+            ),
+            to_process,
+        )
+        # save the file names
+        for output_tuples in output_tuples_list:
+            for id, filename, chain_set in output_tuples:
+                for chain in chain_set:
+                    self.files[id][chain].append(filename)
+        if classes_to_exclude is None:
+            classes_to_exclude = []
+        elif clustering_dict_path is None:
+            raise ValueError(
+                &#34;classes_to_exclude is not None, but clustering_dict_path is None&#34;
+            )
+        if clustering_dict_path is not None:
+            if entry_type == &#34;pair&#34;:
+                classes_to_exclude = set(classes_to_exclude)
+                classes_to_exclude.add(&#34;single_chains&#34;)
+                classes_to_exclude = list(classes_to_exclude)
+            with open(clustering_dict_path, &#34;rb&#34;) as f:
+                self.clusters = pickle.load(f)  # list of biounit ids by cluster id
+                classes = pickle.load(f)
+            to_exclude = set()
+            for c in classes_to_exclude:
+                for key, id_arr in classes.get(c, {}).items():
+                    for id, _ in id_arr:
+                        to_exclude.add(id)
+            for key in list(self.clusters.keys()):
+                cluster_list = []
+                for x in self.clusters[key]:
+                    if x[0] in to_exclude:
+                        continue
+                    id = x[0].split(&#34;.&#34;)[0]
+                    chain = x[1]
+                    if id not in self.files:
+                        continue
+                    if chain not in self.files[id]:
+                        continue
+                    if len(self.files[id][chain]) == 0:
+                        continue
+                    cluster_list.append([id, chain])
+                self.clusters[key] = cluster_list
+                if len(self.clusters[key]) == 0:
+                    self.clusters.pop(key)
+            self.data = list(self.clusters.keys())
+        else:
+            self.clusters = None
+            self.data = list(self.files.keys())
+        # create a smaller dataset if necessary (if we have clustering it&#39;s applied earlier)
+        if clustering_dict_path is None and use_fraction &lt; 1:
+            self.data = sorted(self.data)[: int(len(self.data) * use_fraction)]
+        if load_to_ram:
+            print(&#34;Loading to RAM...&#34;)
+            self.loaded = {}
+            seen = set()
+            for id in self.files:
+                for chain, file_list in self.files[id].items():
+                    for file in file_list:
+                        if file in seen:
+                            continue
+                        seen.add(file)
+                        with open(file, &#34;rb&#34;) as f:
+                            self.loaded[file] = pickle.load(f)
+        sample_file = list(self.files.keys())[0]
+        sample_chain = list(self.files[sample_file].keys())[0]
+        self.sabdab = &#34;__&#34; in sample_chain
+        self.cdr = 0
+        self.set_cdr(None)
+
+    def _interpolate(self, crd_i, mask_i):
+        &#34;&#34;&#34;
+        Fill in missing values in the middle with linear interpolation and (if fill_ends is true) build an initialization for the ends
+
+        For the ends, the first 10 residues are 3.6 A apart from each other on a straight line from the last known value away from the center.
+        Next they are 3.6 A apart in a random direction.
+        &#34;&#34;&#34;
+
+        if self.interpolate in [&#34;all&#34;, &#34;only_middle&#34;]:
+            crd_i[(1 - mask_i).astype(bool)] = np.nan
+            df = pd.DataFrame(crd_i.reshape((crd_i.shape[0], -1)))
+            crd_i = df.interpolate(limit_area=&#34;inside&#34;).values.reshape(crd_i.shape)
+        if self.interpolate == &#34;all&#34;:
+            non_nans = np.where(~np.isnan(crd_i[:, 0, 0]))[0]
+            known_start = non_nans[0]
+            known_end = non_nans[-1] + 1
+            if known_end &lt; len(crd_i) or known_start &gt; 0:
+                center = crd_i[non_nans, 2, :].mean(0)
+                if known_start &gt; 0:
+                    direction = crd_i[known_start, 2, :] - center
+                    direction = direction / linalg.norm(direction)
+                    for i in range(0, min(known_start, 10)):
+                        crd_i[known_start - i - 1] = (
+                            crd_i[known_start - i] + direction * 3.6
+                        )
+                    for i in range(min(known_start, 10), known_start):
+                        v = np.random.rand(3)
+                        v = v / linalg.norm(v)
+                        crd_i[known_start - i - 1] = crd_i[known_start - i] + v * 3.6
+                if known_end &lt; len(crd_i):
+                    to_add = len(crd_i) - known_end
+                    direction = crd_i[known_end - 1, 2, :] - center
+                    direction = direction / linalg.norm(direction)
+                    for i in range(0, min(to_add, 10)):
+                        crd_i[known_end + i] = (
+                            crd_i[known_end + i - 1] + direction * 3.6
+                        )
+                    for i in range(min(to_add, 10), to_add):
+                        v = np.random.rand(3)
+                        v = v / linalg.norm(v)
+                        crd_i[known_end + i] = crd_i[known_end + i - 1] + v * 3.6
+            mask_i = np.ones(mask_i.shape)
+        if self.interpolate in [&#34;only_middle&#34;]:
+            nan_mask = np.isnan(crd_i)  # in the middle the nans have been interpolated
+            mask_i[~np.isnan(crd_i[:, 0, 0])] = 1
+            crd_i[nan_mask] = 0
+        if self.interpolate == &#34;zeros&#34;:
+            non_nans = np.where(mask_i != 0)[0]
+            known_start = non_nans[0]
+            known_end = non_nans[-1] + 1
+            mask_i[known_start:known_end] = 1
+        return crd_i, mask_i
+
+    def _dihedral_angle(self, crd, msk):
+        &#34;&#34;&#34;Praxeolitic formula
+        1 sqrt, 1 cross product&#34;&#34;&#34;
+
+        p0 = crd[..., 0, :]
+        p1 = crd[..., 1, :]
+        p2 = crd[..., 2, :]
+        p3 = crd[..., 3, :]
+
+        b0 = -1.0 * (p1 - p0)
+        b1 = p2 - p1
+        b2 = p3 - p2
+
+        b1 /= np.expand_dims(np.linalg.norm(b1, axis=-1), -1) + 1e-7
+
+        v = b0 - np.expand_dims(np.einsum(&#34;bi,bi-&gt;b&#34;, b0, b1), -1) * b1
+        w = b2 - np.expand_dims(np.einsum(&#34;bi,bi-&gt;b&#34;, b2, b1), -1) * b1
+
+        x = np.einsum(&#34;bi,bi-&gt;b&#34;, v, w)
+        y = np.einsum(&#34;bi,bi-&gt;b&#34;, np.cross(b1, v), w)
+        dh = np.degrees(np.arctan2(y, x))
+        dh[1 - msk] = 0
+        return dh
+
+    def _dihedral(self, chain_dict, seq):
+        &#34;&#34;&#34;
+        Dihedral angles
+        &#34;&#34;&#34;
+
+        crd = chain_dict[&#34;crd_bb&#34;]
+        msk = chain_dict[&#34;msk&#34;]
+        angles = []
+        # N, C, Ca, O
+        # psi
+        p = crd[:-1, [0, 2, 1], :]
+        p = np.concatenate([p, crd[1:, [0], :]], 1)
+        p = np.pad(p, ((0, 1), (0, 0), (0, 0)))
+        angles.append(self._dihedral_angle(p, msk))
+        # phi
+        p = crd[:-1, [1], :]
+        p = np.concatenate([p, crd[1:, [0, 2, 1]]], 1)
+        p = np.pad(p, ((1, 0), (0, 0), (0, 0)))
+        angles.append(self._dihedral_angle(p, msk))
+        angles = np.stack(angles, -1)
+        return angles
+
+    def _sidechain(self, chain_dict, seq):
+        &#34;&#34;&#34;
+        Sidechain orientation (defined by the &#39;main atoms&#39; in the `main_atom_dict` dictionary)
+        &#34;&#34;&#34;
+
+        crd_sc = chain_dict[&#34;crd_sc&#34;]
+        crd_bb = chain_dict[&#34;crd_bb&#34;]
+        orientation = np.zeros((crd_sc.shape[0], 3))
+        for i in range(1, 21):
+            if self.main_atom_dict[i] is not None:
+                orientation[seq == i] = (
+                    crd_sc[seq == i, self.main_atom_dict[i], :] - crd_bb[seq == i, 2, :]
+                )
+            else:
+                S_mask = seq == i
+                orientation[S_mask] = np.random.rand(*orientation[S_mask].shape)
+        orientation /= np.expand_dims(linalg.norm(orientation, axis=-1), -1) + 1e-7
+        return orientation
+
+    def _chemical(self, chain_dict, seq):
+        &#34;&#34;&#34;
+        Chemical features (hydropathy, volume, charge, polarity, acceptor/donor)
+        &#34;&#34;&#34;
+
+        features = np.array([_PMAP(x) for x in seq])
+        return features
+
+    def _sse(self, chain_dict, seq):
+        &#34;&#34;&#34;
+        Secondary structure features
+        &#34;&#34;&#34;
+
+        sse_map = {&#34;c&#34;: [0, 0, 1], &#34;b&#34;: [0, 1, 0], &#34;a&#34;: [1, 0, 0], &#34;&#34;: [0, 0, 0]}
+        sse = _annotate_sse(chain_dict[&#34;crd_bb&#34;])
+        sse = np.array([sse_map[x] for x in sse]) * chain_dict[&#34;msk&#34;][:, None]
+        return sse
+
+    def _sidechain_coords(self, chain_dict, seq):
+        &#34;&#34;&#34;
+        Sidechain coordinates
+        &#34;&#34;&#34;
+
+        crd_sc = chain_dict[&#34;crd_sc&#34;]
+        return crd_sc
+
+    def _process(self, filename, rewrite=False, max_length=None, min_cdr_length=None):
+        &#34;&#34;&#34;
+        Process a proteinflow file and save it as ProteinMPNN features
+        &#34;&#34;&#34;
+
+        input_file = os.path.join(self.dataset_folder, filename)
+        no_extension_name = filename.split(&#34;.&#34;)[0]
+        with open(input_file, &#34;rb&#34;) as f:
+            data = pickle.load(f)
+        chains = sorted(data.keys())
+        if self.entry_type == &#34;biounit&#34;:
+            chain_sets = [chains]
+        elif self.entry_type == &#34;chain&#34;:
+            chain_sets = [[x] for x in chains]
+        elif self.entry_type == &#34;pair&#34;:
+            chain_sets = list(combinations(chains, 2))
+        else:
+            raise RuntimeError(
+                &#34;Unknown entry type, please choose from [&#39;biounit&#39;, &#39;chain&#39;, &#39;pair&#39;]&#34;
+            )
+        output_names = []
+        for chains_i, chain_set in enumerate(chain_sets):
+            output_file = os.path.join(
+                self.features_folder, no_extension_name + f&#34;_{chains_i}.pickle&#34;
+            )
+            pass_set = False
+            add_name = True
+            if os.path.exists(output_file) and not rewrite:
+                pass_set = True
+                if max_length is not None:
+                    if sum([len(data[x][&#34;seq&#34;]) for x in chain_set]) &gt; max_length:
+                        add_name = False
+                if min_cdr_length is not None:
+                    for chain in chain_set:
+                        if &#34;cdr&#34; not in data[chain]:
+                            continue
+                        u = np.unique(data[chain][&#34;cdr&#34;])
+                        for cdr_ in u:
+                            if (data[chain][&#34;cdr&#34;] == cdr_).sum() &lt; min_cdr_length:
+                                add_name = False
+            else:
+                X = []
+                S = []
+                mask = []
+                mask_original = []
+                chain_encoding_all = []
+                residue_idx = []
+                cdr = []
+                node_features = defaultdict(lambda: [])
+                last_idx = 0
+                chain_dict = {}
+
+                if max_length is not None:
+                    if sum([len(data[x][&#34;seq&#34;]) for x in chain_set]) &gt; max_length:
+                        pass_set = True
+                        add_name = False
+                if min_cdr_length is not None:
+                    for chain in chain_set:
+                        if &#34;cdr&#34; not in data[chain]:
+                            continue
+                        u = np.unique(data[chain][&#34;cdr&#34;])
+                        for cdr_ in u:
+                            if (data[chain][&#34;cdr&#34;] == cdr_).sum() &lt; min_cdr_length:
+                                add_name = False
+                                pass_set = True
+
+                if self.entry_type == &#34;pair&#34;:
+                    # intersect = []
+                    X1 = data[chain_set[0]][&#34;crd_bb&#34;][
+                        data[chain_set[0]][&#34;msk&#34;].astype(bool)
+                    ]
+                    X2 = data[chain_set[1]][&#34;crd_bb&#34;][
+                        data[chain_set[1]][&#34;msk&#34;].astype(bool)
+                    ]
+                    intersect_dim_X1 = []
+                    intersect_dim_X2 = []
+                    intersect_X1 = np.zeros(len(X1))
+                    intersect_X2 = np.zeros(len(X2))
+                    margin = 30
+                    cutoff = 10
+                    for dim in range(3):
+                        min_dim_1 = X1[:, 2, dim].min()
+                        max_dim_1 = X1[:, 2, dim].max()
+                        min_dim_2 = X2[:, 2, dim].min()
+                        max_dim_2 = X2[:, 2, dim].max()
+                        intersect_dim_X1.append(
+                            np.where(
+                                np.logical_and(
+                                    X1[:, 2, dim] &gt;= min_dim_2 - margin,
+                                    X1[:, 2, dim] &lt;= max_dim_2 + margin,
+                                )
+                            )[0]
+                        )
+                        intersect_dim_X2.append(
+                            np.where(
+                                np.logical_and(
+                                    X2[:, 2, dim] &gt;= min_dim_1 - margin,
+                                    X2[:, 2, dim] &lt;= max_dim_1 + margin,
+                                )
+                            )[0]
+                        )
+
+                        # if min_dim_1 - 4 &lt;= max_dim_2 and max_dim_1 &gt;= min_dim_2 - 4:
+                        #     intersect.append(True)
+                        # else:
+                        #     intersect.append(False)
+                        #     break
+                    intersect_X1 = np.intersect1d(
+                        np.intersect1d(intersect_dim_X1[0], intersect_dim_X1[1]),
+                        intersect_dim_X1[2],
+                    )
+                    intersect_X2 = np.intersect1d(
+                        np.intersect1d(intersect_dim_X2[0], intersect_dim_X2[1]),
+                        intersect_dim_X2[2],
+                    )
+
+                    not_end_mask1 = np.where(((X1[:, 2, :] == 0).sum(-1) != 3))[0]
+                    not_end_mask2 = np.where(((X2[:, 2, :] == 0).sum(-1) != 3))[0]
+
+                    intersect_X1 = np.intersect1d(intersect_X1, not_end_mask1)
+                    intersect_X2 = np.intersect1d(intersect_X2, not_end_mask2)
+
+                    # distances = torch.norm(X1[intersect_X1, 2, :] - X2[intersect_X2, 2, :](1), dim=-1)
+                    diff = X1[intersect_X1, 2, np.newaxis, :] - X2[intersect_X2, 2, :]
+                    distances = np.sqrt(np.sum(diff**2, axis=2))
+
+                    intersect_X1 = torch.LongTensor(intersect_X1)
+                    intersect_X2 = torch.LongTensor(intersect_X2)
+                    if np.sum(distances &lt; cutoff) &lt; 3:
+                        # if not all(intersect):
+                        pass_set = True
+                        add_name = False
+            if pass_set:
+                continue
+
+            cdr_chain_set = set()
+            for chain_i, chain in enumerate(chain_set):
+                seq = torch.tensor([self.alphabet_dict[x] for x in data[chain][&#34;seq&#34;]])
+                S.append(seq)
+                mask_original.append(deepcopy(data[chain][&#34;msk&#34;]))
+                if self.interpolate != &#34;none&#34;:
+                    data[chain][&#34;crd_bb&#34;], data[chain][&#34;msk&#34;] = self._interpolate(
+                        data[chain][&#34;crd_bb&#34;], data[chain][&#34;msk&#34;]
+                    )
+                X.append(data[chain][&#34;crd_bb&#34;])
+                mask.append(data[chain][&#34;msk&#34;])
+                residue_idx.append(torch.arange(len(data[chain][&#34;seq&#34;])) + last_idx)
+                if &#34;cdr&#34; in data[chain]:
+                    u, inv = np.unique(data[chain][&#34;cdr&#34;], return_inverse=True)
+                    cdr_chain = np.array([CDR[x] for x in u])[inv].reshape(
+                        data[chain][&#34;cdr&#34;].shape
+                    )
+                    cdr.append(cdr_chain)
+                    cdr_chain_set.update([f&#34;{chain}__{cdr}&#34; for cdr in u])
+                last_idx = residue_idx[-1][-1] + 100
+                chain_encoding_all.append(torch.ones(len(data[chain][&#34;seq&#34;])) * chain_i)
+                chain_dict[chain] = chain_i
+                for name in self.feature_types:
+                    if name not in self.feature_functions:
+                        continue
+                    func = self.feature_functions[name]
+                    node_features[name].append(func(data[chain], seq))
+
+            if add_name:
+                output_names.append(
+                    (
+                        os.path.basename(no_extension_name),
+                        output_file,
+                        chain_set if len(cdr_chain_set) == 0 else cdr_chain_set,
+                    )
+                )
+
+            out = {}
+            out[&#34;X&#34;] = torch.from_numpy(np.concatenate(X, 0))
+            out[&#34;S&#34;] = torch.cat(S)
+            out[&#34;mask&#34;] = torch.from_numpy(np.concatenate(mask))
+            out[&#34;mask_original&#34;] = torch.from_numpy(np.concatenate(mask_original))
+            out[&#34;chain_encoding_all&#34;] = torch.cat(chain_encoding_all)
+            out[&#34;residue_idx&#34;] = torch.cat(residue_idx)
+            out[&#34;chain_dict&#34;] = chain_dict
+            out[&#34;pdb_id&#34;] = no_extension_name.split(&#34;-&#34;)[0]
+            if len(cdr) != 0:
+                out[&#34;cdr&#34;] = torch.from_numpy(np.concatenate(cdr))
+            for key, value_list in node_features.items():
+                out[key] = torch.from_numpy(np.concatenate(value_list))
+            with open(output_file, &#34;wb&#34;) as f:
+                pickle.dump(out, f)
+        return output_names
+
+    def set_cdr(self, cdr):
+        &#34;&#34;&#34;
+        Set the CDR to be iterated over (only for SAbDab datasets).
+
+        Parameters
+        ----------
+        cdr : {&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;}
+            The CDR to be iterated over. Set to `None` to go back to iterating over all chains.
+        &#34;&#34;&#34;
+
+        if not self.sabdab:
+            cdr = None
+        if cdr == self.cdr:
+            return
+        self.cdr = cdr
+        if cdr is None:
+            self.indices = list(range(len(self.data)))
+        else:
+            self.indices = []
+            print(f&#34;Setting CDR to {cdr}...&#34;)
+            for i, data in tqdm(enumerate(self.data)):
+                if self.clusters is not None:
+                    if data.split(&#34;__&#34;)[1] == cdr:
+                        self.indices.append(i)
+                else:
+                    add = False
+                    for chain in self.files[data]:
+                        if chain.split(&#34;__&#34;)[1] == cdr:
+                            add = True
+                            break
+                    if add:
+                        self.indices.append(i)
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        chain_id = None
+        cdr = None
+        idx = self.indices[idx]
+        if self.clusters is None:
+            id = self.data[idx]  # data is already filtered by length
+            chain_id = random.choice(list(self.files[id].keys()))
+            if self.cdr is not None:
+                while self.cdr != chain_id.split(&#34;__&#34;)[1]:
+                    chain_id = random.choice(list(self.files[id].keys()))
+        else:
+            cluster = self.data[idx]
+            id = None
+            chain_n = -1
+            while (
+                id is None or len(self.files[id][chain_id]) == 0
+            ):  # some IDs can be filtered out by length
+                if self.shuffle_clusters:
+                    chain_n = random.randint(0, len(self.clusters[cluster]) - 1)
+                else:
+                    chain_n += 1
+                id, chain_id = self.clusters[cluster][
+                    chain_n
+                ]  # get id and chain from cluster
+        file = random.choice(self.files[id][chain_id])
+        if &#34;__&#34; in chain_id:
+            chain_id, cdr = chain_id.split(&#34;__&#34;)
+        if self.loaded is None:
+            with open(file, &#34;rb&#34;) as f:
+                try:
+                    data = pickle.load(f)
+                except EOFError:
+                    print(&#34;EOFError&#34;, file)
+                    raise
+        else:
+            data = deepcopy(self.loaded[file])
+        data[&#34;chain_id&#34;] = data[&#34;chain_dict&#34;][chain_id]
+        if cdr is not None:
+            data[&#34;cdr_id&#34;] = CDR[cdr]
+        return data</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>torch.utils.data.dataset.Dataset</li>
+<li>typing.Generic</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="proteinflow.protein_dataset.ProteinDataset.set_cdr"><code class="name flex">
+<span>def <span class="ident">set_cdr</span></span>(<span>self, cdr)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Set the CDR to be iterated over (only for SAbDab datasets).</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>cdr</code></strong> :&ensp;<code>{"H1", "H2", "H3", "L1", "L2", "L3"}</code></dt>
+<dd>The CDR to be iterated over. Set to <code>None</code> to go back to iterating over all chains.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def set_cdr(self, cdr):
+    &#34;&#34;&#34;
+    Set the CDR to be iterated over (only for SAbDab datasets).
+
+    Parameters
+    ----------
+    cdr : {&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;}
+        The CDR to be iterated over. Set to `None` to go back to iterating over all chains.
+    &#34;&#34;&#34;
+
+    if not self.sabdab:
+        cdr = None
+    if cdr == self.cdr:
+        return
+    self.cdr = cdr
+    if cdr is None:
+        self.indices = list(range(len(self.data)))
+    else:
+        self.indices = []
+        print(f&#34;Setting CDR to {cdr}...&#34;)
+        for i, data in tqdm(enumerate(self.data)):
+            if self.clusters is not None:
+                if data.split(&#34;__&#34;)[1] == cdr:
+                    self.indices.append(i)
+            else:
+                add = False
+                for chain in self.files[data]:
+                    if chain.split(&#34;__&#34;)[1] == cdr:
+                        add = True
+                        break
+                if add:
+                    self.indices.append(i)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<header>
+<a class="homelink" rel="home" title="pdoc Home" href="https://adaptyvbio.github.io/ProteinFlow/">
+<img src="https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/logo.png" alt="">
+</a>
+</header>
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="proteinflow" href="index.html">proteinflow</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="proteinflow.protein_dataset.ProteinDataset" href="#proteinflow.protein_dataset.ProteinDataset">ProteinDataset</a></code></h4>
+<ul class="">
+<li><code><a title="proteinflow.protein_dataset.ProteinDataset.set_cdr" href="#proteinflow.protein_dataset.ProteinDataset.set_cdr">set_cdr</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>

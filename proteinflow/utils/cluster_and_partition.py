@@ -6,7 +6,13 @@ import networkx as nx
 from tqdm import tqdm
 from collections import defaultdict
 from itertools import combinations
-from proteinflow.sequences import _create_pdb_seqs_dict, _load_pdbs, _merge_chains, _retrieve_seqs_names_list, _write_fasta
+from proteinflow.sequences import (
+    _create_pdb_seqs_dict,
+    _load_pdbs,
+    _merge_chains,
+    _retrieve_seqs_names_list,
+    _write_fasta,
+)
 
 from proteinflow.utils.common_utils import _find_correspondances, _test_availability
 

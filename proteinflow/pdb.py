@@ -8,9 +8,23 @@ import pickle
 from Bio import pairwise2
 from biopandas.pdb import PandasPdb
 from proteinflow.utils.common_utils import PDBError, _split_every
-from proteinflow.constants import ALPHABET_PDB, ATOM_MAP_1, ATOM_MAP_3, ATOM_MAP_4, BACKBONE_ORDER, D3TO1, GLOBAL_PAD_CHAR, ONE_TO_THREE_LETTER_MAP, SIDECHAIN_ORDER
+from proteinflow.constants import (
+    ALPHABET_PDB,
+    ATOM_MAP_1,
+    ATOM_MAP_3,
+    ATOM_MAP_4,
+    BACKBONE_ORDER,
+    D3TO1,
+    GLOBAL_PAD_CHAR,
+    ONE_TO_THREE_LETTER_MAP,
+    SIDECHAIN_ORDER,
+)
 from proteinflow.custom_mmcif import CustomMmcif
-from proteinflow.sequences import _compare_seqs, _get_chothia_cdr, _retrieve_fasta_chains
+from proteinflow.sequences import (
+    _compare_seqs,
+    _get_chothia_cdr,
+    _retrieve_fasta_chains,
+)
 
 
 class PdbBuilder(object):
@@ -128,7 +142,7 @@ class PdbBuilder(object):
                 _slice = _slice[non_pad_locs]
             yield _slice
             coord_idx += atoms_per_res
-    
+
     def _coord_generator(self):
         """Return a generator to iteratively yield self.atoms_per_res atoms at a time."""
         return self.coord_generator(self.coords, self.atoms_per_res)
