@@ -8,7 +8,7 @@ from collections import defaultdict
 from itertools import combinations
 from proteinflow.sequences import _create_pdb_seqs_dict, _load_pdbs, _merge_chains, _retrieve_seqs_names_list, _write_fasta
 
-from proteinflow.utils.common_utils import _find_correspondances, test_availability
+from proteinflow.utils.common_utils import _find_correspondances, _test_availability
 
 
 def _run_mmseqs2(fasta_file, tmp_folder, min_seq_id, cdr=None):
@@ -582,7 +582,7 @@ def _fill_dataset(
     """
 
     single_chains_size, homomers_size, heteromers_size = 0, 0, 0
-    sc_available, hm_available, ht_available = test_availability(
+    sc_available, hm_available, ht_available = _test_availability(
         size_array, n_samples
     )  # rule of thumb to estimate if it is logical to try to fill the dataset with a given class
     distribution_satisfied = False

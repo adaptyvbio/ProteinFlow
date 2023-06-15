@@ -7,7 +7,7 @@ import pickle
 
 from Bio import pairwise2
 from biopandas.pdb import PandasPdb
-from proteinflow.utils.common_utils import PDBError, split_every
+from proteinflow.utils.common_utils import PDBError, _split_every
 from proteinflow.constants import ALPHABET_PDB, ATOM_MAP_1, ATOM_MAP_3, ATOM_MAP_4, BACKBONE_ORDER, D3TO1, GLOBAL_PAD_CHAR, ONE_TO_THREE_LETTER_MAP, SIDECHAIN_ORDER
 from proteinflow.custom_mmcif import CustomMmcif
 from proteinflow.sequences import _compare_seqs, _get_chothia_cdr, _retrieve_fasta_chains
@@ -275,7 +275,7 @@ class PdbBuilder(object):
             lineno = 1
             seq_chain = seq[self.chain_ids == chain]
             three_letter_seq = [ONE_TO_THREE_LETTER_MAP[c] for c in seq_chain]
-            residue_blocks = list(split_every(13, three_letter_seq))
+            residue_blocks = list(_split_every(13, three_letter_seq))
             nres = len(self.seq)
             for block in residue_blocks:
                 res_block_str = " ".join(block)

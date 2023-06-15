@@ -6,11 +6,12 @@ import traceback
 import pickle
 import numpy as np
 
+
 class PDBError(ValueError):
     pass
 
 
-def split_every(n, iterable):
+def _split_every(n, iterable):
     """Split iterable into chunks. From https://stackoverflow.com/a/1915307/2780645."""
     i = iter(iterable)
     piece = list(itertools.islice(i, n))
@@ -83,7 +84,7 @@ def _make_sabdab_html(method, resolution_thr):
     return html
 
 
-def test_availability(
+def _test_availability(
     size_array,
     n_samples,
 ):
