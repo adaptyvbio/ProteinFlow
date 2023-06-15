@@ -230,6 +230,8 @@ import string
 from einops import rearrange
 import tempfile
 
+very_long_line = "###############################################################################################################################################################################################"
+
 
 def _get_split_dictionaries(
     tmp_folder="./data/tmp_pdb",
