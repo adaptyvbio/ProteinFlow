@@ -1,0 +1,43 @@
+name: Run pytest
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+
+jobs:
+
+  update:
+      runs-on: ubuntu-latest
+      permissions: 
+        contents: write
+      needs: test
+
+      steps:
+        - uses: actions/checkout@v3
+          with:
+              fetch-depth: 0
+              token: ${{ secrets.PAT }}
+        - name: Install dependencies
+          run: |
+            conda create --name proteinflow -y python=3.9
+            conda run -n proteinflow python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
+            conda run -n proteinflow python -m pip install numpy
+            conda run -n proteinflow python -m pip install -e .
+        - name: Install pdoc3 and black
+          run: |
+            conda run -n proteinflow python -m pip install pdoc3 black
+        - name: Reformat the code
+          run: |
+            conda run -n proteinflow black .
+        - name: Update the docs
+          run: |
+            git pull
+            conda run -n proteinflow . make_docs.sh
+            echo ${{ needs.test.outputs.update }}
+        - uses: stefanzweifel/git-auto-commit-action@v4
+          with:
+            commit_message: auto update
+            skip_checkout: true

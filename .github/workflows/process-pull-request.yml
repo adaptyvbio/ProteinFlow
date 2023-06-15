@@ -1,4 +1,4 @@
-name: Test and update docs
+name: Run pytest
 
 on:
   pull_request:
@@ -19,27 +19,11 @@ jobs:
         version: ["3.8", "3.9", "3.10"]
 
     steps:
-      - name: Check if relevant files have changed
-        uses: actions/github-script@0.9.0
-        id: service-changed
-        with:
-          result-encoding: string
-          script: |
-            const result = await github.pulls.listFiles({
-              owner: context.payload.repository.owner.login,
-              repo: context.payload.repository.name,
-              pull_number: context.payload.number,
-              per_page: 100
-            })
-            const serviceChanged = result.data.filter(f => f.filename.startsWith("proteinflow/")).length > 0
-            console.log(serviceChanged)
-            return serviceChanged
       - uses: actions/checkout@v3
-        if: ${{ steps.service-changed.outputs.result == 'true' && !startsWith(github.event.head_commit.message, 'auto update') }}
+        if: ${{ !startsWith(github.event.head_commit.message, 'auto update') }}
         with:
             ref: ${{ env.MY_REF}}
             fetch-depth: 0
-            token: ${{ secrets.PAT }}
       - name: Get Commit Message
         run: |
           MSG=$(git log --format=%B -n 1 ${{github.event.after}})
@@ -48,7 +32,7 @@ jobs:
         run: |
           echo "Commit SHA: ${{github.event.after}}, commit message: ${{env.COMMIT_MESSAGE}} (or ${COMMIT_MESSAGE})"
       - name: Install dependencies
-        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
+        if: ${{ env.COMMIT_MESSAGE != 'auto update' }}
         run: |
           conda update conda -y
           conda create --name proteinflow -y python=${{ matrix.version }}
@@ -60,68 +44,13 @@ jobs:
           conda run -n proteinflow python -m pip install -e .
 
       - name: Lint with flake8
-        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
+        if: ${{ env.COMMIT_MESSAGE != 'auto update' }}
         run: |
           # stop the build if there are Python syntax errors or undefined names
           conda run -n proteinflow flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
           conda run -n proteinflow flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test with pytest
-        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
+        if: ${{ env.COMMIT_MESSAGE != 'auto update' }}
         run: |
           conda run -n proteinflow pytest tests
-
-  update:
-    runs-on: ubuntu-latest
-    permissions: 
-      contents: write
-    needs: test
-
-    steps:
-      - name: Check if relevant files have changed
-        uses: actions/github-script@0.9.0
-        id: service-changed
-        with:
-          result-encoding: string
-          script: |
-            const result = await github.pulls.listFiles({
-              owner: context.payload.repository.owner.login,
-              repo: context.payload.repository.name,
-              pull_number: context.payload.number,
-              per_page: 100
-            })
-            const serviceChanged = result.data.filter(f => f.filename.startsWith("proteinflow/")).length > 0
-            console.log(serviceChanged)
-            return serviceChanged
-      - uses: actions/checkout@v3
-        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
-        with:
-            ref: ${{ env.MY_REF}}
-            fetch-depth: 0
-            token: ${{ secrets.PAT }}
-      - name: Install dependencies
-        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
-        run: |
-          conda create --name proteinflow -y python=3.9
-          conda run -n proteinflow python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
-          conda run -n proteinflow python -m pip install numpy
-          conda run -n proteinflow python -m pip install -e .
-      - name: Install pdoc3 and black
-        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
-        run: |
-          conda run -n proteinflow python -m pip install pdoc3 black
-      - name: Reformat the code
-        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
-        run: |
-          conda run -n proteinflow black .
-      - name: Update the docs
-        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
-        run: |
-          git pull
-          conda run -n proteinflow . make_docs.sh
-          echo ${{ needs.test.outputs.update }}
-      - uses: stefanzweifel/git-auto-commit-action@v4
-        if: ${{ steps.service-changed.outputs.result == 'true' && env.COMMIT_MESSAGE != 'auto update' }}
-        with:
-          commit_message: auto update
-          skip_checkout: true
