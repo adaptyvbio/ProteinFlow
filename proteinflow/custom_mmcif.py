@@ -5,6 +5,12 @@ import pandas as pd
 
 
 class CustomMmcif(PandasMmcif):
+    """
+    A modification of `PandasMmcif` 
+    
+    Adds a `get_model` method and renames the columns to match PDB format.
+    """
+
     def read_mmcif(self, path: str):
         x = super().read_mmcif(path)
         x.df["ATOM"].rename(
@@ -30,10 +36,12 @@ class CustomMmcif(PandasMmcif):
 
     def get_model(self, model_index: int):
         """Returns a new PandasPDB object with the dataframes subset to the given model index.
+
         Parameters
         ----------
         model_index : int
             An integer representing the model index to subset to.
+
         Returns
         ---------
         pandas_pdb.PandasPdb : A new PandasPdb object containing the
