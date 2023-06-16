@@ -76,7 +76,8 @@ jobs:
         python-version: 3.9 # Values previously defined in `matrix`
         platform_linux-64: true
         platform_osx-64: true
-        platform_win-64: true
-        user: uibcdf
+        platform_osx-arm64: true
+        overwrite: true
+        user: adaptyvbio
         label: auto
         token: ${{ secrets.ANACONDA_TOKEN }} # Replace with the right name of your secret
