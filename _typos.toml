@@ -1,6 +1,0 @@
-[files]
-extend-exclude = ["proteinflow/constants.py", "_typos.toml"]
-
-[default.extend_words]
-SER = "SER"
-ND1 = "ND1"

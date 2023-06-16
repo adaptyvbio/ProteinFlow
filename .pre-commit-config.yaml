@@ -28,8 +28,12 @@ repos:
     hooks:
       - id: pyupgrade
         args: [--py36-plus]
--   repo: https://github.com/crate-ci/typos
-    rev: v1.15.0
+-   repo: https://github.com/codespell-project/codespell
+    rev: v1.16.0
     hooks:
-      - id: typos
-        args: ["--config", "_typos.toml", "-w"]
+    -   id: codespell
+        name: codespell
+        description: Checks for common misspellings in text files.
+        entry: codespell -L SER --skip  "*ipynb,./proteinflow/constants.py"
+        language: python
+        types: [text]
