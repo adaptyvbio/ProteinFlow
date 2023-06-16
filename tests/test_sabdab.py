@@ -1,11 +1,7 @@
-from proteinflow import generate_data, split_data
+from proteinflow import generate_data
 import os
-import pickle
-from collections import defaultdict
-import editdistance
 import shutil
 from time import time
-import pytest
 from proteinflow import ProteinLoader
 
 

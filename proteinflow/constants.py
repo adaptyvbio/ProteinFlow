@@ -1,3 +1,5 @@
+"""Constants used throughout the proteinflow package."""
+
 from collections import defaultdict, namedtuple
 
 import numpy as np
@@ -124,14 +126,6 @@ FEATURES_DICT["acceptor"].update(
 FEATURES_DICT["donor"].update(
     {**{x: 1 for x in "RKWNQHSTY"}, **{x: 0 for x in "DEACGILMFPV-"}}
 )
-_PMAP = lambda x: [
-    FEATURES_DICT["hydropathy"][x] / 5,
-    FEATURES_DICT["volume"][x] / 200,
-    FEATURES_DICT["charge"][x],
-    FEATURES_DICT["polarity"][x],
-    FEATURES_DICT["acceptor"][x],
-    FEATURES_DICT["donor"][x],
-]
 CDR = {"-": 0, "H1": 1, "H2": 2, "H3": 3, "L1": 4, "L2": 5, "L3": 6}
 
 ALLOWED_AG_TYPES = {
@@ -216,3 +210,14 @@ ONE_TO_THREE_LETTER_MAP = {
 ATOM_MAP_4 = {a: ["N", "C", "CA", "O"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
 ATOM_MAP_1 = {a: ["CA"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
 ATOM_MAP_3 = {a: ["N", "C", "CA"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
+
+
+def _PMAP(x):
+    return [
+        FEATURES_DICT["hydropathy"][x] / 5,
+        FEATURES_DICT["volume"][x] / 200,
+        FEATURES_DICT["charge"][x],
+        FEATURES_DICT["polarity"][x],
+        FEATURES_DICT["acceptor"][x],
+        FEATURES_DICT["donor"][x],
+    ]

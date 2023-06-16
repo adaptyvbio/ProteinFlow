@@ -5,7 +5,6 @@ from collections import defaultdict
 import editdistance
 import shutil
 from time import time
-import pytest
 
 
 def get_class(seqs_dict):

@@ -1,3 +1,5 @@
+"""Protein loader class inherited from `torch.utils.data.DataLoader`."""
+
 import random
 import numpy as np
 import torch
@@ -8,9 +10,7 @@ from proteinflow.protein_dataset import ProteinDataset
 
 
 class _PadCollate:
-    """
-    A variant of `collate_fn` that pads according to the longest sequence in
-    a batch of sequences
+    """A variant of `collate_fn` that pads according to the longest sequence in a batch of sequences.
 
     If `mask_residues` is `True`, an additional `'masked_res'` key is added to the output. The value is a binary
     tensor where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated
@@ -21,6 +21,7 @@ class _PadCollate:
 
     If `force_binding_sites_frac` > 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
     from a polymer is sampled, the center of the masked region will be forced to be in a binding site.
+
     """
 
     def __init__(
@@ -33,7 +34,8 @@ class _PadCollate:
         force_binding_sites_frac=0.15,
         mask_all_cdrs=False,
     ):
-        """
+        """Initialize a _PadCollate object.
+
         Parameters
         ----------
         batch : dict
@@ -57,8 +59,8 @@ class _PadCollate:
         chain_M : torch.Tensor
             a `(B, L)` shaped binary tensor where 1 denotes the part that needs to be predicted and
             0 is everything else
-        """
 
+        """
         super().__init__()
         self.mask_residues = mask_residues
         self.lower_limit = lower_limit
@@ -72,8 +74,7 @@ class _PadCollate:
         self,
         batch,
     ):
-        """
-        Get the mask for the residues that need to be predicted
+        """Get the mask for the residues that need to be predicted.
 
         Depending on the parameters the residues are selected as follows:
         - if `mask_whole_chains` is `True`, the whole chain is masked
@@ -93,8 +94,8 @@ class _PadCollate:
         chain_M : torch.Tensor
             a `(B, L)` shaped binary tensor where 1 denotes the part that needs to be predicted and
             0 is everything else
-        """
 
+        """
         if "cdr" in batch and "cdr_id" in batch:
             chain_M = torch.zeros_like(batch["cdr"])
             for i, cdr_arr in enumerate(batch["cdr"]):
@@ -210,8 +211,7 @@ class _PadCollate:
 
 
 class ProteinLoader(DataLoader):
-    """
-    A subclass of `torch.data.utils.DataLoader` tuned for the `proteinflow` dataset
+    """A subclass of `torch.data.utils.DataLoader` tuned for the `proteinflow` dataset.
 
     Creates and iterates over an instance of `ProteinDataset`, omitting the `'chain_dict'` keys.
     See the `ProteinDataset` documentation for more information.
@@ -246,7 +246,8 @@ class ProteinLoader(DataLoader):
         *args,
         **kwargs,
     ):
-        """
+        """Initialize a ProteinLoader instance.
+
         Parameters
         ----------
         dataset : ProteinDataset

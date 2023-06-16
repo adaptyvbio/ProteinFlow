@@ -44,59 +44,39 @@ def _s3list(
     list_objs=True,
     limit=None,
 ):
-    """
-    Iterator that lists a bucket's objects under path, (optionally) starting with
-    start and ending before end.
+    """Iterator that lists a bucket's objects under path, (optionally) starting with start and ending before end.
 
     If recursive is False, then list only the "depth=0" items (dirs and objects).
 
     If recursive is True, then list recursively all objects (no dirs).
 
-    Args:
-        bucket:
-            a boto3.resource('s3').Bucket().
-        path:
-            a directory in the bucket.
-        start:
-            optional: start key, inclusive (may be a relative path under path, or
-            absolute in the bucket)
-        end:
-            optional: stop key, exclusive (may be a relative path under path, or
-            absolute in the bucket)
-        recursive:
-            optional, default True. If True, lists only objects. If False, lists
-            only depth 0 "directories" and objects.
-        list_dirs:
-            optional, default True. Has no effect in recursive listing. On
-            non-recursive listing, if False, then directories are omitted.
-        list_objs:
-            optional, default True. If False, then directories are omitted.
-        limit:
-            optional. If specified, then lists at most this many items.
+    Parameters
+    ----------
+    bucket:
+        a boto3.resource('s3').Bucket().
+    path:
+        a directory in the bucket.
+    start:
+        optional: start key, inclusive (may be a relative path under path, or
+        absolute in the bucket)
+    end:
+        optional: stop key, exclusive (may be a relative path under path, or
+        absolute in the bucket)
+    recursive:
+        optional, default True. If True, lists only objects. If False, lists
+        only depth 0 "directories" and objects.
+    list_dirs:
+        optional, default True. Has no effect in recursive listing. On
+        non-recursive listing, if False, then directories are omitted.
+    list_objs:
+        optional, default True. If False, then directories are omitted.
+    limit:
+        optional. If specified, then lists at most this many items.
 
-    Returns:
+    Returns
+    -------
+    iterator
         an iterator of S3Obj.
-
-    Examples:
-        # set up
-        >>> s3 = boto3.resource('s3')
-        ... bucket = s3.Bucket('bucket-name')
-
-        # iterate through all S3 objects under some dir
-        >>> for p in s3list(bucket, 'some/dir'):
-        ...     print(p)
-
-        # iterate through up to 20 S3 objects under some dir, starting with foo_0010
-        >>> for p in s3list(bucket, 'some/dir', limit=20, start='foo_0010'):
-        ...     print(p)
-
-        # non-recursive listing under some dir:
-        >>> for p in s3list(bucket, 'some/dir', recursive=False):
-        ...     print(p)
-
-        # non-recursive listing under some dir, listing only dirs:
-        >>> for p in s3list(bucket, 'some/dir', recursive=False, list_objs=False):
-        ...     print(p)
     """
 
     kwargs = dict()
@@ -140,10 +120,7 @@ def _download_dataset_from_s3(
     dataset_path="./data/proteinflow_20221110/",
     s3_path="s3://ml4-main-storage/proteinflow_20221110/",
 ):
-    """
-    Download the pre-processed files
-    """
-
+    """Download the pre-processed files."""
     if s3_path.startswith("s3"):
         print("Downloading the dataset from s3...")
         subprocess.run(
@@ -155,10 +132,7 @@ def _download_dataset_from_s3(
 
 
 def _get_s3_paths_from_tag(tag):
-    """
-    Get the path to the data and split dictionary folders on S3 given a tag
-    """
-
+    """Get the path to the data and split dictionary folders on S3 given a tag."""
     dict_path = f"s3://proteinflow-datasets/{tag}/proteinflow_{tag}_splits_dict/"
     data_path = f"s3://proteinflow-datasets/{tag}/proteinflow_{tag}/"
     return data_path, dict_path
@@ -190,7 +164,7 @@ async def _download_file(client, snapshots, tmp_folder, id):
                 with open(local_path, "wb") as f:
                     f.write(obj)
                 return local_path
-            except Exception as e:
+            except Exception:
                 pass
     return id
 
@@ -215,7 +189,7 @@ async def _go(download_list, tmp_folder, snapshots):
 
 
 def _singleProcess(download_list, tmp_folder, snapshots):
-    """mission for single process"""
+    """Mission for single process."""
     loop = asyncio.new_event_loop()
     return loop.run_until_complete(
         _go(download_list, tmp_folder=tmp_folder, snapshots=snapshots)

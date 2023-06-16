@@ -128,10 +128,10 @@ def _merge_chains(seqs_dict_):
             ref_seqs.append(ref_seq)
             indexes.append(k)
 
-            for l in range(k + 1, len(seqs_dict[pdb])):
-                chain, seq = seqs_dict[pdb][l][0], seqs_dict[pdb][l][1]
+            for i in range(k + 1, len(seqs_dict[pdb])):
+                chain, seq = seqs_dict[pdb][i][0], seqs_dict[pdb][i][1]
                 if (
-                    l in indexes
+                    i in indexes
                     or len(seq) > 1.1 * len(ref_seq)
                     or len(seq) < 0.9 * len(ref_seq)
                     or editdistance.eval(seq, ref_seq) / max(len(seq), len(ref_seq))
@@ -139,7 +139,7 @@ def _merge_chains(seqs_dict_):
                 ):
                     continue
                 group.append(chain)
-                indexes.append(l)
+                indexes.append(i)
 
             groups.append(group)
 
