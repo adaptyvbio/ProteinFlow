@@ -12,27 +12,33 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    permissions: 
-      contents: write
     strategy:
       matrix:
         version: ["3.8", "3.9", "3.10"]
 
     steps:
+      - name: Check if relevant files have changed
+        uses: actions/github-script@0.9.0
+        id: service-changed
+        with:
+          result-encoding: string
+          script: |
+            const result = await github.pulls.listFiles({
+              owner: context.payload.repository.owner.login,
+              repo: context.payload.repository.name,
+              pull_number: context.payload.number,
+              per_page: 100
+            })
+            const serviceChanged = result.data.filter(f => f.filename.startsWith("proteinflow/")).length > 0
+            console.log(serviceChanged)
+            return serviceChanged
       - uses: actions/checkout@v3
-        if: ${{ !startsWith(github.event.head_commit.message, 'auto update') }}
+        if: ${{ steps.service-changed.outputs.result == 'true' }}
         with:
             ref: ${{ env.MY_REF}}
             fetch-depth: 0
-      - name: Get Commit Message
-        run: |
-          MSG=$(git log --format=%B -n 1 ${{github.event.after}})
-          echo "::set-env name=COMMIT_MESSAGE::${MSG}"
-      - name: Echo commit message
-        run: |
-          echo "Commit SHA: ${{github.event.after}}, commit message: ${{env.COMMIT_MESSAGE}} (or ${COMMIT_MESSAGE})"
       - name: Install dependencies
-        if: ${{ env.COMMIT_MESSAGE != 'auto update' }}
+        if: ${{ steps.service-changed.outputs.result == 'true' }}
         run: |
           conda update conda -y
           conda create --name proteinflow -y python=${{ matrix.version }}
@@ -44,13 +50,13 @@ jobs:
           conda run -n proteinflow python -m pip install -e .
 
       - name: Lint with flake8
-        if: ${{ env.COMMIT_MESSAGE != 'auto update' }}
+        if: ${{ steps.service-changed.outputs.result == 'true' }}
         run: |
           # stop the build if there are Python syntax errors or undefined names
           conda run -n proteinflow flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
           conda run -n proteinflow flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test with pytest
-        if: ${{ env.COMMIT_MESSAGE != 'auto update' }}
+        if: ${{ steps.service-changed.outputs.result == 'true' }}
         run: |
           conda run -n proteinflow pytest tests
