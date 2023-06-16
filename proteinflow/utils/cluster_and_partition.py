@@ -15,7 +15,7 @@ from proteinflow.sequences import (
     _retrieve_seqs_names_list,
     _write_fasta,
 )
-from proteinflow.utils.common_utils import _find_correspondances, _test_availability
+from proteinflow.utils.common_utils import _find_correspondences, _test_availability
 
 
 def _run_mmseqs2(fasta_file, tmp_folder, min_seq_id, cdr=None):
@@ -159,24 +159,24 @@ def _divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
                 homomers.append((file_names[0], chain))
 
         elif len(seqs) == 1:
-            correspondances = _find_correspondances(file_names, dataset_dir)
-            for biounit in correspondances.keys():
-                if len(correspondances[biounit]) == 1:
-                    single_chains.append((biounit, correspondances[biounit][0]))
+            correspondences = _find_correspondences(file_names, dataset_dir)
+            for biounit in correspondences.keys():
+                if len(correspondences[biounit]) == 1:
+                    single_chains.append((biounit, correspondences[biounit][0]))
                 else:
-                    for chain in correspondances[biounit]:
+                    for chain in correspondences[biounit]:
                         homomers.append((biounit, chain))
 
         else:
-            correspondances = _find_correspondances(file_names, dataset_dir)
-            for biounit in correspondances.keys():
-                if len(correspondances[biounit]) == 1:
-                    single_chains.append((biounit, correspondances[biounit][0]))
-                elif _check_for_heteromers(seqs, correspondances[biounit]):
-                    for chain in correspondances[biounit]:
+            correspondences = _find_correspondences(file_names, dataset_dir)
+            for biounit in correspondences.keys():
+                if len(correspondences[biounit]) == 1:
+                    single_chains.append((biounit, correspondences[biounit][0]))
+                elif _check_for_heteromers(seqs, correspondences[biounit]):
+                    for chain in correspondences[biounit]:
                         heteromers.append((biounit, chain))
                 else:
-                    for chain in correspondances[biounit]:
+                    for chain in correspondences[biounit]:
                         homomers.append((biounit, chain))
 
     return single_chains, homomers, heteromers
@@ -219,7 +219,7 @@ def _find_repartition(chains_dict, homomers, heteromers):
     Return a dictionary similar to the one created by find_chains_in_graph, with an additional level of classification for single chains, homomers and heteromers
 
     Dictionary structure : `{'single_chains' : {cluster_name : [biounit chains]}, 'homomers' : {cluster_name : [biounit chains]}, 'heteromers' : {cluster_name : [biounit chains]}}`.
-    Additionaly return the number of chains in each class (single chains, ...).
+    Additionally return the number of chains in each class (single chains, ...).
     """
 
     classes_dict = {
@@ -335,7 +335,7 @@ def _remove_elements_from_dataset(
     tolerance=0.2,
 ):
     """
-    Remove values from indices untill we get the required (`size_obj`) number of chains in the class of interest (`chain_class`)
+    Remove values from indices until we get the required (`size_obj`) number of chains in the class of interest (`chain_class`)
 
     Parameter `chain_class` corresponds to the single chain (0), homomer (1) or heteromer (2) class.
     """
@@ -393,7 +393,7 @@ def _add_elements_to_dataset(
     tolerance=0.2,
 ):
     """
-    Add values to indices untill we get the required (`size_obj`) number of chains in the class of interest (`chain_class`)
+    Add values to indices until we get the required (`size_obj`) number of chains in the class of interest (`chain_class`)
 
     Parameter `chain_class` corresponds to the single chain (0), homomer (1) or heteromer (2) class.
     """
@@ -738,12 +738,12 @@ def _split_dataset_with_graphs(
     """
     Given a graph representing connections between MMSeqs2 clusters, split the dataset between train, validation and test sets.
     Each onnected component of the graph is considered as a group.
-    Then, groups are splitted into the 3 sets so that each set has the right amount of biounits.
+    Then, groups are split into the 3 sets so that each set has the right amount of biounits.
     It has been observed that the biggest group represents about 15-20 % of all the biounits and thus it is automatically assigned to the train set.
     It is difficult to have the exact ratio of biounits in each set since biounits are manipulated by groups.
     However, within an acceptable tolerance (default 20 % of the split ratio - but in theory it can be smaller), the split ratios are respected.
     The process first try to randomly assign the groups to a set.
-    If after 50 trials the partition fails to comply to the requirements, the last partition is kept and small adjustements are made by moving groups from sets one by one untill the ratios are approximately respected.
+    If after 50 trials the partition fails to comply to the requirements, the last partition is kept and small adjustments are made by moving groups from sets one by one until the ratios are approximately respected.
     Note that for very small datasets (around 250 biounits), this method will probably fail. But it also does not make much sense to use it for so few data.
 
     Parameters
