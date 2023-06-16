@@ -30,12 +30,11 @@ jobs:
         # Channels: You can add more channel with a space separator
         Channels: 'conda-forge bioconda' 
         # Platforms: remove one or more of these platforms
-        Platforms: 'osx-64 linux-32 linux-64 noarch'
+        Platforms: 'osx-64 linux-32 linux-64 noarch osx-arm64'
         CondaUsername: ${{ secrets.CONDA_USERNAME }}
         CondaPassword: ${{ secrets.CONDA_PASSWORD }}
     
-    
-  other:
+  pypi_and_dockerhub:
     runs-on: ubuntu-latest
     name: Push to PyPI and DockerHub
 
