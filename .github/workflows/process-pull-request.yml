@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         version: ["3.8", "3.10"]
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [windows-latest]
 
     steps:
       - name: Check if relevant files have changed
@@ -38,26 +38,30 @@ jobs:
         with:
             ref: ${{ env.MY_REF}}
             fetch-depth: 0
+      - name: Launch conda in Windows
+        if: ${{ steps.service-changed.outputs.result == 'true' && matrix.os == 'windows-latest'}}
+        run: |
+          C:\Miniconda\condabin\conda.bat init powershell
       - name: Install dependencies
         if: ${{ steps.service-changed.outputs.result == 'true' }}
         run: |
-          conda update conda -y
-          conda create --name proteinflow -y python=${{ matrix.version }}
-          conda install -n proteinflow -c conda-forge -c bioconda mmseqs2
-          conda run -n proteinflow python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
-          conda run -n proteinflow python -m pip install awscli pytest flake8
-          conda run -n proteinflow python -m pip install numpy
-          conda run -n proteinflow python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
-          conda run -n proteinflow python -m pip install -e .
+          $CONDA/bin/conda update conda -y
+          $CONDA/bin/conda create --name proteinflow -y python=${{ matrix.version }}
+          $CONDA/bin/conda install -n proteinflow -c conda-forge -c bioconda mmseqs2
+          $CONDA/bin/conda run -n proteinflow python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
+          $CONDA/bin/conda run -n proteinflow python -m pip install awscli pytest flake8
+          $CONDA/bin/conda run -n proteinflow python -m pip install numpy
+          $CONDA/bin/conda run -n proteinflow python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
+          $CONDA/bin/conda run -n proteinflow python -m pip install -e .
 
       - name: Lint with flake8
         if: ${{ steps.service-changed.outputs.result == 'true' }}
         run: |
           # stop the build if there are Python syntax errors or undefined names
-          conda run -n proteinflow flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          $CONDA/bin/conda run -n proteinflow flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-          conda run -n proteinflow flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          $CONDA/bin/conda run -n proteinflow flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test with pytest
         if: ${{ steps.service-changed.outputs.result == 'true' }}
         run: |
-          conda run -n proteinflow pytest tests
+          $CONDA/bin/conda run -n proteinflow pytest tests
