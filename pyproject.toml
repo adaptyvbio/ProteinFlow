@@ -39,3 +39,8 @@ proteinflow = "proteinflow.scripts.proteinflow_cli:cli"
 
 [tool.setuptools.packages]
 find = {}
+
+[tool.pydocstyle]
+convention = "numpy"
+match_dir = 'proteinflow'
+match = '__init__.py'

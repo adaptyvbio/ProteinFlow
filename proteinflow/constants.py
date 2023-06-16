@@ -1,3 +1,5 @@
+"""Constants used throughout the proteinflow package."""
+
 from collections import defaultdict, namedtuple
 
 import numpy as np

@@ -1,14 +1,15 @@
-# Adapted from: https://github.com/biotite-dev/biotite
+"""
+This module contains a function to annotate secondary structure elements (SSEs) in a chain.
+
+Adapted from: https://github.com/biotite-dev/biotite.
+"""
 
 from biotite.structure.geometry import distance, angle, dihedral
 import numpy as np
 
 
 def _annotate_sse(X):
-    """
-    Annotation of secondary structure elements (SSEs) in a chain
-    """
-
+    """Annotation of secondary structure elements (SSEs) in a chain."""
     ca_coord = X[:, 2, :]
     length = ca_coord.shape[0]
 

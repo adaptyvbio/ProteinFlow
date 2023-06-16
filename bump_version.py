@@ -1,9 +1,19 @@
+"""Bump the version of the package in pyproject.toml and .conda/meta.yaml."""
+
 import click
 
 
 @click.option("--version", required=True)
 @click.command()
 def main(version):
+    """
+    Bump the version.
+
+    Parameters
+    ----------
+    version : str
+        The version to bump to
+    """
     with open("pyproject.toml", "r") as f:
         lines = f.readlines()
     with open("pyproject.toml", "w") as f:

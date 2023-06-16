@@ -8,3 +8,9 @@ repos:
     hooks:
       - id: interrogate
         args: [--quiet, --fail-under=70]
+-   repo: https://github.com/PyCQA/pydocstyle
+    rev: 6.1.1
+    hooks:
+      - id: pydocstyle
+        additional_dependencies:
+          - toml
