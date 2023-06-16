@@ -55,3 +55,7 @@ about:
 channels:
   - conda-forge
   - bioconda
+
+dependencies:   # Keep this block with only these two packages
+  - anaconda-client
+  - conda-build
