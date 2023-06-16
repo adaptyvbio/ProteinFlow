@@ -7,7 +7,7 @@ repos:
     rev: 1.5.0
     hooks:
       - id: interrogate
-        args: [--quiet, --fail-under=70]
+        args: ["--fail-under=70"]
 -   repo: https://github.com/PyCQA/pydocstyle
     rev: 6.1.1
     hooks:
@@ -28,3 +28,12 @@ repos:
     hooks:
       - id: pyupgrade
         args: [--py36-plus]
+-   repo: https://github.com/codespell-project/codespell
+    rev: v1.16.0
+    hooks:
+    -   id: codespell
+        name: codespell
+        description: Checks for common misspellings in text files.
+        entry: codespell -L ser --skip "*ipynb,*/constants.py"
+        language: python
+        types: [text]

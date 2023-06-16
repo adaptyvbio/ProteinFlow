@@ -1,13 +1,14 @@
+import click
+
 from proteinflow import (
     check_download_tags,
     check_pdb_snapshots,
     download_data,
     generate_data,
-    split_data,
     get_error_summary,
+    split_data,
     unsplit_data,
 )
-import click
 
 
 @click.group(help="A data processing pipeline for protein design ML tasks")

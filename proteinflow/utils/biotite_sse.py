@@ -4,8 +4,8 @@ This module contains a function to annotate secondary structure elements (SSEs) 
 Adapted from: https://github.com/biotite-dev/biotite.
 """
 
-from biotite.structure.geometry import distance, angle, dihedral
 import numpy as np
+from biotite.structure.geometry import angle, dihedral, distance
 
 
 def _annotate_sse(X):

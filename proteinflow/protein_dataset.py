@@ -741,7 +741,7 @@ def _split_data(
     ----------
     dataset_path : str, default "./data/proteinflow_20221110/"
         The path to the dataset folder containing pre-processed entries and a `splits_dict` folder with split dictionaries (downloaded or generated with `get_split_dictionaries`)
-    exculded_files : list, optional
+    excluded_files : list, optional
         A list of files to exclude from the dataset
     exclude_clusters : bool, default False
         If True, exclude all files in a cluster if at least one file in the cluster is in `excluded_files`
@@ -813,7 +813,7 @@ def _remove_database_redundancies(dir, seq_identity_threshold=0.9):
     """
     Remove all biounits in the database that are copies to another biounits in terms of sequence
 
-    Sequence identity is definded by the 'seq_identity_threshold' parameter for robust detection of sequence similarity (missing residues, point mutations, ...).
+    Sequence identity is defined by the 'seq_identity_threshold' parameter for robust detection of sequence similarity (missing residues, point mutations, ...).
 
     Parameters
     ----------
