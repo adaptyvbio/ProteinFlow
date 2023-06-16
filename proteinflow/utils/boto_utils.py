@@ -164,7 +164,7 @@ async def _download_file(client, snapshots, tmp_folder, id):
                 with open(local_path, "wb") as f:
                     f.write(obj)
                 return local_path
-            except Exception as e:
+            except Exception:
                 pass
     return id
 

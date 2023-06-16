@@ -1,7 +1,5 @@
 from biopandas.mmcif import PandasMmcif
 from copy import deepcopy
-import numpy as np
-import pandas as pd
 
 
 class CustomMmcif(PandasMmcif):

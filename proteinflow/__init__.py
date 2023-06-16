@@ -45,7 +45,7 @@ docker run -it -v /path/to/data:/media adaptyvbio/proteinflow bash
 ### Downloading pre-computed datasets (stable)
 Already precomputed datasets with consensus set of parameters and can be accessed and downloaded using the `proteinflow`. package. Check the output of `proteinflow check_tags` for a list of available tags.
 ```bash
-proteinflow download --tag 20230102_stable 
+proteinflow download --tag 20230102_stable
 ```
 
 ### Running the pipeline (PDB)
@@ -103,7 +103,7 @@ The output files are pickled nested dictionaries where first-level keys are chai
 - `'seq'`: a string of length `L` with residue types.
 
 In a SAbDab datasets, an additional key is added to the dictionary:
-- `'cdr'`: a `'numpy'` array of shape `(L,)` where CDR residues are marked with the corresponding type (`'H1'`, `'L1'`, ...) 
+- `'cdr'`: a `'numpy'` array of shape `(L,)` where CDR residues are marked with the corresponding type (`'H1'`, `'L1'`, ...)
     and non-CDR residues are marked with `'-'`.
 
 Once your data is ready, you can open the files with `pickle`.
@@ -121,7 +121,7 @@ for filename in os.listdir(train_folder):
     ...
 ```
 
-Alternatively, you can use our `ProteinDataset` or `ProteinLoader` classes 
+Alternatively, you can use our `ProteinDataset` or `ProteinLoader` classes
 for convenient processing. Among other things, they allow for feature extraction, single chain / homomer / heteromer filtering and randomized sampling from sequence identity clusters.
 
 For example, here is how we can create a data loader that:
@@ -133,7 +133,7 @@ For example, here is how we can create a data loader that:
 ```python
 from proteinflow import ProteinLoader
 train_loader = ProteinLoader.from_args(
-    "./data/proteinflow_new/training", 
+    "./data/proteinflow_new/training",
     clustering_dict_path="./data/proteinflow_new/splits_dict/train.pickle",
     node_features_type="dihedral+sidechain_orientation+secondary_structure",
     entry_type="pair",
@@ -168,12 +168,7 @@ from proteinflow.utils.common_utils import (
     _raise_rcsbsearch,
 )
 from proteinflow.constants import (
-    _PMAP,
     ALLOWED_AG_TYPES,
-    ALPHABET,
-    CDR,
-    D3TO1,
-    MAIN_ATOMS,
     SIDECHAIN_ORDER,
 )
 from proteinflow.pdb import _align_structure, _open_structure
@@ -190,10 +185,7 @@ from proteinflow.utils.cluster_and_partition import (
     _build_dataset_partition,
     _check_mmseqs,
 )
-from proteinflow.utils.biotite_sse import _annotate_sse
 
-from aiobotocore.session import get_session
-import traceback
 import shutil
 import warnings
 import os
@@ -203,32 +195,21 @@ from rcsbsearch import Attr
 from datetime import datetime
 import subprocess
 import urllib
-import torch
-from torch.utils.data import Dataset, DataLoader
-import numpy as np
 import random
-import os
-import pickle
 from p_tqdm import p_map
-from collections import defaultdict
 from tqdm import tqdm
-from copy import deepcopy
 import pandas as pd
-from numpy import linalg
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
 from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor
-from itertools import combinations
 from editdistance import eval as edit_distance
 import requests
 import zipfile
 from bs4 import BeautifulSoup
 import urllib.request
 import string
-from einops import rearrange
-import tempfile
 
 
 def _get_split_dictionaries(
@@ -397,7 +378,7 @@ def _run_processing(
     if not os.path.exists(OUTPUT_FOLDER):
         os.makedirs(OUTPUT_FOLDER)
 
-    LOG_FILE = os.path.join(OUTPUT_FOLDER, f"log.txt")
+    LOG_FILE = os.path.join(OUTPUT_FOLDER, "log.txt")
     print(f"Log file: {LOG_FILE} \n")
     now = datetime.now()  # current date and time
     date_time = now.strftime("%m/%d/%Y, %H:%M:%S") + "\n\n"
@@ -574,7 +555,7 @@ def _download_live(id, tmp_folder):
             response = requests.get(url)
             open(local_path, "wb").write(response.content)
             return local_path
-        except:
+        except BaseException:
             pass
     return id
 
@@ -590,7 +571,7 @@ def _download_fasta_f(pdb_id, datadir):
         urllib.request.urlretrieve(url, outfnm)
         return outfnm
 
-    except Exception as err:
+    except Exception:
         # print(str(err), file=sys.stderr)
         return None
 
@@ -680,7 +661,7 @@ def _load_sabdab(
                     lambda t: t.name == "a" and t.text.startswith("zip")
                 )[0]["href"]
                 zip_ref = "https://opig.stats.ox.ac.uk" + zip_ref
-            except:
+            except BaseException:
                 error = soup.find_all(
                     lambda t: t.name == "h1" and t.text.startswith("Internal")
                 )
@@ -718,7 +699,7 @@ def _load_sabdab(
                 for member in tqdm(zip_ref.infolist()):
                     try:
                         zip_ref.extract(member, dir_path)
-                    except zipfile.error as e:
+                    except zipfile.error:
                         pass
             if sabdab_data_path is None:
                 os.remove(path)
@@ -960,7 +941,6 @@ def generate_data(
     )
     tmp_folder = os.path.join("", "tmp", tag + tmp_id)
     output_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
-    out_split_dict_folder = os.path.join(output_folder, "splits_dict")
 
     if force and os.path.exists(output_folder):
         shutil.rmtree(output_folder)
@@ -1215,7 +1195,10 @@ def sidechain_order():
 
 
 def get_error_summary(log_file, verbose=True):
-    """Get a dictionary where keys are recognized exception names and values are lists of PDB ids that caused the exceptions.
+    """Get an exception summary.
+
+    The output is a dictionary where keys are recognized exception names and values are lists of
+    PDB ids that caused the exceptions.
 
     Parameters
     ----------
@@ -1227,7 +1210,8 @@ def get_error_summary(log_file, verbose=True):
     Returns
     -------
     log_dict : dict
-        a dictionary where keys are recognized exception names and values are lists of PDB ids that caused the exceptions
+        a dictionary where keys are recognized exception names and values are lists of PDB ids that
+        caused the exceptions
 
     """
     stats = defaultdict(lambda: [])

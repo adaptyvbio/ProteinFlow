@@ -462,8 +462,8 @@ def _align_structure(
             pdb_dict[chain]["cdr"] = cdr_arr
         pdb_dict[chain]["seq"] = fasta[chain]
         pdb_dict[chain]["msk"] = (aligned_seq_arr != "-").astype(int)
-        l = sum(pdb_dict[chain]["msk"])
-        if min_length is not None and l < min_length:
+        known_length = sum(pdb_dict[chain]["msk"])
+        if min_length is not None and known_length < min_length:
             raise PDBError("Sequence is too short")
         if max_length is not None and len(aligned_seq) > max_length:
             raise PDBError("Sequence is too long")
@@ -478,7 +478,7 @@ def _align_structure(
             order = BACKBONE_ORDER + SIDECHAIN_ORDER[row["residue_name"]]
             try:
                 return order.index(atom)
-            except:
+            except ValueError:
                 raise PDBError(f"Unexpected atoms ({atom})")
 
         indices = chain_crd.apply(arr_index, axis=1)
@@ -597,12 +597,12 @@ def _check_biounits(biounits_list, threshold):
     for k, b1 in enumerate(biounits):
         if k not in indexes:
             b1_seqs = [b1[chain]["seq"] for chain in b1.keys()]
-            for l, b2 in enumerate(biounits[k + 1 :]):
+            for i, b2 in enumerate(biounits[k + 1 :]):
                 if len(b1.keys()) != len(b2.keys()):
                     continue
 
                 b2_seqs = [b2[chain]["seq"] for chain in b2.keys()]
                 if _compare_seqs(b1_seqs, b2_seqs, threshold):
-                    indexes.append(k + l + 1)
+                    indexes.append(k + i + 1)
 
     return indexes

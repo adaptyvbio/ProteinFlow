@@ -103,7 +103,7 @@ def _make_graph(cluster_pdb_dict):
     """
 
     keys = list(cluster_pdb_dict.keys())
-    keys_mapping = {l: k for l, k in enumerate(keys)}
+    keys_mapping = {length: k for length, k in enumerate(keys)}
     adjacency_matrix = np.zeros((len(keys), len(keys)))
 
     seen_dict = defaultdict(set)
