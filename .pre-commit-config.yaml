@@ -32,4 +32,4 @@ repos:
     rev: v1.15.0
     hooks:
       - id: typos
-        args: ["--exclude", "./proteinflow/constants.py", "-w"]
+        args: ["--exclude", "_typos.toml", "-w"]

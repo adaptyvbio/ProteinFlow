@@ -1,2 +1,6 @@
 [files]
-extend-exclude = ["proteinflow/constants.py"]
+extend-exclude = ["proteinflow/constants.py", "_typos.toml"]
+
+[default.extend_words]
+SET = "SET"
+AND1 = "AND1"
