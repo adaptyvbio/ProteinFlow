@@ -62,13 +62,8 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: publish-to-conda
-      uses: amauryval/publish_conda_package_action@2.0.3
+      uses: MichaelsJP/conda-package-publish-action@v1.0.0
       with:
-        # CondaDir: locate the directory containing your meta.yml, conda_build_config.yaml (...) files
-        CondaDir: '.conda'
-        # Channels: You can add more channel with a space separator
-        Channels: 'conda-forge bioconda' 
-        # Platforms: remove one or more of these platforms
-        Platforms: 'osx-64 linux-32 linux-64 noarch osx-arm64'
-        CondaUsername: ${{ secrets.CONDA_USERNAME }}
-        CondaPassword: ${{ secrets.CONDA_PASSWORD }}
+        subDir: '.conda'
+        AnacondaToken: ${{ secrets.ANACONDA_TOKEN }}
+        platforms: 'osx-64 osx-arm64 linux-32 linux-ppc64 linux-ppc64le linux-s390x linux-armv6l linux-armv7l linux-aarch64'
