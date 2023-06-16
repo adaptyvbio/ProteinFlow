@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <title>proteinflow.protein_loader API documentation</title>
-<meta name="description" content="" />
+<meta name="description" content="Protein loader class inherited from `torch.utils.data.DataLoader`." />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -23,23 +23,25 @@
 <h1 class="title">Module <code>proteinflow.protein_loader</code></h1>
 </header>
 <section id="section-intro">
+<p>Protein loader class inherited from <code>torch.utils.data.DataLoader</code>.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import random
+<pre><code class="python">&#34;&#34;&#34;Protein loader class inherited from `torch.utils.data.DataLoader`.&#34;&#34;&#34;
+
+import random
+
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from proteinflow.constants import CDR
 
+from proteinflow.constants import CDR
 from proteinflow.protein_dataset import ProteinDataset
 
 
 class _PadCollate:
-    &#34;&#34;&#34;
-    A variant of `collate_fn` that pads according to the longest sequence in
-    a batch of sequences
+    &#34;&#34;&#34;A variant of `collate_fn` that pads according to the longest sequence in a batch of sequences.
 
     If `mask_residues` is `True`, an additional `&#39;masked_res&#39;` key is added to the output. The value is a binary
     tensor where 1 denotes the part that needs to be predicted and 0 is everything else. The tensors are generated
@@ -50,6 +52,7 @@ class _PadCollate:
 
     If `force_binding_sites_frac` &gt; 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
     from a polymer is sampled, the center of the masked region will be forced to be in a binding site.
+
     &#34;&#34;&#34;
 
     def __init__(
@@ -62,7 +65,8 @@ class _PadCollate:
         force_binding_sites_frac=0.15,
         mask_all_cdrs=False,
     ):
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Initialize a _PadCollate object.
+
         Parameters
         ----------
         batch : dict
@@ -86,8 +90,8 @@ class _PadCollate:
         chain_M : torch.Tensor
             a `(B, L)` shaped binary tensor where 1 denotes the part that needs to be predicted and
             0 is everything else
-        &#34;&#34;&#34;
 
+        &#34;&#34;&#34;
         super().__init__()
         self.mask_residues = mask_residues
         self.lower_limit = lower_limit
@@ -101,8 +105,7 @@ class _PadCollate:
         self,
         batch,
     ):
-        &#34;&#34;&#34;
-        Get the mask for the residues that need to be predicted
+        &#34;&#34;&#34;Get the mask for the residues that need to be predicted.
 
         Depending on the parameters the residues are selected as follows:
         - if `mask_whole_chains` is `True`, the whole chain is masked
@@ -122,8 +125,8 @@ class _PadCollate:
         chain_M : torch.Tensor
             a `(B, L)` shaped binary tensor where 1 denotes the part that needs to be predicted and
             0 is everything else
-        &#34;&#34;&#34;
 
+        &#34;&#34;&#34;
         if &#34;cdr&#34; in batch and &#34;cdr_id&#34; in batch:
             chain_M = torch.zeros_like(batch[&#34;cdr&#34;])
             for i, cdr_arr in enumerate(batch[&#34;cdr&#34;]):
@@ -167,7 +170,7 @@ class _PadCollate:
                             interface = np.intersect1d(close_idx, j_indices)
 
                             not_end_mask = np.where(
-                                ((X_copy[:, 2, :].cpu() == 0).sum(-1) != 3)
+                                (X_copy[:, 2, :].cpu() == 0).sum(-1) != 3
                             )[0]
                             interface = np.intersect1d(interface, not_end_mask)
 
@@ -239,8 +242,7 @@ class _PadCollate:
 
 
 class ProteinLoader(DataLoader):
-    &#34;&#34;&#34;
-    A subclass of `torch.data.utils.DataLoader` tuned for the `proteinflow` dataset
+    &#34;&#34;&#34;A subclass of `torch.data.utils.DataLoader` tuned for the `proteinflow` dataset.
 
     Creates and iterates over an instance of `ProteinDataset`, omitting the `&#39;chain_dict&#39;` keys.
     See the `ProteinDataset` documentation for more information.
@@ -275,7 +277,8 @@ class ProteinLoader(DataLoader):
         *args,
         **kwargs,
     ):
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Initialize a ProteinLoader instance.
+
         Parameters
         ----------
         dataset : ProteinDataset
@@ -435,7 +438,7 @@ class ProteinLoader(DataLoader):
 <span>(</span><span>dataset, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, collate_func=proteinflow.protein_loader._PadCollate, force_binding_sites_frac=0, shuffle_batches=True, mask_all_cdrs=False, *args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>A subclass of <code>torch.data.utils.DataLoader</code> tuned for the <code><a title="proteinflow" href="index.html">proteinflow</a></code> dataset</p>
+<div class="desc"><p>A subclass of <code>torch.data.utils.DataLoader</code> tuned for the <code><a title="proteinflow" href="index.html">proteinflow</a></code> dataset.</p>
 <p>Creates and iterates over an instance of <code>ProteinDataset</code>, omitting the <code>'chain_dict'</code> keys.
 See the <code>ProteinDataset</code> documentation for more information.</p>
 <p>If batch size is larger than one, all objects are padded with zeros at the ends to reach the length of the
@@ -449,6 +452,7 @@ according to the following rulesd:
 - otherwise, the number of residues to mask is sampled uniformly from the range [<code>lower_limit</code>, <code>upper_limit</code>].</p>
 <p>If <code>force_binding_sites_frac</code> &gt; 0 and <code>mask_whole_chains</code> is <code>False</code>, in the fraction of cases where a chain
 from a polymer is sampled, the center of the masked region will be forced to be in a binding site (in PDB datasets).</p>
+<p>Initialize a ProteinLoader instance.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>dataset</code></strong> :&ensp;<code>ProteinDataset</code></dt>
@@ -478,8 +482,7 @@ forced to be in a binding site</dd>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class ProteinLoader(DataLoader):
-    &#34;&#34;&#34;
-    A subclass of `torch.data.utils.DataLoader` tuned for the `proteinflow` dataset
+    &#34;&#34;&#34;A subclass of `torch.data.utils.DataLoader` tuned for the `proteinflow` dataset.
 
     Creates and iterates over an instance of `ProteinDataset`, omitting the `&#39;chain_dict&#39;` keys.
     See the `ProteinDataset` documentation for more information.
@@ -514,7 +517,8 @@ forced to be in a binding site</dd>
         *args,
         **kwargs,
     ):
-        &#34;&#34;&#34;
+        &#34;&#34;&#34;Initialize a ProteinLoader instance.
+
         Parameters
         ----------
         dataset : ProteinDataset
@@ -868,11 +872,6 @@ def from_args(
 </section>
 </article>
 <nav id="sidebar">
-<header>
-<a class="homelink" rel="home" title="pdoc Home" href="https://adaptyvbio.github.io/ProteinFlow/">
-<img src="https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/logo.png" alt="">
-</a>
-</header>
 <h1>Index</h1>
 <div class="toc">
 <ul></ul>

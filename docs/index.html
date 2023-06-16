@@ -60,7 +60,7 @@ conda install -c conda-forge -c bioconda -c adaptyvbio proteinflow
 <h2 id="usage">Usage</h2>
 <h3 id="downloading-pre-computed-datasets-stable">Downloading pre-computed datasets (stable)</h3>
 <p>Already precomputed datasets with consensus set of parameters and can be accessed and downloaded using the <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code>. package. Check the output of <code><a title="proteinflow" href="#proteinflow">proteinflow</a> check_tags</code> for a list of available tags.</p>
-<pre><code class="language-bash">proteinflow download --tag 20230102_stable 
+<pre><code class="language-bash">proteinflow download --tag 20230102_stable
 </code></pre>
 <h3 id="running-the-pipeline-pdb">Running the pipeline (PDB)</h3>
 <p>You can also run <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> with your own parameters. Check the output of <code><a title="proteinflow" href="#proteinflow">proteinflow</a> check_snapshots</code> for a list of available PDB snapshots (naming rule: <code>yyyymmdd</code>).</p>
@@ -126,7 +126,7 @@ for convenient processing. Among other things, they allow for feature extraction
 - has batch size 8.</p>
 <pre><code class="language-python">from proteinflow import ProteinLoader
 train_loader = ProteinLoader.from_args(
-    &quot;./data/proteinflow_new/training&quot;, 
+    &quot;./data/proteinflow_new/training&quot;,
     clustering_dict_path=&quot;./data/proteinflow_new/splits_dict/train.pickle&quot;,
     node_features_type=&quot;dihedral+sidechain_orientation+secondary_structure&quot;,
     entry_type=&quot;pair&quot;,
@@ -190,7 +190,7 @@ docker run -it -v /path/to/data:/media adaptyvbio/proteinflow bash
 ### Downloading pre-computed datasets (stable)
 Already precomputed datasets with consensus set of parameters and can be accessed and downloaded using the `proteinflow`. package. Check the output of `proteinflow check_tags` for a list of available tags.
 ```bash
-proteinflow download --tag 20230102_stable 
+proteinflow download --tag 20230102_stable
 ```
 
 ### Running the pipeline (PDB)
@@ -248,7 +248,7 @@ The output files are pickled nested dictionaries where first-level keys are chai
 - `&#39;seq&#39;`: a string of length `L` with residue types.
 
 In a SAbDab datasets, an additional key is added to the dictionary:
-- `&#39;cdr&#39;`: a `&#39;numpy&#39;` array of shape `(L,)` where CDR residues are marked with the corresponding type (`&#39;H1&#39;`, `&#39;L1&#39;`, ...) 
+- `&#39;cdr&#39;`: a `&#39;numpy&#39;` array of shape `(L,)` where CDR residues are marked with the corresponding type (`&#39;H1&#39;`, `&#39;L1&#39;`, ...)
     and non-CDR residues are marked with `&#39;-&#39;`.
 
 Once your data is ready, you can open the files with `pickle`.
@@ -266,7 +266,7 @@ for filename in os.listdir(train_folder):
     ...
 ```
 
-Alternatively, you can use our `ProteinDataset` or `ProteinLoader` classes 
+Alternatively, you can use our `ProteinDataset` or `ProteinLoader` classes
 for convenient processing. Among other things, they allow for feature extraction, single chain / homomer / heteromer filtering and randomized sampling from sequence identity clusters.
 
 For example, here is how we can create a data loader that:
@@ -278,7 +278,7 @@ For example, here is how we can create a data loader that:
 ```python
 from proteinflow import ProteinLoader
 train_loader = ProteinLoader.from_args(
-    &#34;./data/proteinflow_new/training&#34;, 
+    &#34;./data/proteinflow_new/training&#34;,
     clustering_dict_path=&#34;./data/proteinflow_new/splits_dict/train.pickle&#34;,
     node_features_type=&#34;dihedral+sidechain_orientation+secondary_structure&#34;,
     entry_type=&#34;pair&#34;,
@@ -293,7 +293,6 @@ for batch in train_loader:
 ```
 
 &#34;&#34;&#34;
-
 __pdoc__ = {
     &#34;utils&#34;: False,
     &#34;scripts&#34;: False,
@@ -304,23 +303,33 @@ __pdoc__ = {
 }
 __docformat__ = &#34;numpy&#34;
 
-from proteinflow.utils.boto_utils import _download_s3_parallel, _s3list
-from proteinflow.utils.common_utils import (
-    PDBError,
-    _log_exception,
-    _log_removed,
-    _make_sabdab_html,
-    _raise_rcsbsearch,
-)
-from proteinflow.constants import (
-    _PMAP,
-    ALLOWED_AG_TYPES,
-    ALPHABET,
-    CDR,
-    D3TO1,
-    MAIN_ATOMS,
-    SIDECHAIN_ORDER,
-)
+import os
+import pickle
+import random
+import shutil
+import string
+import subprocess
+import urllib
+import urllib.request
+import warnings
+import zipfile
+from collections import defaultdict
+from concurrent import futures
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+
+import boto3
+import pandas as pd
+import requests
+from botocore import UNSIGNED
+from botocore.config import Config
+from bs4 import BeautifulSoup
+from editdistance import eval as edit_distance
+from p_tqdm import p_map
+from rcsbsearch import Attr
+from tqdm import tqdm
+
+from proteinflow.constants import ALLOWED_AG_TYPES, SIDECHAIN_ORDER
 from proteinflow.pdb import _align_structure, _open_structure
 from proteinflow.protein_dataset import (
     ProteinDataset,
@@ -330,50 +339,18 @@ from proteinflow.protein_dataset import (
 )
 from proteinflow.protein_loader import ProteinLoader
 from proteinflow.sequences import _retrieve_fasta_chains
-
+from proteinflow.utils.boto_utils import _download_s3_parallel, _s3list
 from proteinflow.utils.cluster_and_partition import (
     _build_dataset_partition,
     _check_mmseqs,
 )
-from proteinflow.utils.biotite_sse import _annotate_sse
-
-from aiobotocore.session import get_session
-import traceback
-import shutil
-import warnings
-import os
-import pickle
-from collections import defaultdict
-from rcsbsearch import Attr
-from datetime import datetime
-import subprocess
-import urllib
-import torch
-from torch.utils.data import Dataset, DataLoader
-import numpy as np
-import random
-import os
-import pickle
-from p_tqdm import p_map
-from collections import defaultdict
-from tqdm import tqdm
-from copy import deepcopy
-import pandas as pd
-from numpy import linalg
-import boto3
-from botocore import UNSIGNED
-from botocore.config import Config
-from concurrent import futures
-from concurrent.futures import ThreadPoolExecutor
-from itertools import combinations
-from editdistance import eval as edit_distance
-import requests
-import zipfile
-from bs4 import BeautifulSoup
-import urllib.request
-import string
-from einops import rearrange
-import tempfile
+from proteinflow.utils.common_utils import (
+    PDBError,
+    _log_exception,
+    _log_removed,
+    _make_sabdab_html,
+    _raise_rcsbsearch,
+)
 
 
 def _get_split_dictionaries(
@@ -385,8 +362,7 @@ def _get_split_dictionaries(
     out_split_dict_folder=&#34;./data/dataset_splits_dict&#34;,
     min_seq_id=0.3,
 ):
-    &#34;&#34;&#34;
-    Split preprocessed data into training, validation and test
+    &#34;&#34;&#34;Split preprocessed data into training, validation and test.
 
     Parameters
     ----------
@@ -404,8 +380,8 @@ def _get_split_dictionaries(
         The folder where the dictionaries containing the train/validation/test splits information will be saved&#34;
     min_seq_id : float in [0, 1], default 0.3
         minimum sequence identity for `mmseqs`
-    &#34;&#34;&#34;
 
+    &#34;&#34;&#34;
     sample_file = [x for x in os.listdir(output_folder) if x.endswith(&#34;.pickle&#34;)][0]
     ind = sample_file.split(&#34;.&#34;)[0].split(&#34;-&#34;)[1]
     sabdab = not ind.isnumeric()
@@ -458,8 +434,7 @@ def _run_processing(
     sabdab_data_path=None,
     require_antigen=False,
 ):
-    &#34;&#34;&#34;
-    Download and parse PDB files that meet filtering criteria
+    &#34;&#34;&#34;Download and parse PDB files that meet filtering criteria.
 
     The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are
     the following:
@@ -529,8 +504,8 @@ def _run_processing(
     -------
     log : dict
         a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
-    &#34;&#34;&#34;
 
+    &#34;&#34;&#34;
     TMP_FOLDER = tmp_folder
     OUTPUT_FOLDER = output_folder
     MIN_LENGTH = min_length
@@ -544,7 +519,7 @@ def _run_processing(
     if not os.path.exists(OUTPUT_FOLDER):
         os.makedirs(OUTPUT_FOLDER)
 
-    LOG_FILE = os.path.join(OUTPUT_FOLDER, f&#34;log.txt&#34;)
+    LOG_FILE = os.path.join(OUTPUT_FOLDER, &#34;log.txt&#34;)
     print(f&#34;Log file: {LOG_FILE} \n&#34;)
     now = datetime.now()  # current date and time
     date_time = now.strftime(&#34;%m/%d/%Y, %H:%M:%S&#34;) + &#34;\n\n&#34;
@@ -585,6 +560,7 @@ def _run_processing(
                 max_missing_middle=MISSING_MIDDLE_THR,
                 chain_id_string=chain_id,
             )
+
             # save
             if pdb_dict is not None:
                 with open(target_file, &#34;wb&#34;) as f:
@@ -621,7 +597,7 @@ def _run_processing(
     not_found_error = &#34;&lt;&lt;&lt; PDB / mmCIF file downloaded but not found&#34;
     if not sabdab:
         while not_found_error in stats:
-            with open(LOG_FILE, &#34;r&#34;) as f:
+            with open(LOG_FILE) as f:
                 lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
             os.remove(LOG_FILE)
             with open(f&#34;{LOG_FILE}_tmp&#34;, &#34;a&#34;) as f:
@@ -640,7 +616,7 @@ def _run_processing(
             _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
             stats = get_error_summary(LOG_FILE, verbose=False)
     if os.path.exists(f&#34;{LOG_FILE}_tmp&#34;):
-        with open(LOG_FILE, &#34;r&#34;) as f:
+        with open(LOG_FILE) as f:
             lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
         os.remove(LOG_FILE)
         with open(f&#34;{LOG_FILE}_tmp&#34;, &#34;a&#34;) as f:
@@ -662,10 +638,7 @@ def _get_pdb_ids(
     pdb_snapshot=None,
     filter_methods=True,
 ):
-    &#34;&#34;&#34;
-    Get PDB ids from PDB API
-    &#34;&#34;&#34;
-
+    &#34;&#34;&#34;Get PDB ids from PDB API.&#34;&#34;&#34;
     # get filtered PDB ids from PDB API
     pdb_ids = (
         Attr(&#34;rcsb_entry_info.selected_polymer_entity_types&#34;)
@@ -711,10 +684,7 @@ def _get_pdb_ids(
 
 
 def _download_live(id, tmp_folder):
-    &#34;&#34;&#34;
-    Download a PDB file from the PDB website
-    &#34;&#34;&#34;
-
+    &#34;&#34;&#34;Download a PDB file from the PDB website.&#34;&#34;&#34;
     pdb_id, biounit = id.split(&#34;-&#34;)
     filenames = {
         &#34;cif&#34;: f&#34;{pdb_id}-assembly{biounit}.cif.gz&#34;,
@@ -727,16 +697,13 @@ def _download_live(id, tmp_folder):
             response = requests.get(url)
             open(local_path, &#34;wb&#34;).write(response.content)
             return local_path
-        except:
+        except BaseException:
             pass
     return id
 
 
 def _download_fasta_f(pdb_id, datadir):
-    &#34;&#34;&#34;
-    Download a fasta file from the PDB website
-    &#34;&#34;&#34;
-
+    &#34;&#34;&#34;Download a fasta file from the PDB website.&#34;&#34;&#34;
     downloadurl = &#34;https://www.rcsb.org/fasta/entry/&#34;
     pdbfn = pdb_id + &#34;/download&#34;
     outfnm = os.path.join(datadir, f&#34;{pdb_id.lower()}.fasta&#34;)
@@ -746,7 +713,7 @@ def _download_fasta_f(pdb_id, datadir):
         urllib.request.urlretrieve(url, outfnm)
         return outfnm
 
-    except Exception as err:
+    except Exception:
         # print(str(err), file=sys.stderr)
         return None
 
@@ -759,10 +726,7 @@ def _load_pdb(
     tmp_folder=&#34;data/tmp&#34;,
     load_live=False,
 ):
-    &#34;&#34;&#34;
-    Download filtered PDB files and return a list of local file paths
-    &#34;&#34;&#34;
-
+    &#34;&#34;&#34;Download filtered PDB files and return a list of local file paths.&#34;&#34;&#34;
     ordered_folders, pdb_ids = _get_pdb_ids(
         resolution_thr=resolution_thr,
         pdb_snapshot=pdb_snapshot,
@@ -776,7 +740,7 @@ def _load_pdb(
             if n is not None and i == n:
                 break
         print(&#34;Downloading fasta files...&#34;)
-        pdbs = set([x.split(&#34;-&#34;)[0] for x in ids])
+        pdbs = {x.split(&#34;-&#34;)[0] for x in ids}
         future_to_key = {
             executor.submit(
                 lambda x: _download_fasta_f(x, datadir=tmp_folder), key
@@ -819,10 +783,7 @@ def _load_sabdab(
     require_antigen=True,
     n=None,
 ):
-    &#34;&#34;&#34;
-    Download filtered SAbDab files and return a list of local file paths
-    &#34;&#34;&#34;
-
+    &#34;&#34;&#34;Download filtered SAbDab files and return a list of local file paths.&#34;&#34;&#34;
     if not os.path.exists(tmp_folder):
         os.makedirs(tmp_folder)
     if pdb_snapshot is not None:
@@ -842,7 +803,7 @@ def _load_sabdab(
                     lambda t: t.name == &#34;a&#34; and t.text.startswith(&#34;zip&#34;)
                 )[0][&#34;href&#34;]
                 zip_ref = &#34;https://opig.stats.ox.ac.uk&#34; + zip_ref
-            except:
+            except BaseException:
                 error = soup.find_all(
                     lambda t: t.name == &#34;h1&#34; and t.text.startswith(&#34;Internal&#34;)
                 )
@@ -880,7 +841,7 @@ def _load_sabdab(
                 for member in tqdm(zip_ref.infolist()):
                     try:
                         zip_ref.extract(member, dir_path)
-                    except zipfile.error as e:
+                    except zipfile.error:
                         pass
             if sabdab_data_path is None:
                 os.remove(path)
@@ -964,10 +925,7 @@ def _load_files(
     sabdab_data_path=None,
     require_antigen=False,
 ):
-    &#34;&#34;&#34;
-    Download filtered structure files and return a list of local file paths
-    &#34;&#34;&#34;
-
+    &#34;&#34;&#34;Download filtered structure files and return a list of local file paths.&#34;&#34;&#34;
     if sabdab:
         out = _load_sabdab(
             resolution_thr=resolution_thr,
@@ -991,8 +949,7 @@ def _load_files(
 
 
 def download_data(tag, local_datasets_folder=&#34;./data&#34;, skip_splitting=False):
-    &#34;&#34;&#34;
-    Download a pre-computed dataset with train/test/validation splits
+    &#34;&#34;&#34;Download a pre-computed dataset with train/test/validation splits.
 
     Parameters
     ----------
@@ -1002,8 +959,8 @@ def download_data(tag, local_datasets_folder=&#34;./data&#34;, skip_splitting=Fa
         the path to the folder that will store proteinflow datasets, logs and temporary files
     skip_splitting : bool, default False
         if `True`, skip the split dictionary creation and the file moving steps
-    &#34;&#34;&#34;
 
+    &#34;&#34;&#34;
     sabdab_data_path = _download_dataset(tag, local_datasets_folder)
     if not skip_splitting:
         _split_data(sabdab_data_path)
@@ -1037,8 +994,7 @@ def generate_data(
     exclude_clusters=False,
     exclude_based_on_cdr=None,
 ):
-    &#34;&#34;&#34;
-    Download and parse PDB files that meet filtering criteria
+    &#34;&#34;&#34;Download and parse PDB files that meet filtering criteria.
 
     The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are
     the following:
@@ -1127,7 +1083,6 @@ def generate_data(
     )
     tmp_folder = os.path.join(&#34;&#34;, &#34;tmp&#34;, tag + tmp_id)
     output_folder = os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;)
-    out_split_dict_folder = os.path.join(output_folder, &#34;splits_dict&#34;)
 
     if force and os.path.exists(output_folder):
         shutil.rmtree(output_folder)
@@ -1173,8 +1128,7 @@ def generate_data(
 def _get_excluded_files(
     tag, local_datasets_folder, tmp_folder, exclude_chains, exclude_threshold
 ):
-    &#34;&#34;&#34;
-    Get a list of files to exclude from the dataset.
+    &#34;&#34;&#34;Get a list of files to exclude from the dataset.
 
     Biounits are excluded if they contain chains that are too similar
     (above `exclude_threshold`) to chains in the list of excluded chains.
@@ -1191,8 +1145,8 @@ def _get_excluded_files(
         a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `[&#34;1A2B-A&#34;, &#34;1A2B-B&#34;]`); chain id is the author chain id
     exclude_threshold : float in [0, 1], default 0.7
         the sequence similarity threshold for excluding chains
-    &#34;&#34;&#34;
 
+    &#34;&#34;&#34;
     # download fasta files for excluded chains
     if not os.path.exists(tmp_folder):
         os.makedirs(tmp_folder)
@@ -1249,8 +1203,7 @@ def split_data(
     exclude_clusters=False,
     exclude_based_on_cdr=None,
 ):
-    &#34;&#34;&#34;
-    Split `proteinflow` entry files into training, test and validation.
+    &#34;&#34;&#34;Split `proteinflow` entry files into training, test and validation.
 
     Our splitting algorithm has two objectives: achieving minimal data leakage and balancing the proportion of
     single chain, homomer and heteromer entries.
@@ -1300,8 +1253,8 @@ def split_data(
     -------
     log : dict
         a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
-    &#34;&#34;&#34;
 
+    &#34;&#34;&#34;
     if exclude_chains is None or len(exclude_chains) == 0:
         excluded_biounits = []
     else:
@@ -1345,8 +1298,7 @@ def unsplit_data(
     tag,
     local_datasets_folder=&#34;./data&#34;,
 ):
-    &#34;&#34;&#34;
-    Move files from train, test, validation and excluded folders back into the main folder
+    &#34;&#34;&#34;Move files from train, test, validation and excluded folders back into the main folder.
 
     Parameters
     ----------
@@ -1354,8 +1306,8 @@ def unsplit_data(
         the name of the dataset
     local_datasets_folder : str, default &#34;./data&#34;
         the path to the folder that stores proteinflow datasets
-    &#34;&#34;&#34;
 
+    &#34;&#34;&#34;
     for folder in [&#34;excluded&#34;, &#34;train&#34;, &#34;test&#34;, &#34;valid&#34;]:
         if not os.path.exists(
             os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;, folder)
@@ -1372,22 +1324,23 @@ def unsplit_data(
 
 
 def sidechain_order():
-    &#34;&#34;&#34;
-    Get a dictionary of sidechain atom orders
+    &#34;&#34;&#34;Get a dictionary of sidechain atom orders.
 
     Returns
     -------
     order_dict : dict
         a dictionary where keys are 3-letter aminoacid codes and values are lists of atom names (in PDB format) that correspond to
         coordinates in the `&#39;crd_sc&#39;` array generated by the `run_processing` function
-    &#34;&#34;&#34;
 
+    &#34;&#34;&#34;
     return SIDECHAIN_ORDER
 
 
 def get_error_summary(log_file, verbose=True):
-    &#34;&#34;&#34;
-    Get a dictionary where keys are recognized exception names and values are lists of PDB ids that caused the exceptions
+    &#34;&#34;&#34;Get an exception summary.
+
+    The output is a dictionary where keys are recognized exception names and values are lists of
+    PDB ids that caused the exceptions.
 
     Parameters
     ----------
@@ -1399,11 +1352,12 @@ def get_error_summary(log_file, verbose=True):
     Returns
     -------
     log_dict : dict
-        a dictionary where keys are recognized exception names and values are lists of PDB ids that caused the exceptions
-    &#34;&#34;&#34;
+        a dictionary where keys are recognized exception names and values are lists of PDB ids that
+        caused the exceptions
 
+    &#34;&#34;&#34;
     stats = defaultdict(lambda: [])
-    with open(log_file, &#34;r&#34;) as f:
+    with open(log_file) as f:
         for line in f.readlines():
             if line.startswith(&#34;&lt;&lt;&lt;&#34;):
                 stats[line.split(&#34;:&#34;)[0]].append(line.split(&#34;:&#34;)[-1].strip())
@@ -1416,15 +1370,14 @@ def get_error_summary(log_file, verbose=True):
 
 
 def check_pdb_snapshots():
-    &#34;&#34;&#34;
-    Get a list of PDB snapshots available for downloading
+    &#34;&#34;&#34;Get a list of PDB snapshots available for downloading.
 
     Returns
     -------
     snapshots : list
         a list of snapshot names
-    &#34;&#34;&#34;
 
+    &#34;&#34;&#34;
     folders = _s3list(
         boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
             &#34;pdbsnapshots&#34;
@@ -1437,15 +1390,14 @@ def check_pdb_snapshots():
 
 
 def check_download_tags():
-    &#34;&#34;&#34;
-    Get a list of tags available for downloading
+    &#34;&#34;&#34;Get a list of tags available for downloading.
 
     Returns
     -------
     tags : list
         a list of tag names
-    &#34;&#34;&#34;
 
+    &#34;&#34;&#34;
     folders = _s3list(
         boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
             &#34;proteinflow-datasets&#34;
@@ -1466,7 +1418,7 @@ def check_download_tags():
 </dd>
 <dt><code class="name"><a title="proteinflow.protein_loader" href="protein_loader.html">proteinflow.protein_loader</a></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Protein loader class inherited from <code>torch.utils.data.DataLoader</code>.</p></div>
 </dd>
 </dl>
 </section>
@@ -1479,7 +1431,7 @@ def check_download_tags():
 <span>def <span class="ident">check_download_tags</span></span>(<span>)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Get a list of tags available for downloading</p>
+<div class="desc"><p>Get a list of tags available for downloading.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><strong><code>tags</code></strong> :&ensp;<code>list</code></dt>
@@ -1490,15 +1442,14 @@ def check_download_tags():
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def check_download_tags():
-    &#34;&#34;&#34;
-    Get a list of tags available for downloading
+    &#34;&#34;&#34;Get a list of tags available for downloading.
 
     Returns
     -------
     tags : list
         a list of tag names
-    &#34;&#34;&#34;
 
+    &#34;&#34;&#34;
     folders = _s3list(
         boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
             &#34;proteinflow-datasets&#34;
@@ -1514,7 +1465,7 @@ def check_download_tags():
 <span>def <span class="ident">check_pdb_snapshots</span></span>(<span>)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Get a list of PDB snapshots available for downloading</p>
+<div class="desc"><p>Get a list of PDB snapshots available for downloading.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><strong><code>snapshots</code></strong> :&ensp;<code>list</code></dt>
@@ -1525,15 +1476,14 @@ def check_download_tags():
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def check_pdb_snapshots():
-    &#34;&#34;&#34;
-    Get a list of PDB snapshots available for downloading
+    &#34;&#34;&#34;Get a list of PDB snapshots available for downloading.
 
     Returns
     -------
     snapshots : list
         a list of snapshot names
-    &#34;&#34;&#34;
 
+    &#34;&#34;&#34;
     folders = _s3list(
         boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
             &#34;pdbsnapshots&#34;
@@ -1549,7 +1499,7 @@ def check_download_tags():
 <span>def <span class="ident">download_data</span></span>(<span>tag, local_datasets_folder='./data', skip_splitting=False)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Download a pre-computed dataset with train/test/validation splits</p>
+<div class="desc"><p>Download a pre-computed dataset with train/test/validation splits.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>tag</code></strong> :&ensp;<code>str</code></dt>
@@ -1564,8 +1514,7 @@ def check_download_tags():
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def download_data(tag, local_datasets_folder=&#34;./data&#34;, skip_splitting=False):
-    &#34;&#34;&#34;
-    Download a pre-computed dataset with train/test/validation splits
+    &#34;&#34;&#34;Download a pre-computed dataset with train/test/validation splits.
 
     Parameters
     ----------
@@ -1575,8 +1524,8 @@ def check_download_tags():
         the path to the folder that will store proteinflow datasets, logs and temporary files
     skip_splitting : bool, default False
         if `True`, skip the split dictionary creation and the file moving steps
-    &#34;&#34;&#34;
 
+    &#34;&#34;&#34;
     sabdab_data_path = _download_dataset(tag, local_datasets_folder)
     if not skip_splitting:
         _split_data(sabdab_data_path)</code></pre>
@@ -1586,7 +1535,7 @@ def check_download_tags():
 <span>def <span class="ident">generate_data</span></span>(<span>tag, local_datasets_folder='./data', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, not_filter_methods=False, not_remove_redundancies=False, skip_splitting=False, seq_identity_threshold=0.9, n=None, force=False, split_tolerance=0.2, test_split=0.05, valid_split=0.05, pdb_snapshot=None, load_live=False, min_seq_id=0.3, sabdab=False, sabdab_data_path=None, require_antigen=False, exclude_chains=None, exclude_threshold=0.7, exclude_clusters=False, exclude_based_on_cdr=None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Download and parse PDB files that meet filtering criteria</p>
+<div class="desc"><p>Download and parse PDB files that meet filtering criteria.</p>
 <p>The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are
 the following:</p>
 <ul>
@@ -1694,8 +1643,7 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
     exclude_clusters=False,
     exclude_based_on_cdr=None,
 ):
-    &#34;&#34;&#34;
-    Download and parse PDB files that meet filtering criteria
+    &#34;&#34;&#34;Download and parse PDB files that meet filtering criteria.
 
     The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are
     the following:
@@ -1784,7 +1732,6 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
     )
     tmp_folder = os.path.join(&#34;&#34;, &#34;tmp&#34;, tag + tmp_id)
     output_folder = os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;)
-    out_split_dict_folder = os.path.join(output_folder, &#34;splits_dict&#34;)
 
     if force and os.path.exists(output_folder):
         shutil.rmtree(output_folder)
@@ -1831,7 +1778,9 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
 <span>def <span class="ident">get_error_summary</span></span>(<span>log_file, verbose=True)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Get a dictionary where keys are recognized exception names and values are lists of PDB ids that caused the exceptions</p>
+<div class="desc"><p>Get an exception summary.</p>
+<p>The output is a dictionary where keys are recognized exception names and values are lists of
+PDB ids that caused the exceptions.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>log_file</code></strong> :&ensp;<code>str</code></dt>
@@ -1842,15 +1791,18 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><strong><code>log_dict</code></strong> :&ensp;<code>dict</code></dt>
-<dd>a dictionary where keys are recognized exception names and values are lists of PDB ids that caused the exceptions</dd>
+<dd>a dictionary where keys are recognized exception names and values are lists of PDB ids that
+caused the exceptions</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def get_error_summary(log_file, verbose=True):
-    &#34;&#34;&#34;
-    Get a dictionary where keys are recognized exception names and values are lists of PDB ids that caused the exceptions
+    &#34;&#34;&#34;Get an exception summary.
+
+    The output is a dictionary where keys are recognized exception names and values are lists of
+    PDB ids that caused the exceptions.
 
     Parameters
     ----------
@@ -1862,11 +1814,12 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
     Returns
     -------
     log_dict : dict
-        a dictionary where keys are recognized exception names and values are lists of PDB ids that caused the exceptions
-    &#34;&#34;&#34;
+        a dictionary where keys are recognized exception names and values are lists of PDB ids that
+        caused the exceptions
 
+    &#34;&#34;&#34;
     stats = defaultdict(lambda: [])
-    with open(log_file, &#34;r&#34;) as f:
+    with open(log_file) as f:
         for line in f.readlines():
             if line.startswith(&#34;&lt;&lt;&lt;&#34;):
                 stats[line.split(&#34;:&#34;)[0]].append(line.split(&#34;:&#34;)[-1].strip())
@@ -1882,7 +1835,7 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
 <span>def <span class="ident">sidechain_order</span></span>(<span>)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Get a dictionary of sidechain atom orders</p>
+<div class="desc"><p>Get a dictionary of sidechain atom orders.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><strong><code>order_dict</code></strong> :&ensp;<code>dict</code></dt>
@@ -1894,16 +1847,15 @@ coordinates in the <code>'crd_sc'</code> array generated by the <code>run_proces
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def sidechain_order():
-    &#34;&#34;&#34;
-    Get a dictionary of sidechain atom orders
+    &#34;&#34;&#34;Get a dictionary of sidechain atom orders.
 
     Returns
     -------
     order_dict : dict
         a dictionary where keys are 3-letter aminoacid codes and values are lists of atom names (in PDB format) that correspond to
         coordinates in the `&#39;crd_sc&#39;` array generated by the `run_processing` function
-    &#34;&#34;&#34;
 
+    &#34;&#34;&#34;
     return SIDECHAIN_ORDER</code></pre>
 </details>
 </dd>
@@ -1975,8 +1927,7 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
     exclude_clusters=False,
     exclude_based_on_cdr=None,
 ):
-    &#34;&#34;&#34;
-    Split `proteinflow` entry files into training, test and validation.
+    &#34;&#34;&#34;Split `proteinflow` entry files into training, test and validation.
 
     Our splitting algorithm has two objectives: achieving minimal data leakage and balancing the proportion of
     single chain, homomer and heteromer entries.
@@ -2026,8 +1977,8 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
     -------
     log : dict
         a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
-    &#34;&#34;&#34;
 
+    &#34;&#34;&#34;
     if exclude_chains is None or len(exclude_chains) == 0:
         excluded_biounits = []
     else:
@@ -2071,7 +2022,7 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
 <span>def <span class="ident">unsplit_data</span></span>(<span>tag, local_datasets_folder='./data')</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Move files from train, test, validation and excluded folders back into the main folder</p>
+<div class="desc"><p>Move files from train, test, validation and excluded folders back into the main folder.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>tag</code></strong> :&ensp;<code>str</code></dt>
@@ -2087,8 +2038,7 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
     tag,
     local_datasets_folder=&#34;./data&#34;,
 ):
-    &#34;&#34;&#34;
-    Move files from train, test, validation and excluded folders back into the main folder
+    &#34;&#34;&#34;Move files from train, test, validation and excluded folders back into the main folder.
 
     Parameters
     ----------
@@ -2096,8 +2046,8 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
         the name of the dataset
     local_datasets_folder : str, default &#34;./data&#34;
         the path to the folder that stores proteinflow datasets
-    &#34;&#34;&#34;
 
+    &#34;&#34;&#34;
     for folder in [&#34;excluded&#34;, &#34;train&#34;, &#34;test&#34;, &#34;valid&#34;]:
         if not os.path.exists(
             os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;, folder)
@@ -2119,11 +2069,6 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
 </section>
 </article>
 <nav id="sidebar">
-<header>
-<a class="homelink" rel="home" title="pdoc Home" href="https://adaptyvbio.github.io/ProteinFlow/">
-<img src="https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/logo.png" alt="">
-</a>
-</header>
 <h1>Index</h1>
 <div class="toc">
 <ul>
