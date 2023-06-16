@@ -42,26 +42,34 @@ jobs:
         if: ${{ steps.service-changed.outputs.result == 'true' && matrix.os == 'windows-latest'}}
         run: |
           C:\Miniconda\condabin\conda.bat init powershell
+      - name: Set conda call in windows
+        if: ${{ steps.service-changed.outputs.result == 'true' and matrix.os == 'windows-latest'}}
+        run: |
+          echo ("CONDA_CALL=C:\Miniconda\condabin\conda.bat") >> $env:GITHUB_ENV
+      - name: Set conda call in Linux / Mac OS
+        if: ${{ steps.service-changed.outputs.result == 'true' and matrix.os != 'windows-latest'}}
+        run: |
+          echo "CONDA_CALL=conda" >> $GITHUB_ENV
       - name: Install dependencies
         if: ${{ steps.service-changed.outputs.result == 'true' }}
         run: |
-          $CONDA/bin/conda update conda -y
-          $CONDA/bin/conda create --name proteinflow -y python=${{ matrix.version }}
-          $CONDA/bin/conda install -n proteinflow -c conda-forge -c bioconda mmseqs2
-          $CONDA/bin/conda run -n proteinflow python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
-          $CONDA/bin/conda run -n proteinflow python -m pip install awscli pytest flake8
-          $CONDA/bin/conda run -n proteinflow python -m pip install numpy
-          $CONDA/bin/conda run -n proteinflow python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
-          $CONDA/bin/conda run -n proteinflow python -m pip install -e .
+          $CONDA_CALL update conda -y
+          $CONDA_CALL create --name proteinflow -y python=${{ matrix.version }}
+          $CONDA_CALL install -n proteinflow -c conda-forge -c bioconda mmseqs2
+          $CONDA_CALL run -n proteinflow python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
+          $CONDA_CALL run -n proteinflow python -m pip install awscli pytest flake8
+          $CONDA_CALL run -n proteinflow python -m pip install numpy
+          $CONDA_CALL run -n proteinflow python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
+          $CONDA_CALL run -n proteinflow python -m pip install -e .
 
       - name: Lint with flake8
         if: ${{ steps.service-changed.outputs.result == 'true' }}
         run: |
           # stop the build if there are Python syntax errors or undefined names
-          $CONDA/bin/conda run -n proteinflow flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          $CONDA_CALL run -n proteinflow flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-          $CONDA/bin/conda run -n proteinflow flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          $CONDA_CALL run -n proteinflow flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test with pytest
         if: ${{ steps.service-changed.outputs.result == 'true' }}
         run: |
-          $CONDA/bin/conda run -n proteinflow pytest tests
+          $CONDA_CALL run -n proteinflow pytest tests
