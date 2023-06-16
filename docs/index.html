@@ -291,7 +291,6 @@ for batch in train_loader:
     to_predict = batch[&#34;masked_res&#34;] # (B, L), 1 where the residues should be masked, 0 otherwise
     ...
 ```
-
 &#34;&#34;&#34;
 
 __pdoc__ = {
@@ -585,6 +584,7 @@ def _run_processing(
                 max_missing_middle=MISSING_MIDDLE_THR,
                 chain_id_string=chain_id,
             )
+
             # save
             if pdb_dict is not None:
                 with open(target_file, &#34;wb&#34;) as f:
@@ -2119,11 +2119,6 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
 </section>
 </article>
 <nav id="sidebar">
-<header>
-<a class="homelink" rel="home" title="pdoc Home" href="https://adaptyvbio.github.io/ProteinFlow/">
-<img src="https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/logo.png" alt="">
-</a>
-</header>
 <h1>Index</h1>
 <div class="toc">
 <ul>

@@ -419,6 +419,7 @@ def _run_processing(
                 max_missing_middle=MISSING_MIDDLE_THR,
                 chain_id_string=chain_id,
             )
+
             # save
             if pdb_dict is not None:
                 with open(target_file, "wb") as f:
