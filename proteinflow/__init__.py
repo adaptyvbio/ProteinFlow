@@ -146,6 +146,7 @@ for batch in train_loader:
     to_predict = batch["masked_res"] # (B, L), 1 where the residues should be masked, 0 otherwise
     ...
 ```
+
 """
 
 __pdoc__ = {
