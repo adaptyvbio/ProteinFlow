@@ -17,7 +17,7 @@ jobs:
         with:
           result-encoding: string
           script: |
-            const result = await github.pulls.listFiles({
+            const result = await github.push.listFiles({
               owner: context.payload.repository.owner.login,
               repo: context.payload.repository.name,
               pull_number: context.payload.number,
