@@ -1,5 +1,6 @@
-from biopandas.mmcif import PandasMmcif
 from copy import deepcopy
+
+from biopandas.mmcif import PandasMmcif
 
 
 class CustomMmcif(PandasMmcif):

@@ -1,11 +1,13 @@
 import os
-import subprocess
-import numpy as np
 import random as rd
-import networkx as nx
-from tqdm import tqdm
+import subprocess
 from collections import defaultdict
 from itertools import combinations
+
+import networkx as nx
+import numpy as np
+from tqdm import tqdm
+
 from proteinflow.sequences import (
     _create_pdb_seqs_dict,
     _load_pdbs,
@@ -13,7 +15,6 @@ from proteinflow.sequences import (
     _retrieve_seqs_names_list,
     _write_fasta,
 )
-
 from proteinflow.utils.common_utils import _find_correspondances, _test_availability
 
 
@@ -67,7 +68,7 @@ def _read_clusters(tmp_folder, cdr=None):
         cluster_file_fasta = os.path.join(
             tmp_folder, "MMSeqs2_results", cdr, "clusterRes_all_seqs.fasta"
         )
-    with open(cluster_file_fasta, "r") as f:
+    with open(cluster_file_fasta) as f:
         cluster_dict = defaultdict(lambda: [])
         cluster_pdb_dict = defaultdict(lambda: [])
         cluster_name, sequence_name = None, None
