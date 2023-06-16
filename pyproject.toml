@@ -43,4 +43,4 @@ find = {}
 [tool.pydocstyle]
 convention = "numpy"
 match_dir = 'proteinflow'
-# match = '__init__.py'
+match = '__init__.py'
