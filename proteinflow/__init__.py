@@ -432,12 +432,12 @@ def _run_processing(
             )
             # filter and convert
             pdb_dict = _align_structure(
-                pdb_dict,
-                min_length=MIN_LENGTH,
-                max_length=MAX_LENGTH,
-                max_missing_ends=MISSING_ENDS_THR,
-                max_missing_middle=MISSING_MIDDLE_THR,
-                chain_id_string=chain_id,
+            pdb_dict,
+            min_length=MIN_LENGTH,
+            max_length=MAX_LENGTH,
+            max_missing_ends=MISSING_ENDS_THR,
+            max_missing_middle=MISSING_MIDDLE_THR,
+            chain_id_string=chain_id,
             )
             # save
             if pdb_dict is not None:
