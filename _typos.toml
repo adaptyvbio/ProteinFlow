@@ -2,5 +2,5 @@
 extend-exclude = ["proteinflow/constants.py", "_typos.toml"]
 
 [default.extend_words]
-SET = "SET"
-AND1 = "AND1"
+SER = "SER"
+ND1 = "ND1"
