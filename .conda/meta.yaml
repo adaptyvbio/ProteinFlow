@@ -51,11 +51,3 @@ about:
   summary: "Versatile pipeline for processing protein structure data for deep learning applications."
   doc_url: "https://adaptyvbio.github.io/ProteinFlow/"
   dev_url: "https://github.com/adaptyvbio/ProteinFlow"
-
-channels:
-  - conda-forge
-  - bioconda
-
-dependencies:   # Keep this block with only these two packages
-  - anaconda-client
-  - conda-build
