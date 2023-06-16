@@ -159,18 +159,33 @@ __pdoc__ = {
 }
 __docformat__ = "numpy"
 
-from proteinflow.utils.boto_utils import _download_s3_parallel, _s3list
-from proteinflow.utils.common_utils import (
-    PDBError,
-    _log_exception,
-    _log_removed,
-    _make_sabdab_html,
-    _raise_rcsbsearch,
-)
-from proteinflow.constants import (
-    ALLOWED_AG_TYPES,
-    SIDECHAIN_ORDER,
-)
+import os
+import pickle
+import random
+import shutil
+import string
+import subprocess
+import urllib
+import urllib.request
+import warnings
+import zipfile
+from collections import defaultdict
+from concurrent import futures
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+
+import boto3
+import pandas as pd
+import requests
+from botocore import UNSIGNED
+from botocore.config import Config
+from bs4 import BeautifulSoup
+from editdistance import eval as edit_distance
+from p_tqdm import p_map
+from rcsbsearch import Attr
+from tqdm import tqdm
+
+from proteinflow.constants import ALLOWED_AG_TYPES, SIDECHAIN_ORDER
 from proteinflow.pdb import _align_structure, _open_structure
 from proteinflow.protein_dataset import (
     ProteinDataset,
@@ -180,36 +195,18 @@ from proteinflow.protein_dataset import (
 )
 from proteinflow.protein_loader import ProteinLoader
 from proteinflow.sequences import _retrieve_fasta_chains
-
+from proteinflow.utils.boto_utils import _download_s3_parallel, _s3list
 from proteinflow.utils.cluster_and_partition import (
     _build_dataset_partition,
     _check_mmseqs,
 )
-
-import shutil
-import warnings
-import os
-import pickle
-from collections import defaultdict
-from rcsbsearch import Attr
-from datetime import datetime
-import subprocess
-import urllib
-import random
-from p_tqdm import p_map
-from tqdm import tqdm
-import pandas as pd
-import boto3
-from botocore import UNSIGNED
-from botocore.config import Config
-from concurrent import futures
-from concurrent.futures import ThreadPoolExecutor
-from editdistance import eval as edit_distance
-import requests
-import zipfile
-from bs4 import BeautifulSoup
-import urllib.request
-import string
+from proteinflow.utils.common_utils import (
+    PDBError,
+    _log_exception,
+    _log_removed,
+    _make_sabdab_html,
+    _raise_rcsbsearch,
+)
 
 
 def _get_split_dictionaries(

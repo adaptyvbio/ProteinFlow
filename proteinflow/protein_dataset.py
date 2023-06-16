@@ -1,27 +1,28 @@
-from collections import Counter, defaultdict
-from copy import deepcopy
-from itertools import combinations
 import os
 import pickle
 import random
 import shutil
 import subprocess
-import pandas as pd
+from collections import Counter, defaultdict
+from copy import deepcopy
+from itertools import combinations
+
 import numpy as np
+import pandas as pd
+import torch
 from numpy import linalg
 from p_tqdm import p_map
-import torch
 from torch.utils.data import Dataset
 from tqdm import tqdm
+
+from proteinflow.constants import _PMAP, ALPHABET, CDR, D3TO1, MAIN_ATOMS
+from proteinflow.pdb import _check_biounits
+from proteinflow.utils.biotite_sse import _annotate_sse
 from proteinflow.utils.boto_utils import (
     _download_dataset_dicts_from_s3,
     _download_dataset_from_s3,
     _get_s3_paths_from_tag,
 )
-
-from proteinflow.constants import _PMAP, ALPHABET, CDR, D3TO1, MAIN_ATOMS
-from proteinflow.pdb import _check_biounits
-from proteinflow.utils.biotite_sse import _annotate_sse
 
 
 class ProteinDataset(Dataset):

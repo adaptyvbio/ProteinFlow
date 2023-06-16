@@ -1,11 +1,12 @@
 """Protein loader class inherited from `torch.utils.data.DataLoader`."""
 
 import random
+
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from proteinflow.constants import CDR
 
+from proteinflow.constants import CDR
 from proteinflow.protein_dataset import ProteinDataset
 
 

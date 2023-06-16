@@ -1,7 +1,8 @@
-import subprocess
-import shutil
-from proteinflow import ProteinLoader
 import os
+import shutil
+import subprocess
+
+from proteinflow import ProteinLoader
 
 
 def test_download():

@@ -1,13 +1,13 @@
 import os
-from typing import Dict
-import warnings
-from einops import rearrange
-import numpy as np
 import pickle
+import warnings
+from typing import Dict
 
+import numpy as np
 from Bio import pairwise2
 from biopandas.pdb import PandasPdb
-from proteinflow.utils.common_utils import PDBError, _split_every
+from einops import rearrange
+
 from proteinflow.constants import (
     ALPHABET_PDB,
     ATOM_MAP_1,
@@ -25,6 +25,7 @@ from proteinflow.sequences import (
     _get_chothia_cdr,
     _retrieve_fasta_chains,
 )
+from proteinflow.utils.common_utils import PDBError, _split_every
 
 
 class PdbBuilder(object):

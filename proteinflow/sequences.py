@@ -1,7 +1,8 @@
-from collections import defaultdict
 import copy
 import os
 import pickle
+from collections import defaultdict
+
 import editdistance
 import numpy as np
 from tqdm import tqdm
