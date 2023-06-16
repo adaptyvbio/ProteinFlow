@@ -1,13 +1,14 @@
 import asyncio
-from operator import attrgetter
 import os
 import shutil
 import subprocess
+from operator import attrgetter
 
 from aiobotocore.session import get_session
 from botocore import UNSIGNED
 from botocore.config import Config
 from p_tqdm import p_map
+
 from proteinflow.constants import S3Obj
 
 

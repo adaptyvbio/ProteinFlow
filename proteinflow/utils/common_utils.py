@@ -1,9 +1,10 @@
-from collections import defaultdict
 import itertools
 import os
+import pickle
 import subprocess
 import traceback
-import pickle
+from collections import defaultdict
+
 import numpy as np
 
 
