@@ -34,6 +34,6 @@ repos:
     -   id: codespell
         name: codespell
         description: Checks for common misspellings in text files.
-        entry: codespell -L SER --skip "*ipynb,*/constants.py"
+        entry: codespell -L ser --skip "*ipynb,*/constants.py"
         language: python
         types: [text]
