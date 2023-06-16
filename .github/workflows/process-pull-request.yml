@@ -47,7 +47,7 @@ jobs:
         run: |
           echo ("CONDA_CALL=C:\Miniconda\condabin\conda.bat") >> $env:GITHUB_ENV
       - name: Set conda call in Linux / Mac OS
-        if: ${{ steps.service-changed.outputs.result == 'true' and matrix.os != 'windows-latest'}}
+        if: ${{ steps.service-changed.outputs.result == 'true' && matrix.os != 'windows-latest'}}
         run: |
           echo "CONDA_CALL=conda" >> $GITHUB_ENV
       - name: Install dependencies
