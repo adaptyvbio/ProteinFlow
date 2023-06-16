@@ -28,7 +28,7 @@ from proteinflow.sequences import (
 from proteinflow.utils.common_utils import PDBError, _split_every
 
 
-class PdbBuilder(object):
+class PdbBuilder:
     """Creates a PDB file given a protein's atomic coordinates and sequence.
 
     The general idea is that if any model is capable of predicting a set of coordinates
@@ -572,7 +572,7 @@ def _open_structure(
     if all([len(x) == 3 and len(set(list(x))) == 1 for x in seqs_dict.keys()]):
         seqs_dict = {k[0]: v for k, v in seqs_dict.items()}
 
-    if not set([x.split("-")[0].upper() for x in chains]).issubset(
+    if not {x.split("-")[0].upper() for x in chains}.issubset(
         set(list(seqs_dict.keys()))
     ):
         raise PDBError("Some chains in the PDB do not appear in the fasta file")

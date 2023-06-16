@@ -39,7 +39,7 @@ def _retrieve_fasta_chains(fasta_file):
     Return a dictionary containing all the (author) chains in a fasta file (keys) and their corresponding sequence
     """
 
-    with open(fasta_file, "r") as f:
+    with open(fasta_file) as f:
         lines = np.array(f.readlines())
 
     indexes = np.array([k for k, l in enumerate(lines) if l[0] == ">"])

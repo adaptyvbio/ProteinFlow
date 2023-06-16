@@ -140,7 +140,7 @@ class _PadCollate:
                             interface = np.intersect1d(close_idx, j_indices)
 
                             not_end_mask = np.where(
-                                ((X_copy[:, 2, :].cpu() == 0).sum(-1) != 3)
+                                (X_copy[:, 2, :].cpu() == 0).sum(-1) != 3
                             )[0]
                             interface = np.intersect1d(interface, not_end_mask)
 

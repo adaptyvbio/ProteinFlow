@@ -528,8 +528,8 @@ class ProteinDataset(Dataset):
                         intersect_dim_X2[2],
                     )
 
-                    not_end_mask1 = np.where(((X1[:, 2, :] == 0).sum(-1) != 3))[0]
-                    not_end_mask2 = np.where(((X2[:, 2, :] == 0).sum(-1) != 3))[0]
+                    not_end_mask1 = np.where((X1[:, 2, :] == 0).sum(-1) != 3)[0]
+                    not_end_mask2 = np.where((X2[:, 2, :] == 0).sum(-1) != 3)[0]
 
                     intersect_X1 = np.intersect1d(intersect_X1, not_end_mask1)
                     intersect_X2 = np.intersect1d(intersect_X2, not_end_mask2)

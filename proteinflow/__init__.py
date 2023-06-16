@@ -452,7 +452,7 @@ def _run_processing(
     not_found_error = "<<< PDB / mmCIF file downloaded but not found"
     if not sabdab:
         while not_found_error in stats:
-            with open(LOG_FILE, "r") as f:
+            with open(LOG_FILE) as f:
                 lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
             os.remove(LOG_FILE)
             with open(f"{LOG_FILE}_tmp", "a") as f:
@@ -471,7 +471,7 @@ def _run_processing(
             _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
             stats = get_error_summary(LOG_FILE, verbose=False)
     if os.path.exists(f"{LOG_FILE}_tmp"):
-        with open(LOG_FILE, "r") as f:
+        with open(LOG_FILE) as f:
             lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
         os.remove(LOG_FILE)
         with open(f"{LOG_FILE}_tmp", "a") as f:
@@ -595,7 +595,7 @@ def _load_pdb(
             if n is not None and i == n:
                 break
         print("Downloading fasta files...")
-        pdbs = set([x.split("-")[0] for x in ids])
+        pdbs = {x.split("-")[0] for x in ids}
         future_to_key = {
             executor.submit(
                 lambda x: _download_fasta_f(x, datadir=tmp_folder), key
@@ -1212,7 +1212,7 @@ def get_error_summary(log_file, verbose=True):
 
     """
     stats = defaultdict(lambda: [])
-    with open(log_file, "r") as f:
+    with open(log_file) as f:
         for line in f.readlines():
             if line.startswith("<<<"):
                 stats[line.split(":")[0]].append(line.split(":")[-1].strip())
