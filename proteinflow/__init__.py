@@ -362,6 +362,7 @@ def _run_processing(
         a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
 
     """
+    
     TMP_FOLDER = tmp_folder
     OUTPUT_FOLDER = output_folder
     MIN_LENGTH = min_length
