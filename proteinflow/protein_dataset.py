@@ -802,13 +802,9 @@ def _split_data(
         if not os.path.exists(excluded_path):
             os.makedirs(excluded_path)
         print("Updating the split dictionaries...")
-        with open(
-            os.path.join(dict_folder, "train.pickle"), "wb"
-        ) as f:  # doesn't keep the homomer / heteromer info!!
+        with open(os.path.join(dict_folder, "train.pickle"), "wb") as f:
             pickle.dump(train_clusters_dict, f)
-        with open(
-            os.path.join(dict_folder, "excluded.pickle"), "wb"
-        ) as f:  # doesn't have the homomer / heteromer info!!
+        with open(os.path.join(dict_folder, "excluded.pickle"), "wb") as f:
             pickle.dump(excluded_clusters_dict, f)
         print("Moving excluded files...")
         for biounit in tqdm(excluded_files):

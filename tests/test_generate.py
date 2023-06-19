@@ -47,9 +47,11 @@ def test_generate():
     for subset in ["train", "valid", "test"]:
         num_files_split += len(os.listdir(os.path.join(folder, subset)))
         subset_folder = os.path.join(folder, subset)
-        with open(os.path.join(folder, "splits_dict", f"{subset}.pickle"), "rb") as f:
-            for _ in range(2):
-                class_data = pickle.load(f)
+        with open(
+            os.path.join(folder, "splits_dict", "classes", f"{subset}_classes.pickle"),
+            "rb",
+        ) as f:
+            class_data = pickle.load(f)
         classes = defaultdict(int)
         for file in os.listdir(subset_folder):
             with open(os.path.join(subset_folder, file), "rb") as f:

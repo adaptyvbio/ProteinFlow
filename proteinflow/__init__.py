@@ -239,8 +239,10 @@ def _get_split_dictionaries(
     sample_file = [x for x in os.listdir(output_folder) if x.endswith(".pickle")][0]
     ind = sample_file.split(".")[0].split("-")[1]
     sabdab = not ind.isnumeric()
+    classes_dict_folder = os.path.join(out_split_dict_folder, "classes")
 
     os.makedirs(out_split_dict_folder, exist_ok=True)
+    os.makedirs(classes_dict_folder, exist_ok=True)
     (
         train_clusters_dict,
         train_classes_dict,
@@ -259,12 +261,15 @@ def _get_split_dictionaries(
     )
     with open(os.path.join(out_split_dict_folder, "train.pickle"), "wb") as f:
         pickle.dump(train_clusters_dict, f)
+    with open(os.path.join(classes_dict_folder, "train_classes.pickle"), "wb") as f:
         pickle.dump(train_classes_dict, f)
     with open(os.path.join(out_split_dict_folder, "valid.pickle"), "wb") as f:
         pickle.dump(valid_clusters_dict, f)
+    with open(os.path.join(classes_dict_folder, "valid_classes.pickle"), "wb") as f:
         pickle.dump(valid_classes_dict, f)
     with open(os.path.join(out_split_dict_folder, "test.pickle"), "wb") as f:
         pickle.dump(test_clusters_dict, f)
+    with open(os.path.join(classes_dict_folder, "test_classes.pickle"), "wb") as f:
         pickle.dump(test_classes_dict, f)
 
 
@@ -1056,6 +1061,7 @@ def split_data(
     exclude_threshold=0.7,
     exclude_clusters=False,
     exclude_based_on_cdr=None,
+    random_seed=42,
 ):
     """Split `proteinflow` entry files into training, test and validation.
 
@@ -1102,6 +1108,8 @@ def split_data(
         if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
     exclude_based_on_cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}, optional
         if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
+    random_seed : int, default 42
+        random seed for reproducibility (set to `None` to use a random seed)
 
     Returns
     -------
@@ -1133,6 +1141,7 @@ def split_data(
             exists = True
     if not exists:
         _check_mmseqs()
+        random.seed(random_seed)
         _get_split_dictionaries(
             tmp_folder=tmp_folder,
             output_folder=output_folder,
