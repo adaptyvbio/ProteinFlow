@@ -19,6 +19,7 @@ def blosum62(seq_before, seq_after):
         The BLOSUM62 score between the two sequences.
 
     """
+    assert len(seq_before) == len(seq_after)
     matrix = bl.BLOSUM(62)
     score = 0
     for x_before, x_after in zip(seq_before, seq_after):
