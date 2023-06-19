@@ -63,8 +63,8 @@ jobs:
     - uses: actions/checkout@v3
     - name: Install dependencies
       run: |
-        conda install boa -c conda-forge
-        conda install anaconda-client
+        conda install -y boa -c conda-forge
+        conda install -y anaconda-client
         anaconda login --username ${{ secrets.CONDA_USERNAME }} --password ${{ secrets.CONDA_PASSWORD }}
     - name: Build and upload the conda packages for linux-64 and osx-64
       run: |
