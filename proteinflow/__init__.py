@@ -852,6 +852,7 @@ def generate_data(
     exclude_threshold=0.7,
     exclude_clusters=False,
     exclude_based_on_cdr=None,
+    random_seed=42,
 ):
     """Download and parse PDB files that meet filtering criteria.
 
@@ -928,6 +929,8 @@ def generate_data(
         if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
     exclude_based_on_cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}, optional
         if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
+    random_seed : int, default 42
+        the random seed to use for splitting
 
     Returns
     -------
@@ -979,6 +982,7 @@ def generate_data(
             exclude_threshold=exclude_threshold,
             exclude_clusters=exclude_clusters,
             exclude_based_on_cdr=exclude_based_on_cdr,
+            random_seed=random_seed,
         )
     shutil.rmtree(tmp_folder)
     return log_dict
