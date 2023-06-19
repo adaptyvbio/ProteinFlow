@@ -71,8 +71,6 @@ jobs:
         miniforge-variant: Mambaforge
         channels: conda-forge
         python-version: 3.9
-        activate-environment: causality
-        environment-file: environment.yml
         use-mamba: true
     - name: Install dependencies
       run: |
@@ -82,12 +80,12 @@ jobs:
         anaconda --help
     - name: Build and upload the conda packages for linux-64 and osx-64
       run: |
-        conda mambabuild .conda/default -c conda-forge -c bioconda --output-folder .
+        conda mambabuild --no-anaconda-upload .conda/default -c conda-forge -c bioconda --output-folder .
         anaconda upload --force -t ${{ secrets.ANACONDA_TOKEN }} ./linux-64/*.tar.bz2
         conda convert --platform osx-64 ./linux-64/*.tar.bz2
         anaconda upload --force -t ${{ secrets.ANACONDA_TOKEN }} ./osx-64/*.tar.bz2
     - name: Build and upload the conda packages for osx-arm64
       run: |
-        conda mambabuild .conda/arm64 -c conda-forge -c bioconda --output-folder .
+        conda mambabuild --no-anaconda-upload .conda/arm64 -c conda-forge -c bioconda --output-folder .
         anaconda upload --force -t ${{ secrets.ANACONDA_TOKEN }} ./osx-arm64/*.tar.bz2
     
