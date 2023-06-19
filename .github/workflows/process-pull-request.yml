@@ -69,15 +69,18 @@ jobs:
         auto-update-conda: false
         auto-activate-base: false
         show-channel-urls: true
-    - name: Build and upload the conda packages
-      uses: uibcdf/action-build-and-upload-conda-packages@v1.2.0
-      with:
-        meta_yaml_dir: .conda
-        python-version: 3.9 # Values previously defined in `matrix`
-        platform_linux-64: true
-        platform_osx-64: true
-        platform_osx-arm64: true
-        overwrite: true
-        user: adaptyvbio
-        label: auto
-        token: ${{ secrets.ANACONDA_TOKEN }} # Replace with the right name of your secret
+    - name: Install dependencies
+      run: |
+        conda install boa -c conda-forge
+        conda install anaconda-client
+        anaconda login --username ${{ secrets.CONDA_USERNAME }} --password ${{ secrets.CONDA_PASSWORD }}
+    - name: Build and upload the conda packages for linux-64 and osx-64
+      run: |
+        conda mambabuild .conda/default -c conda-forge -c bioconda --output-folder .
+        anaconda upload --force ~/linux-64/*.tar.bz2
+        conda convert --platform osx-64 ~/linux-64/*.tar.bz2
+        anaconda upload --force ~/osx-64/*.tar.bz2
+    - name: Build and upload the conda packages for arm64
+        conda mambabuild .conda/arm64 -c conda-forge -c bioconda --output-folder .
+        anaconda upload --force ~/osx-arm64/*.tar.bz2
+    
