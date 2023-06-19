@@ -65,15 +65,15 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Setup miniconda
-        uses: conda-incubator/setup-miniconda@v2
-        with:
-          auto-update-conda: true
-          miniforge-variant: Mambaforge
-          channels: conda-forge
-          python-version: 3.9
-          activate-environment: causality
-          environment-file: environment.yml
-          use-mamba: true
+      uses: conda-incubator/setup-miniconda@v2
+      with:
+        auto-update-conda: true
+        miniforge-variant: Mambaforge
+        channels: conda-forge
+        python-version: 3.9
+        activate-environment: causality
+        environment-file: environment.yml
+        use-mamba: true
     - name: Install dependencies
       run: |
         conda install -y boa -c conda-forge
