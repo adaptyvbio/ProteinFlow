@@ -4,7 +4,7 @@ import blosum as bl
 import numpy as np
 
 
-def blosum62(seq_before, seq_after):
+def blosum62_score(seq_before, seq_after):
     """Calculate the BLOSUM62 score between two sequences.
 
     Parameters
