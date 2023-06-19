@@ -39,10 +39,17 @@ def test_generate():
     generate_data(tag="test", skip_splitting=True, n=50)
     end = time()
     num_files = len(os.listdir(folder))
-    split_data(tag="test", valid_split=0.2, test_split=0.1, ignore_existing=True)
+    split_data(
+        tag="test",
+        valid_split=0.2,
+        test_split=0.1,
+        ignore_existing=True,
+        exclude_chains=["1arx-A"],
+    )
     assert os.path.exists(folder)
-    assert len(os.listdir(folder)) == 5
+    assert len(os.listdir(folder)) == 6
     num_files_split = 0
+    print(f'{os.listdir("./data/proteinflow_test/train")=}')
 
     for subset in ["train", "valid", "test"]:
         num_files_split += len(os.listdir(os.path.join(folder, subset)))
