@@ -778,12 +778,15 @@ def _split_data(
         os.makedirs(test_path)
 
     if len(excluded_files) > 0:
-        excluded_set = set(excluded_files)
+        set_to_exclude = set(excluded_files)
+        excluded_files = set()
+        excluded_clusters_dict = defaultdict(set)
         if exclude_clusters:
-            for cluster, files in train_clusters_dict.items():
+            for cluster in list(train_clusters_dict.keys()):
+                files = train_clusters_dict[cluster]
                 exclude = False
                 for biounit in files:
-                    if biounit in excluded_set:
+                    if biounit in set_to_exclude:
                         exclude = True
                         break
                 if exclude:
@@ -791,10 +794,22 @@ def _split_data(
                         if not cluster.endswith(exclude_based_on_cdr):
                             continue
                     for biounit in files:
-                        excluded_files.append(biounit)
+                        train_clusters_dict[cluster].remove(biounit)
+                        excluded_clusters_dict[cluster].add(biounit)
+                        excluded_files.add(biounit)
+        excluded_clusters_dict = {k: list(v) for k, v in excluded_clusters_dict.items()}
         excluded_path = os.path.join(dataset_path, "excluded")
         if not os.path.exists(excluded_path):
             os.makedirs(excluded_path)
+        print("Updating the split dictionaries...")
+        with open(
+            os.path.join(dict_folder, "train.pickle"), "wb"
+        ) as f:  # doesn't keep the homomer / heteromer info!!
+            pickle.dump(train_clusters_dict, f)
+        with open(
+            os.path.join(dict_folder, "excluded.pickle"), "wb"
+        ) as f:  # doesn't have the homomer / heteromer info!!
+            pickle.dump(excluded_clusters_dict, f)
         print("Moving excluded files...")
         for biounit in tqdm(excluded_files):
             shutil.move(os.path.join(dataset_path, biounit), excluded_path)
