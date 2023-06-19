@@ -1,27 +1,28 @@
-from collections import Counter, defaultdict
-from copy import deepcopy
-from itertools import combinations
 import os
 import pickle
 import random
 import shutil
 import subprocess
-import pandas as pd
+from collections import Counter, defaultdict
+from copy import deepcopy
+from itertools import combinations
+
 import numpy as np
+import pandas as pd
+import torch
 from numpy import linalg
 from p_tqdm import p_map
-import torch
 from torch.utils.data import Dataset
 from tqdm import tqdm
+
+from proteinflow.constants import _PMAP, ALPHABET, CDR, D3TO1, MAIN_ATOMS
+from proteinflow.pdb import _check_biounits
+from proteinflow.utils.biotite_sse import _annotate_sse
 from proteinflow.utils.boto_utils import (
     _download_dataset_dicts_from_s3,
     _download_dataset_from_s3,
     _get_s3_paths_from_tag,
 )
-
-from proteinflow.constants import _PMAP, ALPHABET, CDR, D3TO1, MAIN_ATOMS
-from proteinflow.pdb import _check_biounits
-from proteinflow.utils.biotite_sse import _annotate_sse
 
 
 class ProteinDataset(Dataset):
@@ -527,8 +528,8 @@ class ProteinDataset(Dataset):
                         intersect_dim_X2[2],
                     )
 
-                    not_end_mask1 = np.where(((X1[:, 2, :] == 0).sum(-1) != 3))[0]
-                    not_end_mask2 = np.where(((X2[:, 2, :] == 0).sum(-1) != 3))[0]
+                    not_end_mask1 = np.where((X1[:, 2, :] == 0).sum(-1) != 3)[0]
+                    not_end_mask2 = np.where((X2[:, 2, :] == 0).sum(-1) != 3)[0]
 
                     intersect_X1 = np.intersect1d(intersect_X1, not_end_mask1)
                     intersect_X2 = np.intersect1d(intersect_X2, not_end_mask2)
@@ -740,7 +741,7 @@ def _split_data(
     ----------
     dataset_path : str, default "./data/proteinflow_20221110/"
         The path to the dataset folder containing pre-processed entries and a `splits_dict` folder with split dictionaries (downloaded or generated with `get_split_dictionaries`)
-    exculded_files : list, optional
+    excluded_files : list, optional
         A list of files to exclude from the dataset
     exclude_clusters : bool, default False
         If True, exclude all files in a cluster if at least one file in the cluster is in `excluded_files`
@@ -812,7 +813,7 @@ def _remove_database_redundancies(dir, seq_identity_threshold=0.9):
     """
     Remove all biounits in the database that are copies to another biounits in terms of sequence
 
-    Sequence identity is definded by the 'seq_identity_threshold' parameter for robust detection of sequence similarity (missing residues, point mutations, ...).
+    Sequence identity is defined by the 'seq_identity_threshold' parameter for robust detection of sequence similarity (missing residues, point mutations, ...).
 
     Parameters
     ----------

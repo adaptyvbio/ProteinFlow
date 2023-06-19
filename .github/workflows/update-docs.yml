@@ -3,9 +3,8 @@ name: Update docs
 on:
   push:
     branches: [ main ]
-
-env:
-  ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+    paths:
+      - proteinflow/**
 
 jobs:
   update:

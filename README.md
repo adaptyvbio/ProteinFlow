@@ -60,6 +60,12 @@ python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@db
 docker run -it -v /path/to/data:/media adaptyvbio/proteinflow bash
 ```
 
+### Contribution
+If you are planning to contribute to the package, please run this command in your repo before making any commits.
+```
+pre-commit install
+```
+
 ## Usage
 ### Downloading pre-computed datasets (stable)
 Already precomputed datasets with consensus set of parameters and can be accessed and downloaded using the `proteinflow`. package. Check the output of `proteinflow check_tags` for a list of available tags.

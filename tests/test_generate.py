@@ -1,10 +1,12 @@
-from proteinflow import generate_data, split_data
 import os
 import pickle
-from collections import defaultdict
-import editdistance
 import shutil
+from collections import defaultdict
 from time import time
+
+import editdistance
+
+from proteinflow import generate_data, split_data
 
 
 def get_class(seqs_dict):

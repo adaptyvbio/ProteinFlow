@@ -146,9 +146,7 @@ for batch in train_loader:
     to_predict = batch["masked_res"] # (B, L), 1 where the residues should be masked, 0 otherwise
     ...
 ```
-
 """
-
 __pdoc__ = {
     "utils": False,
     "scripts": False,
@@ -159,18 +157,33 @@ __pdoc__ = {
 }
 __docformat__ = "numpy"
 
-from proteinflow.utils.boto_utils import _download_s3_parallel, _s3list
-from proteinflow.utils.common_utils import (
-    PDBError,
-    _log_exception,
-    _log_removed,
-    _make_sabdab_html,
-    _raise_rcsbsearch,
-)
-from proteinflow.constants import (
-    ALLOWED_AG_TYPES,
-    SIDECHAIN_ORDER,
-)
+import os
+import pickle
+import random
+import shutil
+import string
+import subprocess
+import urllib
+import urllib.request
+import warnings
+import zipfile
+from collections import defaultdict
+from concurrent import futures
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+
+import boto3
+import pandas as pd
+import requests
+from botocore import UNSIGNED
+from botocore.config import Config
+from bs4 import BeautifulSoup
+from editdistance import eval as edit_distance
+from p_tqdm import p_map
+from rcsbsearch import Attr
+from tqdm import tqdm
+
+from proteinflow.constants import ALLOWED_AG_TYPES, SIDECHAIN_ORDER
 from proteinflow.pdb import _align_structure, _open_structure
 from proteinflow.protein_dataset import (
     ProteinDataset,
@@ -180,36 +193,18 @@ from proteinflow.protein_dataset import (
 )
 from proteinflow.protein_loader import ProteinLoader
 from proteinflow.sequences import _retrieve_fasta_chains
-
+from proteinflow.utils.boto_utils import _download_s3_parallel, _s3list
 from proteinflow.utils.cluster_and_partition import (
     _build_dataset_partition,
     _check_mmseqs,
 )
-
-import shutil
-import warnings
-import os
-import pickle
-from collections import defaultdict
-from rcsbsearch import Attr
-from datetime import datetime
-import subprocess
-import urllib
-import random
-from p_tqdm import p_map
-from tqdm import tqdm
-import pandas as pd
-import boto3
-from botocore import UNSIGNED
-from botocore.config import Config
-from concurrent import futures
-from concurrent.futures import ThreadPoolExecutor
-from editdistance import eval as edit_distance
-import requests
-import zipfile
-from bs4 import BeautifulSoup
-import urllib.request
-import string
+from proteinflow.utils.common_utils import (
+    PDBError,
+    _log_exception,
+    _log_removed,
+    _make_sabdab_html,
+    _raise_rcsbsearch,
+)
 
 
 def _get_split_dictionaries(
@@ -456,7 +451,7 @@ def _run_processing(
     not_found_error = "<<< PDB / mmCIF file downloaded but not found"
     if not sabdab:
         while not_found_error in stats:
-            with open(LOG_FILE, "r") as f:
+            with open(LOG_FILE) as f:
                 lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
             os.remove(LOG_FILE)
             with open(f"{LOG_FILE}_tmp", "a") as f:
@@ -475,7 +470,7 @@ def _run_processing(
             _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
             stats = get_error_summary(LOG_FILE, verbose=False)
     if os.path.exists(f"{LOG_FILE}_tmp"):
-        with open(LOG_FILE, "r") as f:
+        with open(LOG_FILE) as f:
             lines = [x for x in f.readlines() if not x.startswith(not_found_error)]
         os.remove(LOG_FILE)
         with open(f"{LOG_FILE}_tmp", "a") as f:
@@ -599,7 +594,7 @@ def _load_pdb(
             if n is not None and i == n:
                 break
         print("Downloading fasta files...")
-        pdbs = set([x.split("-")[0] for x in ids])
+        pdbs = {x.split("-")[0] for x in ids}
         future_to_key = {
             executor.submit(
                 lambda x: _download_fasta_f(x, datadir=tmp_folder), key
@@ -1216,7 +1211,7 @@ def get_error_summary(log_file, verbose=True):
 
     """
     stats = defaultdict(lambda: [])
-    with open(log_file, "r") as f:
+    with open(log_file) as f:
         for line in f.readlines():
             if line.startswith("<<<"):
                 stats[line.split(":")[0]].append(line.split(":")[-1].strip())

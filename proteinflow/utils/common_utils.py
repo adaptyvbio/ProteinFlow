@@ -1,9 +1,10 @@
-from collections import defaultdict
 import itertools
 import os
+import pickle
 import subprocess
 import traceback
-import pickle
+from collections import defaultdict
+
 import numpy as np
 
 
@@ -69,7 +70,7 @@ def _raise_rcsbsearch(e):
 
     if "404 Client Error" in str(e):
         raise RuntimeError(
-            'Quering rcsbsearch is failing. Please install a version of rcsbsearch where this error is solved:\npython -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"'
+            'Querying rcsbsearch is failing. Please install a version of rcsbsearch where this error is solved:\npython -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"'
         )
     else:
         raise e
@@ -96,17 +97,17 @@ def _test_availability(
     return present[0] > n_samples, present[1] > n_samples, present[2] > n_samples
 
 
-def _find_correspondances(files, dataset_dir):
+def _find_correspondences(files, dataset_dir):
     """
     Return a dictionary that contains all the biounits in the database (keys) and the list of all the chains that are in these biounits (values)
     """
 
-    correspondances = defaultdict(lambda: [])
+    correspondences = defaultdict(lambda: [])
     for file in files:
         biounit = file
         with open(os.path.join(dataset_dir, file), "rb") as f:
             keys = pickle.load(f)
             for k in keys:
-                correspondances[biounit].append(k)
+                correspondences[biounit].append(k)
 
-    return correspondances
+    return correspondences
