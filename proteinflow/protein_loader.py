@@ -313,6 +313,7 @@ class ProteinLoader(DataLoader):
         shuffle_clusters=True,
         shuffle_batches=True,
         mask_all_cdrs=False,
+        classes_dict_path=None,
         *args,
         **kwargs,
     ) -> None:
@@ -362,6 +363,8 @@ class ProteinLoader(DataLoader):
             if `True`, the batches are shuffled at each epoch
         mask_all_cdrs : bool, default False
             if `True`, all CDRs are masked instead of just the sampled one
+        classes_dict_path : str, optional
+            path to the pickled classes dictionary
         """
 
         dataset = ProteinDataset(
@@ -378,6 +381,7 @@ class ProteinLoader(DataLoader):
             entry_type=entry_type,
             classes_to_exclude=classes_to_exclude,
             shuffle_clusters=shuffle_clusters,
+            classes_dict_path=classes_dict_path,
         )
         return ProteinLoader(
             dataset=dataset,
