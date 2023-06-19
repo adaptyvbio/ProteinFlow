@@ -56,11 +56,11 @@ jobs:
   #         conda run -n proteinflow pytest tests
 
   conda:
+    name: Push to Anaconda
     runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash -l {0}
-    name: Push to Anaconda
 
     steps:
     - uses: actions/checkout@v3
