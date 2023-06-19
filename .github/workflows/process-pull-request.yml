@@ -62,18 +62,20 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Install dependencies
+      shell: bash -l {0}
       run: |
         conda update conda -y
         conda install -y boa -c conda-forge
         conda install -y anaconda-client
         conda list
+        anaconda --help
     - name: Build and upload the conda packages for linux-64 and osx-64
       run: |
         conda mambabuild .conda/default -c conda-forge -c bioconda --output-folder .
         anaconda upload --force -t ${{ secrets.ANACONDA_TOKEN }} ./linux-64/*.tar.bz2
         conda convert --platform osx-64 ./linux-64/*.tar.bz2
         anaconda upload --force -t ${{ secrets.ANACONDA_TOKEN }} ./osx-64/*.tar.bz2
-    - name: Build and upload the conda packages for arm64
+    - name: Build and upload the conda packages for osx-arm64
       run: |
         conda mambabuild .conda/arm64 -c conda-forge -c bioconda --output-folder .
         anaconda upload --force -t ${{ secrets.ANACONDA_TOKEN }} ./osx-arm64/*.tar.bz2
