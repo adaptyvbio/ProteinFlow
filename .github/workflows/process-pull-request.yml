@@ -74,8 +74,8 @@ jobs:
         use-mamba: true
     - name: Install dependencies
       run: |
-        conda install -y boa -c conda-forge
-        conda install -y anaconda-client
+        mamba install -y boa -c conda-forge
+        mamba install -y anaconda-client
         conda list
         anaconda --help
     - name: Build and upload the conda packages for linux-64 and osx-64
