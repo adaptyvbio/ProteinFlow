@@ -797,6 +797,7 @@ def _split_data(
                         train_clusters_dict[cluster].remove(biounit)
                         excluded_clusters_dict[cluster].add(biounit)
                         excluded_files.add(biounit)
+        excluded_files.update(set_to_exclude)
         excluded_clusters_dict = {k: list(v) for k, v in excluded_clusters_dict.items()}
         excluded_path = os.path.join(dataset_path, "excluded")
         if not os.path.exists(excluded_path):
