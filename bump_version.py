@@ -13,7 +13,7 @@ def main(version):
     ----------
     version : str
         The version to bump to
-        
+
     """
     with open("pyproject.toml") as f:
         lines = f.readlines()
