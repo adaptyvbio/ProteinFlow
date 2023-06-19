@@ -11,80 +11,46 @@ env:
 
 jobs:
 
-  # test:
-  #   runs-on: ${{ matrix.os }}
-  #   strategy:
-  #     matrix:
-  #       version: ["3.8", "3.10"]
-  #       os: [ubuntu-latest, macos-latest]
-
-  #   steps:
-  #     - name: Check if relevant files have changed
-  #       uses: actions/github-script@0.9.0
-  #       id: service-changed
-  #       with:
-  #         result-encoding: string
-  #         script: |
-  #           const result = await github.pulls.listFiles({
-  #             owner: context.payload.repository.owner.login,
-  #             repo: context.payload.repository.name,
-  #             pull_number: context.payload.number,
-  #             per_page: 100
-  #           })
-  #           const serviceChanged = result.data.filter(f => f.filename.startsWith("proteinflow/")).length > 0
-  #           console.log(serviceChanged)
-  #           return serviceChanged
-  #     - uses: actions/checkout@v3
-  #       if: ${{ steps.service-changed.outputs.result == 'true' }}
-  #       with:
-  #           ref: ${{ env.MY_REF }}
-  #           fetch-depth: 0
-  #     - name: Install dependencies
-  #       if: ${{ steps.service-changed.outputs.result == 'true' }}
-  #       run: |
-  #         conda update conda -y
-  #         conda create --name proteinflow -y python=${{ matrix.version }}
-  #         conda install -n proteinflow -c conda-forge -c bioconda mmseqs2
-  #         conda run -n proteinflow python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
-  #         conda run -n proteinflow python -m pip install awscli pytest flake8
-  #         conda run -n proteinflow python -m pip install numpy
-  #         conda run -n proteinflow python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
-  #         conda run -n proteinflow python -m pip install -e .
-  #     - name: Test with pytest
-  #       if: ${{ steps.service-changed.outputs.result == 'true' }}
-  #       run: |
-  #         conda run -n proteinflow pytest tests
-
-  conda:
-    name: Push to Anaconda
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash -l {0}
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        version: ["3.8", "3.10"]
+        os: [ubuntu-latest, macos-latest]
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Setup miniconda
-      uses: conda-incubator/setup-miniconda@v2
-      with:
-        auto-update-conda: true
-        miniforge-variant: Mambaforge
-        channels: conda-forge
-        python-version: 3.9
-        use-mamba: true
-    - name: Install dependencies
-      run: |
-        mamba install -y boa -c conda-forge
-        mamba install -y anaconda-client
-        anaconda login --username ${{ secrets.CONDA_USERNAME }} --password ${{ secrets.CONDA_PASSWORD }}
-    - name: Build and upload the conda packages for linux-64 and osx-64
-      run: |
-        conda mambabuild --no-anaconda-upload .conda/default -c conda-forge -c bioconda --output-folder .
-        anaconda upload --force ./linux-64/*.tar.bz2
-        conda convert --platform osx-64 ./linux-64/*.tar.bz2
-        anaconda upload --force ./osx-64/*.tar.bz2
-    - name: Build and upload the conda packages for osx-arm64
-      run: |
-        conda mambabuild --no-anaconda-upload .conda/arm64 -c conda-forge -c bioconda --output-folder .
-        anaconda upload --force ./osx-arm64/*.tar.bz2
-    
+      - name: Check if relevant files have changed
+        uses: actions/github-script@0.9.0
+        id: service-changed
+        with:
+          result-encoding: string
+          script: |
+            const result = await github.pulls.listFiles({
+              owner: context.payload.repository.owner.login,
+              repo: context.payload.repository.name,
+              pull_number: context.payload.number,
+              per_page: 100
+            })
+            const serviceChanged = result.data.filter(f => f.filename.startsWith("proteinflow/")).length > 0
+            console.log(serviceChanged)
+            return serviceChanged
+      - uses: actions/checkout@v3
+        if: ${{ steps.service-changed.outputs.result == 'true' }}
+        with:
+            ref: ${{ env.MY_REF }}
+            fetch-depth: 0
+      - name: Install dependencies
+        if: ${{ steps.service-changed.outputs.result == 'true' }}
+        run: |
+          conda update conda -y
+          conda create --name proteinflow -y python=${{ matrix.version }}
+          conda install -n proteinflow -c conda-forge -c bioconda mmseqs2
+          conda run -n proteinflow python -m pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
+          conda run -n proteinflow python -m pip install awscli pytest flake8
+          conda run -n proteinflow python -m pip install numpy
+          conda run -n proteinflow python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
+          conda run -n proteinflow python -m pip install -e .
+      - name: Test with pytest
+        if: ${{ steps.service-changed.outputs.result == 'true' }}
+        run: |
+          conda run -n proteinflow pytest tests
