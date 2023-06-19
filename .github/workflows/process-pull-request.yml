@@ -61,7 +61,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - uses: conda-incubator/setup-miniconda@v2
+    - uses: s-weigand/setup-conda@v1
     - name: Install dependencies
       shell: bash -l {0}
       run: |
