@@ -81,6 +81,7 @@ jobs:
         conda convert --platform osx-64 ~/linux-64/*.tar.bz2
         anaconda upload --force ~/osx-64/*.tar.bz2
     - name: Build and upload the conda packages for arm64
+      run: |
         conda mambabuild .conda/arm64 -c conda-forge -c bioconda --output-folder .
         anaconda upload --force ~/osx-arm64/*.tar.bz2
     
