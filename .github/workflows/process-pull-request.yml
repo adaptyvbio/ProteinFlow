@@ -61,14 +61,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Conda environment creation and activation
-      uses: conda-incubator/setup-miniconda@v2
-      with:
-        python-version: 3.9
-        environment-file: build_env.yaml    # Path to the build conda environment
-        auto-update-conda: false
-        auto-activate-base: false
-        show-channel-urls: true
     - name: Install dependencies
       run: |
         conda install boa -c conda-forge
