@@ -76,16 +76,15 @@ jobs:
       run: |
         mamba install -y boa -c conda-forge
         mamba install -y anaconda-client
-        conda list
-        anaconda --help
+        anaconda login --username ${{ secrets.CONDA_USERNAME }} --password ${{ secrets.CONDA_PASSWORD }}
     - name: Build and upload the conda packages for linux-64 and osx-64
       run: |
         conda mambabuild --no-anaconda-upload .conda/default -c conda-forge -c bioconda --output-folder .
-        anaconda upload --force -t ${{ secrets.ANACONDA_TOKEN }} ./linux-64/*.tar.bz2
+        anaconda upload --force ./linux-64/*.tar.bz2
         conda convert --platform osx-64 ./linux-64/*.tar.bz2
-        anaconda upload --force -t ${{ secrets.ANACONDA_TOKEN }} ./osx-64/*.tar.bz2
+        anaconda upload --force ./osx-64/*.tar.bz2
     - name: Build and upload the conda packages for osx-arm64
       run: |
         conda mambabuild --no-anaconda-upload .conda/arm64 -c conda-forge -c bioconda --output-folder .
-        anaconda upload --force -t ${{ secrets.ANACONDA_TOKEN }} ./osx-arm64/*.tar.bz2
+        anaconda upload --force ./osx-arm64/*.tar.bz2
     
