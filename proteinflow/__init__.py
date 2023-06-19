@@ -163,6 +163,7 @@ import random
 import shutil
 import string
 import subprocess
+import tempfile
 import urllib
 import urllib.request
 import warnings
@@ -239,10 +240,8 @@ def _get_split_dictionaries(
     sample_file = [x for x in os.listdir(output_folder) if x.endswith(".pickle")][0]
     ind = sample_file.split(".")[0].split("-")[1]
     sabdab = not ind.isnumeric()
-    classes_dict_folder = os.path.join(out_split_dict_folder, "classes")
 
     os.makedirs(out_split_dict_folder, exist_ok=True)
-    os.makedirs(classes_dict_folder, exist_ok=True)
     (
         train_clusters_dict,
         train_classes_dict,
@@ -259,18 +258,20 @@ def _get_split_dictionaries(
         min_seq_id=min_seq_id,
         sabdab=sabdab,
     )
+
+    classes_dict = train_classes_dict
+    for d in [valid_classes_dict, test_classes_dict]:
+        for k, v in d.items():
+            classes_dict[k].update(v)
+
+    with open(os.path.join(out_split_dict_folder, "classes.pickle"), "wb") as f:
+        pickle.dump(classes_dict, f)
     with open(os.path.join(out_split_dict_folder, "train.pickle"), "wb") as f:
         pickle.dump(train_clusters_dict, f)
-    with open(os.path.join(classes_dict_folder, "train_classes.pickle"), "wb") as f:
-        pickle.dump(train_classes_dict, f)
     with open(os.path.join(out_split_dict_folder, "valid.pickle"), "wb") as f:
         pickle.dump(valid_clusters_dict, f)
-    with open(os.path.join(classes_dict_folder, "valid_classes.pickle"), "wb") as f:
-        pickle.dump(valid_classes_dict, f)
     with open(os.path.join(out_split_dict_folder, "test.pickle"), "wb") as f:
         pickle.dump(test_clusters_dict, f)
-    with open(os.path.join(classes_dict_folder, "test_classes.pickle"), "wb") as f:
-        pickle.dump(test_classes_dict, f)
 
 
 def _run_processing(
@@ -943,7 +944,8 @@ def generate_data(
     tmp_id = "".join(
         random.choice(string.ascii_uppercase + string.digits) for _ in range(5)
     )
-    tmp_folder = os.path.join("", "tmp", tag + tmp_id)
+    tmp_folder = os.path.join(tempfile.gettempdir(), tag + tmp_id)
+    os.makedirs(tmp_folder)
     output_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
 
     if force and os.path.exists(output_folder):

@@ -25,6 +25,7 @@ def test_download():
             node_features_type="chemical+sidechain_orientation+dihedral+secondary_structure+sidechain_coords",
             rewrite=True,
             clustering_dict_path=cluster_dict_path,
+            classes_dict_path=os.path.join(folder, "splits_dict", "classes.pickle"),
             entry_type=entry_type,
             classes_to_exclude=classes_to_exclude,
             max_length=1000,

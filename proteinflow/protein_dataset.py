@@ -85,6 +85,7 @@ class ProteinDataset(Dataset):
         shuffle_clusters=True,
         min_cdr_length=None,
         feature_functions=None,
+        classes_dict_path=None,
     ):
         """
         Parameters
@@ -122,8 +123,10 @@ class ProteinDataset(Dataset):
             for SAbDab datasets, biounits with CDRs shorter than `min_cdr_length` will be excluded
         feature_functions : dict, optional
             a dictionary of functions to compute additional features (keys are the names of the features, values are the functions)
-        """
+        classes_dict_path : str, optional
+            a path to a pickled dictionary with biounit classes (single chain / heteromer / homomer)
 
+        """
         alphabet = ALPHABET
         self.alphabet_dict = defaultdict(lambda: 0)
         for i, letter in enumerate(alphabet):
@@ -209,9 +212,9 @@ class ProteinDataset(Dataset):
                     self.files[id][chain].append(filename)
         if classes_to_exclude is None:
             classes_to_exclude = []
-        elif clustering_dict_path is None:
+        elif classes_dict_path is None:
             raise ValueError(
-                "classes_to_exclude is not None, but clustering_dict_path is None"
+                "classes_to_exclude is not None, but classes_dict_path is None"
             )
         if clustering_dict_path is not None:
             if entry_type == "pair":
@@ -220,6 +223,7 @@ class ProteinDataset(Dataset):
                 classes_to_exclude = list(classes_to_exclude)
             with open(clustering_dict_path, "rb") as f:
                 self.clusters = pickle.load(f)  # list of biounit ids by cluster id
+            with open(classes_dict_path, "rb") as f:
                 classes = pickle.load(f)
             to_exclude = set()
             for c in classes_to_exclude:
@@ -728,6 +732,40 @@ def _biounits_in_clusters_dict(clusters_dict, excluded_files=None):
     )
 
 
+def _exclude(clusters_dict, set_to_exclude, exclude_based_on_cdr=None):
+    """
+    Exclude biounits from clusters_dict
+
+    Parameters
+    ----------
+    clusters_dict : dict
+        dictionary of clusters
+    set_to_exclude : set
+        set of biounits to exclude
+    exclude_based_on_cdr : str, default None
+        if not None, exclude based only on clusters based on this CDR (e.g. "H3")
+
+    """
+    excluded_set = set()
+    excluded_dict = defaultdict(set)
+    for cluster in list(clusters_dict.keys()):
+        files = clusters_dict[cluster]
+        exclude = False
+        for biounit in files:
+            if biounit in set_to_exclude:
+                exclude = True
+                break
+        if exclude:
+            if exclude_based_on_cdr is not None:
+                if not cluster.endswith(exclude_based_on_cdr):
+                    continue
+            for biounit in files:
+                clusters_dict[cluster].remove(biounit)
+                excluded_dict[cluster].add(biounit)
+                excluded_set.add(biounit)
+    return excluded_dict, excluded_set
+
+
 def _split_data(
     dataset_path="./data/proteinflow_20221110/",
     excluded_files=None,
@@ -782,21 +820,16 @@ def _split_data(
         excluded_files = set()
         excluded_clusters_dict = defaultdict(set)
         if exclude_clusters:
-            for cluster in list(train_clusters_dict.keys()):
-                files = train_clusters_dict[cluster]
-                exclude = False
-                for biounit in files:
-                    if biounit in set_to_exclude:
-                        exclude = True
-                        break
-                if exclude:
-                    if exclude_based_on_cdr is not None:
-                        if not cluster.endswith(exclude_based_on_cdr):
-                            continue
-                    for biounit in files:
-                        train_clusters_dict[cluster].remove(biounit)
-                        excluded_clusters_dict[cluster].add(biounit)
-                        excluded_files.add(biounit)
+            for clusters_dict in [
+                train_clusters_dict,
+                valid_clusters_dict,
+                test_clusters_dict,
+            ]:
+                subset_excluded_set, subset_excluded_dict = _exclude(
+                    clusters_dict, set_to_exclude, exclude_based_on_cdr
+                )
+                excluded_files.update(subset_excluded_set)
+                excluded_clusters_dict.update(subset_excluded_dict)
         excluded_files.update(set_to_exclude)
         excluded_clusters_dict = {k: list(v) for k, v in excluded_clusters_dict.items()}
         excluded_path = os.path.join(dataset_path, "excluded")
