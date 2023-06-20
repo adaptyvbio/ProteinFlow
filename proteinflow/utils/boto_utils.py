@@ -20,6 +20,7 @@ def _download_dataset_dicts_from_s3(dict_folder_path, s3_path):
     train_path = os.path.join(s3_path, "train.pickle")
     valid_path = os.path.join(s3_path, "valid.pickle")
     test_path = os.path.join(s3_path, "test.pickle")
+    classes_path = os.path.join(s3_path, "classes.pickle")
 
     if not os.path.exists(dict_folder_path):
         os.makedirs(dict_folder_path)
@@ -32,6 +33,9 @@ def _download_dataset_dicts_from_s3(dict_folder_path, s3_path):
     )
     subprocess.run(
         ["aws", "s3", "cp", "--no-sign-request", test_path, dict_folder_path]
+    )
+    subprocess.run(
+        ["aws", "s3", "cp", "--no-sign-request", classes_path, dict_folder_path]
     )
 
 
