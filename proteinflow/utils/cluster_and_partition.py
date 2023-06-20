@@ -978,8 +978,7 @@ def _build_dataset_partition(
     min_seq_id=0.3,
     sabdab=False,
 ):
-    """
-    Build training, validation and test sets from a curated dataset of biounit, using MMSeqs2 for clustering
+    """Build training, validation and test sets from a curated dataset of biounit, using MMSeqs2 for clustering.
 
     Parameters
     ----------
@@ -1010,8 +1009,8 @@ def _build_dataset_partition(
         see train_clusters_dict but for test set
     test_classes_dict : dict
         see train_classes_dict but for test set
-    """
 
+    """
     cdrs = ["L1", "L2", "L3", "H1", "H2", "H3"] if sabdab else [None]
     for cdr in cdrs:
         if cdr is not None:

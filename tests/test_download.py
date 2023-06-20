@@ -2,19 +2,22 @@ import os
 import shutil
 import subprocess
 
+import pytest
+
 from proteinflow import ProteinLoader
 
 
-def test_download():
+@pytest.mark.parametrize("tag", ["test", "test_old"])
+def test_download(tag):
     """Test download_data + split_data + ProteinLoader"""
 
-    folder = "./data/proteinflow_test"
+    folder = f"./data/proteinflow_{tag}"
     if os.path.exists(folder):
         shutil.rmtree(folder)
     subprocess.run(
-        ["proteinflow", "download", "--tag", "test", "--skip_splitting"], check=True
+        ["proteinflow", "download", "--tag", tag, "--skip_splitting"], check=True
     )
-    subprocess.run(["proteinflow", "split", "--tag", "test"], check=True)
+    subprocess.run(["proteinflow", "split", "--tag", tag], check=True)
     for cluster_dict_path, entry_type, classes_to_exclude in [
         (os.path.join(folder, "splits_dict/valid.pickle"), "chain", ["homomers"]),
         (None, "pair", None),
@@ -25,6 +28,7 @@ def test_download():
             node_features_type="chemical+sidechain_orientation+dihedral+secondary_structure+sidechain_coords",
             rewrite=True,
             clustering_dict_path=cluster_dict_path,
+            classes_dict_path=os.path.join(folder, "splits_dict", "classes.pickle"),
             entry_type=entry_type,
             classes_to_exclude=classes_to_exclude,
             max_length=1000,
@@ -58,4 +62,4 @@ def test_download():
 
 
 if __name__ == "__main__":
-    test_download()
+    test_download("test_old")
