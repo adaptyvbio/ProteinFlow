@@ -223,8 +223,11 @@ class ProteinDataset(Dataset):
                 classes_to_exclude = list(classes_to_exclude)
             with open(clustering_dict_path, "rb") as f:
                 self.clusters = pickle.load(f)  # list of biounit ids by cluster id
-            with open(classes_dict_path, "rb") as f:
-                classes = pickle.load(f)
+                try:  # old way of storing class information
+                    classes = pickle.load(f)
+                except EOFError:
+                    with open(classes_dict_path, "rb") as f:
+                        classes = pickle.load(f)
             to_exclude = set()
             for c in classes_to_exclude:
                 for key, id_arr in classes.get(c, {}).items():
