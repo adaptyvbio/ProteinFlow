@@ -35,6 +35,8 @@ To install ProteinFlow for development, please follow these steps:
     
     ```
     python -m pip install -e .
+    python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
+    conda install -c bioconda -c conda-forge mmseqs2
     ```
     
 5. Install the pre-commit hooks:
