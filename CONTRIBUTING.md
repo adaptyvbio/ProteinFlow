@@ -66,14 +66,14 @@ When making commits to the repository, please follow these guidelines:
     - `refactor`: Code refactorings that don't change functionality
     - `test`: Adding or modifying tests
     - `chore`: Other changes that don't modify code or tests
-- The `scope` should indicate the module or feature area affected by the commit.
+- The `scope` (optional) should indicate the module or feature area affected by the commit.
 - The `description` should be a concise summary of the changes introduced by the commit.
 
 The description should be uncapitalized, in imperative, present tense.
 
-Example: `'fix(processing): make ProteinDataset work with old style dictionaries'`.
-
-For more information and examples, refer to the [Git Commit Message Convention Guide]([https://dev.to/ishanmakadia/git-commit-message-convention-that-you-can-follow-1709](https://www.conventionalcommits.org/en/v1.0.0/).
+Examples: 
+- `'fix(processing): make ProteinDataset work with old style dictionaries'`,
+- `'test: test for exclude_chains in test_generate'`.
 
 Before committing changes, please ensure that you have installed the pre-commit hooks by running `pre-commit install` in your local repository. This ensures that code formatting and linting checks pass before committing.
 
