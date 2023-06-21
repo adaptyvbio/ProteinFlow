@@ -5,8 +5,8 @@ Thank you for your interest in contributing to the ProteinFlow project! Your con
 ## Table of Contents
 
 - [Installation](#installation)
-- [Commit Guidelines](#commit-guidelines)
 - [Testing](#testing)
+- [Commit Guidelines](#commit-guidelines)
 - [Pull Request Guidelines](#pull-request-guidelines)
 - [Documentation](#documentation)
 
