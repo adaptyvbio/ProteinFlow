@@ -32,11 +32,12 @@ To install ProteinFlow for development, please follow these steps:
     conda activate proteinflow
     ```
     
-4. Install ProteinFlow in editable mode along with its dependencies:
+4. Install ProteinFlow in editable mode along with its dependencies and `pytest`:
     
     ```
     python -m pip install -e .
     python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
+    python -m pip install pytest
     conda install -c bioconda -c conda-forge mmseqs2
     ```
     
