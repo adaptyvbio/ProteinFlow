@@ -15,26 +15,26 @@ To install ProteinFlow for development, please follow these steps:
 
 1. Clone the repository:
     
-    ```
+    ```bash
     git clone https://github.com/adaptyvbio/ProteinFlow
     cd ProteinFlow
     ```
     
 2. Create a Conda environment named `proteinflow` with Python 3.9:
     
-    ```
+    ```bash
     conda create --name proteinflow -y python=3.9
     ```
     
 3. Activate the `proteinflow` environment:
     
-    ```
+    ```bash
     conda activate proteinflow
     ```
     
 4. Install ProteinFlow in editable mode along with its dependencies and `pytest`:
     
-    ```
+    ```bash
     python -m pip install -e .
     python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
     python -m pip install pytest
@@ -43,7 +43,7 @@ To install ProteinFlow for development, please follow these steps:
     
 5. Install the pre-commit hooks:
     
-    ```
+    ```bash
     pre-commit install
     ```
 
