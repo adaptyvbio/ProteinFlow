@@ -4,9 +4,9 @@ Thank you for your interest in contributing to the ProteinFlow project! Your con
 
 ## Table of Contents
 
-- [Installation](notion://www.notion.so/adaptyvbio/Contributing-19ba1b720a9e4f5a9ebe9eb5ef3cd227#installation)
-- [Commit Guidelines](notion://www.notion.so/adaptyvbio/Contributing-19ba1b720a9e4f5a9ebe9eb5ef3cd227#commit-guidelines)
-- [Pull Request Guidelines](notion://www.notion.so/adaptyvbio/Contributing-19ba1b720a9e4f5a9ebe9eb5ef3cd227#pull-request-guidelines)
+- [Installation](#installation)
+- [Commit Guidelines](#commit-guidelines)
+- [Pull Request Guidelines](#pull-request-guidelines)
 
 ## Installation
 
