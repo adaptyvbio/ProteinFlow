@@ -8,6 +8,7 @@ Thank you for your interest in contributing to the ProteinFlow project! Your con
 - [Commit Guidelines](#commit-guidelines)
 - [Testing](#testing)
 - [Pull Request Guidelines](#pull-request-guidelines)
+- [Documentation](#documentation)
 
 ## Installation
 
@@ -86,5 +87,11 @@ When creating a pull request, please adhere to the following guidelines:
 - If the pull request addresses an issue, reference it in the description using the `#issue-number` syntax.
 
 Your pull request will be reviewed by the project maintainers, and feedback or changes may be requested. Please be responsive to the feedback and make the necessary updates to ensure a smooth review process.
+
+## Documentation
+
+We use NumPy style docstrings to document our code. When contributing, please ensure that your code is documented using this style. NumPy style docstrings provide a consistent and readable format for documenting functions, classes, and modules.
+
+For more information on how to write NumPy style docstrings, refer to the [NumPy Docstring Guide](https://numpydoc.readthedocs.io/en/latest/format.html).
 
 Thank you for your contributions to ProteinFlow!
