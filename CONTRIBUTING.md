@@ -6,6 +6,7 @@ Thank you for your interest in contributing to the ProteinFlow project! Your con
 
 - [Installation](#installation)
 - [Commit Guidelines](#commit-guidelines)
+- [Testing](#testing)
 - [Pull Request Guidelines](#pull-request-guidelines)
 
 ## Installation
@@ -46,6 +47,10 @@ To install ProteinFlow for development, please follow these steps:
     ```
 
 Now you are ready to start developing with ProteinFlow!
+
+## Testing
+
+Run `pytest tests` to check that the code works correctly.
 
 ## Commit Guidelines
 
