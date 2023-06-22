@@ -226,8 +226,9 @@ class ProteinDataset(Dataset):
                 try:  # old way of storing class information
                     classes = pickle.load(f)
                 except EOFError:
-                    with open(classes_dict_path, "rb") as f:
-                        classes = pickle.load(f)
+                    if len(classes_to_exclude) > 0:
+                        with open(classes_dict_path, "rb") as f:
+                            classes = pickle.load(f)
             to_exclude = set()
             for c in classes_to_exclude:
                 for key, id_arr in classes.get(c, {}).items():
