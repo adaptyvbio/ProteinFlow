@@ -86,6 +86,7 @@ class ProteinDataset(Dataset):
         min_cdr_length=None,
         feature_functions=None,
         classes_dict_path=None,
+        cut_edges=False,
     ):
         """
         Parameters
@@ -125,6 +126,8 @@ class ProteinDataset(Dataset):
             a dictionary of functions to compute additional features (keys are the names of the features, values are the functions)
         classes_dict_path : str, optional
             a path to a pickled dictionary with biounit classes (single chain / heteromer / homomer)
+        cut_edges : bool, default False
+            if `True`, missing values at the edges of the sequence will be cut off
 
         """
         alphabet = ALPHABET
@@ -136,6 +139,7 @@ class ProteinDataset(Dataset):
         self.loaded = None
         self.dataset_folder = dataset_folder
         self.features_folder = features_folder
+        self.cut_edges = cut_edges
         self.feature_types = []
         if node_features_type is not None:
             self.feature_types = node_features_type.split("+")
@@ -590,6 +594,25 @@ class ProteinDataset(Dataset):
                         chain_set if len(cdr_chain_set) == 0 else cdr_chain_set,
                     )
                 )
+
+            if self.cut_edges:
+                for chain_i, m in enumerate(mask):
+                    ind = np.where(m)[0]
+                    start, end = ind[0], ind[-1]
+                    X[chain_i] = X[chain_i][start : end + 1]
+                    S[chain_i] = S[chain_i][start : end + 1]
+                    mask[chain_i] = mask[chain_i][start : end + 1]
+                    mask_original[chain_i] = mask_original[chain_i][start : end + 1]
+                    residue_idx[chain_i] = residue_idx[chain_i][start : end + 1]
+                    chain_encoding_all[chain_i] = chain_encoding_all[chain_i][
+                        start : end + 1
+                    ]
+                    for key in node_features.keys():
+                        node_features[key][chain_i] = node_features[key][chain_i][
+                            start : end + 1
+                        ]
+                    if len(cdr) > 0:
+                        cdr[chain_i] = cdr[chain_i][start : end + 1]
 
             out = {}
             out["X"] = torch.from_numpy(np.concatenate(X, 0))
