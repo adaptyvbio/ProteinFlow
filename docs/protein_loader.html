@@ -343,6 +343,7 @@ class ProteinLoader(DataLoader):
         shuffle_clusters=True,
         shuffle_batches=True,
         mask_all_cdrs=False,
+        classes_dict_path=None,
         *args,
         **kwargs,
     ) -&gt; None:
@@ -392,6 +393,8 @@ class ProteinLoader(DataLoader):
             if `True`, the batches are shuffled at each epoch
         mask_all_cdrs : bool, default False
             if `True`, all CDRs are masked instead of just the sampled one
+        classes_dict_path : str, optional
+            path to the pickled classes dictionary
         &#34;&#34;&#34;
 
         dataset = ProteinDataset(
@@ -408,6 +411,7 @@ class ProteinLoader(DataLoader):
             entry_type=entry_type,
             classes_to_exclude=classes_to_exclude,
             shuffle_clusters=shuffle_clusters,
+            classes_dict_path=classes_dict_path,
         )
         return ProteinLoader(
             dataset=dataset,
@@ -583,6 +587,7 @@ forced to be in a binding site</dd>
         shuffle_clusters=True,
         shuffle_batches=True,
         mask_all_cdrs=False,
+        classes_dict_path=None,
         *args,
         **kwargs,
     ) -&gt; None:
@@ -632,6 +637,8 @@ forced to be in a binding site</dd>
             if `True`, the batches are shuffled at each epoch
         mask_all_cdrs : bool, default False
             if `True`, all CDRs are masked instead of just the sampled one
+        classes_dict_path : str, optional
+            path to the pickled classes dictionary
         &#34;&#34;&#34;
 
         dataset = ProteinDataset(
@@ -648,6 +655,7 @@ forced to be in a binding site</dd>
             entry_type=entry_type,
             classes_to_exclude=classes_to_exclude,
             shuffle_clusters=shuffle_clusters,
+            classes_dict_path=classes_dict_path,
         )
         return ProteinLoader(
             dataset=dataset,
@@ -710,7 +718,7 @@ forced to be in a binding site</dd>
 <h3>Static methods</h3>
 <dl>
 <dt id="proteinflow.protein_loader.ProteinLoader.from_args"><code class="name flex">
-<span>def <span class="ident">from_args</span></span>(<span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type=None, entry_type='biounit', classes_to_exclude=None, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, force_binding_sites_frac=0, shuffle_clusters=True, shuffle_batches=True, mask_all_cdrs=False, *args, **kwargs) ‑> None</span>
+<span>def <span class="ident">from_args</span></span>(<span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type=None, entry_type='biounit', classes_to_exclude=None, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, force_binding_sites_frac=0, shuffle_clusters=True, shuffle_batches=True, mask_all_cdrs=False, classes_dict_path=None, *args, **kwargs) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a <code><a title="proteinflow.protein_loader.ProteinLoader" href="#proteinflow.protein_loader.ProteinLoader">ProteinLoader</a></code> instance with a <code>ProteinDataset</code> from the given arguments</p>
@@ -757,6 +765,8 @@ forced to be in a binding site</dd>
 <dd>if <code>True</code>, the batches are shuffled at each epoch</dd>
 <dt><strong><code>mask_all_cdrs</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, all CDRs are masked instead of just the sampled one</dd>
+<dt><strong><code>classes_dict_path</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>path to the pickled classes dictionary</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -785,6 +795,7 @@ def from_args(
     shuffle_clusters=True,
     shuffle_batches=True,
     mask_all_cdrs=False,
+    classes_dict_path=None,
     *args,
     **kwargs,
 ) -&gt; None:
@@ -834,6 +845,8 @@ def from_args(
         if `True`, the batches are shuffled at each epoch
     mask_all_cdrs : bool, default False
         if `True`, all CDRs are masked instead of just the sampled one
+    classes_dict_path : str, optional
+        path to the pickled classes dictionary
     &#34;&#34;&#34;
 
     dataset = ProteinDataset(
@@ -850,6 +863,7 @@ def from_args(
         entry_type=entry_type,
         classes_to_exclude=classes_to_exclude,
         shuffle_clusters=shuffle_clusters,
+        classes_dict_path=classes_dict_path,
     )
     return ProteinLoader(
         dataset=dataset,

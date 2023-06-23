@@ -15,7 +15,7 @@
 [![PyPI](https://img.shields.io/pypi/v/proteinflow)](https://pypi.org/project/proteinflow/)
 [![Conda](https://img.shields.io/conda/v/adaptyvbio/proteinflow)](https://anaconda.org/adaptyvbio/proteinflow)
 [![Docker Image Version (latest semver)](https://img.shields.io/docker/v/adaptyvbio/proteinflow?label=docker)](https://hub.docker.com/r/adaptyvbio/proteinflow/tags)
-![Generic badge](https://img.shields.io/badge/Contributions-Welcome-brightgreen.svg)
+[![Generic badge](https://img.shields.io/badge/Contributions-Welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 
 ProteinFlow is an open-source Python library that streamlines the pre-processing of protein structure data for deep learning applications. ProteinFlow enables users to efficiently filter, cluster, and generate new datasets from resources like the Protein Data Bank (PDB) and SAbDab (The Structural Antibody Database).
@@ -58,12 +58,6 @@ python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@db
 - The docker image can be accessed in interactive mode with this command.
 ```bash
 docker run -it -v /path/to/data:/media adaptyvbio/proteinflow bash
-```
-
-### Contribution
-If you are planning to contribute to the package, please run this command in your repo before making any commits.
-```
-pre-commit install
 ```
 
 ## Usage
