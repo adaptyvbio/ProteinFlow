@@ -76,7 +76,7 @@ conda install -c conda-forge -c bioconda -c adaptyvbio proteinflow
 <pre><code class="language-bash">proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods --min_seq_id 0.4 --max_length 1000 --min_length 5 --missing_ends_thr 0.1 --valid_split 0.1
 </code></pre>
 <p>See the <a href="https://adaptyvbio.github.io/ProteinFlow/">docs</a> (or <code>proteinflow generate --help</code>) for the full list of parameters and more information.</p>
-<p>A registry of all the files that are removed during the filtering as well as description with the reason for their removal is created automatically for each <code>generate</code> command. The log files are save (at <code>data/logs</code> by default) and a summary can be accessed running <code>proteinflow get_summary {log_path}</code>.</p>
+<p>A registry of all the files that are removed during the filtering as well as description with the reason for their removal is created automatically for each <code>generate</code> command. The log files are save (at <code>data/logs</code> by default) and a summary can be accessed running <code>proteinflow get_summary --tag {tag}</code>.</p>
 <h3 id="running-the-pipeline-sabdab">Running the pipeline (SAbDab)</h3>
 <p>You can also use the <code>--sabdab</code> option in <code><a title="proteinflow" href="#proteinflow">proteinflow</a> generate</code> to load files from SAbDab and cluster them based on CDRs. By default the <code>--sabdab</code> tag will download the latest up-to-date version of the SabDab dataset and cluster the antibodies based on their CDR sequence.
 Alternatively, it can be used together with the tag <code>--sabdab_data_path</code> to process a custom SAbDab-like zip file or folder. This allows you to use search and query tools from the <a href="https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/">SabDab web interface</a> to create a custom dataset by downloading the archived zip file of the structures selected. (Under Downloads section of your SabDab query).</p>
@@ -211,7 +211,7 @@ proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_
 ```
 See the [docs](https://adaptyvbio.github.io/ProteinFlow/) (or `proteinflow generate --help`) for the full list of parameters and more information.
 
-A registry of all the files that are removed during the filtering as well as description with the reason for their removal is created automatically for each `generate` command. The log files are save (at `data/logs` by default) and a summary can be accessed running `proteinflow get_summary {log_path}`.
+A registry of all the files that are removed during the filtering as well as description with the reason for their removal is created automatically for each `generate` command. The log files are save (at `data/logs` by default) and a summary can be accessed running `proteinflow get_summary --tag {tag}`.
 
 ### Running the pipeline (SAbDab)
 You can also use the `--sabdab` option in `proteinflow generate` to load files from SAbDab and cluster them based on CDRs. By default the `--sabdab` tag will download the latest up-to-date version of the SabDab dataset and cluster the antibodies based on their CDR sequence.
@@ -1426,6 +1426,10 @@ def check_download_tags():
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
 <dl>
+<dt><code class="name"><a title="proteinflow.metrics" href="metrics/index.html">proteinflow.metrics</a></code></dt>
+<dd>
+<div class="desc"><p>Metrics for evaluating prediction quality.</p></div>
+</dd>
 <dt><code class="name"><a title="proteinflow.protein_dataset" href="protein_dataset.html">proteinflow.protein_dataset</a></code></dt>
 <dd>
 <div class="desc"></div>
@@ -2116,6 +2120,7 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
 <ul id="index">
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
+<li><code><a title="proteinflow.metrics" href="metrics/index.html">proteinflow.metrics</a></code></li>
 <li><code><a title="proteinflow.protein_dataset" href="protein_dataset.html">proteinflow.protein_dataset</a></code></li>
 <li><code><a title="proteinflow.protein_loader" href="protein_loader.html">proteinflow.protein_loader</a></code></li>
 </ul>
