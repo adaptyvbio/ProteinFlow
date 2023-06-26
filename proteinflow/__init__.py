@@ -1354,4 +1354,6 @@ def check_download_tags():
         recursive=False,
         list_objs=False,
     )
-    return [x.key.strip("/") for x in folders if not x.key.strip("/").startswith("test")]
+    return [
+        x.key.strip("/") for x in folders if not x.key.strip("/").startswith("test")
+    ]

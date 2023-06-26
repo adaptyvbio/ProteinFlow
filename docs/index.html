@@ -1499,7 +1499,9 @@ def check_download_tags():
         recursive=False,
         list_objs=False,
     )
-    return [x.key.strip(&#34;/&#34;) for x in folders]</code></pre>
+    return [
+        x.key.strip(&#34;/&#34;) for x in folders if not x.key.strip(&#34;/&#34;).startswith(&#34;test&#34;)
+    ]</code></pre>
 </details>
 </section>
 <section>
@@ -1555,7 +1557,9 @@ def check_download_tags():
         recursive=False,
         list_objs=False,
     )
-    return [x.key.strip(&#34;/&#34;) for x in folders]</code></pre>
+    return [
+        x.key.strip(&#34;/&#34;) for x in folders if not x.key.strip(&#34;/&#34;).startswith(&#34;test&#34;)
+    ]</code></pre>
 </details>
 </dd>
 <dt id="proteinflow.check_pdb_snapshots"><code class="name flex">
