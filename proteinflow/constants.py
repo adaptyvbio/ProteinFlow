@@ -161,10 +161,11 @@ SIDECHAIN_ORDER = {
 }
 
 BACKBONE_ORDER = ["N", "C", "CA", "O"]
+
 CDR_ENDS = {
     "L": {"L1": (24, 34), "L2": (50, 56), "L3": (89, 97)},
-    "H": {"H1": (31, 35), "H2": (50, 65), "H3": (95, 102)},
-}
+    "H": {"H1": (26, 32), "H2": (52, 56), "H3": (95, 102)},
+}  # wider definition from http://www.bioinf.org.uk/abs/info.html
 CDR_VALUES = {"L": defaultdict(lambda: "-"), "H": defaultdict(lambda: "-")}
 for chain_type in ["L", "H"]:
     for key, (start, end) in CDR_ENDS[chain_type].items():
