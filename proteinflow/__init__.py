@@ -66,7 +66,7 @@ proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_
 ```
 See the [docs](https://adaptyvbio.github.io/ProteinFlow/) (or `proteinflow generate --help`) for the full list of parameters and more information.
 
-A registry of all the files that are removed during the filtering as well as description with the reason for their removal is created automatically for each `generate` command. The log files are save (at `data/logs` by default) and a summary can be accessed running `proteinflow get_summary {log_path}`.
+A registry of all the files that are removed during the filtering as well as description with the reason for their removal is created automatically for each `generate` command. The log files are save (at `data/logs` by default) and a summary can be accessed running `proteinflow get_summary --tag {tag}`.
 
 ### Running the pipeline (SAbDab)
 You can also use the `--sabdab` option in `proteinflow generate` to load files from SAbDab and cluster them based on CDRs. By default the `--sabdab` tag will download the latest up-to-date version of the SabDab dataset and cluster the antibodies based on their CDR sequence.
@@ -163,6 +163,7 @@ import random
 import shutil
 import string
 import subprocess
+import tempfile
 import urllib
 import urllib.request
 import warnings
@@ -257,15 +258,20 @@ def _get_split_dictionaries(
         min_seq_id=min_seq_id,
         sabdab=sabdab,
     )
+
+    classes_dict = train_classes_dict
+    for d in [valid_classes_dict, test_classes_dict]:
+        for k, v in d.items():
+            classes_dict[k].update(v)
+
+    with open(os.path.join(out_split_dict_folder, "classes.pickle"), "wb") as f:
+        pickle.dump(classes_dict, f)
     with open(os.path.join(out_split_dict_folder, "train.pickle"), "wb") as f:
         pickle.dump(train_clusters_dict, f)
-        pickle.dump(train_classes_dict, f)
     with open(os.path.join(out_split_dict_folder, "valid.pickle"), "wb") as f:
         pickle.dump(valid_clusters_dict, f)
-        pickle.dump(valid_classes_dict, f)
     with open(os.path.join(out_split_dict_folder, "test.pickle"), "wb") as f:
         pickle.dump(test_clusters_dict, f)
-        pickle.dump(test_classes_dict, f)
 
 
 def _run_processing(
@@ -847,6 +853,7 @@ def generate_data(
     exclude_threshold=0.7,
     exclude_clusters=False,
     exclude_based_on_cdr=None,
+    random_seed=42,
 ):
     """Download and parse PDB files that meet filtering criteria.
 
@@ -923,6 +930,8 @@ def generate_data(
         if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
     exclude_based_on_cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}, optional
         if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
+    random_seed : int, default 42
+        the random seed to use for splitting
 
     Returns
     -------
@@ -935,7 +944,8 @@ def generate_data(
     tmp_id = "".join(
         random.choice(string.ascii_uppercase + string.digits) for _ in range(5)
     )
-    tmp_folder = os.path.join("", "tmp", tag + tmp_id)
+    tmp_folder = os.path.join(tempfile.gettempdir(), tag + tmp_id)
+    os.makedirs(tmp_folder)
     output_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
 
     if force and os.path.exists(output_folder):
@@ -974,6 +984,7 @@ def generate_data(
             exclude_threshold=exclude_threshold,
             exclude_clusters=exclude_clusters,
             exclude_based_on_cdr=exclude_based_on_cdr,
+            random_seed=random_seed,
         )
     shutil.rmtree(tmp_folder)
     return log_dict
@@ -1056,6 +1067,7 @@ def split_data(
     exclude_threshold=0.7,
     exclude_clusters=False,
     exclude_based_on_cdr=None,
+    random_seed=42,
 ):
     """Split `proteinflow` entry files into training, test and validation.
 
@@ -1102,6 +1114,8 @@ def split_data(
         if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
     exclude_based_on_cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}, optional
         if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
+    random_seed : int, default 42
+        random seed for reproducibility (set to `None` to use a random seed)
 
     Returns
     -------
@@ -1133,6 +1147,7 @@ def split_data(
             exists = True
     if not exists:
         _check_mmseqs()
+        random.seed(random_seed)
         _get_split_dictionaries(
             tmp_folder=tmp_folder,
             output_folder=output_folder,

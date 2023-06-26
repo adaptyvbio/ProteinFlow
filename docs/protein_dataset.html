@@ -114,6 +114,8 @@ class ProteinDataset(Dataset):
         shuffle_clusters=True,
         min_cdr_length=None,
         feature_functions=None,
+        classes_dict_path=None,
+        cut_edges=False,
     ):
         &#34;&#34;&#34;
         Parameters
@@ -151,8 +153,12 @@ class ProteinDataset(Dataset):
             for SAbDab datasets, biounits with CDRs shorter than `min_cdr_length` will be excluded
         feature_functions : dict, optional
             a dictionary of functions to compute additional features (keys are the names of the features, values are the functions)
-        &#34;&#34;&#34;
+        classes_dict_path : str, optional
+            a path to a pickled dictionary with biounit classes (single chain / heteromer / homomer)
+        cut_edges : bool, default False
+            if `True`, missing values at the edges of the sequence will be cut off
 
+        &#34;&#34;&#34;
         alphabet = ALPHABET
         self.alphabet_dict = defaultdict(lambda: 0)
         for i, letter in enumerate(alphabet):
@@ -162,6 +168,7 @@ class ProteinDataset(Dataset):
         self.loaded = None
         self.dataset_folder = dataset_folder
         self.features_folder = features_folder
+        self.cut_edges = cut_edges
         self.feature_types = []
         if node_features_type is not None:
             self.feature_types = node_features_type.split(&#34;+&#34;)
@@ -238,9 +245,9 @@ class ProteinDataset(Dataset):
                     self.files[id][chain].append(filename)
         if classes_to_exclude is None:
             classes_to_exclude = []
-        elif clustering_dict_path is None:
+        elif classes_dict_path is None:
             raise ValueError(
-                &#34;classes_to_exclude is not None, but clustering_dict_path is None&#34;
+                &#34;classes_to_exclude is not None, but classes_dict_path is None&#34;
             )
         if clustering_dict_path is not None:
             if entry_type == &#34;pair&#34;:
@@ -249,7 +256,11 @@ class ProteinDataset(Dataset):
                 classes_to_exclude = list(classes_to_exclude)
             with open(clustering_dict_path, &#34;rb&#34;) as f:
                 self.clusters = pickle.load(f)  # list of biounit ids by cluster id
-                classes = pickle.load(f)
+                try:  # old way of storing class information
+                    classes = pickle.load(f)
+                except EOFError:
+                    with open(classes_dict_path, &#34;rb&#34;) as f:
+                        classes = pickle.load(f)
             to_exclude = set()
             for c in classes_to_exclude:
                 for key, id_arr in classes.get(c, {}).items():
@@ -612,6 +623,25 @@ class ProteinDataset(Dataset):
                         chain_set if len(cdr_chain_set) == 0 else cdr_chain_set,
                     )
                 )
+
+            if self.cut_edges:
+                for chain_i, m in enumerate(mask):
+                    ind = np.where(m)[0]
+                    start, end = ind[0], ind[-1]
+                    X[chain_i] = X[chain_i][start : end + 1]
+                    S[chain_i] = S[chain_i][start : end + 1]
+                    mask[chain_i] = mask[chain_i][start : end + 1]
+                    mask_original[chain_i] = mask_original[chain_i][start : end + 1]
+                    residue_idx[chain_i] = residue_idx[chain_i][start : end + 1]
+                    chain_encoding_all[chain_i] = chain_encoding_all[chain_i][
+                        start : end + 1
+                    ]
+                    for key in node_features.keys():
+                        node_features[key][chain_i] = node_features[key][chain_i][
+                            start : end + 1
+                        ]
+                    if len(cdr) &gt; 0:
+                        cdr[chain_i] = cdr[chain_i][start : end + 1]
 
             out = {}
             out[&#34;X&#34;] = torch.from_numpy(np.concatenate(X, 0))
@@ -757,6 +787,40 @@ def _biounits_in_clusters_dict(clusters_dict, excluded_files=None):
     )
 
 
+def _exclude(clusters_dict, set_to_exclude, exclude_based_on_cdr=None):
+    &#34;&#34;&#34;
+    Exclude biounits from clusters_dict
+
+    Parameters
+    ----------
+    clusters_dict : dict
+        dictionary of clusters
+    set_to_exclude : set
+        set of biounits to exclude
+    exclude_based_on_cdr : str, default None
+        if not None, exclude based only on clusters based on this CDR (e.g. &#34;H3&#34;)
+
+    &#34;&#34;&#34;
+    excluded_set = set()
+    excluded_dict = defaultdict(set)
+    for cluster in list(clusters_dict.keys()):
+        files = clusters_dict[cluster]
+        exclude = False
+        for biounit in files:
+            if biounit in set_to_exclude:
+                exclude = True
+                break
+        if exclude:
+            if exclude_based_on_cdr is not None:
+                if not cluster.endswith(exclude_based_on_cdr):
+                    continue
+            for biounit in files:
+                clusters_dict[cluster].remove(biounit)
+                excluded_dict[cluster].add(biounit)
+                excluded_set.add(biounit)
+    return excluded_dict, excluded_set
+
+
 def _split_data(
     dataset_path=&#34;./data/proteinflow_20221110/&#34;,
     excluded_files=None,
@@ -807,23 +871,30 @@ def _split_data(
         os.makedirs(test_path)
 
     if len(excluded_files) &gt; 0:
-        excluded_set = set(excluded_files)
+        set_to_exclude = set(excluded_files)
+        excluded_files = set()
+        excluded_clusters_dict = defaultdict(set)
         if exclude_clusters:
-            for cluster, files in train_clusters_dict.items():
-                exclude = False
-                for biounit in files:
-                    if biounit in excluded_set:
-                        exclude = True
-                        break
-                if exclude:
-                    if exclude_based_on_cdr is not None:
-                        if not cluster.endswith(exclude_based_on_cdr):
-                            continue
-                    for biounit in files:
-                        excluded_files.append(biounit)
+            for clusters_dict in [
+                train_clusters_dict,
+                valid_clusters_dict,
+                test_clusters_dict,
+            ]:
+                subset_excluded_set, subset_excluded_dict = _exclude(
+                    clusters_dict, set_to_exclude, exclude_based_on_cdr
+                )
+                excluded_files.update(subset_excluded_set)
+                excluded_clusters_dict.update(subset_excluded_dict)
+        excluded_files.update(set_to_exclude)
+        excluded_clusters_dict = {k: list(v) for k, v in excluded_clusters_dict.items()}
         excluded_path = os.path.join(dataset_path, &#34;excluded&#34;)
         if not os.path.exists(excluded_path):
             os.makedirs(excluded_path)
+        print(&#34;Updating the split dictionaries...&#34;)
+        with open(os.path.join(dict_folder, &#34;train.pickle&#34;), &#34;wb&#34;) as f:
+            pickle.dump(train_clusters_dict, f)
+        with open(os.path.join(dict_folder, &#34;excluded.pickle&#34;), &#34;wb&#34;) as f:
+            pickle.dump(excluded_clusters_dict, f)
         print(&#34;Moving excluded files...&#34;)
         for biounit in tqdm(excluded_files):
             shutil.move(os.path.join(dataset_path, biounit), excluded_path)
@@ -888,7 +959,7 @@ def _remove_database_redundancies(dir, seq_identity_threshold=0.9):
 <dl>
 <dt id="proteinflow.protein_dataset.ProteinDataset"><code class="flex name class">
 <span>class <span class="ident">ProteinDataset</span></span>
-<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', debug_file_path=None, entry_type='biounit', classes_to_exclude=None, shuffle_clusters=True, min_cdr_length=None, feature_functions=None)</span>
+<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', debug_file_path=None, entry_type='biounit', classes_to_exclude=None, shuffle_clusters=True, min_cdr_length=None, feature_functions=None, classes_dict_path=None, cut_edges=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Dataset to load proteinflow data</p>
@@ -958,6 +1029,10 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
 <dd>for SAbDab datasets, biounits with CDRs shorter than <code>min_cdr_length</code> will be excluded</dd>
 <dt><strong><code>feature_functions</code></strong> :&ensp;<code>dict</code>, optional</dt>
 <dd>a dictionary of functions to compute additional features (keys are the names of the features, values are the functions)</dd>
+<dt><strong><code>classes_dict_path</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>a path to a pickled dictionary with biounit classes (single chain / heteromer / homomer)</dd>
+<dt><strong><code>cut_edges</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, missing values at the edges of the sequence will be cut off</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -1023,6 +1098,8 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
         shuffle_clusters=True,
         min_cdr_length=None,
         feature_functions=None,
+        classes_dict_path=None,
+        cut_edges=False,
     ):
         &#34;&#34;&#34;
         Parameters
@@ -1060,8 +1137,12 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
             for SAbDab datasets, biounits with CDRs shorter than `min_cdr_length` will be excluded
         feature_functions : dict, optional
             a dictionary of functions to compute additional features (keys are the names of the features, values are the functions)
-        &#34;&#34;&#34;
+        classes_dict_path : str, optional
+            a path to a pickled dictionary with biounit classes (single chain / heteromer / homomer)
+        cut_edges : bool, default False
+            if `True`, missing values at the edges of the sequence will be cut off
 
+        &#34;&#34;&#34;
         alphabet = ALPHABET
         self.alphabet_dict = defaultdict(lambda: 0)
         for i, letter in enumerate(alphabet):
@@ -1071,6 +1152,7 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
         self.loaded = None
         self.dataset_folder = dataset_folder
         self.features_folder = features_folder
+        self.cut_edges = cut_edges
         self.feature_types = []
         if node_features_type is not None:
             self.feature_types = node_features_type.split(&#34;+&#34;)
@@ -1147,9 +1229,9 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
                     self.files[id][chain].append(filename)
         if classes_to_exclude is None:
             classes_to_exclude = []
-        elif clustering_dict_path is None:
+        elif classes_dict_path is None:
             raise ValueError(
-                &#34;classes_to_exclude is not None, but clustering_dict_path is None&#34;
+                &#34;classes_to_exclude is not None, but classes_dict_path is None&#34;
             )
         if clustering_dict_path is not None:
             if entry_type == &#34;pair&#34;:
@@ -1158,7 +1240,11 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
                 classes_to_exclude = list(classes_to_exclude)
             with open(clustering_dict_path, &#34;rb&#34;) as f:
                 self.clusters = pickle.load(f)  # list of biounit ids by cluster id
-                classes = pickle.load(f)
+                try:  # old way of storing class information
+                    classes = pickle.load(f)
+                except EOFError:
+                    with open(classes_dict_path, &#34;rb&#34;) as f:
+                        classes = pickle.load(f)
             to_exclude = set()
             for c in classes_to_exclude:
                 for key, id_arr in classes.get(c, {}).items():
@@ -1521,6 +1607,25 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
                         chain_set if len(cdr_chain_set) == 0 else cdr_chain_set,
                     )
                 )
+
+            if self.cut_edges:
+                for chain_i, m in enumerate(mask):
+                    ind = np.where(m)[0]
+                    start, end = ind[0], ind[-1]
+                    X[chain_i] = X[chain_i][start : end + 1]
+                    S[chain_i] = S[chain_i][start : end + 1]
+                    mask[chain_i] = mask[chain_i][start : end + 1]
+                    mask_original[chain_i] = mask_original[chain_i][start : end + 1]
+                    residue_idx[chain_i] = residue_idx[chain_i][start : end + 1]
+                    chain_encoding_all[chain_i] = chain_encoding_all[chain_i][
+                        start : end + 1
+                    ]
+                    for key in node_features.keys():
+                        node_features[key][chain_i] = node_features[key][chain_i][
+                            start : end + 1
+                        ]
+                    if len(cdr) &gt; 0:
+                        cdr[chain_i] = cdr[chain_i][start : end + 1]
 
             out = {}
             out[&#34;X&#34;] = torch.from_numpy(np.concatenate(X, 0))

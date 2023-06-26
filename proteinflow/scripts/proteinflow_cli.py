@@ -1,3 +1,7 @@
+"""Command line interface for proteinflow"""
+
+import os
+
 import click
 
 from proteinflow import (
@@ -45,6 +49,7 @@ def check_snapshots():
 )
 @cli.command("download", help="Download an existing ProteinFlow dataset")
 def download(**kwargs):
+    """Download an existing ProteinFlow dataset"""
     download_data(**kwargs)
 
 
@@ -155,8 +160,15 @@ def download(**kwargs):
     is_flag=True,
     help="Use this flag to require that the SAbDab files contain an antigen",
 )
+@click.option(
+    "--random_seed",
+    default=42,
+    type=int,
+    help="The random seed to use for splitting",
+)
 @cli.command("generate", help="Generate a new ProteinFlow dataset")
 def generate(**kwargs):
+    """Generate a new ProteinFlow dataset"""
     generate_data(**kwargs)
 
 
@@ -221,11 +233,18 @@ def generate(**kwargs):
     type=click.Choice(["L1", "L2", "L3", "H1", "H2", "H3"]),
     help="if given and exclude_clusters is true + the dataset is SAbDab, exclude files based on only the given CDR clusters",
 )
+@click.option(
+    "--random_seed",
+    default=42,
+    type=int,
+    help="The random seed to use for splitting",
+)
 @cli.command(
     "split",
     help="Split an existing ProteinFlow dataset into training, validation and test subset according to MMseqs clustering and homomer/heteromer/single chain proportions",
 )
 def split(**kwargs):
+    """Split an existing ProteinFlow dataset into training, validation and test subset according to MMseqs clustering and homomer/heteromer/single chain proportions"""
     split_data(**kwargs)
 
 
@@ -243,12 +262,25 @@ def split(**kwargs):
     help="Move files from train, test, validation and excluded folders back into the main folder",
 )
 def unsplit(**kwargs):
+    """Move files from train, test, validation and excluded folders back into the main folder"""
     unsplit_data(**kwargs)
 
 
-@click.argument("log_path")
+@click.option(
+    "--tag",
+    help="The name of the dataset",
+)
+@click.option(
+    "--local_datasets_folder",
+    default="./data",
+    help="The folder where proteinflow datasets are stored",
+)
 @cli.command("get_summary", help="Get a summary of filtering reasons from a log file")
-def get_summary(log_path):
+def get_summary(tag, local_datasets_folder):
+    """Get a summary of filtering reasons from a log file"""
+    log_path = os.path.join(local_datasets_folder, f"proteinflow_{tag}", "log.txt")
+    if not os.path.exists(log_path):
+        raise ValueError(f"Log file does not exist at {log_path}")
     get_error_summary(log_path)
 
 
