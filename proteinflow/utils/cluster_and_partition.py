@@ -917,6 +917,12 @@ def _split_dataset_with_graphs(
         train_indices, val_indices, test_indices = _split_subgraphs(
             [len(x) for x in subgraphs], n_samples_valid, n_samples_test, tolerance
         )
+        total_clusters = len(clusters_dict)
+        lengths = np.array([len(x) for x in subgraphs])
+        print("\nSplit size:")
+        print(f"    Train {100 * sum(lengths[train_indices]) / total_clusters:.2f}%")
+        print(f"    Valid {100 * sum(lengths[val_indices]) / total_clusters:.2f}%")
+        print(f"    Test {100 * sum(lengths[test_indices]) / total_clusters:.2f}%\n")
         files_arr = []
         pdb_arr = []
         chain_arr = []

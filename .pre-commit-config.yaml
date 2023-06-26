@@ -37,3 +37,14 @@ repos:
         entry: codespell -L ser --skip "*ipynb,*/constants.py"
         language: python
         types: [text]
+# -   repo: https://github.com/jshwi/docsig
+#     rev: v0.30.0
+#     hooks:
+#       - id: docsig
+#         args:
+#           - "--check-class"
+#           - "--check-dunders"
+#           - "--check-overridden"
+#           - "--check-protected"
+#           - "--ignore-no-params"
+#           - "--summary"

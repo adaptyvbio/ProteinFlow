@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "proteinflow"
-version = "1.3.6"
+version = "1.4.1"
 authors = [
     {name = "Liza Kozlova", email = "liza@adaptyvbio.com"},
     {name = "Arthur Valentin", email = "arthur@adaptyvbio.com"}
@@ -30,6 +30,7 @@ dependencies = [
     "awscli==1.25.60",
     "bs4>=0.0.1",
     "rcsbsearch",
+    "blosum",
     "pre-commit",
 ]
 keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning"]
