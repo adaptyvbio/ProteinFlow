@@ -653,6 +653,79 @@ def _load_pdb(
     return paths, error_ids
 
 
+def _load_sabdab_by_method(
+    methods,
+    resolution_thr=3.5,
+    tmp_folder="data/tmp",
+):
+    for method in methods:
+        html = _make_sabdab_html(method, resolution_thr)
+        page = requests.get(html)
+        soup = BeautifulSoup(page.text, "html.parser")
+        try:
+            zip_ref = soup.find_all(
+                lambda t: t.name == "a" and t.text.startswith("zip")
+            )[0]["href"]
+            zip_ref = "https://opig.stats.ox.ac.uk" + zip_ref
+        except BaseException:
+            error = soup.find_all(
+                lambda t: t.name == "h1" and t.text.startswith("Internal")
+            )
+            if len(error) > 0:
+                raise RuntimeError(
+                    "Internal SAbDab server error -> try again in some time"
+                )
+            raise RuntimeError("No link found")
+        print(f'Downloading {" ".join(method)} structure files...')
+        subprocess.run(
+            [
+                "wget",
+                zip_ref,
+                "-O",
+                os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip"),
+            ]
+        )
+        if (
+            os.stat(os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip")).st_size
+            == 0
+        ):
+            raise RuntimeError("The archive was not downloaded")
+
+
+def _load_sabdab_all(
+    tmp_folder="data/tmp",
+):
+    print("Trying to download all data...")
+    data_html = "https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/archive/all/"
+    index_html = "https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/summary/all/"
+    subprocess.run(
+        [
+            "wget",
+            data_html,
+            "-O",
+            os.path.join(tmp_folder, "pdb_all.zip"),
+        ]
+    )
+    if os.stat(os.path.join(tmp_folder, "pdb_all.zip")).st_size == 0:
+        raise RuntimeError("The archive was not downloaded")
+    subprocess.run(
+        [
+            "unzip",
+            os.path.join(tmp_folder, "pdb_all.zip"),
+        ]
+    )
+    subprocess.run(
+        [
+            "wget",
+            index_html,
+            "-O",
+            os.path.join(tmp_folder, "pdb_all", "summary.tsv"),
+        ]
+    )
+    if os.stat(os.path.join(tmp_folder, "pdb_all", "summary.tsv")).st_size == 0:
+        raise RuntimeError("The index was not downloaded")
+
+
 def _load_sabdab(
     resolution_thr=3.5,
     filter_methods=True,
@@ -673,37 +746,18 @@ def _load_sabdab(
         methods = ["All"]
     methods = [x.split() for x in methods]
     if sabdab_data_path is None:
-        for method in methods:
-            html = _make_sabdab_html(method, resolution_thr)
-            page = requests.get(html)
-            soup = BeautifulSoup(page.text, "html.parser")
-            try:
-                zip_ref = soup.find_all(
-                    lambda t: t.name == "a" and t.text.startswith("zip")
-                )[0]["href"]
-                zip_ref = "https://opig.stats.ox.ac.uk" + zip_ref
-            except BaseException:
-                error = soup.find_all(
-                    lambda t: t.name == "h1" and t.text.startswith("Internal")
-                )
-                if len(error) > 0:
-                    raise RuntimeError(
-                        "Internal SAbDab server error -> try again in some time"
-                    )
-                raise RuntimeError("No link found")
-            print(f'Downloading {" ".join(method)} structure files...')
-            subprocess.run(
-                [
-                    "wget",
-                    zip_ref,
-                    "-O",
-                    os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip"),
-                ]
+        try:
+            _load_sabdab_by_method(
+                methods=methods, resolution_thr=resolution_thr, tmp_folder=tmp_folder
             )
-        paths = [
-            os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip")
-            for method in methods
-        ]
+            paths = [
+                os.path.join(tmp_folder, f"pdb_{'_'.join(method)}.zip")
+                for method in methods
+            ]
+        except RuntimeError:
+            _load_sabdab_all(tmp_folder=tmp_folder)
+            paths = [os.path.join(tmp_folder, "pdb_all")]
+            sabdab_data_path = os.path.join(tmp_folder, "pdb_all")
     else:
         paths = [sabdab_data_path]
     ids = []
