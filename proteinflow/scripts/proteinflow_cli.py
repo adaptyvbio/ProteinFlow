@@ -1,7 +1,8 @@
 """Command line interface for proteinflow"""
 
-import click
 import os
+
+import click
 
 from proteinflow import (
     check_download_tags,
@@ -277,7 +278,7 @@ def unsplit(**kwargs):
 @cli.command("get_summary", help="Get a summary of filtering reasons from a log file")
 def get_summary(tag, local_datasets_folder):
     """Get a summary of filtering reasons from a log file"""
-    log_path = os.path.join(local_datasets_folder, f'proteinflow_{tag}', "log.txt")
+    log_path = os.path.join(local_datasets_folder, f"proteinflow_{tag}", "log.txt")
     if not os.path.exists(log_path):
         raise ValueError(f"Log file does not exist at {log_path}")
     get_error_summary(log_path)
