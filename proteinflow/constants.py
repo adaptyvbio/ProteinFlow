@@ -162,8 +162,8 @@ SIDECHAIN_ORDER = {
 
 BACKBONE_ORDER = ["N", "C", "CA", "O"]
 CDR_ENDS = {
-    "L": {"L1": (26, 32), "L2": (50, 52), "L3": (91, 96)},
-    "H": {"H1": (26, 32), "H2": (52, 56), "H3": (96, 101)},
+    "L": {"L1": (24, 34), "L2": (50, 56), "L3": (89, 97)},
+    "H": {"H1": (31, 35), "H2": (50, 65), "H3": (95, 102)},
 }
 CDR_VALUES = {"L": defaultdict(lambda: "-"), "H": defaultdict(lambda: "-")}
 for chain_type in ["L", "H"]:
