@@ -1,5 +1,7 @@
 """Command line interface for proteinflow"""
 
+import os
+
 import click
 
 from proteinflow import (
@@ -264,10 +266,21 @@ def unsplit(**kwargs):
     unsplit_data(**kwargs)
 
 
-@click.argument("log_path")
+@click.option(
+    "--tag",
+    help="The name of the dataset",
+)
+@click.option(
+    "--local_datasets_folder",
+    default="./data",
+    help="The folder where proteinflow datasets are stored",
+)
 @cli.command("get_summary", help="Get a summary of filtering reasons from a log file")
-def get_summary(log_path):
+def get_summary(tag, local_datasets_folder):
     """Get a summary of filtering reasons from a log file"""
+    log_path = os.path.join(local_datasets_folder, f"proteinflow_{tag}", "log.txt")
+    if not os.path.exists(log_path):
+        raise ValueError(f"Log file does not exist at {log_path}")
     get_error_summary(log_path)
 
 
