@@ -50,7 +50,7 @@ docker pull adaptyvbio/proteinflow
 
 ### Troubleshooting
 - If you are using python 3.10 and encountering installation problems, try running `python -m pip install prody==2.4.0` before installing `proteinflow`.
-- If you are planning to generate new datasets and installed `proteinflow` with `pip`, you will need to additionally install [`mmseqs`](https://github.com/soedinglab/MMseqs2).
+- If you are planning to generate new datasets and installed `proteinflow` with `pip` (or with `conda` on Mac OS with an M1 processor), you will need to additionally install [`mmseqs`](https://github.com/soedinglab/MMseqs2).
 - Generating new datasets also depends on the `rcsbsearch` package and the latest release [v0.2.3](https://github.com/sbliven/rcsbsearch/releases/tag/v0.2.3) is currently not working correctly. The recommended fix is installing the version from [this pull request](https://github.com/sbliven/rcsbsearch/pull/6).
 ```bash
 python -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"
@@ -179,7 +179,6 @@ You can download them with `proteinflow download --tag {tag}` in the command lin
 |-------|--------|--------|----|-------|-------|-------|----------|----------------------|-------------------------|---|---|----|
 |paper|10.11.22|20220103|24G|3.5|30|10'000|0.3|90/5/5|0.3/0.1|PDB|yes|first release, no mmCIF files|
 |20230102_stable|27.02.23|20230102|28G|3.5|30|10'000|0.3|90/5/5|0.3/0.1|PDB|yes|v1.1.1|
-|20230623_sabdab|26.06.23|live 23.06.23|1.2G|3.5|30|10'000|0.3|96/3/1|0.3/0.1|SAbDab|no|v1.4.1 (requires version >= v1.4.0)|
 
 ## License
 The `proteinflow` package and data are released and distributed under the BSD 3-Clause License

@@ -259,8 +259,9 @@ class ProteinDataset(Dataset):
                 try:  # old way of storing class information
                     classes = pickle.load(f)
                 except EOFError:
-                    with open(classes_dict_path, &#34;rb&#34;) as f:
-                        classes = pickle.load(f)
+                    if len(classes_to_exclude) &gt; 0:
+                        with open(classes_dict_path, &#34;rb&#34;) as f:
+                            classes = pickle.load(f)
             to_exclude = set()
             for c in classes_to_exclude:
                 for key, id_arr in classes.get(c, {}).items():
@@ -1243,8 +1244,9 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
                 try:  # old way of storing class information
                     classes = pickle.load(f)
                 except EOFError:
-                    with open(classes_dict_path, &#34;rb&#34;) as f:
-                        classes = pickle.load(f)
+                    if len(classes_to_exclude) &gt; 0:
+                        with open(classes_dict_path, &#34;rb&#34;) as f:
+                            classes = pickle.load(f)
             to_exclude = set()
             for c in classes_to_exclude:
                 for key, id_arr in classes.get(c, {}).items():
