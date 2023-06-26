@@ -174,6 +174,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 import boto3
+import numpy as np
 import pandas as pd
 import requests
 from botocore import UNSIGNED
@@ -237,6 +238,8 @@ def _get_split_dictionaries(
         minimum sequence identity for `mmseqs`
 
     """
+    if len([x for x in os.listdir(output_folder) if x.endswith(".pickle")]) == 0:
+        raise RuntimeError("No preprocessed data found in the output folder")
     sample_file = [x for x in os.listdir(output_folder) if x.endswith(".pickle")][0]
     ind = sample_file.split(".")[0].split("-")[1]
     sabdab = not ind.isnumeric()
@@ -387,6 +390,22 @@ def _run_processing(
         f.write(date_time)
         if tag is not None:
             f.write(f"tag: {tag} \n\n")
+        f.write(f"    min_length: {min_length} \n")
+        f.write(f"    max_length: {max_length} \n")
+        f.write(f"    resolution_thr: {resolution_thr} \n")
+        f.write(f"    missing_ends_thr: {missing_ends_thr} \n")
+        f.write(f"    missing_middle_thr: {missing_middle_thr} \n")
+        f.write(f"    filter_methods: {filter_methods} \n")
+        f.write(f"    remove_redundancies: {remove_redundancies} \n")
+        f.write(f"    sabdab: {sabdab} \n")
+        f.write(f"    pdb_snapshot: {pdb_snapshot} \n")
+        if remove_redundancies:
+            f.write(f"    seq_identity_threshold: {seq_identity_threshold} \n")
+        if sabdab:
+            f.write(f"    require_antigen: {require_antigen} \n\n")
+            f.write(f"    sabdab_data_path: {sabdab_data_path} \n")
+        else:
+            f.write(f"    load_live: {load_live} \n")
 
     def process_f(
         local_path,
@@ -1123,18 +1142,20 @@ def split_data(
         a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
 
     """
+    temp_folder = os.path.join(tempfile.gettempdir(), "proteinflow")
+    if not os.path.exists(temp_folder):
+        os.makedirs(temp_folder)
     if exclude_chains is None or len(exclude_chains) == 0:
         excluded_biounits = []
     else:
         excluded_biounits = _get_excluded_files(
             tag,
             local_datasets_folder,
-            os.path.join(local_datasets_folder, "tmp"),
+            temp_folder,
             exclude_chains,
             exclude_threshold,
         )
 
-    tmp_folder = os.path.join(local_datasets_folder, "tmp")
     output_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
     out_split_dict_folder = os.path.join(output_folder, "splits_dict")
     exists = False
@@ -1148,8 +1169,9 @@ def split_data(
     if not exists:
         _check_mmseqs()
         random.seed(random_seed)
+        np.random.seed(random_seed)
         _get_split_dictionaries(
-            tmp_folder=tmp_folder,
+            tmp_folder=temp_folder,
             output_folder=output_folder,
             split_tolerance=split_tolerance,
             test_split=test_split,
@@ -1157,6 +1179,7 @@ def split_data(
             out_split_dict_folder=out_split_dict_folder,
             min_seq_id=min_seq_id,
         )
+    shutil.rmtree(temp_folder)
 
     _split_data(
         output_folder, excluded_biounits, exclude_clusters, exclude_based_on_cdr
