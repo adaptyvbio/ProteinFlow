@@ -758,8 +758,8 @@ def _load_sabdab(
             ]
         except RuntimeError:
             _load_sabdab_all(tmp_folder=tmp_folder)
-            paths = [os.path.join(tmp_folder, "pdb_all")]
-            sabdab_data_path = os.path.join(tmp_folder, "pdb_all")
+            paths = [os.path.join(tmp_folder, "all_structures")]
+            sabdab_data_path = os.path.join(tmp_folder, "all_structures")
     else:
         paths = [sabdab_data_path]
     ids = []
