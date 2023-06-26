@@ -712,6 +712,8 @@ def _load_sabdab_all(
         [
             "unzip",
             os.path.join(tmp_folder, "pdb_all.zip"),
+            "-d",
+            tmp_folder,
         ]
     )
     subprocess.run(
@@ -719,10 +721,10 @@ def _load_sabdab_all(
             "wget",
             index_html,
             "-O",
-            os.path.join(tmp_folder, "pdb_all", "summary.tsv"),
+            os.path.join(tmp_folder, "all_structures", "summary.tsv"),
         ]
     )
-    if os.stat(os.path.join(tmp_folder, "pdb_all", "summary.tsv")).st_size == 0:
+    if os.stat(os.path.join(tmp_folder, "all_structures", "summary.tsv")).st_size == 0:
         raise RuntimeError("The index was not downloaded")
 
 
