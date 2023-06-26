@@ -319,6 +319,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 import boto3
+import numpy as np
 import pandas as pd
 import requests
 from botocore import UNSIGNED
@@ -382,6 +383,8 @@ def _get_split_dictionaries(
         minimum sequence identity for `mmseqs`
 
     &#34;&#34;&#34;
+    if len([x for x in os.listdir(output_folder) if x.endswith(&#34;.pickle&#34;)]) == 0:
+        raise RuntimeError(&#34;No preprocessed data found in the output folder&#34;)
     sample_file = [x for x in os.listdir(output_folder) if x.endswith(&#34;.pickle&#34;)][0]
     ind = sample_file.split(&#34;.&#34;)[0].split(&#34;-&#34;)[1]
     sabdab = not ind.isnumeric()
@@ -532,6 +535,22 @@ def _run_processing(
         f.write(date_time)
         if tag is not None:
             f.write(f&#34;tag: {tag} \n\n&#34;)
+        f.write(f&#34;    min_length: {min_length} \n&#34;)
+        f.write(f&#34;    max_length: {max_length} \n&#34;)
+        f.write(f&#34;    resolution_thr: {resolution_thr} \n&#34;)
+        f.write(f&#34;    missing_ends_thr: {missing_ends_thr} \n&#34;)
+        f.write(f&#34;    missing_middle_thr: {missing_middle_thr} \n&#34;)
+        f.write(f&#34;    filter_methods: {filter_methods} \n&#34;)
+        f.write(f&#34;    remove_redundancies: {remove_redundancies} \n&#34;)
+        f.write(f&#34;    sabdab: {sabdab} \n&#34;)
+        f.write(f&#34;    pdb_snapshot: {pdb_snapshot} \n&#34;)
+        if remove_redundancies:
+            f.write(f&#34;    seq_identity_threshold: {seq_identity_threshold} \n&#34;)
+        if sabdab:
+            f.write(f&#34;    require_antigen: {require_antigen} \n\n&#34;)
+            f.write(f&#34;    sabdab_data_path: {sabdab_data_path} \n&#34;)
+        else:
+            f.write(f&#34;    load_live: {load_live} \n&#34;)
 
     def process_f(
         local_path,
@@ -779,6 +798,81 @@ def _load_pdb(
     return paths, error_ids
 
 
+def _load_sabdab_by_method(
+    methods,
+    resolution_thr=3.5,
+    tmp_folder=&#34;data/tmp&#34;,
+):
+    for method in methods:
+        html = _make_sabdab_html(method, resolution_thr)
+        page = requests.get(html)
+        soup = BeautifulSoup(page.text, &#34;html.parser&#34;)
+        try:
+            zip_ref = soup.find_all(
+                lambda t: t.name == &#34;a&#34; and t.text.startswith(&#34;zip&#34;)
+            )[0][&#34;href&#34;]
+            zip_ref = &#34;https://opig.stats.ox.ac.uk&#34; + zip_ref
+        except BaseException:
+            error = soup.find_all(
+                lambda t: t.name == &#34;h1&#34; and t.text.startswith(&#34;Internal&#34;)
+            )
+            if len(error) &gt; 0:
+                raise RuntimeError(
+                    &#34;Internal SAbDab server error -&gt; try again in some time&#34;
+                )
+            raise RuntimeError(&#34;No link found&#34;)
+        print(f&#39;Downloading {&#34; &#34;.join(method)} structure files...&#39;)
+        subprocess.run(
+            [
+                &#34;wget&#34;,
+                zip_ref,
+                &#34;-O&#34;,
+                os.path.join(tmp_folder, f&#34;pdb_{&#39;_&#39;.join(method)}.zip&#34;),
+            ]
+        )
+        if (
+            os.stat(os.path.join(tmp_folder, f&#34;pdb_{&#39;_&#39;.join(method)}.zip&#34;)).st_size
+            == 0
+        ):
+            raise RuntimeError(&#34;The archive was not downloaded&#34;)
+
+
+def _load_sabdab_all(
+    tmp_folder=&#34;data/tmp&#34;,
+):
+    print(&#34;Trying to download all data...&#34;)
+    data_html = &#34;https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/archive/all/&#34;
+    index_html = &#34;https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/summary/all/&#34;
+    subprocess.run(
+        [
+            &#34;wget&#34;,
+            data_html,
+            &#34;-O&#34;,
+            os.path.join(tmp_folder, &#34;pdb_all.zip&#34;),
+        ]
+    )
+    if os.stat(os.path.join(tmp_folder, &#34;pdb_all.zip&#34;)).st_size == 0:
+        raise RuntimeError(&#34;The archive was not downloaded&#34;)
+    subprocess.run(
+        [
+            &#34;unzip&#34;,
+            os.path.join(tmp_folder, &#34;pdb_all.zip&#34;),
+            &#34;-d&#34;,
+            tmp_folder,
+        ]
+    )
+    subprocess.run(
+        [
+            &#34;wget&#34;,
+            index_html,
+            &#34;-O&#34;,
+            os.path.join(tmp_folder, &#34;all_structures&#34;, &#34;summary.tsv&#34;),
+        ]
+    )
+    if os.stat(os.path.join(tmp_folder, &#34;all_structures&#34;, &#34;summary.tsv&#34;)).st_size == 0:
+        raise RuntimeError(&#34;The index was not downloaded&#34;)
+
+
 def _load_sabdab(
     resolution_thr=3.5,
     filter_methods=True,
@@ -799,37 +893,18 @@ def _load_sabdab(
         methods = [&#34;All&#34;]
     methods = [x.split() for x in methods]
     if sabdab_data_path is None:
-        for method in methods:
-            html = _make_sabdab_html(method, resolution_thr)
-            page = requests.get(html)
-            soup = BeautifulSoup(page.text, &#34;html.parser&#34;)
-            try:
-                zip_ref = soup.find_all(
-                    lambda t: t.name == &#34;a&#34; and t.text.startswith(&#34;zip&#34;)
-                )[0][&#34;href&#34;]
-                zip_ref = &#34;https://opig.stats.ox.ac.uk&#34; + zip_ref
-            except BaseException:
-                error = soup.find_all(
-                    lambda t: t.name == &#34;h1&#34; and t.text.startswith(&#34;Internal&#34;)
-                )
-                if len(error) &gt; 0:
-                    raise RuntimeError(
-                        &#34;Internal SAbDab server error -&gt; try again in some time&#34;
-                    )
-                raise RuntimeError(&#34;No link found&#34;)
-            print(f&#39;Downloading {&#34; &#34;.join(method)} structure files...&#39;)
-            subprocess.run(
-                [
-                    &#34;wget&#34;,
-                    zip_ref,
-                    &#34;-O&#34;,
-                    os.path.join(tmp_folder, f&#34;pdb_{&#39;_&#39;.join(method)}.zip&#34;),
-                ]
+        try:
+            _load_sabdab_by_method(
+                methods=methods, resolution_thr=resolution_thr, tmp_folder=tmp_folder
             )
-        paths = [
-            os.path.join(tmp_folder, f&#34;pdb_{&#39;_&#39;.join(method)}.zip&#34;)
-            for method in methods
-        ]
+            paths = [
+                os.path.join(tmp_folder, f&#34;pdb_{&#39;_&#39;.join(method)}.zip&#34;)
+                for method in methods
+            ]
+        except RuntimeError:
+            _load_sabdab_all(tmp_folder=tmp_folder)
+            paths = [os.path.join(tmp_folder, &#34;all_structures&#34;)]
+            sabdab_data_path = os.path.join(tmp_folder, &#34;all_structures&#34;)
     else:
         paths = [sabdab_data_path]
     ids = []
@@ -1268,18 +1343,20 @@ def split_data(
         a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
 
     &#34;&#34;&#34;
+    temp_folder = os.path.join(tempfile.gettempdir(), &#34;proteinflow&#34;)
+    if not os.path.exists(temp_folder):
+        os.makedirs(temp_folder)
     if exclude_chains is None or len(exclude_chains) == 0:
         excluded_biounits = []
     else:
         excluded_biounits = _get_excluded_files(
             tag,
             local_datasets_folder,
-            os.path.join(local_datasets_folder, &#34;tmp&#34;),
+            temp_folder,
             exclude_chains,
             exclude_threshold,
         )
 
-    tmp_folder = os.path.join(local_datasets_folder, &#34;tmp&#34;)
     output_folder = os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;)
     out_split_dict_folder = os.path.join(output_folder, &#34;splits_dict&#34;)
     exists = False
@@ -1293,8 +1370,9 @@ def split_data(
     if not exists:
         _check_mmseqs()
         random.seed(random_seed)
+        np.random.seed(random_seed)
         _get_split_dictionaries(
-            tmp_folder=tmp_folder,
+            tmp_folder=temp_folder,
             output_folder=output_folder,
             split_tolerance=split_tolerance,
             test_split=test_split,
@@ -1302,6 +1380,7 @@ def split_data(
             out_split_dict_folder=out_split_dict_folder,
             min_seq_id=min_seq_id,
         )
+    shutil.rmtree(temp_folder)
 
     _split_data(
         output_folder, excluded_biounits, exclude_clusters, exclude_based_on_cdr
@@ -2009,18 +2088,20 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
         a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
 
     &#34;&#34;&#34;
+    temp_folder = os.path.join(tempfile.gettempdir(), &#34;proteinflow&#34;)
+    if not os.path.exists(temp_folder):
+        os.makedirs(temp_folder)
     if exclude_chains is None or len(exclude_chains) == 0:
         excluded_biounits = []
     else:
         excluded_biounits = _get_excluded_files(
             tag,
             local_datasets_folder,
-            os.path.join(local_datasets_folder, &#34;tmp&#34;),
+            temp_folder,
             exclude_chains,
             exclude_threshold,
         )
 
-    tmp_folder = os.path.join(local_datasets_folder, &#34;tmp&#34;)
     output_folder = os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;)
     out_split_dict_folder = os.path.join(output_folder, &#34;splits_dict&#34;)
     exists = False
@@ -2034,8 +2115,9 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
     if not exists:
         _check_mmseqs()
         random.seed(random_seed)
+        np.random.seed(random_seed)
         _get_split_dictionaries(
-            tmp_folder=tmp_folder,
+            tmp_folder=temp_folder,
             output_folder=output_folder,
             split_tolerance=split_tolerance,
             test_split=test_split,
@@ -2043,6 +2125,7 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
             out_split_dict_folder=out_split_dict_folder,
             min_seq_id=min_seq_id,
         )
+    shutil.rmtree(temp_folder)
 
     _split_data(
         output_folder, excluded_biounits, exclude_clusters, exclude_based_on_cdr
