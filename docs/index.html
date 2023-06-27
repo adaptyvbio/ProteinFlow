@@ -534,7 +534,7 @@ def _run_processing(
     with open(LOG_FILE, &#34;a&#34;) as f:
         f.write(date_time)
         if tag is not None:
-            f.write(f&#34;tag: {tag} \n\n&#34;)
+            f.write(f&#34;tag: {tag} \n&#34;)
         f.write(f&#34;    min_length: {min_length} \n&#34;)
         f.write(f&#34;    max_length: {max_length} \n&#34;)
         f.write(f&#34;    resolution_thr: {resolution_thr} \n&#34;)
@@ -547,10 +547,11 @@ def _run_processing(
         if remove_redundancies:
             f.write(f&#34;    seq_identity_threshold: {seq_identity_threshold} \n&#34;)
         if sabdab:
-            f.write(f&#34;    require_antigen: {require_antigen} \n\n&#34;)
+            f.write(f&#34;    require_antigen: {require_antigen} \n&#34;)
             f.write(f&#34;    sabdab_data_path: {sabdab_data_path} \n&#34;)
         else:
             f.write(f&#34;    load_live: {load_live} \n&#34;)
+        f.write(&#34;\n&#34;)
 
     def process_f(
         local_path,
