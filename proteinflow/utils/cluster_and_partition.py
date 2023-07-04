@@ -8,6 +8,11 @@ import networkx as nx
 import numpy as np
 from tqdm import tqdm
 
+from proteinflow.ligand import (
+    _load_smiles,
+    _merge_chains_ligands,
+    _run_tanimoto_clustering,
+)
 from proteinflow.sequences import (
     _create_pdb_seqs_dict,
     _load_pdbs,
@@ -983,8 +988,10 @@ def _build_dataset_partition(
     tolerance=0.2,
     min_seq_id=0.3,
     sabdab=False,
+    tanimoto_clustering=False,
 ):
-    """Build training, validation and test sets from a curated dataset of biounit, using MMSeqs2 for clustering.
+    """Build training, validation and test sets from a curated dataset of biounit,
+    using MMSeqs2 for clustering.
 
     Parameters
     ----------
@@ -998,6 +1005,8 @@ def _build_dataset_partition(
         minimum sequence identity for `mmseqs`
     sabdab : bool, default False
         whether the dataset is the SAbDab dataset or not
+    tanimoto_clustering: bool, default False
+        whether to cluster chains based on Tanimoto Clustering
 
     Output
     ------
@@ -1017,43 +1026,54 @@ def _build_dataset_partition(
         see train_classes_dict but for test set
 
     """
-    cdrs = ["L1", "L2", "L3", "H1", "H2", "H3"] if sabdab else [None]
-    for cdr in cdrs:
-        if cdr is not None:
-            print(f"Clustering with MMSeqs2 for CDR {cdr}...")
-        else:
-            print("Clustering with MMSeqs2...")
-        # retrieve all sequences and create a merged_seqs_dict
-        merged_seqs_dict = _load_pdbs(
-            dataset_dir, cdr=cdr
-        )  # keys: pdb_id, values: list of chains and sequences
+    if tanimoto_clustering:
+        print("Clustering with Tanimoto Clustering...")
+        smiles_dict = _load_smiles(dataset_dir)
         lengths = []
-        for k, v in merged_seqs_dict.items():
+        for k, v in smiles_dict.items():
             lengths += [len(x[1]) for x in v]
-        merged_seqs_dict = _merge_chains(merged_seqs_dict)  # remove redundant chains
-
-        # write sequences to a fasta file for clustering with MMSeqs2, run MMSeqs2 and delete the fasta file
-        fasta_file = os.path.join(tmp_folder, "all_seqs.fasta")
-        _write_fasta(
-            fasta_file, merged_seqs_dict
-        )  # write all sequences from merged_seqs_dict to fasta file
-        _run_mmseqs2(
-            fasta_file, tmp_folder, min_seq_id, cdr=cdr
-        )  # run MMSeqs2 on fasta file
-        subprocess.run(["rm", fasta_file])
-
-    # retrieve MMSeqs2 clusters and build a graph with these clusters
-    clusters_dict = {}
-    clusters_pdb_dict = {}
-    for cdr in cdrs:
-        c_dict, c_pdb_dict = _read_clusters(
-            tmp_folder=tmp_folder,
-            cdr=cdr,
+        merged_seqs_dict = _merge_chains_ligands(smiles_dict)
+        clusters_dict, clusters_pdb_dict = _run_tanimoto_clustering(
+            merged_seqs_dict, min_seq_id
         )
-        clusters_dict.update(c_dict)
-        clusters_pdb_dict.update(c_pdb_dict)
+    else:
+        cdrs = ["L1", "L2", "L3", "H1", "H2", "H3"] if sabdab else [None]
+        for cdr in cdrs:
+            if cdr is not None:
+                print(f"Clustering with MMSeqs2 for CDR {cdr}...")
+            else:
+                print("Clustering with MMSeqs2...")
+            # retrieve all sequences and create a merged_seqs_dict
+            merged_seqs_dict = _load_pdbs(
+                dataset_dir, cdr=cdr
+            )  # keys: pdb_id, values: list of chains and sequences
+            lengths = []
+            for k, v in merged_seqs_dict.items():
+                lengths += [len(x[1]) for x in v]
+            merged_seqs_dict = _merge_chains(
+                merged_seqs_dict
+            )  # remove redundant chains
+            # write sequences to a fasta file for clustering with MMSeqs2, run MMSeqs2 and delete the fasta file
+            fasta_file = os.path.join(tmp_folder, "all_seqs.fasta")
+            _write_fasta(
+                fasta_file, merged_seqs_dict
+            )  # write all sequences from merged_seqs_dict to fasta file
+            _run_mmseqs2(
+                fasta_file, tmp_folder, min_seq_id, cdr=cdr
+            )  # run MMSeqs2 on fasta file
+            subprocess.run(["rm", fasta_file])
 
-    subprocess.run(["rm", "-r", os.path.join(tmp_folder, "MMSeqs2_results")])
+        # retrieve MMSeqs2 clusters and build a graph with these clusters
+        clusters_dict = {}
+        clusters_pdb_dict = {}
+        for cdr in cdrs:
+            c_dict, c_pdb_dict = _read_clusters(
+                tmp_folder=tmp_folder,
+                cdr=cdr,
+            )
+            clusters_dict.update(c_dict)
+            clusters_pdb_dict.update(c_pdb_dict)
+        subprocess.run(["rm", "-r", os.path.join(tmp_folder, "MMSeqs2_results")])
     graph = _make_graph(clusters_pdb_dict)
 
     # import pickle

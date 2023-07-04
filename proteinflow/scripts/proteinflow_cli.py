@@ -58,6 +58,10 @@ def download(**kwargs):
     help="The name of the dataset",
 )
 @click.option(
+    "--pdb_id_list_path",
+    help="List of pdb ids to download and process",
+)
+@click.option(
     "--local_datasets_folder",
     default="./data",
     help="The folder where proteinflow datasets, temporary files and logs will be stored",
@@ -118,7 +122,7 @@ def download(**kwargs):
     help="The tolerance on the split ratio (default 20%)",
 )
 @click.option(
-    "-n",
+    "--n",
     default=None,
     type=int,
     help="The number of files to process (for debugging purposes)",
@@ -159,6 +163,21 @@ def download(**kwargs):
     "--require_antigen",
     is_flag=True,
     help="Use this flag to require that the SAbDab files contain an antigen",
+)
+@click.option(
+    "--load_ligands",
+    is_flag=True,
+    help="Whether or not to load ligands found in the pdbs example: data['A']['ligand'][0]['X']",
+)
+@click.option(
+    "--exclude_chains_without_ligands",
+    is_flag=True,
+    help="Exclude chains without ligands from the generated dataset",
+)
+@click.option(
+    "--tanimoto_clustering",
+    is_flag=True,
+    help="Whether to use Tanimoto Clustering instead of MMSeqs2. Only works if load_ligands is set to True",
 )
 @click.option(
     "--random_seed",

@@ -32,6 +32,10 @@ dependencies = [
     "rcsbsearch",
     "blosum",
     "pre-commit",
+    "rdkit",
+    "pypdb",
+    "prody",
+    "joblib"
 ]
 keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning"]
 

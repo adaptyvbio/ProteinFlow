@@ -1,12 +1,15 @@
 import os
 import pickle
+import subprocess
 import warnings
+from collections import Counter
 from typing import Dict
 
 import numpy as np
 from Bio import pairwise2
 from biopandas.pdb import PandasPdb
 from einops import rearrange
+from tqdm import tqdm
 
 from proteinflow.constants import (
     ALPHABET_PDB,
@@ -20,6 +23,7 @@ from proteinflow.constants import (
     SIDECHAIN_ORDER,
 )
 from proteinflow.custom_mmcif import CustomMmcif
+from proteinflow.ligand import _compare_smiles, _get_ligands
 from proteinflow.sequences import (
     _compare_seqs,
     _get_chothia_cdr,
@@ -338,6 +342,7 @@ def _align_structure(
     max_missing_middle: float = 0.1,
     max_missing_ends: float = 0.3,
     chain_id_string: str = None,
+    load_ligands: bool = False,
 ) -> Dict:
     """
     Align and filter a PDB dictionary
@@ -358,6 +363,16 @@ def _align_structure(
     If `chain_id_string` is provided, the output dictionary will also contain the following keys:
     - `'cdr'`: a `numpy` array of shape `(L,)` with CDR types (according to Chothia definition).
 
+    If load_ligands is True:
+    - 'ligands' is a dict containing 'chain_id': list of ligands.
+        Where one ligand is a dict
+        {
+            'seq': sequence of molecules,
+            'atoms': list of atom names
+            'X': array of atom coordinates
+            'length': number of atoms
+            'chain': chain to which the ligand is attached
+        }
     Parameters
     ----------
     pdb_dict : Dict
@@ -368,6 +383,8 @@ def _align_structure(
         the maximum number of residues per chain
     chain_id_string: str, optional
         chain id string in the form of `"{pdb_id}_H_L_A1|...|An"` (for SAbDab)
+    load_ligands: boool, default False
+        Whether or not to load the ligands in the pdbs
 
     Returns
     -------
@@ -378,6 +395,11 @@ def _align_structure(
     crd = pdb_dict["crd_raw"]
     fasta = pdb_dict["fasta"]
     seq_df = pdb_dict["seq_df"]
+    loaded_ligands = False
+    if load_ligands and "ligands" in pdb_dict:
+        ligands = pdb_dict["ligands"]
+        loaded_ligands = True
+
     pdb_dict = {}
     crd = crd[crd["record_name"] == "ATOM"]
 
@@ -495,6 +517,10 @@ def _align_structure(
         pdb_dict[chain]["crd_bb"] = crd_arr[:, :4, :]
         pdb_dict[chain]["crd_sc"] = crd_arr[:, 4:, :]
         pdb_dict[chain]["msk"][(pdb_dict[chain]["crd_bb"] == 0).sum(-1).sum(-1) > 0] = 0
+
+        if loaded_ligands:
+            if chain in ligands:
+                pdb_dict[chain]["ligand"] = ligands[chain]
         if (pdb_dict[chain]["msk"][start:end] == 0).sum() > max_missing_middle * (
             end - start
         ):
@@ -503,7 +529,7 @@ def _align_structure(
 
 
 def _open_structure(
-    file_path: str, tmp_folder: str, sabdab=False, chain_id=None
+    file_path: str, tmp_folder: str, sabdab=False, chain_id=None, ligand=False
 ) -> Dict:
     """
     Read a PDB file and parse it into a dictionary if it meets criteria
@@ -560,6 +586,19 @@ def _open_structure(
         raise PDBError("PDB / mmCIF file downloaded but not found")
     out_dict["crd_raw"] = p.df["ATOM"]
     out_dict["seq_df"] = p.amino3to1()
+    chain2ligands = None
+    if ligand:
+        try:
+            chain2ligands = _get_ligands(
+                pdb,
+                p,
+                file_path,
+                tmp_folder,
+            )
+        except Exception:
+            raise PDBError("Failed to retrieve ligands")
+        if chain2ligands is not None:
+            out_dict["ligands"] = chain2ligands
 
     # retrieve sequences that are relevant for this PDB from the fasta file
     if chain_id is None:
@@ -587,7 +626,7 @@ def _open_structure(
     return out_dict
 
 
-def _check_biounits(biounits_list, threshold):
+def _check_biounits(biounits_list, threshold, ligand_identity):
     """
     Return the indexes of the redundant biounits within the list of files given by `biounits_list`
     """
@@ -603,7 +642,70 @@ def _check_biounits(biounits_list, threshold):
                     continue
 
                 b2_seqs = [b2[chain]["seq"] for chain in b2.keys()]
-                if _compare_seqs(b1_seqs, b2_seqs, threshold):
+                if ligand_identity:
+                    ligs1 = []
+                    for chain in b1.keys():
+                        if "ligand" in b1[chain].keys():
+                            ligs1.append(
+                                ".".join(
+                                    list([c["smiles"] for c in b1[chain]["ligand"]])
+                                )
+                            )
+                    ligs2 = []
+                    for chain in b2.keys():
+                        if "ligand" in b2[chain].keys():
+                            ligs2.append(
+                                ".".join(
+                                    list([c["smiles"] for c in b2[chain]["ligand"]])
+                                )
+                            )
+                    equal_ligands = _compare_smiles(ligs1, ligs2, threshold)
+                else:
+                    equal_ligands = True
+                if _compare_seqs(b1_seqs, b2_seqs, threshold) and equal_ligands:
                     indexes.append(k + i + 1)
 
     return indexes
+
+
+def _remove_database_redundancies(
+    dir, seq_identity_threshold=0.9, ligand_identity=False
+):
+    """
+    Remove all biounits in the database that are copies to another biounits in terms of sequence
+
+    Sequence identity is defined by the 'seq_identity_threshold' parameter for robust detection of sequence similarity (missing residues, point mutations, ...).
+
+    Parameters
+    ----------
+    dir : str
+        the path to the database where all the biounits are stored in pickle files after their processing
+    seq_identity_threshold : float, default .9
+        the threshold that determines up to what percentage identity sequences are considered as the same
+
+    Returns
+    -------
+    total_removed : int
+        the total number of removed biounits
+    """
+
+    all_files = np.array(os.listdir(dir))
+    all_pdbs = np.array([file[:4] for file in all_files])
+    pdb_counts = Counter(all_pdbs)
+    pdbs_to_check = [pdb for pdb in pdb_counts.keys() if pdb_counts[pdb] > 1]
+    total_removed = []
+
+    for pdb in tqdm(pdbs_to_check):
+        biounits_list = np.array(
+            [os.path.join(dir, file) for file in all_files[all_pdbs == pdb]]
+        )
+        biounits_list = sorted(biounits_list)
+        redundancies = _check_biounits(
+            biounits_list, seq_identity_threshold, ligand_identity
+        )
+        if redundancies != []:
+            for k in redundancies:
+                total_removed.append(os.path.basename(biounits_list[k]).split(".")[0])
+                subprocess.run(["rm", biounits_list[k]])
+
+    return total_removed
