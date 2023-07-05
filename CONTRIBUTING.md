@@ -46,6 +46,7 @@ To install ProteinFlow for development, please follow these steps:
     
     ```bash
     pre-commit install
+    pre-commit install --hook-type commit-msg
     ```
 
 Now you are ready to start developing with ProteinFlow!
