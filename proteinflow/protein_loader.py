@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from proteinflow.constants import CDR
+from proteinflow.constants import CDR_REVERSE
 from proteinflow.protein_dataset import ProteinDataset
 
 
@@ -101,7 +101,7 @@ class _PadCollate:
             chain_M = torch.zeros_like(batch["cdr"])
             for i, cdr_arr in enumerate(batch["cdr"]):
                 if self.mask_all_cdrs:
-                    chain_M[i] = cdr_arr != CDR["-"]
+                    chain_M[i] = cdr_arr != CDR_REVERSE["-"]
                 else:
                     chain_M[i] = cdr_arr == batch["cdr_id"][i]
         else:

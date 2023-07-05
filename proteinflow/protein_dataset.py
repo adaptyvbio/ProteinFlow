@@ -15,7 +15,7 @@ from p_tqdm import p_map
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from proteinflow.constants import _PMAP, ALPHABET, CDR, D3TO1, MAIN_ATOMS
+from proteinflow.constants import _PMAP, ALPHABET, CDR_REVERSE, D3TO1, MAIN_ATOMS
 from proteinflow.pdb import _check_biounits
 from proteinflow.utils.biotite_sse import _annotate_sse
 from proteinflow.utils.boto_utils import (
@@ -573,7 +573,7 @@ class ProteinDataset(Dataset):
                 residue_idx.append(torch.arange(len(data[chain]["seq"])) + last_idx)
                 if "cdr" in data[chain]:
                     u, inv = np.unique(data[chain]["cdr"], return_inverse=True)
-                    cdr_chain = np.array([CDR[x] for x in u])[inv].reshape(
+                    cdr_chain = np.array([CDR_REVERSE[x] for x in u])[inv].reshape(
                         data[chain]["cdr"].shape
                     )
                     cdr.append(cdr_chain)
@@ -706,7 +706,7 @@ class ProteinDataset(Dataset):
             data = deepcopy(self.loaded[file])
         data["chain_id"] = data["chain_dict"][chain_id]
         if cdr is not None:
-            data["cdr_id"] = CDR[cdr]
+            data["cdr_id"] = CDR_REVERSE[cdr]
         return data
 
 
