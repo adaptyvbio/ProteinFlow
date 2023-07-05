@@ -71,13 +71,21 @@ When making commits to the repository, please follow these guidelines:
 - The `scope` (optional) should indicate the module or feature area affected by the commit.
 - The `description` should be a concise summary of the changes introduced by the commit.
 
-The description should be uncapitalized, in imperative, present tense.
+The description should be uncapitalized, in imperative, present tense. The total length of the header shouldn't exceed 100 characters. If you want to add more information, it can be put in the body of the message, separated with a blank line.
 
 Examples: 
 - `'fix(processing): make ProteinDataset work with old style dictionaries'`,
 - `'test: test for exclude_chains in test_generate'`.
+- ```
+  'feat(generating): add ligand support
 
-Before committing changes, please ensure that you have installed the pre-commit hooks by running `pre-commit install` in your local repository. This ensures that code formatting and linting checks pass before committing.
+  Add the option to load ligands, cluster using Tanimoto clustering on smiles, 
+  and download files based on a pdb_id text file.'
+  ```
+
+See the [Conventional Commits guide](https://www.conventionalcommits.org/en/v1.0.0/) for more information.
+
+Before committing changes, please ensure that you have installed the pre-commit hooks by running `pre-commit install` and `pre-commit install --hook-type commit-msg` in your local repository. This ensures that code formatting and linting checks pass before committing.
 
 ## Pull Request Guidelines
 
