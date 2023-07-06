@@ -1,7 +1,6 @@
 import itertools
 import os
 import pickle
-import subprocess
 from collections import defaultdict
 
 import numpy as np
@@ -18,19 +17,6 @@ def _split_every(n, iterable):
     while piece:
         yield piece
         piece = list(itertools.islice(i, n))
-
-
-def _clean(pdb_id, tmp_folder):
-    """
-    Remove all temporary files associated with a PDB ID
-    """
-    for file in os.listdir(tmp_folder):
-        if file.startswith(f"{pdb_id}."):
-            subprocess.run(
-                ["rm", os.path.join(tmp_folder, file)],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
 
 
 def _raise_rcsbsearch(e):
