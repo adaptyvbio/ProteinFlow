@@ -1,4 +1,5 @@
 import os
+import pickle
 from datetime import datetime
 
 import numpy as np
@@ -192,7 +193,7 @@ def run_processing(
             else:
                 pdb_entry = PDBEntry(pdb_path=local_path, fasta_path=...)
             # filter and convert
-            protein_entry = filter_and_convert(
+            protein_dict = filter_and_convert(
                 pdb_entry,
                 min_length=MIN_LENGTH,
                 max_length=MAX_LENGTH,
@@ -200,7 +201,8 @@ def run_processing(
                 max_missing_middle=MISSING_MIDDLE_THR,
             )
             # save
-            protein_entry.to_pickle(target_file)
+            with open(target_file, "wb") as f:
+                pickle.dump(protein_dict, f)
         except Exception as e:
             if show_error:
                 raise e
