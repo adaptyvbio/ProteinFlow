@@ -4,6 +4,7 @@ import urllib
 import warnings
 
 import numpy as np
+import pandas as pd
 import requests
 from Bio import pairwise2
 from biopandas.pdb import PandasPdb
@@ -21,7 +22,13 @@ from proteinflow.constants import (
     MAIN_ATOM_DICT,
     SIDECHAIN_ORDER,
 )
-from proteinflow.data.utils import *
+from proteinflow.data.utils import (
+    CustomMmcif,
+    PDBError,
+    _annotate_sse,
+    _dihedral_angle,
+    _retrieve_chain_names,
+)
 
 
 def _download_file(url, local_path):
@@ -56,7 +63,7 @@ def download_pdb(pdb_id, local_folder=".", sabdab=False):
             local_path = os.path.join(local_folder, f"{pdb_id}.pdb")
             _download_file(url, local_path)
             return local_path
-        except:
+        except BaseException:
             raise RuntimeError(f"Could not download {pdb_id}")
     if "-" in pdb_id:
         pdb_id, biounit = pdb_id.split("-")
@@ -110,30 +117,193 @@ def download_fasta(pdb_id, local_folder="."):
     return local_path
 
 
+def interpolate_coords(crd, mask, fill_ends=True):
+    """Fill in missing values in a coordinates array with linear interpolation
+
+    Parameters
+    ----------
+    crd : np.ndarray
+        Coordinates array of shape `(L, 4, 3)`
+    mask : np.ndarray
+        Mask array of shape `(L,)` where 1 indicates residues with known coordinates and 0
+        indicates missing values
+    fill_ends : bool, default True
+        If `True`, fill in missing values at the ends of the protein sequence with the edge values;
+        otherwise fill them in with zeros
+
+    Returns
+    -------
+    crd : np.ndarray
+        Interpolated coordinates array of shape `(L, 4, 3)`
+    mask : np.ndarray
+        Interpolated mask array of shape `(L,)` where 1 indicates residues with known or interpolated
+        coordinates and 0 indicates missing values
+
+    """
+    crd[(1 - mask).astype(bool)] = np.nan
+    df = pd.DataFrame(crd.reshape((crd.shape[0], -1)))
+    crd = df.interpolate(limit_area="inside" if not fill_ends else None).values.reshape(
+        crd.shape
+    )
+    if not fill_ends:
+        nan_mask = np.isnan(crd)  # in the middle the nans have been interpolated
+        interpolated_mask = np.zeros_like(mask)
+        interpolated_mask[~np.isnan(crd[:, 0, 0])] = 1
+        crd[nan_mask] = 0
+    else:
+        interpolated_mask = np.ones_like(crd[:, :, 0])
+    return crd, mask
+
+
 class ProteinEntry:
-    def __init__(self, seq, crd, mask, cdr=None):
+    def __init__(self, seqs, crds, masks, chain_ids, cdrs=None):
         """
         Parameters
         ----------
-        seq : str
-            Amino acid sequence of the protein (one-letter code)
-        crd : np.ndarray
-            Coordinates of the protein, `'numpy'` array of shape `(L, 4, 3)`,
+        seqs : list of str
+            Amino acid sequences of the protein (one-letter code)
+        crds : list of np.ndarray
+            Coordinates of the protein, `'numpy'` arrays of shape `(L, 4, 3)`,
             in the order of `N, C, CA, O`
-        mask : np.ndarray
-            Mask array where 1 indicates residues with known coordinates and 0
+        masks : list of np.ndarray
+            Mask arrays where 1 indicates residues with known coordinates and 0
             indicates missing values
-        cdr : np.ndarray
-            A `'numpy'` array of shape `(L,)` where CDR residues are marked with the corresponding type (`'H1'`, `'L1'`, ...)
+        cdrs : list of np.ndarray
+            `'numpy'` arrays of shape `(L,)` where CDR residues are marked with the corresponding type (`'H1'`, `'L1'`, ...)
             and non-CDR residues are marked with `'-'`
+        chain_ids : list of str
+            Chain IDs of the protein
 
         """
-        self.seq = seq
-        self.crd = crd
-        self.mask = mask
-        self.cdr = cdr
+        self.seq = {x: seq for x, seq in zip(chain_ids, seqs)}
+        self.crd = {x: crd for x, crd in zip(chain_ids, crds)}
+        self.mask = {x: mask for x, mask in zip(chain_ids, masks)}
+        if cdrs is None:
+            cdrs = [None for _ in chain_ids]
+        self.cdr = {x: cdr for x, cdr in zip(chain_ids, cdrs)}
 
-    def sequence(self, encode=False, cdr=None):
+    def interpolate_coords(self, fill_ends=True):
+        """Fill in missing values in the coordinates arrays with linear interpolation
+
+        Parameters
+        ----------
+        fill_ends : bool, default True
+            If `True`, fill in missing values at the ends of the protein sequence with the edge values;
+            otherwise fill them in with zeros
+
+        """
+        for chain in self.get_chains():
+            self.crd[chain], self.mask[chain] = interpolate_coords(
+                self.crd[chain], self.mask[chain], fill_ends=fill_ends
+            )
+
+    def cut_missing_edges(self):
+        """Cut off the ends of the protein sequence that have missing coordinates"""
+        for chain in self.get_chains():
+            mask = self.mask[chain]
+            known_ind = np.where(mask == 1)[0]
+            start, end = known_ind[0], known_ind[-1] + 1
+            self.seq[chain] = self.seq[chain][start:end]
+            self.crd[chain] = self.crd[chain][start:end]
+            self.mask[chain] = self.mask[chain][start:end]
+            if self.cdr[chain] is not None:
+                self.cdr[chain] = self.cdr[chain][start:end]
+
+    @lru_cache()
+    def get_chains(self):
+        """Get the chain IDs of the protein
+
+        Returns
+        -------
+        chains : list of str
+            Chain IDs of the protein
+
+        """
+        return sorted(self.seq.keys())
+
+    def _get_chains_list(self, chains):
+        """Get a list of chains to iterate over"""
+        if chains is None:
+            chains = self.get_chains()
+        return chains
+
+    def get_chain_type_dict(self):
+        """Get the chain types of the protein
+
+        If the CDRs are not annotated, this function will return `None`.
+
+        Returns
+        -------
+        chain_type_dict : dict
+            A dictionary with keys `'heavy'`, `'light'` and `'antigen'` and values
+            the corresponding chain IDs
+
+        """
+        if not self.has_cdr():
+            return None
+        chain_type_dict = {"antigen": []}
+        for chain, cdr in self.cdr.items():
+            u = np.unique(cdr)
+            if "H1" in u:
+                chain_type_dict["heavy"] = chain
+            elif "L1" in u:
+                chain_type_dict["light"] = chain
+            else:
+                chain_type_dict["antigen"].append(chain)
+        return chain_type_dict
+
+    def get_length(self, chains):
+        """Get the total length of a set of chains
+
+        Parameters
+        ----------
+        chain : str
+            Chain ID
+
+        Returns
+        -------
+        length : int
+            Length of the chain
+
+        """
+        return sum([len(self.seq[x]) for x in chains])
+
+    def get_cdr_length(self, chains):
+        """Get the length of the CDR regions of a set of chains
+
+        Parameters
+        ----------
+        chain : str
+            Chain ID
+
+        Returns
+        -------
+        length : int
+            Length of the CDR regions of the chain
+
+        """
+        if not self.has_cdr():
+            return {x: None for x in ["H1", "H2", "H3", "L1", "L2", "L3"]}
+        return {
+            x: len(self.get_sequence(chains=chains, cdr=x))
+            for x in ["H1", "H2", "H3", "L1", "L2", "L3"]
+        }
+
+    def has_cdr(self):
+        """Check if the protein is from the SAbDab database
+
+        Returns
+        -------
+        is_sabdab : bool
+            True if the protein is from the SAbDab database
+
+        """
+        return list(self.cdr.values())[0] is not None
+
+    def __len__(self):
+        return self.get_length(self.get_chains())
+
+    def get_sequence(self, encode=False, cdr=None, chains=None, only_known=False):
         """Get the amino acid sequence of the protein
 
         Parameters
@@ -144,6 +314,11 @@ class ProteinEntry:
             `proteinflow.constants.ALPHABET`
         cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}, optional
             If specified, only the CDR region of the specified type is returned
+        chains : list of str, optional
+            If specified, only the sequences of the specified chains is returned (in the same order);
+            otherwise, all sequences are concatenated in alphabetical order of the chain IDs
+        only_known : bool, default False
+            If `True`, only the residues with known coordinates are returned
 
         Returns
         -------
@@ -156,19 +331,21 @@ class ProteinEntry:
             raise ValueError("CDR information not available")
         if cdr is not None:
             assert cdr in CDR_REVERSE, f"CDR must be one of {list(CDR_REVERSE.keys())}"
+        chains = self._get_chains_list(chains)
+        seq = "".join([self.seq[c] for c in chains])
         if encode:
-            seq = np.array([ALPHABET_REVERSE[aa] for aa in self.seq])
-        else:
-            seq = self.seq
+            seq = np.array([ALPHABET_REVERSE[aa] for aa in seq])
+        elif cdr is not None or only_known:
+            seq = np.array(list(seq))
         if cdr is not None:
-            if not encode:
-                seq = np.array(list(seq))
             seq = seq[self.cdr == cdr]
-            if not encode:
-                seq = "".join(seq)
+        if only_known:
+            seq = seq[self.get_mask(chains=chains, cdr=cdr).astype(bool)]
+        if not encode and not isinstance(seq, str):
+            seq = "".join(seq)
         return seq
 
-    def coordinates(self, mask=False, bb_only=False, cdr=None):
+    def get_coordinates(self, bb_only=False, cdr=None, chains=None, only_known=False):
         """Get the coordinates of the protein
 
         Backbone atoms are in the order of `N, C, CA, O`; for the full-atom
@@ -177,12 +354,15 @@ class ProteinEntry:
 
         Parameters
         ----------
-        mask : bool, default False
-            If `True`, the coordinates of missing residues are set to `np.nan`
         bb_only : bool, default False
             If `True`, only the backbone atoms are returned
         cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}, optional
             If specified, only the CDR region of the specified type is returned
+        chains : list of str, optional
+            If specified, only the coordinates of the specified chains are returned (in the same order);
+            otherwise, all coordinates are concatenated in alphabetical order of the chain IDs
+        only_known : bool, default False
+            If `True`, only return the coordinates of residues with known coordinates
 
         Returns
         -------
@@ -195,14 +375,17 @@ class ProteinEntry:
             raise ValueError("CDR information not available")
         if cdr is not None:
             assert cdr in CDR_REVERSE, f"CDR must be one of {list(CDR_REVERSE.keys())}"
-        crd = self.crd.copy()
-        if mask:
-            crd[~self.mask] = np.nan
+        chains = self._get_chains_list(chains)
+        crd = np.concatenate([self.crd[c] for c in chains], axis=0)
         if cdr is not None:
             crd = crd[self.cdr == cdr]
+        if bb_only:
+            crd = crd[:, :4, :]
+        if only_known:
+            crd = crd[self.get_mask(chains=chains, cdr=cdr).astype(bool)]
         return crd
 
-    def mask(self, cdr=None):
+    def get_mask(self, cdr=None, chains=None):
         """Get the mask of the protein
 
         Parameters
@@ -215,18 +398,22 @@ class ProteinEntry:
         mask : np.ndarray
             Mask array where 1 indicates residues with known coordinates and 0
             indicates missing values
+        chains : list of str, optional
+            If specified, only the masks of the specified chains are returned (in the same order);
+            otherwise, all masks are concatenated in alphabetical order of the chain IDs
 
         """
         if cdr is not None and self.cdr is None:
             raise ValueError("CDR information not available")
         if cdr is not None:
             assert cdr in CDR_REVERSE, f"CDR must be one of {list(CDR_REVERSE.keys())}"
-        mask = self.mask.copy()
+        chains = self._get_chains_list(chains)
+        mask = np.concatenate([self.mask[c] for c in chains], axis=0)
         if cdr is not None:
             mask = mask[self.cdr == cdr]
         return mask
 
-    def cdr(self, encode=False):
+    def get_cdr(self, encode=False, chains=None):
         """Get the CDR information of the protein
 
         Parameters
@@ -243,6 +430,10 @@ class ProteinEntry:
             with the corresponding type (`'H1'`, `'L1'`, ...) and non-CDR
             residues are marked with `'-'` or an encoded array of integers
             ir `encode=True`; `None` if CDR information is not available
+        chains : list of str, optional
+            If specified, only the CDR information of the specified chains is
+            returned (in the same order); otherwise, all CDR information is concatenated in
+            alphabetical order of the chain IDs
 
         """
         if self.cdr is None:
@@ -253,13 +444,16 @@ class ProteinEntry:
             cdr = self.cdr
         return cdr
 
-    def atom_mask(self, cdr=None):
+    def get_atom_mask(self, cdr=None, chains=None):
         """Get the atom mask of the protein
 
         Parameters
         ----------
         cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}, optional
             If specified, only the CDR region of the specified type is returned
+        chains : str, optional
+            If specified, only the atom masks of the specified chains are returned (in the same order);
+            otherwise, all atom masks are concatenated in alphabetical order of the chain IDs
 
         Returns
         -------
@@ -272,7 +466,9 @@ class ProteinEntry:
             raise ValueError("CDR information not available")
         if cdr is not None:
             assert cdr in CDR_REVERSE, f"CDR must be one of {list(CDR_REVERSE.keys())}"
-        atom_mask = np.concatenate([ATOM_MASKS[aa] for aa in self.seq])
+        chains = self._get_chains_list(chains)
+        seq = "".join([self.seq[c] for c in chains])
+        atom_mask = np.concatenate([ATOM_MASKS[aa] for aa in seq])
         atom_mask[self.mask == 0] = 0
         if cdr is not None:
             atom_mask = atom_mask[self.cdr == cdr]
@@ -352,11 +548,15 @@ class ProteinEntry:
         """
         with open(path, "rb") as f:
             data = pickle.load(f)
-        seq = data["seq"]
-        crd = np.concatenate([data["crd_bb"], data["crd_sc"]], axis=1)
-        mask = data["msk"]
-        cdr = data.get("cdr", None)
-        return ProteinEntry(seq, crd, mask, cdr)
+        chains = sorted(data.keys())
+        seq = [data[k]["seq"] for k in chains]
+        crd = [
+            np.concatenate([data[k]["crd_bb"], data[k]["crd_sc"]], axis=1)
+            for k in chains
+        ]
+        mask = [data[k]["msk"] for k in chains]
+        cdr = [data[k].get("cdr", None) for k in chains]
+        return ProteinEntry(seqs=seq, crds=crd, masks=mask, cdrs=cdr, chain_ids=chains)
 
     def to_pdb(self, path):
         ...
@@ -381,18 +581,20 @@ class ProteinEntry:
             Path to the pickle file
 
         """
-        data = {
-            "seq": self.seq,
-            "crd_bb": self.crd[:, :4],
-            "crd_sc": self.crd[:, 4:],
-            "msk": self.mask,
-        }
-        if self.cdr is not None:
-            data["cdr"] = self.cdr
+        data = {}
+        for chain in self.get_chains():
+            data[chain] = {
+                "seq": self.seq[chain],
+                "crd_bb": self.crd[chain][:, :4],
+                "crd_sc": self.crd[chain][:, 4:],
+                "msk": self.mask[chain],
+            }
+            if self.cdr[chain] is not None:
+                data[chain]["cdr"] = self.cdr
         with open(path, "wb") as f:
             pickle.dump(data, f)
 
-    def dihedral_angles(self):
+    def dihedral_angles(self, chains=None):
         """Calculate the backbone dihedral angles (phi, psi) of the protein
 
         Returns
@@ -400,24 +602,29 @@ class ProteinEntry:
         angles : np.ndarray
             A `'numpy'` array of shape `(L, 2)` with backbone dihedral angles
             (phi, psi) in degrees; missing values are marked with zeros
+        chains : list of str, optional
+            If specified, only the dihedral angles of the specified chains are returned (in the same order);
+            otherwise, all features are concatenated in alphabetical order of the chain IDs
 
         """
         angles = []
+        chains = self._get_chains_list(chains)
         # N, C, Ca, O
         # psi
-        p = self.crd[:-1, [0, 2, 1], :]
-        p = np.concatenate([p, self.crd[1:, [0], :]], 1)
-        p = np.pad(p, ((0, 1), (0, 0), (0, 0)))
-        angles.append(_dihedral_angle(p, self.mask))
-        # phi
-        p = self.crd[:-1, [1], :]
-        p = np.concatenate([p, self.crd[1:, [0, 2, 1]]], 1)
-        p = np.pad(p, ((1, 0), (0, 0), (0, 0)))
-        angles.append(_dihedral_angle(p, self.mask))
+        for chain in chains:
+            p = self.crd[chain][:-1, [0, 2, 1], :]
+            p = np.concatenate([p, self.crd[1:, [0], :]], 1)
+            p = np.pad(p, ((0, 1), (0, 0), (0, 0)))
+            angles.append(_dihedral_angle(p, self.mask))
+            # phi
+            p = self.crd[:-1, [1], :]
+            p = np.concatenate([p, self.crd[1:, [0, 2, 1]]], 1)
+            p = np.pad(p, ((1, 0), (0, 0), (0, 0)))
+            angles.append(_dihedral_angle(p, self.mask))
         angles = np.stack(angles, -1)
         return angles
 
-    def secondary_structure(self):
+    def secondary_structure(self, chains=None):
         """Calculate the secondary structure of the protein
 
         Returns
@@ -426,14 +633,21 @@ class ProteinEntry:
             A `'numpy'` array of shape `(L, 3)` with secondary structure
             elements encoded as one-hot vectors (alpha-helix, beta-sheet, loop);
             missing values are marked with zeros
+        chains : list of str, optional
+            If specified, only the secondary structure of the specified chains is returned (in the same order);
+            otherwise, all features are concatenated in alphabetical order of the chain IDs
 
         """
-        sse_map = {"c": [0, 0, 1], "b": [0, 1, 0], "a": [1, 0, 0], "": [0, 0, 0]}
-        sse = _annotate_sse(self.crd[:, :4])
-        sse = np.array([sse_map[x] for x in sse]) * self.mask[:, None]
+        chains = self._get_chains_list(chains)
+        out = []
+        for chain in chains:
+            sse_map = {"c": [0, 0, 1], "b": [0, 1, 0], "a": [1, 0, 0], "": [0, 0, 0]}
+            sse = _annotate_sse(self.crd[:, :4])
+            out += [sse_map[x] for x in sse]
+        sse = np.array(out)
         return sse
 
-    def sidechain_coordinates(self):
+    def sidechain_coordinates(self, chains=None):
         """Get the sidechain coordinates of the protein
 
         Returns
@@ -442,11 +656,18 @@ class ProteinEntry:
             A `'numpy'` array of shape `(L, 10, 3)` with sidechain atom
             coordinates (check `proteinflow.sidechain_order()` for the order of
             atoms); missing values are marked with zeros
+        chains : list of str, optional
+            If specified, only the sidechain coordinates of the specified chains are returned (in the same order);
+            otherwise, all features are concatenated in alphabetical order of the chain IDs
 
         """
-        return self.crd[:, 4:] * self.mask[:, None, None]
+        chains = self._get_chains_list(chains)
+        out = []
+        for chain in chains:
+            out.append(self.crd[chain][:, 4:])
+        return np.concatenate(out, 0)
 
-    def chemical_features(self):
+    def chemical_features(self, chains=None):
         """Calculate chemical features of the protein
 
         Returns
@@ -455,23 +676,35 @@ class ProteinEntry:
             A `'numpy'` array of shape `(L, 4)` with chemical features of the
             protein (hydropathy, volume, charge, polarity, acceptor/donor); missing
             values are marked with zeros
+        chains : list of str, optional
+            If specified, only the chemical features of the specified chains are returned (in the same order);
+            otherwise, all features are concatenated in alphabetical order of the chain IDs
 
         """
-        features = np.array([_PMAP(x) for x in self.seq])
+        chains = self._get_chains_list(chains)
+        seq = "".join([self.seq[chain] for chain in chains])
+        features = np.array([_PMAP(x) for x in seq])
         return features
 
-    def sidechain_orientation(self):
+    def sidechain_orientation(self, chains=None):
         """Calculate the (global) sidechain orientation of the protein
 
         Returns
         -------
         orientation : np.ndarray
             A `'numpy'` array of shape `(L, 3)` with sidechain orientation
+            vectors; missing values are marked with zeros
+        chains : list of str, optional
+            If specified, only the sidechain orientation of the specified chains is returned (in the same order);
+            otherwise, all features are concatenated in alphabetical order of the chain IDs
 
         """
-        crd_bb = self.crd[:, :4]
-        crd_sc = self.crd[:, 4:]
-        seq = self.sequence(encode=True)
+        chains = self._get_chains_list(chains)
+        crd_bb = np.concatenate([self.crd[chain][:, :4] for chain in chains], 0)
+        crd_sc = np.concatenate([self.crd[chain][:, 4:] for chain in chains], 0)
+        seq = np.concatenate(
+            [self.get_sequence(chain=chain, encode=True) for chain in chains], 0
+        )
         orientation = np.zeros((crd_sc.shape[0], 3))
         for i in range(1, 21):
             if MAIN_ATOM_DICT[i] is not None:
@@ -483,6 +716,159 @@ class ProteinEntry:
                 orientation[S_mask] = np.random.rand(*orientation[S_mask].shape)
         orientation /= np.expand_dims(np.linalg.norm(orientation, axis=-1), -1) + 1e-7
         return orientation
+
+    @lru_cache()
+    def is_valid_pair(self, chain1, chain2, margin=30, cutoff=10):
+        """Check if two chains are a valid pair based on the distance between them
+
+        We consider two chains to be a valid pair if the distance between them is
+        smaller than `cutoff` Angstroms. The distance is calculated as the minimum
+        distance between any two atoms of the two chains.
+
+        Parameters
+        ----------
+        chain1 : str
+            Chain ID of the first chain
+        chain2 : str
+            Chain ID of the second chain
+        cutoff : int, optional
+            Minimum distance between the two chains (in Angstroms)
+
+        Returns
+        -------
+        valid : bool
+            `True` if the two chains are a valid pair, `False` otherwise
+
+        """
+        margin = cutoff * 3
+        assert chain1 in self.get_chains(), f"Chain {chain1} not found"
+        assert chain2 in self.get_chains(), f"Chain {chain2} not found"
+        X1 = self.get_coordinates(chains=[chain1], only_known=True)
+        X2 = self.get_coordinates(chains=[chain2], only_known=True)
+        intersect_dim_X1 = []
+        intersect_dim_X2 = []
+        intersect_X1 = np.zeros(len(X1))
+        intersect_X2 = np.zeros(len(X2))
+        for dim in range(3):
+            min_dim_1 = X1[:, 2, dim].min()
+            max_dim_1 = X1[:, 2, dim].max()
+            min_dim_2 = X2[:, 2, dim].min()
+            max_dim_2 = X2[:, 2, dim].max()
+            intersect_dim_X1.append(
+                np.where(
+                    np.logical_and(
+                        X1[:, 2, dim] >= min_dim_2 - margin,
+                        X1[:, 2, dim] <= max_dim_2 + margin,
+                    )
+                )[0]
+            )
+            intersect_dim_X2.append(
+                np.where(
+                    np.logical_and(
+                        X2[:, 2, dim] >= min_dim_1 - margin,
+                        X2[:, 2, dim] <= max_dim_1 + margin,
+                    )
+                )[0]
+            )
+
+        intersect_X1 = np.intersect1d(
+            np.intersect1d(intersect_dim_X1[0], intersect_dim_X1[1]),
+            intersect_dim_X1[2],
+        )
+        intersect_X2 = np.intersect1d(
+            np.intersect1d(intersect_dim_X2[0], intersect_dim_X2[1]),
+            intersect_dim_X2[2],
+        )
+
+        not_end_mask1 = np.where((X1[:, 2, :] == 0).sum(-1) != 3)[0]
+        not_end_mask2 = np.where((X2[:, 2, :] == 0).sum(-1) != 3)[0]
+
+        intersect_X1 = np.intersect1d(intersect_X1, not_end_mask1)
+        intersect_X2 = np.intersect1d(intersect_X2, not_end_mask2)
+
+        diff = X1[intersect_X1, 2, np.newaxis, :] - X2[intersect_X2, 2, :]
+        distances = np.sqrt(np.sum(diff**2, axis=2))
+
+        if np.sum(distances < cutoff) < 3:
+            return False
+        else:
+            return True
+
+    def get_index_array(self, chains=None, index_bump=100):
+        """Get the index array of the protein
+
+        The index array is a `'numpy'` array of shape `(L,)` with the index of each residue along the chain.
+
+        Parameters
+        ----------
+        chains : list of str, optional
+            If specified, only the index array of the specified chains is returned (in the same order);
+            otherwise, all features are concatenated in alphabetical order of the chain IDs
+        index_bump : int, default 0
+            If specified, the index is bumped by this number between chains
+
+        Returns
+        -------
+        index_array : np.ndarray
+            A `'numpy'` array of shape `(L,)` with the index of each residue along the chain; if multiple chains
+            are specified, the index is bumped by `index_bump` at the beginning of each chain
+
+        """
+        chains = self._get_chains_list(chains)
+        start_value = 0
+        start_index = 0
+        index_array = np.zeros(self.get_length(chains))
+        for chain in chains:
+            chain_length = self.get_length([chain])
+            index_array[start_index : start_index + chain_length] = np.arange(
+                start_value, start_value + chain_length
+            )
+            start_value += chain_length + index_bump
+            start_index += chain_length
+        return index_array.astype(int)
+
+    def get_chain_id_dict(self, chains=None):
+        """Get the dictionary mapping from chain indices to chain IDs
+
+        Returns
+        -------
+        chain_id_dict : dict
+            A dictionary mapping from chain indices to chain IDs
+        chains : list of str, optional
+            If specified, the dictionary will only contain the specified chains
+
+        """
+        chains = self._get_chains_list(chains)
+        chain_id_dict = {i: x for i, x in enumerate(self.get_chains()) if x in chains}
+        return chain_id_dict
+
+    def get_chain_id_array(self, chains=None):
+        """Get the chain ID array of the protein
+
+        The chain ID array is a `'numpy'` array of shape `(L,)` with the chain ID of each residue.
+        The chain ID is the index of the chain in the alphabetical order of the chain IDs. To get a
+        mapping from the index to the chain ID, use `get_chain_id_dict()`.
+
+        Parameters
+        ----------
+        chains : list of str, optional
+            If specified, only the chain ID array of the specified chains is returned (in the same order);
+            otherwise, all features are concatenated in alphabetical order of the chain IDs
+
+        Returns
+        -------
+        chain_id_array : np.ndarray
+            A `'numpy'` array of shape `(L,)` with the chain ID of each residue
+
+        """
+        id_dict = {v: k for k, v in self.get_chain_id_dict().items()}
+        index_array = np.zeros(self.get_length(chains))
+        start_index = 0
+        for chain in self._get_chains_list(chains):
+            chain_length = self.get_length([chain])
+            index_array[start_index : start_index + chain_length] = id_dict[chain]
+            start_index += chain_length
+        return index_array.astype(int)
 
 
 class PDBEntry:
@@ -594,7 +980,15 @@ class PDBEntry:
         fasta_dict = {k: seqs_dict[k.split("-")[0].upper()] for k in chains}
         return crd_df, seq_df, fasta_dict
 
-    def pdb_df(self, chain=None):
+    def _get_chain(self, chain):
+        """Check the chain ID"""
+        if chain is None:
+            return chain
+        if chain not in self.chains():
+            raise PDBError("Chain not found")
+        return chain
+
+    def get_pdb_df(self, chain=None):
         """Return the PDB dataframe
 
         If `chain` is provided, only information for this chain is returned.
@@ -610,12 +1004,13 @@ class PDBEntry:
             A `BioPandas` style dataframe containing the PDB information
 
         """
+        chain = self._get_chain(chain)
         if chain is None:
             return self.crd_df
         else:
             return self.crd_df[self.crd_df["chain_id"] == chain]
 
-    def sequence_df(self, chain=None):
+    def get_sequence_df(self, chain=None):
         """Return the sequence dataframe
 
         If `chain` is provided, only information for this chain is returned.
@@ -632,12 +1027,13 @@ class PDBEntry:
             (analogous to the `BioPandas.pdb.PandasPdb.amino3to1` method output)
 
         """
+        chain = self._get_chain(chain)
         if chain is None:
             return self.seq_df
         else:
             return self.seq_df[self.seq_df["chain_id"] == chain]
 
-    def fasta(self):
+    def get_fasta(self):
         """Return the fasta dictionary
 
         Returns
@@ -649,7 +1045,7 @@ class PDBEntry:
         """
         return self.fasta_dict
 
-    def chains(self):
+    def get_chains(self):
         """Return the chains in the PDB
 
         Returns
@@ -663,12 +1059,13 @@ class PDBEntry:
     @lru_cache()
     def _pdb_sequence(self, chain):
         """Return the PDB sequence for a given chain ID"""
+        chain = self._get_chain(chain)
         return "".join(self.sequence_df(chain)["residue_name"])
 
     @lru_cache()
     def _align(self, chain):
         """Align the PDB sequence to the FASTA sequence for a given chain ID"""
-        chain_crd = self.pdb_df(chain)
+        chain = self._get_chain(chain)
         pdb_seq = self._pdb_sequence(chain)
         # aligner = PairwiseAligner()
         # aligner.match_score = 2
@@ -683,7 +1080,7 @@ class PDBEntry:
             raise PDBError("Incorrect alignment")
         return aligned_seq, fasta_seq
 
-    def alignment(self, chains=None):
+    def get_alignment(self, chains=None):
         """Return the alignment between the PDB and the FASTA sequence
 
         Parameters
@@ -745,7 +1142,30 @@ class SAbDabEntry(PDBEntry):
         heavy_chain=None,
         antigen_chains=None,
     ):
-        pdb_path = download_pdb(pdb_id, local_folder)
+        """Create a SAbDabEntry from a PDB ID
+
+        Either the light or the heavy chain must be provided.
+
+        Parameters
+        ----------
+        pdb_id : str
+            PDB ID
+        local_folder : str, optional
+            Local folder to download the PDB and FASTA files
+        light_chain : str, optional
+            Light chain identifier (author chain name)
+        heavy_chain : str, optional
+            Heavy chain identifier (author chain name)
+        antigen_chains : list, optional
+            List of antigen chain identifiers (author chain names)
+
+        Returns
+        -------
+        entry : SAbDabEntry
+            A SAbDabEntry object
+
+        """
+        pdb_path = download_pdb(pdb_id, local_folder, sabdab=True)
         fasta_path = download_fasta(pdb_id, local_folder)
         return SAbDabEntry(
             pdb_path=pdb_path,
@@ -754,6 +1174,12 @@ class SAbDabEntry(PDBEntry):
             heavy_chain=heavy_chain,
             antigen_chains=antigen_chains,
         )
+
+    def _get_chain(self, chain):
+        """Return the chain identifier"""
+        if chain in ["heavy", "light"]:
+            chain = self.chain_dict[chain]
+        return super()._get_chain(chain)
 
     def heavy_chain(self):
         """Return the heavy chain identifier
@@ -820,6 +1246,8 @@ class SAbDabEntry(PDBEntry):
 
     @lru_cache()
     def _get_cdr(self, chain, align_to_fasta=False):
+        """Return the CDRs for a given chain ID"""
+        chain = self._get_chain(chain)
         chain_crd = self.pdb_df(chain)
         chain_type = self.chain_type(chain)[0].upper()
         if chain_type not in ["H", "L"]:
@@ -835,17 +1263,27 @@ class SAbDabEntry(PDBEntry):
         cdr_arr = [CDR_VALUES[chain_type][int(x.split("_")[0])] for x in unique_numbers]
         cdr_arr = np.array(cdr_arr)
         if align_to_fasta:
-            aligned_seq, fasta_seq = self._align(chain)
+            aligned_seq, _ = self._align(chain)
             aligned_seq_arr = np.array(list(aligned_seq))
-        cdr_arr[aligned_seq_arr != "-"] = _get_chothia_cdr(unique_numbers, chain_type)
+            cdr_arr_aligned = np.array(["-"] * len(aligned_seq))
+            cdr_arr_aligned[aligned_seq_arr != "-"] = cdr_arr
+            cdr_arr = cdr_arr_aligned
+        return cdr_arr
 
-    def cdr(self):
-        if "insertion" in chain_crd.columns:
-            chain_crd["residue_number"] = chain_crd.apply(
-                lambda row: f"{row['residue_number']}_{row['insertion']}", axis=1
-            )
-        unique_numbers = chain_crd["residue_number"].unique()
-        if len(unique_numbers) != len(pdb_seq):
-            raise PDBError("Inconsistencies in the biopandas dataframe")
-        arr = [CDR_VALUES[chain_type][int(x.split("_")[0])] for x in num_array]
-        return np.array(arr)
+    def cdr(self, chains=None):
+        """Return CDR arrays
+
+        Parameters
+        ----------
+        chains : list, optional
+            A list of chain identifiers (if not provided, all chains are processed)
+
+        Returns
+        -------
+        cdrs : dict
+            A dictionary containing the CDR arrays for each of the chains
+
+        """
+        if chains is None:
+            chains = self.chains()
+        return {chain: self._get_cdr(chain) for chain in chains}

@@ -8,16 +8,14 @@ from copy import deepcopy
 from itertools import combinations
 
 import numpy as np
-import pandas as pd
 import torch
-from numpy import linalg
 from p_tqdm import p_map
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from proteinflow.constants import _PMAP, ALPHABET, CDR_REVERSE, D3TO1, MAIN_ATOMS
+from proteinflow.constants import ALPHABET, CDR_REVERSE, D3TO1, MAIN_ATOMS
+from proteinflow.data import ProteinEntry
 from proteinflow.pdb import _check_biounits
-from proteinflow.utils.biotite_sse import _annotate_sse
 from proteinflow.utils.boto_utils import (
     _download_dataset_dicts_from_s3,
     _download_dataset_from_s3,
@@ -62,8 +60,9 @@ class ProteinDataset(Dataset):
 
     In order to compute additional features, use the `feature_functions` parameter. It should be a dictionary with keys
     corresponding to the feature names and values corresponding to the functions that compute the features. The functions
-    should take a chain dictionary and an integer representation of the sequence as input (the dictionary is in `proteinflow` format,
-    see the docs for `generate_data` for details) and return a `numpy` array shaped as `(#residues, #features)`.
+    should take a `proteinflow.data.ProteinEntry` instance and a list of chains and return a `numpy` array shaped as `(#residues, #features)`
+    where `#residues` is the total number of residues in those chains and the features are concatenated in the order of the list:
+    `func(data_entry: ProteinEntry, chains: list) -> np.ndarray`.
 
     """
 
@@ -280,149 +279,40 @@ class ProteinDataset(Dataset):
         self.cdr = 0
         self.set_cdr(None)
 
-    def _interpolate(self, crd_i, mask_i):
-        """
-        Fill in missing values in the middle with linear interpolation and (if fill_ends is true) build an initialization for the ends
-
-        For the ends, the first 10 residues are 3.6 A apart from each other on a straight line from the last known value away from the center.
-        Next they are 3.6 A apart in a random direction.
-        """
-
-        if self.interpolate in ["all", "only_middle"]:
-            crd_i[(1 - mask_i).astype(bool)] = np.nan
-            df = pd.DataFrame(crd_i.reshape((crd_i.shape[0], -1)))
-            crd_i = df.interpolate(limit_area="inside").values.reshape(crd_i.shape)
-        if self.interpolate == "all":
-            non_nans = np.where(~np.isnan(crd_i[:, 0, 0]))[0]
-            known_start = non_nans[0]
-            known_end = non_nans[-1] + 1
-            if known_end < len(crd_i) or known_start > 0:
-                center = crd_i[non_nans, 2, :].mean(0)
-                if known_start > 0:
-                    direction = crd_i[known_start, 2, :] - center
-                    direction = direction / linalg.norm(direction)
-                    for i in range(0, min(known_start, 10)):
-                        crd_i[known_start - i - 1] = (
-                            crd_i[known_start - i] + direction * 3.6
-                        )
-                    for i in range(min(known_start, 10), known_start):
-                        v = np.random.rand(3)
-                        v = v / linalg.norm(v)
-                        crd_i[known_start - i - 1] = crd_i[known_start - i] + v * 3.6
-                if known_end < len(crd_i):
-                    to_add = len(crd_i) - known_end
-                    direction = crd_i[known_end - 1, 2, :] - center
-                    direction = direction / linalg.norm(direction)
-                    for i in range(0, min(to_add, 10)):
-                        crd_i[known_end + i] = (
-                            crd_i[known_end + i - 1] + direction * 3.6
-                        )
-                    for i in range(min(to_add, 10), to_add):
-                        v = np.random.rand(3)
-                        v = v / linalg.norm(v)
-                        crd_i[known_end + i] = crd_i[known_end + i - 1] + v * 3.6
-            mask_i = np.ones(mask_i.shape)
-        if self.interpolate in ["only_middle"]:
-            nan_mask = np.isnan(crd_i)  # in the middle the nans have been interpolated
-            mask_i[~np.isnan(crd_i[:, 0, 0])] = 1
-            crd_i[nan_mask] = 0
-        if self.interpolate == "zeros":
-            non_nans = np.where(mask_i != 0)[0]
-            known_start = non_nans[0]
-            known_end = non_nans[-1] + 1
-            mask_i[known_start:known_end] = 1
-        return crd_i, mask_i
-
-    def _dihedral_angle(self, crd, msk):
-        """Praxeolitic formula
-        1 sqrt, 1 cross product"""
-
-        p0 = crd[..., 0, :]
-        p1 = crd[..., 1, :]
-        p2 = crd[..., 2, :]
-        p3 = crd[..., 3, :]
-
-        b0 = -1.0 * (p1 - p0)
-        b1 = p2 - p1
-        b2 = p3 - p2
-
-        b1 /= np.expand_dims(np.linalg.norm(b1, axis=-1), -1) + 1e-7
-
-        v = b0 - np.expand_dims(np.einsum("bi,bi->b", b0, b1), -1) * b1
-        w = b2 - np.expand_dims(np.einsum("bi,bi->b", b2, b1), -1) * b1
-
-        x = np.einsum("bi,bi->b", v, w)
-        y = np.einsum("bi,bi->b", np.cross(b1, v), w)
-        dh = np.degrees(np.arctan2(y, x))
-        dh[1 - msk] = 0
-        return dh
-
-    def _dihedral(self, chain_dict, seq):
+    def _dihedral(self, data_entry, chains):
         """
         Dihedral angles
         """
 
-        crd = chain_dict["crd_bb"]
-        msk = chain_dict["msk"]
-        angles = []
-        # N, C, Ca, O
-        # psi
-        p = crd[:-1, [0, 2, 1], :]
-        p = np.concatenate([p, crd[1:, [0], :]], 1)
-        p = np.pad(p, ((0, 1), (0, 0), (0, 0)))
-        angles.append(self._dihedral_angle(p, msk))
-        # phi
-        p = crd[:-1, [1], :]
-        p = np.concatenate([p, crd[1:, [0, 2, 1]]], 1)
-        p = np.pad(p, ((1, 0), (0, 0), (0, 0)))
-        angles.append(self._dihedral_angle(p, msk))
-        angles = np.stack(angles, -1)
-        return angles
+        return data_entry.dihedral_angles(chains)
 
-    def _sidechain(self, chain_dict, seq):
+    def _sidechain(self, data_entry, chains):
         """
         Sidechain orientation (defined by the 'main atoms' in the `main_atom_dict` dictionary)
         """
 
-        crd_sc = chain_dict["crd_sc"]
-        crd_bb = chain_dict["crd_bb"]
-        orientation = np.zeros((crd_sc.shape[0], 3))
-        for i in range(1, 21):
-            if self.main_atom_dict[i] is not None:
-                orientation[seq == i] = (
-                    crd_sc[seq == i, self.main_atom_dict[i], :] - crd_bb[seq == i, 2, :]
-                )
-            else:
-                S_mask = seq == i
-                orientation[S_mask] = np.random.rand(*orientation[S_mask].shape)
-        orientation /= np.expand_dims(linalg.norm(orientation, axis=-1), -1) + 1e-7
-        return orientation
+        return data_entry.sidechain_orientation(chains)
 
-    def _chemical(self, chain_dict, seq):
+    def _chemical(self, data_entry, chains):
         """
         Chemical features (hydropathy, volume, charge, polarity, acceptor/donor)
         """
 
-        features = np.array([_PMAP(x) for x in seq])
-        return features
+        return data_entry.chemical_features(chains)
 
-    def _sse(self, chain_dict, seq):
+    def _sse(self, data_entry, chains):
         """
         Secondary structure features
         """
 
-        sse_map = {"c": [0, 0, 1], "b": [0, 1, 0], "a": [1, 0, 0], "": [0, 0, 0]}
-        sse = _annotate_sse(chain_dict["crd_bb"])
-        sse = np.array([sse_map[x] for x in sse]) * chain_dict["msk"][:, None]
-        return sse
+        return data_entry.secondary_structure(chains)
 
-    def _sidechain_coords(self, chain_dict, seq):
+    def _sidechain_coords(self, data_entry, chains):
         """
         Sidechain coordinates
         """
 
-        crd_sc = chain_dict["crd_sc"]
-        return crd_sc
+        return data_entry.sidechain_coordinates(chains)
 
     def _process(self, filename, rewrite=False, max_length=None, min_cdr_length=None):
         """
@@ -431,9 +321,8 @@ class ProteinDataset(Dataset):
 
         input_file = os.path.join(self.dataset_folder, filename)
         no_extension_name = filename.split(".")[0]
-        with open(input_file, "rb") as f:
-            data = pickle.load(f)
-        chains = sorted(data.keys())
+        data_entry = ProteinEntry.from_pickle(input_file)
+        chains = data_entry.get_chains()
         if self.entry_type == "biounit":
             chain_sets = [chains]
         elif self.entry_type == "chain":
@@ -445,6 +334,8 @@ class ProteinDataset(Dataset):
                 "Unknown entry type, please choose from ['biounit', 'chain', 'pair']"
             )
         output_names = []
+        if self.cut_edges:
+            data_entry.cut_missing_edges()
         for chains_i, chain_set in enumerate(chain_sets):
             output_file = os.path.join(
                 self.features_folder, no_extension_name + f"_{chains_i}.pickle"
@@ -454,138 +345,82 @@ class ProteinDataset(Dataset):
             if os.path.exists(output_file) and not rewrite:
                 pass_set = True
                 if max_length is not None:
-                    if sum([len(data[x]["seq"]) for x in chain_set]) > max_length:
+                    if data_entry.get_length(chain_set) > max_length:
                         add_name = False
-                if min_cdr_length is not None:
-                    for chain in chain_set:
-                        if "cdr" not in data[chain]:
-                            continue
-                        u = np.unique(data[chain]["cdr"])
-                        for cdr_ in u:
-                            if (data[chain]["cdr"] == cdr_).sum() < min_cdr_length:
-                                add_name = False
+                if min_cdr_length is not None and data_entry.has_cdr():
+                    cdr_length = data_entry.get_cdr_length(chain_set)
+                    if not all(
+                        [
+                            length >= min_cdr_length
+                            for length in cdr_length.values()
+                            if length > 0
+                        ]
+                    ):
+                        add_name = False
             else:
-                X = []
-                S = []
-                mask = []
-                mask_original = []
-                chain_encoding_all = []
-                residue_idx = []
-                cdr = []
-                node_features = defaultdict(lambda: [])
-                last_idx = 0
-                chain_dict = {}
-
                 if max_length is not None:
-                    if sum([len(data[x]["seq"]) for x in chain_set]) > max_length:
+                    if data_entry.get_length(chains=chain_set) > max_length:
                         pass_set = True
                         add_name = False
-                if min_cdr_length is not None:
-                    for chain in chain_set:
-                        if "cdr" not in data[chain]:
-                            continue
-                        u = np.unique(data[chain]["cdr"])
-                        for cdr_ in u:
-                            if (data[chain]["cdr"] == cdr_).sum() < min_cdr_length:
-                                add_name = False
-                                pass_set = True
+                if min_cdr_length is not None and data_entry.has_cdr():
+                    cdr_length = data_entry.get_cdr_length(chain_set)
+                    if not all(
+                        [
+                            length >= min_cdr_length
+                            for length in cdr_length.values()
+                            if length > 0
+                        ]
+                    ):
+                        add_name = False
+                        pass_set = True
 
                 if self.entry_type == "pair":
                     # intersect = []
-                    X1 = data[chain_set[0]]["crd_bb"][
-                        data[chain_set[0]]["msk"].astype(bool)
-                    ]
-                    X2 = data[chain_set[1]]["crd_bb"][
-                        data[chain_set[1]]["msk"].astype(bool)
-                    ]
-                    intersect_dim_X1 = []
-                    intersect_dim_X2 = []
-                    intersect_X1 = np.zeros(len(X1))
-                    intersect_X2 = np.zeros(len(X2))
-                    margin = 30
-                    cutoff = 10
-                    for dim in range(3):
-                        min_dim_1 = X1[:, 2, dim].min()
-                        max_dim_1 = X1[:, 2, dim].max()
-                        min_dim_2 = X2[:, 2, dim].min()
-                        max_dim_2 = X2[:, 2, dim].max()
-                        intersect_dim_X1.append(
-                            np.where(
-                                np.logical_and(
-                                    X1[:, 2, dim] >= min_dim_2 - margin,
-                                    X1[:, 2, dim] <= max_dim_2 + margin,
-                                )
-                            )[0]
-                        )
-                        intersect_dim_X2.append(
-                            np.where(
-                                np.logical_and(
-                                    X2[:, 2, dim] >= min_dim_1 - margin,
-                                    X2[:, 2, dim] <= max_dim_1 + margin,
-                                )
-                            )[0]
-                        )
-
-                        # if min_dim_1 - 4 <= max_dim_2 and max_dim_1 >= min_dim_2 - 4:
-                        #     intersect.append(True)
-                        # else:
-                        #     intersect.append(False)
-                        #     break
-                    intersect_X1 = np.intersect1d(
-                        np.intersect1d(intersect_dim_X1[0], intersect_dim_X1[1]),
-                        intersect_dim_X1[2],
-                    )
-                    intersect_X2 = np.intersect1d(
-                        np.intersect1d(intersect_dim_X2[0], intersect_dim_X2[1]),
-                        intersect_dim_X2[2],
-                    )
-
-                    not_end_mask1 = np.where((X1[:, 2, :] == 0).sum(-1) != 3)[0]
-                    not_end_mask2 = np.where((X2[:, 2, :] == 0).sum(-1) != 3)[0]
-
-                    intersect_X1 = np.intersect1d(intersect_X1, not_end_mask1)
-                    intersect_X2 = np.intersect1d(intersect_X2, not_end_mask2)
-
-                    # distances = torch.norm(X1[intersect_X1, 2, :] - X2[intersect_X2, 2, :](1), dim=-1)
-                    diff = X1[intersect_X1, 2, np.newaxis, :] - X2[intersect_X2, 2, :]
-                    distances = np.sqrt(np.sum(diff**2, axis=2))
-
-                    intersect_X1 = torch.LongTensor(intersect_X1)
-                    intersect_X2 = torch.LongTensor(intersect_X2)
-                    if np.sum(distances < cutoff) < 3:
+                    if not data_entry.is_valid_pair(*chain_set):
                         # if not all(intersect):
                         pass_set = True
                         add_name = False
             if pass_set:
                 continue
 
+            out = {}
+            out["pdb_id"] = no_extension_name.split("-")[0]
+            out["mask_original"] = torch.tensor(data_entry.get_mask(chain_set))
+            if self.interpolate != "none":
+                data_entry.interpolate_coords(fill_ends=(self.interpolate == "all"))
+            out["mask"] = torch.tensor(data_entry.get_mask(chain_set))
+            out["S"] = torch.tensor(data_entry.get_sequence(chain_set, encode=True))
+            out["X"] = torch.tensor(data_entry.get_coordinates(chain_set))
+            out["residue_idx"] = torch.tensor(
+                data_entry.get_index_array(chain_set, index_bump=100)
+            )
+            out["chain_encoding_all"] = torch.tensor(
+                data_entry.get_chain_id_array(chain_set)
+            )
+            out["chain_dict"] = data_entry.get_chain_id_dict(chain_set)
             cdr_chain_set = set()
-            for chain_i, chain in enumerate(chain_set):
-                seq = torch.tensor([self.alphabet_dict[x] for x in data[chain]["seq"]])
-                S.append(seq)
-                mask_original.append(deepcopy(data[chain]["msk"]))
-                if self.interpolate != "none":
-                    data[chain]["crd_bb"], data[chain]["msk"] = self._interpolate(
-                        data[chain]["crd_bb"], data[chain]["msk"]
+            if data_entry.has_cdr():
+                out["cdr"] = data_entry.get_cdr(chain_set)
+                chain_type_dict = data_entry.get_chain_type_dict(chain_set)
+                if "heavy" in chain_type_dict:
+                    cdr_chain_set.update(
+                        [
+                            f"{chain_type_dict['heavy']}__{cdr}"
+                            for cdr in ["H1", "H2", "H3"]
+                        ]
                     )
-                X.append(data[chain]["crd_bb"])
-                mask.append(data[chain]["msk"])
-                residue_idx.append(torch.arange(len(data[chain]["seq"])) + last_idx)
-                if "cdr" in data[chain]:
-                    u, inv = np.unique(data[chain]["cdr"], return_inverse=True)
-                    cdr_chain = np.array([CDR_REVERSE[x] for x in u])[inv].reshape(
-                        data[chain]["cdr"].shape
+                if "light" in chain_type_dict:
+                    cdr_chain_set.update(
+                        [
+                            f"{chain_type_dict['light']}__{cdr}"
+                            for cdr in ["L1", "L2", "L3"]
+                        ]
                     )
-                    cdr.append(cdr_chain)
-                    cdr_chain_set.update([f"{chain}__{cdr}" for cdr in u])
-                last_idx = residue_idx[-1][-1] + 100
-                chain_encoding_all.append(torch.ones(len(data[chain]["seq"])) * chain_i)
-                chain_dict[chain] = chain_i
-                for name in self.feature_types:
-                    if name not in self.feature_functions:
-                        continue
-                    func = self.feature_functions[name]
-                    node_features[name].append(func(data[chain], seq))
+            for name in self.feature_types:
+                if name not in self.feature_functions:
+                    continue
+                func = self.feature_functions[name]
+                out[name] = func(data_entry, chain_set)
 
             if add_name:
                 output_names.append(
@@ -595,41 +430,9 @@ class ProteinDataset(Dataset):
                         chain_set if len(cdr_chain_set) == 0 else cdr_chain_set,
                     )
                 )
-
-            if self.cut_edges:
-                for chain_i, m in enumerate(mask):
-                    ind = np.where(m)[0]
-                    start, end = ind[0], ind[-1]
-                    X[chain_i] = X[chain_i][start : end + 1]
-                    S[chain_i] = S[chain_i][start : end + 1]
-                    mask[chain_i] = mask[chain_i][start : end + 1]
-                    mask_original[chain_i] = mask_original[chain_i][start : end + 1]
-                    residue_idx[chain_i] = residue_idx[chain_i][start : end + 1]
-                    chain_encoding_all[chain_i] = chain_encoding_all[chain_i][
-                        start : end + 1
-                    ]
-                    for key in node_features.keys():
-                        node_features[key][chain_i] = node_features[key][chain_i][
-                            start : end + 1
-                        ]
-                    if len(cdr) > 0:
-                        cdr[chain_i] = cdr[chain_i][start : end + 1]
-
-            out = {}
-            out["X"] = torch.from_numpy(np.concatenate(X, 0))
-            out["S"] = torch.cat(S)
-            out["mask"] = torch.from_numpy(np.concatenate(mask))
-            out["mask_original"] = torch.from_numpy(np.concatenate(mask_original))
-            out["chain_encoding_all"] = torch.cat(chain_encoding_all)
-            out["residue_idx"] = torch.cat(residue_idx)
-            out["chain_dict"] = chain_dict
-            out["pdb_id"] = no_extension_name.split("-")[0]
-            if len(cdr) != 0:
-                out["cdr"] = torch.from_numpy(np.concatenate(cdr))
-            for key, value_list in node_features.items():
-                out[key] = torch.from_numpy(np.concatenate(value_list))
             with open(output_file, "wb") as f:
                 pickle.dump(out, f)
+
         return output_names
 
     def set_cdr(self, cdr):
