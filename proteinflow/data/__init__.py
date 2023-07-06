@@ -19,6 +19,7 @@ from proteinflow.constants import (
     CDR_ALPHABET,
     CDR_REVERSE,
     CDR_VALUES,
+    D3TO1,
     MAIN_ATOM_DICT,
     SIDECHAIN_ORDER,
 )
@@ -29,92 +30,7 @@ from proteinflow.data.utils import (
     _dihedral_angle,
     _retrieve_chain_names,
 )
-
-
-def _download_file(url, local_path):
-    """Download a file from a URL to a local path"""
-    response = requests.get(url)
-    open(local_path, "wb").write(response.content)
-
-
-def download_pdb(pdb_id, local_folder=".", sabdab=False):
-    """
-    Download a PDB file from the RCSB PDB database.
-
-    Parameters
-    ----------
-    pdb_id : str
-        PDB ID of the protein to download, can include a biounit index separated
-        by a dash (e.g. "1a0a", "1a0a-1")
-    local_folder : str, default "."
-        Folder to save the downloaded file to
-    sabdab : bool, default False
-        If True, download from the SAbDab database (Chothia style) instead of RCSB PDB
-
-    Returns
-    -------
-    local_path : str
-        Path to the downloaded file
-
-    """
-    if sabdab:
-        try:
-            url = f"https://opig.stats.ox.ac.uk/webapps/sabdab-sabpred/sabdab/pdb/{pdb_id}/?scheme=chothia"
-            local_path = os.path.join(local_folder, f"{pdb_id}.pdb")
-            _download_file(url, local_path)
-            return local_path
-        except BaseException:
-            raise RuntimeError(f"Could not download {pdb_id}")
-    if "-" in pdb_id:
-        pdb_id, biounit = pdb_id.split("-")
-        filenames = {
-            "cif": f"{pdb_id}-assembly{biounit}.cif.gz",
-            "pdb": f"{pdb_id}.pdb{biounit}.gz",
-        }
-        local_name = f"{pdb_id}-{biounit}"
-    else:
-        filenames = {
-            "cif": f"{pdb_id}.cif.gz",
-            "pdb": f"{pdb_id}.pdb.gz",
-        }
-        local_name = pdb_id
-    for t in filenames:
-        local_path = os.path.join(local_folder, local_name + f".{t}.gz")
-        try:
-            url = f"https://files.rcsb.org/download/{filenames[t]}"
-            _download_file(url, local_path)
-            return local_path
-        except BaseException:
-            pass
-    raise RuntimeError(f"Could not download {pdb_id}")
-
-
-def download_fasta(pdb_id, local_folder="."):
-    """
-    Download a FASTA file from the RCSB PDB database.
-
-    Parameters
-    ----------
-    pdb_id : str
-        PDB ID of the protein to download
-    local_folder : str, default "."
-        Folder to save the downloaded file to
-
-    Returns
-    -------
-    local_path : str
-        Path to the downloaded file
-
-    """
-    if "-" in pdb_id:
-        pdb_id = pdb_id.split("-")[0]
-    downloadurl = "https://www.rcsb.org/fasta/entry/"
-    pdbfn = pdb_id + "/download"
-    local_path = os.path.join(local_folder, f"{pdb_id.lower()}.fasta")
-
-    url = downloadurl + pdbfn
-    urllib.request.urlretrieve(url, local_path)
-    return local_path
+from proteinflow.download import download_fasta, download_pdb
 
 
 def interpolate_coords(crd, mask, fill_ends=True):
@@ -156,6 +72,8 @@ def interpolate_coords(crd, mask, fill_ends=True):
 
 
 class ProteinEntry:
+    ATOM_ORDER = {k: BACKBONE_ORDER + v for k, v in SIDECHAIN_ORDER.items()}
+
     def __init__(self, seqs, crds, masks, chain_ids, cdrs=None):
         """
         Parameters
@@ -349,7 +267,7 @@ class ProteinEntry:
         """Get the coordinates of the protein
 
         Backbone atoms are in the order of `N, C, CA, O`; for the full-atom
-        order see `ProteinEntry.atom_order()` (sidechain atoms come after the
+        order see `ProteinEntry.ATOM_ORDER` (sidechain atoms come after the
         backbone atoms).
 
         Parameters
@@ -514,22 +432,65 @@ class ProteinEntry:
         return "".join([ALPHABET[x] for x in seq])
 
     @staticmethod
-    def atom_order():
-        """Get the order of atoms in the full-atom representation
+    def from_dict(dictionary):
+        """Load a protein entry from a dictionary
+
+        Parameters
+        ----------
+        dictionary : dict
+            A nested dictionary where first-level keys are chain IDs and
+            second-level keys are the following:
+            - `'seq'` : amino acid sequence (one-letter code)
+            - `'crd_bb'` : backbone coordinates, shaped `(L, 4, 3)`
+            - `'crd_sc'` : sidechain coordinates, shaped `(L, 10, 3)`
+            - `'msk'` : mask array where 1 indicates residues with known coordinates and 0
+                indicates missing values, shaped `(L,)`
+            - `'cdr'` (optional): CDR information, shaped `(L,)` encoded as integers where each
+                integer corresponds to the index of the CDR type in
+                `proteinflow.constants.CDR_ALPHABET`
 
         Returns
         -------
-        atom_order : dict
-            A dictionary where the keys are the one-letter amino acid codes and
-            the values are the order of atoms in the full-atom representation
+        entry : ProteinEntry
+            A `ProteinEntry` object
 
         """
-        atom_order = {k: BACKBONE_ORDER + v for k, v in SIDECHAIN_ORDER.items()}
-        return atom_order
+        chains = sorted(dictionary.keys())
+        seq = [dictionary[k]["seq"] for k in chains]
+        crd = [
+            np.concatenate([dictionary[k]["crd_bb"], dictionary[k]["crd_sc"]], axis=1)
+            for k in chains
+        ]
+        mask = [dictionary[k]["msk"] for k in chains]
+        cdr = [dictionary[k].get("cdr", None) for k in chains]
+        return ProteinEntry(seqs=seq, crds=crd, masks=mask, cdrs=cdr, chain_ids=chains)
 
     @staticmethod
-    def from_pdb(path):
-        ...
+    def from_pdb(pdb_path, fasta_path=None):
+        pdb_entry = PDBEntry(pdb_path=pdb_path, fasta_path=fasta_path)
+        pdb_dict = {}
+        fasta_dict = pdb_entry.get_fasta()
+
+        for (chain,) in pdb_entry.get_chains():
+            pdb_dict[chain] = {}
+            fasta_seq = fasta_dict[chain]
+
+            # align fasta and pdb and check criteria)
+            mask = pdb_entry.get_mask([chain])[chain]
+            if isinstance(pdb_entry, SAbDabEntry):
+                pdb_dict[chain]["cdr"] = pdb_entry.get_cdr([chain])[chain]
+            pdb_dict[chain]["seq"] = fasta_seq
+            pdb_dict[chain]["msk"] = mask
+
+            # go over rows of coordinates
+            crd_arr = pdb_entry.get_coordinates_array(chain)
+
+            pdb_dict[chain]["crd_bb"] = crd_arr[:, :4, :]
+            pdb_dict[chain]["crd_sc"] = crd_arr[:, 4:, :]
+            pdb_dict[chain]["msk"][
+                (pdb_dict[chain]["crd_bb"] == 0).sum(-1).sum(-1) > 0
+            ] = 0
+        return pdb_dict
 
     @staticmethod
     def from_pickle(path):
@@ -548,15 +509,37 @@ class ProteinEntry:
         """
         with open(path, "rb") as f:
             data = pickle.load(f)
-        chains = sorted(data.keys())
-        seq = [data[k]["seq"] for k in chains]
-        crd = [
-            np.concatenate([data[k]["crd_bb"], data[k]["crd_sc"]], axis=1)
-            for k in chains
-        ]
-        mask = [data[k]["msk"] for k in chains]
-        cdr = [data[k].get("cdr", None) for k in chains]
-        return ProteinEntry(seqs=seq, crds=crd, masks=mask, cdrs=cdr, chain_ids=chains)
+        return ProteinEntry.from_dict(data)
+
+    def to_dict(self):
+        """Convert a protein entry into a dictionary
+
+        Returns
+        -------
+        dictionary : dict
+            A nested dictionary where first-level keys are chain IDs and
+            second-level keys are the following:
+            - `'seq'` : amino acid sequence (one-letter code)
+            - `'crd_bb'` : backbone coordinates, shaped `(L, 4, 3)`
+            - `'crd_sc'` : sidechain coordinates, shaped `(L, 10, 3)`
+            - `'msk'` : mask array where 1 indicates residues with known coordinates and 0
+                indicates missing values, shaped `(L,)`
+            - `'cdr'` (optional): CDR information, shaped `(L,)` encoded as integers where each
+                integer corresponds to the index of the CDR type in
+                `proteinflow.constants.CDR_ALPHABET`
+
+        """
+        data = {}
+        for chain in self.get_chains():
+            data[chain] = {
+                "seq": self.seq[chain],
+                "crd_bb": self.crd[chain][:, :4],
+                "crd_sc": self.crd[chain][:, 4:],
+                "msk": self.mask[chain],
+            }
+            if self.cdr[chain] is not None:
+                data[chain]["cdr"] = self.cdr[chain]
+        return data
 
     def to_pdb(self, path):
         ...
@@ -581,16 +564,7 @@ class ProteinEntry:
             Path to the pickle file
 
         """
-        data = {}
-        for chain in self.get_chains():
-            data[chain] = {
-                "seq": self.seq[chain],
-                "crd_bb": self.crd[chain][:, :4],
-                "crd_sc": self.crd[chain][:, 4:],
-                "msk": self.mask[chain],
-            }
-            if self.cdr[chain] is not None:
-                data[chain]["cdr"] = self.cdr
+        data = self.to_dict()
         with open(path, "wb") as f:
             pickle.dump(data, f)
 
@@ -872,21 +846,25 @@ class ProteinEntry:
 
 
 class PDBEntry:
-    def __init__(self, pdb_path, fasta_path):
+    def __init__(self, pdb_path, fasta_path=None):
         """A class for parsing PDB files
+
+        If no FASTA path is provided, the sequences will be fully inferred
+        from the PDB file.
 
         Parameters
         ----------
         pdb_path : str
             Path to the PDB file
-        fasta_path : str
+        fasta_path : str, optional
             Path to the FASTA file
 
         """
         self.pdb_path = pdb_path
         self.fasta_path = fasta_path
         self.pdb_id = os.path.basename(self.fasta_path).split(".")[0]
-        self.crd_df, self.seq_df, self.fasta_dict = self._parse()
+        self.crd_df, self.seq_df = self._parse_structure()
+        self.fasta_path = self._parse_fasta()
 
     @staticmethod
     def from_id(pdb_id, local_folder="."):
@@ -943,14 +921,30 @@ class PDBEntry:
 
         return out_dict
 
-    def _parse(self, chains=None):
-        cif = self.pdb_path.endswith("cif.gz")
-
+    def _parse_fasta(self, local_folder):
+        """Parse the fasta file"""
         # download fasta and check if it contains only proteins
-        try:
+        chains = self.get_chains()
+        if self.fasta_path is None:
+            seqs_dict = {k: self._pdb_sequence(k) for k in chains}
+        else:
             seqs_dict = self.parse_fasta(self.fasta_path)
-        except FileNotFoundError:
-            raise PDBError("Fasta file not found")
+        # retrieve sequences that are relevant for this PDB from the fasta file
+        seqs_dict = {k.upper(): v for k, v in seqs_dict.items()}
+        if all([len(x) == 3 and len(set(list(x))) == 1 for x in seqs_dict.keys()]):
+            seqs_dict = {k[0]: v for k, v in seqs_dict.items()}
+
+        if not {x.split("-")[0].upper() for x in chains}.issubset(
+            set(list(seqs_dict.keys()))
+        ):
+            raise PDBError("Some chains in the PDB do not appear in the fasta file")
+
+        fasta_dict = {k: seqs_dict[k.split("-")[0].upper()] for k in chains}
+        return fasta_dict
+
+    def _parse_structure(self, chains=None):
+        """Parse the structure of the protein"""
+        cif = self.pdb_path.endswith("cif.gz")
 
         # load coordinates in a nice format
         try:
@@ -963,22 +957,14 @@ class PDBEntry:
         except FileNotFoundError:
             raise PDBError("PDB / mmCIF file downloaded but not found")
         crd_df = p.df["ATOM"]
+        crd_df = crd_df[crd_df["record_name"] == "ATOM"].reset_index()
+        if "insertion" in crd_df.columns:
+            crd_df["unique_residue_number"] = crd_df.apply(
+                lambda row: f"{row['residue_number']}_{row['insertion']}", axis=1
+            )
         seq_df = p.amino3to1()
 
-        # retrieve sequences that are relevant for this PDB from the fasta file
-        if chains is None:
-            chains = p.df["ATOM"]["chain_id"].unique()
-        seqs_dict = {k.upper(): v for k, v in seqs_dict.items()}
-        if all([len(x) == 3 and len(set(list(x))) == 1 for x in seqs_dict.keys()]):
-            seqs_dict = {k[0]: v for k, v in seqs_dict.items()}
-
-        if not {x.split("-")[0].upper() for x in chains}.issubset(
-            set(list(seqs_dict.keys()))
-        ):
-            raise PDBError("Some chains in the PDB do not appear in the fasta file")
-
-        fasta_dict = {k: seqs_dict[k.split("-")[0].upper()] for k in chains}
-        return crd_df, seq_df, fasta_dict
+        return crd_df, seq_df
 
     def _get_chain(self, chain):
         """Check the chain ID"""
@@ -1063,7 +1049,7 @@ class PDBEntry:
         return "".join(self.sequence_df(chain)["residue_name"])
 
     @lru_cache()
-    def _align(self, chain):
+    def _align_chain(self, chain):
         """Align the PDB sequence to the FASTA sequence for a given chain ID"""
         chain = self._get_chain(chain)
         pdb_seq = self._pdb_sequence(chain)
@@ -1096,7 +1082,100 @@ class PDBEntry:
         """
         if chains is None:
             chains = self.chains()
-        return {chain: self._align(chain) for chain in chains}
+        return {chain: self._align_chain(chain)[0] for chain in chains}
+
+    def get_mask(self, chains=None):
+        """Return the mask of the alignment between the PDB and the FASTA sequence
+
+        Parameters
+        ----------
+        chains : list, optional
+            A list of chain identifiers (if not provided, all chains are aligned)
+
+        Returns
+        -------
+        mask : dict
+            A dictionary containing the `np.ndarray` mask for each chain (0 where the
+            aligned sequence has gaps and 1 where it does not)
+
+        """
+        alignment = self.get_alignment(chains)
+        return {
+            chain: (np.array(list(seq)) != "-").astype(int)
+            for chain, seq in alignment.items()
+        }
+
+    def has_unnatural_amino_acids(self, chains=None):
+        """Check if the PDB contains unnatural amino acids
+
+        Parameters
+        ----------
+        chains : list, optional
+            A list of chain identifiers (if not provided, all chains are checked)
+
+        Returns
+        -------
+        bool
+            True if the PDB contains unnatural amino acids, False otherwise
+
+        """
+        if chains is None:
+            chains = [None]
+        for chain in chains:
+            crd = self.get_crd_df(chain)
+            if not crd["residue_name"].isin(D3TO1.keys()).all():
+                return True
+        return False
+
+    def get_coordinates_array(self, chain):
+        """Return the coordinates of the PDB as a numpy array
+
+        The atom order is the same as in the `ProteinEntry.ATOM_ORDER` dictionary.
+        The array has zeros where the mask has zeros and that is where the sequence
+        alignment to the FASTA has gaps (unknown coordinates).
+
+        Parameters
+        ----------
+        chain : str
+            Chain identifier
+
+        Returns
+        -------
+        crd_arr : np.ndarray
+            A numpy array of shape (n_residues, 14, 3) containing the coordinates
+            of the PDB (zeros where the coordinates are unknown)
+
+        """
+        chain_crd = self.get_pdb_df(chain)
+
+        # align fasta and pdb and check criteria)
+        mask = self.get_mask([chain])[chain]
+
+        # go over rows of coordinates
+        crd_arr = np.zeros((len(mask), 14, 3))
+
+        def arr_index(row):
+            atom = row["atom_name"]
+            if atom.startswith("H") or atom == "OXT":
+                return -1  # ignore hydrogens and OXT
+            order = ProteinEntry.ATOM_ORDER[row["residue_name"]]
+            try:
+                return order.index(atom)
+            except ValueError:
+                raise PDBError(f"Unexpected atoms ({atom})")
+
+        indices = chain_crd.apply(arr_index, axis=1)
+        indices = indices.astype(int)
+        informative_mask = indices != -1
+        res_indices = np.where(mask == 1)[0]
+        unique_numbers = self.get_unique_residue_numbers(chain)
+        replace_dict = {x: y for x, y in zip(unique_numbers, res_indices)}
+        chain_crd["unique_residue_number"].replace(replace_dict, inplace=True)
+        crd_arr[
+            chain_crd[informative_mask]["unique_residue_number"],
+            indices[informative_mask],
+        ] = chain_crd[informative_mask][["x_coord", "y_coord", "z_coord"]]
+        return crd_arr, mask
 
 
 class SAbDabEntry(PDBEntry):
@@ -1245,7 +1324,7 @@ class SAbDabEntry(PDBEntry):
         raise PDBError("Chain not found")
 
     @lru_cache()
-    def _get_cdr(self, chain, align_to_fasta=False):
+    def _get_chain_cdr(self, chain, align_to_fasta=False):
         """Return the CDRs for a given chain ID"""
         chain = self._get_chain(chain)
         chain_crd = self.pdb_df(chain)
@@ -1253,24 +1332,36 @@ class SAbDabEntry(PDBEntry):
         if chain_type not in ["H", "L"]:
             return None
         pdb_seq = self._pdb_sequence(chain)
-        if "insertion" in chain_crd.columns:
-            chain_crd["residue_number"] = chain_crd.apply(
-                lambda row: f"{row['residue_number']}_{row['insertion']}", axis=1
-            )
-        unique_numbers = chain_crd["residue_number"].unique()
+        unique_numbers = chain_crd["unique_residue_number"].unique()
         if len(unique_numbers) != len(pdb_seq):
             raise PDBError("Inconsistencies in the biopandas dataframe")
         cdr_arr = [CDR_VALUES[chain_type][int(x.split("_")[0])] for x in unique_numbers]
         cdr_arr = np.array(cdr_arr)
         if align_to_fasta:
-            aligned_seq, _ = self._align(chain)
+            aligned_seq, _ = self._align_chain(chain)
             aligned_seq_arr = np.array(list(aligned_seq))
             cdr_arr_aligned = np.array(["-"] * len(aligned_seq))
             cdr_arr_aligned[aligned_seq_arr != "-"] = cdr_arr
             cdr_arr = cdr_arr_aligned
         return cdr_arr
 
-    def cdr(self, chains=None):
+    def get_unique_residue_numbers(self, chain):
+        """Return the unique residue numbers (residue number + insertion code)
+
+        Parameters
+        ----------
+        chain : str
+            Chain identifier
+
+        Returns
+        -------
+        unique_numbers : list
+            A list of unique residue numbers
+
+        """
+        return self.pdb_df(chain)["unique_residue_number"].unique().tolist()
+
+    def get_cdr(self, chains=None):
         """Return CDR arrays
 
         Parameters
@@ -1286,4 +1377,4 @@ class SAbDabEntry(PDBEntry):
         """
         if chains is None:
             chains = self.chains()
-        return {chain: self._get_cdr(chain) for chain in chains}
+        return {chain: self._get_chain_cdr(chain) for chain in chains}

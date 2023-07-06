@@ -2,7 +2,6 @@ import itertools
 import os
 import pickle
 import subprocess
-import traceback
 from collections import defaultdict
 
 import numpy as np
@@ -19,35 +18,6 @@ def _split_every(n, iterable):
     while piece:
         yield piece
         piece = list(itertools.islice(i, n))
-
-
-def _log_exception(exception, log_file, pdb_id, tmp_folder, chain_id=None):
-    """
-    Record the error in the log file
-    """
-
-    if chain_id is None:
-        _clean(pdb_id, tmp_folder)
-    else:
-        pdb_id = pdb_id + "-" + chain_id
-    if isinstance(exception, PDBError):
-        with open(log_file, "a") as f:
-            f.write(f"<<< {str(exception)}: {pdb_id} \n")
-    else:
-        with open(log_file, "a") as f:
-            f.write(f"<<< Unknown: {pdb_id} \n")
-            f.write(traceback.format_exc())
-            f.write("\n")
-
-
-def _log_removed(removed, log_file):
-    """
-    Record which files we removed due to redundancy
-    """
-
-    for pdb_id in removed:
-        with open(log_file, "a") as f:
-            f.write(f"<<< Removed due to redundancy: {pdb_id} \n")
 
 
 def _clean(pdb_id, tmp_folder):
