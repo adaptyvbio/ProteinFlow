@@ -165,7 +165,6 @@ You can download them with `proteinflow download --tag {tag}` in the command lin
 """
 __pdoc__ = {
     "data.utils": False,
-    "data.torch": False,
     "download.boto": False,
     "constants": False,
     "split": False,
