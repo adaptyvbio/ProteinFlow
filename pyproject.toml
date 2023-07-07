@@ -44,7 +44,6 @@ find = {}
 
 [tool.pydocstyle]
 convention = "numpy"
-match_dir = 'proteinflow'
 
 [tool.docsig]
 disable = [
