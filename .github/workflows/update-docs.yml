@@ -5,6 +5,7 @@ on:
     branches: [ main ]
     paths:
       - proteinflow/**
+      - README.md
 
 jobs:
   update:
