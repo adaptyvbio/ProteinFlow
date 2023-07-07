@@ -47,7 +47,7 @@ conda install -c conda-forge -c bioconda -c adaptyvbio proteinflow
 <h3 id="troubleshooting">Troubleshooting</h3>
 <ul>
 <li>If you are using python 3.10 and encountering installation problems, try running <code>python -m pip install prody==2.4.0</code> before installing <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code>.</li>
-<li>If you are planning to generate new datasets and installed <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> with <code>pip</code>, you will need to additionally install <a href="https://github.com/soedinglab/MMseqs2"><code>mmseqs</code></a>.</li>
+<li>If you are planning to generate new datasets and installed <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> with <code>pip</code> (or with <code>conda</code> on Mac OS with an M1 processor), you will need to additionally install <a href="https://github.com/soedinglab/MMseqs2"><code>mmseqs</code></a>.</li>
 <li>Generating new datasets also depends on the <code>rcsbsearch</code> package and the latest release <a href="https://github.com/sbliven/rcsbsearch/releases/tag/v0.2.3">v0.2.3</a> is currently not working correctly. The recommended fix is installing the version from <a href="https://github.com/sbliven/rcsbsearch/pull/6">this pull request</a>.</li>
 </ul>
 <pre><code class="language-bash">python -m pip install &quot;rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e&quot;
@@ -76,11 +76,12 @@ conda install -c conda-forge -c bioconda -c adaptyvbio proteinflow
 <pre><code class="language-bash">proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods --min_seq_id 0.4 --max_length 1000 --min_length 5 --missing_ends_thr 0.1 --valid_split 0.1
 </code></pre>
 <p>See the <a href="https://adaptyvbio.github.io/ProteinFlow/">docs</a> (or <code>proteinflow generate --help</code>) for the full list of parameters and more information.</p>
-<p>A registry of all the files that are removed during the filtering as well as description with the reason for their removal is created automatically for each <code>generate</code> command. The log files are save (at <code>data/logs</code> by default) and a summary can be accessed running <code>proteinflow get_summary --tag {tag}</code>.</p>
+<p>A registry of all the files that are removed during the filtering as well as description with the reason for their removal is created automatically for each <code>generate</code> command. The log files are save (at <code>data/logs</code> by default) and a summary can be accessed running <code>proteinflow get_summary {log_path}</code>.</p>
 <h3 id="running-the-pipeline-sabdab">Running the pipeline (SAbDab)</h3>
 <p>You can also use the <code>--sabdab</code> option in <code><a title="proteinflow" href="#proteinflow">proteinflow</a> generate</code> to load files from SAbDab and cluster them based on CDRs. By default the <code>--sabdab</code> tag will download the latest up-to-date version of the SabDab dataset and cluster the antibodies based on their CDR sequence.
 Alternatively, it can be used together with the tag <code>--sabdab_data_path</code> to process a custom SAbDab-like zip file or folder. This allows you to use search and query tools from the <a href="https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/">SabDab web interface</a> to create a custom dataset by downloading the archived zip file of the structures selected. (Under Downloads section of your SabDab query).</p>
-<p>SAbDab sequences clustering is done across all 6 Complementary Determining Regions (CDRs) - CDRH1, CDRH2, CDRH3, CDRL1, CDRL2, CDRL3, based on the <a href="https://pubmed.ncbi.nlm.nih.gov/9367782/">Chothia numbering</a> implemented by SabDab. CDRs from nanobodies and other synthetic constructs are clustered together with other heavy chain CDRs. The resulting CDR clusters are split into training, test and validation in a way that ensures that every PDB file only appears in one subset.</p>
+<p>SAbDab sequences clustering is done across all 6 Complementary Determining Regions (CDRs) - H1, H2, H3, L1, L2, L3, based on the <a href="https://pubmed.ncbi.nlm.nih.gov/9367782/">Chothia numbering</a> implemented by SabDab. CDRs from nanobodies and other synthetic constructs are clustered together with other heavy chain CDRs. The resulting CDR clusters are split into training, test and validation in a way that ensures that every PDB file only appears in one subset.</p>
+<p>Individual output pickle files represent heavy chain - light chain - antigen complexes (created from SAbDab annotation, sometimes more than one per PDB entry). Each of the elements (heavy chain, light chain, antigen) can be missing in specific entries and there can be multiple antigen chains. In order to filter for at least one antigen chain, use the <code>--require_antigen</code> option.</p>
 <p>For instance, let's generate a dataset with the following description:
 - SabDab version: latest (up-to-date),
 - resolution threshold: 5 angstrom,
@@ -103,19 +104,20 @@ Alternatively, it can be used together with the tag <code>--sabdab_data_path</co
 zeros to missing values,
 - <code>'seq'</code>: a string of length <code>L</code> with residue types.</p>
 <p>In a SAbDab datasets, an additional key is added to the dictionary:
-- <code>'cdr'</code>: a <code>'numpy'</code> array of shape <code>(L,)</code> where CDR residues are marked with the corresponding type (<code>'H1'</code>, <code>'L1'</code>, &hellip;)
+- <code>'cdr'</code>: a <code>numpy</code> array of shape <code>(L,)</code> where CDR residues are marked with the corresponding type (<code>'H1'</code>, <code>'L1'</code>, &hellip;)
 and non-CDR residues are marked with <code>'-'</code>.</p>
-<p>Once your data is ready, you can open the files with <code>pickle</code>.</p>
+<p>Note that the sequence information in the PDB files is aligned to the FASTA sequences to identify the missing residues.</p>
+<p>Once your data is ready, you can open the files with <code>pickle</code> directly.</p>
 <pre><code class="language-python">import pickle
 import os
 
 train_folder = &quot;./data/proteinflow_new/training&quot;
 for filename in os.listdir(train_folder):
-    with open(os.path.join(train_folder, filename), &quot;rb&quot;) as f:
-        data = pickle.load(f)
-    crd_bb = data[&quot;crd_bb&quot;]
-    seq = data[&quot;seq&quot;]
-    ...
+with open(os.path.join(train_folder, filename), &quot;rb&quot;) as f:
+data = pickle.load(f)
+crd_bb = data[&quot;crd_bb&quot;]
+seq = data[&quot;seq&quot;]
+...
 </code></pre>
 <p>Alternatively, you can use our <code>ProteinDataset</code> or <code>ProteinLoader</code> classes
 for convenient processing. Among other things, they allow for feature extraction, single chain / homomer / heteromer filtering and randomized sampling from sequence identity clusters.</p>
@@ -126,19 +128,92 @@ for convenient processing. Among other things, they allow for feature extraction
 - has batch size 8.</p>
 <pre><code class="language-python">from proteinflow import ProteinLoader
 train_loader = ProteinLoader.from_args(
-    &quot;./data/proteinflow_new/training&quot;,
-    clustering_dict_path=&quot;./data/proteinflow_new/splits_dict/train.pickle&quot;,
-    node_features_type=&quot;dihedral+sidechain_orientation+secondary_structure&quot;,
-    entry_type=&quot;pair&quot;,
-    batch_size=8,
+&quot;./data/proteinflow_new/training&quot;,
+clustering_dict_path=&quot;./data/proteinflow_new/splits_dict/train.pickle&quot;,
+node_features_type=&quot;dihedral+sidechain_orientation+secondary_structure&quot;,
+entry_type=&quot;pair&quot;,
+batch_size=8,
 )
 for batch in train_loader:
-    crd_bb = batch[&quot;X&quot;] # (B, L, 4, 3)
-    seq = batch[&quot;S&quot;] # (B, L)
-    sse = batch[&quot;secondary_structure&quot;] # (B, L, 3)
-    to_predict = batch[&quot;masked_res&quot;] # (B, L), 1 where the residues should be masked, 0 otherwise
-    ...
+crd_bb = batch[&quot;X&quot;] #(B, L, 4, 3)
+seq = batch[&quot;S&quot;] #(B, L)
+sse = batch[&quot;secondary_structure&quot;] #(B, L, 3)
+to_predict = batch[&quot;masked_res&quot;] #(B, L), 1 where the residues should be masked, 0 otherwise
+...
 </code></pre>
+<p>See more details on available parameters and the data format in the <a href="https://adaptyvbio.github.io/ProteinFlow/">docs</a> + <a href="https://github.com/adaptyvbio/ProteinFlow-models">this repository</a> for a use case.</p>
+<h2 id="proteinflow-stable-releases">ProteinFlow Stable Releases</h2>
+<p>You can download them with <code>proteinflow download --tag {tag}</code> in the command line or browse in the <a href="https://proteinflow-datasets.s3.eu-west-1.amazonaws.com/index.html">interface</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Tag</th>
+<th>Date</th>
+<th>Snapshot</th>
+<th>Size</th>
+<th>Min res</th>
+<th>Min len</th>
+<th>Max len</th>
+<th>MMseqs thr</th>
+<th>Split (train/val/test)</th>
+<th>Missing thr (ends/middle)</th>
+<th>Source</th>
+<th>Remove redundancies</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>paper</td>
+<td>10.11.22</td>
+<td>20220103</td>
+<td>24G</td>
+<td>3.5</td>
+<td>30</td>
+<td>10'000</td>
+<td>0.3</td>
+<td>90/5/5</td>
+<td>0.3/0.1</td>
+<td>PDB</td>
+<td>yes</td>
+<td>first release, no mmCIF files</td>
+</tr>
+<tr>
+<td>20230102_stable</td>
+<td>27.02.23</td>
+<td>20230102</td>
+<td>28G</td>
+<td>3.5</td>
+<td>30</td>
+<td>10'000</td>
+<td>0.3</td>
+<td>90/5/5</td>
+<td>0.3/0.1</td>
+<td>PDB</td>
+<td>yes</td>
+<td>v1.1.1</td>
+</tr>
+<tr>
+<td>20230623_sabdab</td>
+<td>26.06.23</td>
+<td>live 26.06.23</td>
+<td>1.4G</td>
+<td>3.5</td>
+<td>30</td>
+<td>10'000</td>
+<td>0.3</td>
+<td>96/3/1</td>
+<td>0.5/0.2</td>
+<td>SAbDab</td>
+<td>no</td>
+<td>v1.4.1 (requires $\ge$ v1.4.0)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="license">License</h2>
+<p>The <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> package and data are released and distributed under the BSD 3-Clause License</p>
+<h2 id="contributions">Contributions</h2>
+<p>This is an open source project supported by <a href="https://www.adaptyvbio.com/">Adaptyv Bio</a>. Contributions, suggestions and bug-fixes are welcomed.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -176,7 +251,7 @@ docker pull adaptyvbio/proteinflow
 
 ### Troubleshooting
 - If you are using python 3.10 and encountering installation problems, try running `python -m pip install prody==2.4.0` before installing `proteinflow`.
-- If you are planning to generate new datasets and installed `proteinflow` with `pip`, you will need to additionally install [`mmseqs`](https://github.com/soedinglab/MMseqs2).
+- If you are planning to generate new datasets and installed `proteinflow` with `pip` (or with `conda` on Mac OS with an M1 processor), you will need to additionally install [`mmseqs`](https://github.com/soedinglab/MMseqs2).
 - Generating new datasets also depends on the `rcsbsearch` package and the latest release [v0.2.3](https://github.com/sbliven/rcsbsearch/releases/tag/v0.2.3) is currently not working correctly. The recommended fix is installing the version from [this pull request](https://github.com/sbliven/rcsbsearch/pull/6).
 ```bash
 python -m pip install &#34;rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e&#34;
@@ -211,13 +286,15 @@ proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_
 ```
 See the [docs](https://adaptyvbio.github.io/ProteinFlow/) (or `proteinflow generate --help`) for the full list of parameters and more information.
 
-A registry of all the files that are removed during the filtering as well as description with the reason for their removal is created automatically for each `generate` command. The log files are save (at `data/logs` by default) and a summary can be accessed running `proteinflow get_summary --tag {tag}`.
+A registry of all the files that are removed during the filtering as well as description with the reason for their removal is created automatically for each `generate` command. The log files are save (at `data/logs` by default) and a summary can be accessed running `proteinflow get_summary {log_path}`.
 
 ### Running the pipeline (SAbDab)
 You can also use the `--sabdab` option in `proteinflow generate` to load files from SAbDab and cluster them based on CDRs. By default the `--sabdab` tag will download the latest up-to-date version of the SabDab dataset and cluster the antibodies based on their CDR sequence.
 Alternatively, it can be used together with the tag `--sabdab_data_path` to process a custom SAbDab-like zip file or folder. This allows you to use search and query tools from the [SabDab web interface](https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/) to create a custom dataset by downloading the archived zip file of the structures selected. (Under Downloads section of your SabDab query).
 
-SAbDab sequences clustering is done across all 6 Complementary Determining Regions (CDRs) - CDRH1, CDRH2, CDRH3, CDRL1, CDRL2, CDRL3, based on the [Chothia numbering](https://pubmed.ncbi.nlm.nih.gov/9367782/) implemented by SabDab. CDRs from nanobodies and other synthetic constructs are clustered together with other heavy chain CDRs. The resulting CDR clusters are split into training, test and validation in a way that ensures that every PDB file only appears in one subset.
+SAbDab sequences clustering is done across all 6 Complementary Determining Regions (CDRs) - H1, H2, H3, L1, L2, L3, based on the [Chothia numbering](https://pubmed.ncbi.nlm.nih.gov/9367782/) implemented by SabDab. CDRs from nanobodies and other synthetic constructs are clustered together with other heavy chain CDRs. The resulting CDR clusters are split into training, test and validation in a way that ensures that every PDB file only appears in one subset.
+
+Individual output pickle files represent heavy chain - light chain - antigen complexes (created from SAbDab annotation, sometimes more than one per PDB entry). Each of the elements (heavy chain, light chain, antigen) can be missing in specific entries and there can be multiple antigen chains. In order to filter for at least one antigen chain, use the `--require_antigen` option.
 
 For instance, let&#39;s generate a dataset with the following description:
 - SabDab version: latest (up-to-date),
@@ -229,6 +306,7 @@ For instance, let&#39;s generate a dataset with the following description:
 ```bash
 proteinflow generate --sabdab --resolution_thr 5 --not_filter_methods --min_seq_id 0.4 --valid_split 0.1
 ```
+
 ### Splitting
 By default, both `proteinflow generate` and `proteinflow download` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `proteinflow split` command.
 
@@ -244,14 +322,16 @@ The output files are pickled nested dictionaries where first-level keys are chai
 - `&#39;crd_bb&#39;`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),
 - `&#39;crd_sc&#39;`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (check `proteinflow.sidechain_order()` for the order of atoms),
 - `&#39;msk&#39;`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and
-    zeros to missing values,
+zeros to missing values,
 - `&#39;seq&#39;`: a string of length `L` with residue types.
 
 In a SAbDab datasets, an additional key is added to the dictionary:
-- `&#39;cdr&#39;`: a `&#39;numpy&#39;` array of shape `(L,)` where CDR residues are marked with the corresponding type (`&#39;H1&#39;`, `&#39;L1&#39;`, ...)
-    and non-CDR residues are marked with `&#39;-&#39;`.
+- `&#39;cdr&#39;`: a `numpy` array of shape `(L,)` where CDR residues are marked with the corresponding type (`&#39;H1&#39;`, `&#39;L1&#39;`, ...)
+and non-CDR residues are marked with `&#39;-&#39;`.
 
-Once your data is ready, you can open the files with `pickle`.
+Note that the sequence information in the PDB files is aligned to the FASTA sequences to identify the missing residues.
+
+Once your data is ready, you can open the files with `pickle` directly.
 
 ```python
 import pickle
@@ -259,11 +339,11 @@ import os
 
 train_folder = &#34;./data/proteinflow_new/training&#34;
 for filename in os.listdir(train_folder):
-    with open(os.path.join(train_folder, filename), &#34;rb&#34;) as f:
-        data = pickle.load(f)
-    crd_bb = data[&#34;crd_bb&#34;]
-    seq = data[&#34;seq&#34;]
-    ...
+with open(os.path.join(train_folder, filename), &#34;rb&#34;) as f:
+data = pickle.load(f)
+crd_bb = data[&#34;crd_bb&#34;]
+seq = data[&#34;seq&#34;]
+...
 ```
 
 Alternatively, you can use our `ProteinDataset` or `ProteinLoader` classes
@@ -278,19 +358,36 @@ For example, here is how we can create a data loader that:
 ```python
 from proteinflow import ProteinLoader
 train_loader = ProteinLoader.from_args(
-    &#34;./data/proteinflow_new/training&#34;,
-    clustering_dict_path=&#34;./data/proteinflow_new/splits_dict/train.pickle&#34;,
-    node_features_type=&#34;dihedral+sidechain_orientation+secondary_structure&#34;,
-    entry_type=&#34;pair&#34;,
-    batch_size=8,
+&#34;./data/proteinflow_new/training&#34;,
+clustering_dict_path=&#34;./data/proteinflow_new/splits_dict/train.pickle&#34;,
+node_features_type=&#34;dihedral+sidechain_orientation+secondary_structure&#34;,
+entry_type=&#34;pair&#34;,
+batch_size=8,
 )
 for batch in train_loader:
-    crd_bb = batch[&#34;X&#34;] # (B, L, 4, 3)
-    seq = batch[&#34;S&#34;] # (B, L)
-    sse = batch[&#34;secondary_structure&#34;] # (B, L, 3)
-    to_predict = batch[&#34;masked_res&#34;] # (B, L), 1 where the residues should be masked, 0 otherwise
-    ...
+crd_bb = batch[&#34;X&#34;] #(B, L, 4, 3)
+seq = batch[&#34;S&#34;] #(B, L)
+sse = batch[&#34;secondary_structure&#34;] #(B, L, 3)
+to_predict = batch[&#34;masked_res&#34;] #(B, L), 1 where the residues should be masked, 0 otherwise
+...
 ```
+See more details on available parameters and the data format in the [docs](https://adaptyvbio.github.io/ProteinFlow/) + [this repository](https://github.com/adaptyvbio/ProteinFlow-models) for a use case.
+
+## ProteinFlow Stable Releases
+You can download them with `proteinflow download --tag {tag}` in the command line or browse in the [interface](https://proteinflow-datasets.s3.eu-west-1.amazonaws.com/index.html).
+
+|Tag    |Date    |Snapshot|Size|Min res|Min len|Max len|MMseqs thr|Split (train/val/test)|Missing thr (ends/middle)|Source|Remove redundancies|Note|
+|-------|--------|--------|----|-------|-------|-------|----------|----------------------|-------------------------|---|---|----|
+|paper|10.11.22|20220103|24G|3.5|30|10&#39;000|0.3|90/5/5|0.3/0.1|PDB|yes|first release, no mmCIF files|
+|20230102_stable|27.02.23|20230102|28G|3.5|30|10&#39;000|0.3|90/5/5|0.3/0.1|PDB|yes|v1.1.1|
+|20230623_sabdab|26.06.23|live 26.06.23|1.4G|3.5|30|10&#39;000|0.3|96/3/1|0.5/0.2|SAbDab|no|v1.4.1 (requires $\ge$ v1.4.0)|
+
+## License
+The `proteinflow` package and data are released and distributed under the BSD 3-Clause License
+
+
+## Contributions
+This is an open source project supported by [Adaptyv Bio](https://www.adaptyvbio.com/). Contributions, suggestions and bug-fixes are welcomed.
 
 &#34;&#34;&#34;
 __pdoc__ = {
@@ -1360,6 +1457,9 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
 <li><a href="#using-the-data">Using the data</a></li>
 </ul>
 </li>
+<li><a href="#proteinflow-stable-releases">ProteinFlow Stable Releases</a></li>
+<li><a href="#license">License</a></li>
+<li><a href="#contributions">Contributions</a></li>
 </ul>
 </div>
 <ul id="index">
