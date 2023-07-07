@@ -227,6 +227,7 @@ ONE_TO_THREE_LETTER_MAP = {
 ATOM_MAP_4 = {a: ["N", "C", "CA", "O"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
 ATOM_MAP_1 = {a: ["CA"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
 ATOM_MAP_3 = {a: ["N", "C", "CA"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
+ATOM_MAP_14 = {D3TO1[k]: BACKBONE_ORDER + v for k, v in SIDECHAIN_ORDER.items()}
 
 
 def _PMAP(x):

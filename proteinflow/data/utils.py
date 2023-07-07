@@ -11,6 +11,7 @@ from proteinflow.constants import (
     ATOM_MAP_1,
     ATOM_MAP_3,
     ATOM_MAP_4,
+    ATOM_MAP_14,
     GLOBAL_PAD_CHAR,
     ONE_TO_THREE_LETTER_MAP,
 )
@@ -20,7 +21,7 @@ class PDBBuilder:
     """Creates a PDB file from a `ProteinEntry` object."""
 
     def __init__(
-        self, protein_entry, only_ca=False, skip_oxygens=False, only_backbone=True
+        self, protein_entry, only_ca=False, skip_oxygens=False, only_backbone=False
     ):
         """Initialize a PDBBuilder object.
 
@@ -32,10 +33,12 @@ class PDBBuilder:
             If True, only the alpha carbon atoms will be included in the PDB file
         skip_oxygens : bool, default False
             If True, the oxygen atoms will be excluded from the PDB file
+        only_backbone : bool, default False
+            If True, only the backbone atoms will be included in the PDB file
 
         """
         seq = protein_entry.get_sequence()
-        coords = protein_entry.get_coords()
+        coords = protein_entry.get_coordinates()
         if only_ca:
             coords = coords[:, 2, :].unsqueeze(1)
         elif skip_oxygens:
@@ -48,8 +51,10 @@ class PDBBuilder:
             atoms_per_res = 1
         elif skip_oxygens:
             atoms_per_res = 3
-        else:
+        elif only_backbone:
             atoms_per_res = 4
+        else:
+            atoms_per_res = 14
 
         self.only_ca = only_ca
         self.skip_oxygens = skip_oxygens
@@ -162,7 +167,6 @@ class PDBBuilder:
         self.atom_nbr = 1
         mapping_coords = zip(self.mapping, self._coord_generator())
         for index, ((res_name, atom_names), res_coords) in enumerate(mapping_coords):
-            # TODO assumes only first/last residue have terminal atoms
             self._pdb_body_lines.extend(
                 self._get_lines_for_residue(
                     res_name,
@@ -199,7 +203,7 @@ class PDBBuilder:
         elif self.only_backbone:
             atom_names = ATOM_MAP_4
         else:
-            raise NotImplementedError
+            atom_names = ATOM_MAP_14
         mapping = []
         for residue in self.seq:
             mapping.append((residue, atom_names[residue]))
@@ -221,7 +225,7 @@ class PDBBuilder:
 
     def _make_SEQRES(self):
         """Return a SEQRES entry as a multi-line string for this PDB file."""
-        seq = np.array(self.seq)
+        seq = np.array(list(self.seq))
         lines = []
         for chain in self.chain_ids_unique:
             lineno = 1

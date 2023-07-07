@@ -195,13 +195,13 @@ class ProteinEntry:
                 chain_type_dict["antigen"].append(chain)
         return chain_type_dict
 
-    def get_length(self, chains):
+    def get_length(self, chains=None):
         """Get the total length of a set of chains.
 
         Parameters
         ----------
-        chain : str
-            Chain ID
+        chain : str, optional
+            Chain ID; if `None`, the length of the whole protein is returned
 
         Returns
         -------
@@ -209,6 +209,7 @@ class ProteinEntry:
             Length of the chain
 
         """
+        chains = self._get_chains_list(chains)
         return sum([len(self.seq[x]) for x in chains])
 
     def get_cdr_length(self, chains):
@@ -504,7 +505,13 @@ class ProteinEntry:
         return ProteinEntry(seqs=seq, crds=crd, masks=mask, cdrs=cdr, chain_ids=chains)
 
     @staticmethod
-    def from_pdb(pdb_path, fasta_path=None):
+    def from_pdb(
+        pdb_path,
+        fasta_path=None,
+        heavy_chain=None,
+        light_chain=None,
+        antigen_chains=None,
+    ):
         """Load a protein entry from a PDB file.
 
         Parameters
@@ -514,6 +521,12 @@ class ProteinEntry:
         fasta_path : str, optional
             Path to the FASTA file; if not specified, the sequence is extracted
             from the PDB file
+        heavy_chain : str, optional
+            Chain ID of the heavy chain (to load a SAbDab entry)
+        light_chain : str, optional
+            Chain ID of the light chain (to load a SAbDab entry)
+        antigen_chains : list of str, optional
+            Chain IDs of the antigen chains (to load a SAbDab entry)
 
         Returns
         -------
@@ -521,7 +534,16 @@ class ProteinEntry:
             A `ProteinEntry` object
 
         """
-        pdb_entry = PDBEntry(pdb_path=pdb_path, fasta_path=fasta_path)
+        if heavy_chain is not None or light_chain is not None:
+            pdb_entry = SAbDabEntry(
+                pdb_path=pdb_path,
+                fasta_path=fasta_path,
+                heavy_chain=heavy_chain,
+                light_chain=light_chain,
+                antigen_chains=antigen_chains,
+            )
+        else:
+            pdb_entry = PDBEntry(pdb_path=pdb_path, fasta_path=fasta_path)
         pdb_dict = {}
         fasta_dict = pdb_entry.get_fasta()
 
@@ -544,7 +566,7 @@ class ProteinEntry:
             pdb_dict[chain]["msk"][
                 (pdb_dict[chain]["crd_bb"] == 0).sum(-1).sum(-1) > 0
             ] = 0
-        return pdb_dict
+        return ProteinEntry.from_dict(pdb_dict)
 
     @staticmethod
     def from_pickle(path):
@@ -595,7 +617,14 @@ class ProteinEntry:
                 data[chain]["cdr"] = self.cdr[chain]
         return data
 
-    def to_pdb(self, path, only_ca=False, skip_oxygens=False, title="Untitled"):
+    def to_pdb(
+        self,
+        path,
+        only_ca=False,
+        skip_oxygens=False,
+        only_backbone=False,
+        title="Untitled",
+    ):
         """Save the protein entry to a PDB file.
 
         Parameters
@@ -606,11 +635,18 @@ class ProteinEntry:
             If `True`, only backbone atoms are saved
         skip_oxygens : bool, default `False`
             If `True`, oxygen atoms are not saved
+        only_backbone : bool, default `False`
+            If `True`, only backbone atoms are saved
         title : str, default 'Untitled'
             Title of the PDB file
 
         """
-        pdb_builder = PDBBuilder(self, only_ca=only_ca, skip_oxygens=skip_oxygens)
+        pdb_builder = PDBBuilder(
+            self,
+            only_ca=only_ca,
+            skip_oxygens=skip_oxygens,
+            only_backbone=only_backbone,
+        )
         pdb_builder.save_pdb(path, title=title)
 
     def to_pickle(self, path):
@@ -940,7 +976,10 @@ class ProteinEntry:
 
         """
         id_dict = self.get_chain_id_dict()
-        index_array = np.zeros(self.get_length(chains))
+        if encode:
+            index_array = np.zeros(self.get_length(chains))
+        else:
+            index_array = np.empty(self.get_length(chains), dtype=object)
         start_index = 0
         for chain in self._get_chains_list(chains):
             chain_length = self.get_length([chain])
@@ -948,7 +987,7 @@ class ProteinEntry:
                 id_dict[chain] if encode else chain
             )
             start_index += chain_length
-        return index_array.astype(int)
+        return index_array
 
 
 class PDBEntry:
@@ -970,7 +1009,7 @@ class PDBEntry:
         """
         self.pdb_path = pdb_path
         self.fasta_path = fasta_path
-        self.pdb_id = os.path.basename(self.fasta_path).split(".")[0]
+        self.pdb_id = os.path.basename(pdb_path).split(".")[0].split("-")[0]
         self.crd_df, self.seq_df = self._parse_structure()
         self.fasta_dict = self._parse_fasta()
 
@@ -1038,7 +1077,7 @@ class PDBEntry:
         # download fasta and check if it contains only proteins
         chains = self._get_relevant_chains()
         if self.fasta_path is None:
-            seqs_dict = {k: self._pdb_sequence(k) for k in chains}
+            seqs_dict = {k: self._pdb_sequence(k, suppress_check=True) for k in chains}
         else:
             seqs_dict = self.parse_fasta(self.fasta_path)
         # retrieve sequences that are relevant for this PDB from the fasta file
@@ -1108,7 +1147,7 @@ class PDBEntry:
         else:
             return self.crd_df[self.crd_df["chain_id"] == chain]
 
-    def get_sequence_df(self, chain=None):
+    def get_sequence_df(self, chain=None, suppress_check=False):
         """Return the sequence dataframe.
 
         If `chain` is provided, only information for this chain is returned.
@@ -1117,6 +1156,8 @@ class PDBEntry:
         ----------
         chain : str, optional
             Chain identifier
+        suppress_check : bool, default False
+            If True, do not check if the chain is in the PDB
 
         Returns
         -------
@@ -1125,7 +1166,8 @@ class PDBEntry:
             (analogous to the `BioPandas.pdb.PandasPdb.amino3to1` method output)
 
         """
-        chain = self._get_chain(chain)
+        if not suppress_check:
+            chain = self._get_chain(chain)
         if chain is None:
             return self.seq_df
         else:
@@ -1155,10 +1197,11 @@ class PDBEntry:
         return list(self.fasta_dict.keys())
 
     @lru_cache()
-    def _pdb_sequence(self, chain):
+    def _pdb_sequence(self, chain, suppress_check=False):
         """Return the PDB sequence for a given chain ID."""
-        chain = self._get_chain(chain)
-        return "".join(self.get_sequence_df(chain)["residue_name"])
+        return "".join(
+            self.get_sequence_df(chain, suppress_check=suppress_check)["residue_name"]
+        )
 
     @lru_cache()
     def _align_chain(self, chain):

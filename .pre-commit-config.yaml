@@ -44,6 +44,8 @@ repos:
         stages: [commit-msg]
         additional_dependencies: ['@commitlint/config-conventional']
 -   repo: https://github.com/jshwi/docsig
-    rev: v0.30.0
+    rev: v0.34.0
     hooks:
       - id: docsig
+        args:
+          - "-i"
