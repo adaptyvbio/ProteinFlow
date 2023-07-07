@@ -1,14 +1,15 @@
+"""Test generate_data with `sabdab=True`."""
 import os
 import shutil
 from time import time
 
-from proteinflow import ProteinLoader, generate_data
+from proteinflow import generate_data
+from proteinflow.data.torch import ProteinLoader
 
 
 # @pytest.mark.skip()
 def test_generate_sabdab():
-    """Test generate_data with `sabdab=True`"""
-
+    """Test generate_data with `sabdab=True`."""
     folder = "./data/proteinflow_test"
     if os.path.exists(folder):
         shutil.rmtree(folder)

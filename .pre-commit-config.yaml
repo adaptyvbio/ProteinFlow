@@ -7,11 +7,12 @@ repos:
     rev: 1.5.0
     hooks:
       - id: interrogate
-        args: ["--fail-under=50", "-v"]
+        args: ["--fail-under=80", "-v"]
 -   repo: https://github.com/PyCQA/pydocstyle
     rev: 6.1.1
     hooks:
       - id: pydocstyle
+        args: ["--match-dir=proteinflow"]
         additional_dependencies:
           - toml
 -   repo: https://github.com/pre-commit/pre-commit-hooks
@@ -43,15 +44,10 @@ repos:
     -   id: commitlint
         stages: [commit-msg]
         additional_dependencies: ['@commitlint/config-conventional']
-
-# -   repo: https://github.com/jshwi/docsig
-#     rev: v0.30.0
-#     hooks:
-#       - id: docsig
-#         args:
-#           - "--check-class"
-#           - "--check-dunders"
-#           - "--check-overridden"
-#           - "--check-protected"
-#           - "--ignore-no-params"
-#           - "--summary"
+-   repo: https://github.com/jshwi/docsig
+    rev: v0.34.0
+    hooks:
+      - id: docsig
+        args:
+          - "-i"
+          - "-d E109"

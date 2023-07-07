@@ -32,16 +32,21 @@ dependencies = [
     "rcsbsearch",
     "blosum",
     "pre-commit",
+    "methodtools",
 ]
 keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning"]
 
 [project.scripts]
-proteinflow = "proteinflow.scripts.proteinflow_cli:cli"
+proteinflow = "proteinflow.cli:cli"
 
 [tool.setuptools.packages]
 find = {}
 
 [tool.pydocstyle]
 convention = "numpy"
-match_dir = 'proteinflow'
-match = '__init__.py'
+
+[tool.docsig]
+disable = [
+    "E109",
+]
+ignore-no-parameters = true

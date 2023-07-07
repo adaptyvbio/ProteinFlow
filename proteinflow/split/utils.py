@@ -1,3 +1,5 @@
+"""Splitting util functions."""
+
 import copy
 import os
 import pickle
@@ -7,93 +9,9 @@ import editdistance
 import numpy as np
 from tqdm import tqdm
 
-from proteinflow.constants import CDR_VALUES
-
-
-def _retrieve_author_chain(chain):
-    """
-    Retrieve the (author) chain names present in the chain section (delimited by '|' chars) of a header line in a fasta file
-    """
-
-    if "auth" in chain:
-        return chain.split(" ")[-1][:-1]
-
-    return chain
-
-
-def _retrieve_chain_names(entry):
-    """
-    Retrieve the (author) chain names present in one header line of a fasta file (line that begins with '>')
-    """
-
-    entry = entry.split("|")[1]
-
-    if "Chains" in entry:
-        return [_retrieve_author_chain(e) for e in entry[7:].split(", ")]
-
-    return [_retrieve_author_chain(entry[6:])]
-
-
-def _retrieve_fasta_chains(fasta_file):
-    """
-    Return a dictionary containing all the (author) chains in a fasta file (keys) and their corresponding sequence
-    """
-
-    with open(fasta_file) as f:
-        lines = np.array(f.readlines())
-
-    indexes = np.array([k for k, l in enumerate(lines) if l[0] == ">"])
-    starts = indexes + 1
-    ends = list(indexes[1:]) + [len(lines)]
-    names = lines[indexes]
-    seqs = ["".join(lines[s:e]).replace("\n", "") for s, e in zip(starts, ends)]
-
-    out_dict = {}
-    for name, seq in zip(names, seqs):
-        for chain in _retrieve_chain_names(name):
-            out_dict[chain] = seq
-
-    return out_dict
-
-
-def _get_chothia_cdr(num_array, chain_type):
-    arr = [CDR_VALUES[chain_type][int(x.split("_")[0])] for x in num_array]
-    return np.array(arr)
-
-
-def _compare_identity(seq, seqs, threshold):
-    """
-    Assess whether a sequence is in a list of sequences (in the sense that it shares at least 90% to one of the sequences in the list)
-    """
-
-    for s in seqs:
-        if editdistance.eval(s, seq) / max(len(s), len(seq)) <= (1 - threshold):
-            return True
-
-    return False
-
-
-def _compare_seqs(seqs1, seqs2, threshold):
-    """
-    Assess whether 2 lists of sequences contain exactly the same set of sequences
-    """
-
-    for seq in seqs1:
-        if not _compare_identity(seq, seqs2, threshold):
-            return False
-
-    for seq in seqs2:
-        if not _compare_identity(seq, seqs1, threshold):
-            return False
-
-    return True
-
 
 def _unique_chains(seqs_list):
-    """
-    Get unique chains
-    """
-
+    """Get unique chains."""
     new_seqs_list = [seqs_list[0]]
     chains = [new_seqs_list[0][0]]
 
@@ -106,10 +24,7 @@ def _unique_chains(seqs_list):
 
 
 def _merge_chains(seqs_dict_):
-    """
-    Look into the chains of each PDB and regroup redundancies (at 90% sequence identity)
-    """
-
+    """Look into the chains of each PDB and regroup redundancies (at 90% sequence identity)."""
     seqs_dict = copy.deepcopy(seqs_dict_)
     pdbs_to_delete = []
 
@@ -156,10 +71,7 @@ def _merge_chains(seqs_dict_):
 
 
 def _load_pdbs(dir, cdr=None):
-    """
-    Load biounits and group their sequences by PDB and similarity (90%)
-    """
-
+    """Load biounits and group their sequences by PDB and similarity (90%)."""
     seqs_dict = defaultdict(lambda: [])
 
     for file in tqdm([x for x in os.listdir(dir) if x.endswith(".pickle")]):
@@ -189,10 +101,7 @@ def _load_pdbs(dir, cdr=None):
 
 
 def _write_fasta(fasta_path, merged_seqs_dict):
-    """
-    Write a fasta file containing all the sequences contained in the merged_seqs_dict dictionary
-    """
-
+    """Write a fasta file containing all the sequences contained in the merged_seqs_dict dictionary."""
     with open(fasta_path, "w") as f:
         for k in merged_seqs_dict.keys():
             for chain, seq in merged_seqs_dict[k]:
@@ -201,10 +110,7 @@ def _write_fasta(fasta_path, merged_seqs_dict):
 
 
 def _retrieve_seqs_names_list(merged_seqs_dict):
-    """
-    Retrieve all the sequences names that are contained in the merged_seqs_dict (same names as in the fasta file in input to MMSeqs2)
-    """
-
+    """Retrieve all the sequences names that are contained in the merged_seqs_dict (same names as in the fasta file in input to MMSeqs2)."""
     seqs_names = []
     for k in merged_seqs_dict.keys():
         for chain, _ in merged_seqs_dict[k]:
@@ -214,12 +120,79 @@ def _retrieve_seqs_names_list(merged_seqs_dict):
 
 
 def _create_pdb_seqs_dict(seqs_names_list):
-    """
-    Return a dictionary that has the PDB ids as keys and the list of all the chain names that correspond to this PDB
-    """
-
+    """Return a dictionary that has the PDB ids as keys and the list of all the chain names that correspond to this PDB."""
     pdb_seqs_dict = defaultdict(lambda: [])
     for name in seqs_names_list:
         pdb_seqs_dict[name[:4]].append(name[5:])
 
     return pdb_seqs_dict
+
+
+def _test_availability(
+    size_array,
+    n_samples,
+):
+    """Test if there are enough groups in each class to construct a dataset with the required number of samples."""
+    present = np.sum(size_array != 0, axis=0)
+    return present[0] > n_samples, present[1] > n_samples, present[2] > n_samples
+
+
+def _find_correspondences(files, dataset_dir):
+    """Return a dictionary that contains all the biounits in the database (keys) and the list of all the chains that are in these biounits (values)."""
+    correspondences = defaultdict(lambda: [])
+    for file in files:
+        biounit = file
+        with open(os.path.join(dataset_dir, file), "rb") as f:
+            keys = pickle.load(f)
+            for k in keys:
+                correspondences[biounit].append(k)
+
+    return correspondences
+
+
+def _biounits_in_clusters_dict(clusters_dict, excluded_files=None):
+    """Return the list of all biounit files present in clusters_dict."""
+    if len(clusters_dict) == 0:
+        return np.array([])
+    if excluded_files is None:
+        excluded_files = []
+    return np.unique(
+        [
+            c[0]
+            for c in list(np.concatenate(list(clusters_dict.values())))
+            if c[0] not in excluded_files
+        ]
+    )
+
+
+def _exclude(clusters_dict, set_to_exclude, exclude_based_on_cdr=None):
+    """Exclude biounits from clusters_dict.
+
+    Parameters
+    ----------
+    clusters_dict : dict
+        dictionary of clusters
+    set_to_exclude : set
+        set of biounits to exclude
+    exclude_based_on_cdr : str, default None
+        if not None, exclude based only on clusters based on this CDR (e.g. "H3")
+
+    """
+    excluded_set = set()
+    excluded_dict = defaultdict(set)
+    for cluster in list(clusters_dict.keys()):
+        files = clusters_dict[cluster]
+        exclude = False
+        for biounit in files:
+            if biounit in set_to_exclude:
+                exclude = True
+                break
+        if exclude:
+            if exclude_based_on_cdr is not None:
+                if not cluster.endswith(exclude_based_on_cdr):
+                    continue
+            for biounit in files:
+                clusters_dict[cluster].remove(biounit)
+                excluded_dict[cluster].add(biounit)
+                excluded_set.add(biounit)
+    return excluded_dict, excluded_set

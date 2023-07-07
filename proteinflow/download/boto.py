@@ -1,3 +1,4 @@
+"""Boto3 helper functions for downloading files from S3."""
 import asyncio
 import os
 import shutil
@@ -13,10 +14,7 @@ from proteinflow.constants import S3Obj
 
 
 def _download_dataset_dicts_from_s3(dict_folder_path, s3_path):
-    """
-    Download dictionaries containing database split information from s3 to a local folder
-    """
-
+    """Download dictionaries containing database split information from s3 to a local folder."""
     train_path = os.path.join(s3_path, "train.pickle")
     valid_path = os.path.join(s3_path, "valid.pickle")
     test_path = os.path.join(s3_path, "test.pickle")
@@ -49,7 +47,7 @@ def _s3list(
     list_objs=True,
     limit=None,
 ):
-    """Iterator that lists a bucket's objects under path, (optionally) starting with start and ending before end.
+    """Return an iterator that lists a bucket's objects under path, (optionally) starting with start and ending before end.
 
     If recursive is False, then list only the "depth=0" items (dirs and objects).
 
@@ -82,8 +80,8 @@ def _s3list(
     -------
     iterator
         an iterator of S3Obj.
-    """
 
+    """
     kwargs = dict()
     if start is not None:
         if not start.startswith(path):
@@ -144,11 +142,13 @@ def _get_s3_paths_from_tag(tag):
 
 
 async def _getobj(client, key):
+    """Get an object from S3."""
     resp = await client.get_object(Bucket="pdbsnapshots", Key=key)
     return await resp["Body"].read()
 
 
 async def _download_file(client, snapshots, tmp_folder, id):
+    """Download a file from S3."""
     pdb_id, biounit = id.lower().split("-")
     prefixes = [
         "/pub/pdb/data/biounit/PDB/all/",
@@ -175,6 +175,7 @@ async def _download_file(client, snapshots, tmp_folder, id):
 
 
 async def _go(download_list, tmp_folder, snapshots):
+    """Download multiple files from S3."""
     session = get_session()
     async with session.create_client(
         "s3", config=Config(signature_version=UNSIGNED)
@@ -202,6 +203,7 @@ def _singleProcess(download_list, tmp_folder, snapshots):
 
 
 def _download_s3_parallel(pdb_ids, tmp_folder, snapshots):
+    """Download files from S3 in parallel."""
     # number of process
     no_tasks = max(16, len(pdb_ids) // 5000)
 

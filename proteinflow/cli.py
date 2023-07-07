@@ -1,4 +1,4 @@
-"""Command line interface for proteinflow"""
+"""Command line interface for proteinflow."""
 
 import os
 
@@ -9,19 +9,21 @@ from proteinflow import (
     check_pdb_snapshots,
     download_data,
     generate_data,
-    get_error_summary,
     split_data,
     unsplit_data,
 )
+from proteinflow.logging import get_error_summary
 
 
 @click.group(help="A data processing pipeline for protein design ML tasks")
 def cli():
+    """Use a data processing pipeline for protein design ML tasks."""
     pass
 
 
 @cli.command("check_tags", help="Print the available options for download tags")
 def check_tags():
+    """Print the available options for download tags."""
     print("Available tags:")
     for x in check_download_tags():
         print(f"    {x}")
@@ -29,6 +31,7 @@ def check_tags():
 
 @cli.command("check_snapshots", help="Print the available options for PDB snapshots")
 def check_snapshots():
+    """Print the available options for PDB snapshots."""
     print("Available snapshots:")
     for x in check_pdb_snapshots():
         print(f"    {x}")
@@ -49,7 +52,7 @@ def check_snapshots():
 )
 @cli.command("download", help="Download an existing ProteinFlow dataset")
 def download(**kwargs):
-    """Download an existing ProteinFlow dataset"""
+    """Download an existing ProteinFlow dataset."""
     download_data(**kwargs)
 
 
@@ -168,7 +171,7 @@ def download(**kwargs):
 )
 @cli.command("generate", help="Generate a new ProteinFlow dataset")
 def generate(**kwargs):
-    """Generate a new ProteinFlow dataset"""
+    """Generate a new ProteinFlow dataset."""
     generate_data(**kwargs)
 
 
@@ -244,7 +247,7 @@ def generate(**kwargs):
     help="Split an existing ProteinFlow dataset into training, validation and test subset according to MMseqs clustering and homomer/heteromer/single chain proportions",
 )
 def split(**kwargs):
-    """Split an existing ProteinFlow dataset into training, validation and test subset according to MMseqs clustering and homomer/heteromer/single chain proportions"""
+    """Split an existing ProteinFlow dataset into training, validation and test subset according to MMseqs clustering and homomer/heteromer/single chain proportions."""
     split_data(**kwargs)
 
 
@@ -262,7 +265,7 @@ def split(**kwargs):
     help="Move files from train, test, validation and excluded folders back into the main folder",
 )
 def unsplit(**kwargs):
-    """Move files from train, test, validation and excluded folders back into the main folder"""
+    """Move files from train, test, validation and excluded folders back into the main folder."""
     unsplit_data(**kwargs)
 
 
@@ -277,7 +280,7 @@ def unsplit(**kwargs):
 )
 @cli.command("get_summary", help="Get a summary of filtering reasons from a log file")
 def get_summary(tag, local_datasets_folder):
-    """Get a summary of filtering reasons from a log file"""
+    """Get a summary of filtering reasons from a log file."""
     log_path = os.path.join(local_datasets_folder, f"proteinflow_{tag}", "log.txt")
     if not os.path.exists(log_path):
         raise ValueError(f"Log file does not exist at {log_path}")
