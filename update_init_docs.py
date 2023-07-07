@@ -12,6 +12,8 @@ while len(readme[0].strip()) == 0:
     readme.pop(0)
 
 readme = [x.strip() + "\n" for x in readme]
+license_index = readme.index("## License\n")
+readme = readme[:license_index]
 
 with open("proteinflow/__init__.py") as f:
     init = list(f.readlines())

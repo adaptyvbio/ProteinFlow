@@ -162,13 +162,6 @@ You can download them with `proteinflow download --tag {tag}` in the command lin
 |20230102_stable|27.02.23|20230102|28G|3.5|30|10'000|0.3|90/5/5|0.3/0.1|PDB|yes|v1.1.1|
 |20230623_sabdab|26.06.23|live 26.06.23|1.4G|3.5|30|10'000|0.3|96/3/1|0.5/0.2|SAbDab|no|v1.4.1 (requires $\ge$ v1.4.0)|
 
-## License
-The `proteinflow` package and data are released and distributed under the BSD 3-Clause License
-
-
-## Contributions
-This is an open source project supported by [Adaptyv Bio](https://www.adaptyvbio.com/). Contributions, suggestions and bug-fixes are welcomed.
-
 """
 __pdoc__ = {
     "data.utils": False,
