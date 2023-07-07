@@ -73,6 +73,8 @@ def interpolate_coords(crd, mask, fill_ends=True):
 
 
 class ProteinEntry:
+    """A class to interact with proteinflow data files"""
+
     ATOM_ORDER = {k: BACKBONE_ORDER + v for k, v in SIDECHAIN_ORDER.items()}
 
     def __init__(self, seqs, crds, masks, chain_ids, cdrs=None):
@@ -883,6 +885,8 @@ class ProteinEntry:
 
 
 class PDBEntry:
+    """A class for parsing PDB entries"""
+
     def __init__(self, pdb_path, fasta_path=None):
         """A class for parsing PDB files
 
@@ -1238,6 +1242,8 @@ class PDBEntry:
 
 
 class SAbDabEntry(PDBEntry):
+    """A class for parsing SAbDab entries"""
+
     def __init__(
         self,
         pdb_path,

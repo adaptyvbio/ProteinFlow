@@ -20,7 +20,13 @@ from rcsbsearch import Attr
 from tqdm import tqdm
 
 from proteinflow.constants import ALLOWED_AG_TYPES
-from proteinflow.download.boto import _download_s3_parallel, _s3list
+from proteinflow.download.boto import (
+    _download_dataset_dicts_from_s3,
+    _download_dataset_from_s3,
+    _download_s3_parallel,
+    _get_s3_paths_from_tag,
+    _s3list,
+)
 
 
 def _download_file(url, local_path):
@@ -477,3 +483,34 @@ def _get_fasta_path(pdb_path):
         pdb_path = pdb_path[0]
     pdb_id = os.path.basename(pdb_path).split(".")[0].split("-")[0]
     return os.path.join(os.path.dirname(pdb_path), f"{pdb_id}.fasta")
+
+
+def _download_dataset(tag, local_datasets_folder="./data/"):
+    """
+    Download the pre-processed data and the split dictionaries
+
+    Parameters
+    ----------
+    tag : str
+        name of the dataset (check `get_available_tags` to see the options)
+    local_dataset_folder : str, default "./data/"
+        the local folder that will contain proteinflow dataset folders, temporary files and logs
+
+    Returns
+    -------
+    data_folder : str
+        the path to the downloaded data folder
+    """
+
+    s3_data_path, s3_dict_path = _get_s3_paths_from_tag(tag)
+    data_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
+    dict_folder = os.path.join(
+        local_datasets_folder, f"proteinflow_{tag}", "splits_dict"
+    )
+
+    print("Downloading dictionaries for splitting the dataset...")
+    _download_dataset_dicts_from_s3(dict_folder, s3_dict_path)
+    print("Done!")
+
+    _download_dataset_from_s3(dataset_path=data_folder, s3_path=s3_data_path)
+    return data_folder

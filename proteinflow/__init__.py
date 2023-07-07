@@ -171,13 +171,14 @@ from botocore import UNSIGNED
 from botocore.config import Config
 
 from proteinflow.constants import SIDECHAIN_ORDER
-from proteinflow.data.torch import _download_dataset, _split_data
+from proteinflow.download import _download_dataset
 from proteinflow.download.boto import _s3list
 from proteinflow.processing import run_processing
 from proteinflow.split import (
     _check_mmseqs,
     _get_excluded_files,
     _get_split_dictionaries,
+    _split_data,
 )
 
 

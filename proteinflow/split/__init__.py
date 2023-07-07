@@ -1,6 +1,7 @@
 import os
 import pickle
 import random as rd
+import shutil
 import subprocess
 import urllib
 from collections import defaultdict
@@ -13,7 +14,9 @@ from tqdm import tqdm
 
 from proteinflow.data import PDBEntry
 from proteinflow.split.utils import (
+    _biounits_in_clusters_dict,
     _create_pdb_seqs_dict,
+    _exclude,
     _find_correspondences,
     _load_pdbs,
     _merge_chains,
@@ -1226,3 +1229,91 @@ def _get_excluded_files(
 
     # return list of biounits to exclude
     return exclude_biounits
+
+
+def _split_data(
+    dataset_path="./data/proteinflow_20221110/",
+    excluded_files=None,
+    exclude_clusters=False,
+    exclude_based_on_cdr=None,
+):
+    """
+    Rearrange files into folders according to the dataset split dictionaries at `dataset_path/splits_dict`
+
+    Parameters
+    ----------
+    dataset_path : str, default "./data/proteinflow_20221110/"
+        The path to the dataset folder containing pre-processed entries and a `splits_dict` folder with split dictionaries (downloaded or generated with `get_split_dictionaries`)
+    excluded_files : list, optional
+        A list of files to exclude from the dataset
+    exclude_clusters : bool, default False
+        If True, exclude all files in a cluster if at least one file in the cluster is in `excluded_files`
+    exclude_based_on_cdr : str, optional
+        If not `None`, exclude all files in a cluster if the cluster name does not end with `exclude_based_on_cdr`
+    """
+
+    if excluded_files is None:
+        excluded_files = []
+
+    dict_folder = os.path.join(dataset_path, "splits_dict")
+    with open(os.path.join(dict_folder, "train.pickle"), "rb") as f:
+        train_clusters_dict = pickle.load(f)
+    with open(os.path.join(dict_folder, "valid.pickle"), "rb") as f:
+        valid_clusters_dict = pickle.load(f)
+    with open(os.path.join(dict_folder, "test.pickle"), "rb") as f:
+        test_clusters_dict = pickle.load(f)
+
+    train_biounits = _biounits_in_clusters_dict(train_clusters_dict, excluded_files)
+    valid_biounits = _biounits_in_clusters_dict(valid_clusters_dict, excluded_files)
+    test_biounits = _biounits_in_clusters_dict(test_clusters_dict, excluded_files)
+    train_path = os.path.join(dataset_path, "train")
+    valid_path = os.path.join(dataset_path, "valid")
+    test_path = os.path.join(dataset_path, "test")
+
+    if not os.path.exists(dataset_path):
+        os.makedirs(dataset_path)
+
+    if not os.path.exists(train_path):
+        os.makedirs(train_path)
+    if not os.path.exists(valid_path):
+        os.makedirs(valid_path)
+    if not os.path.exists(test_path):
+        os.makedirs(test_path)
+
+    if len(excluded_files) > 0:
+        set_to_exclude = set(excluded_files)
+        excluded_files = set()
+        excluded_clusters_dict = defaultdict(set)
+        if exclude_clusters:
+            for clusters_dict in [
+                train_clusters_dict,
+                valid_clusters_dict,
+                test_clusters_dict,
+            ]:
+                subset_excluded_set, subset_excluded_dict = _exclude(
+                    clusters_dict, set_to_exclude, exclude_based_on_cdr
+                )
+                excluded_files.update(subset_excluded_set)
+                excluded_clusters_dict.update(subset_excluded_dict)
+        excluded_files.update(set_to_exclude)
+        excluded_clusters_dict = {k: list(v) for k, v in excluded_clusters_dict.items()}
+        excluded_path = os.path.join(dataset_path, "excluded")
+        if not os.path.exists(excluded_path):
+            os.makedirs(excluded_path)
+        print("Updating the split dictionaries...")
+        with open(os.path.join(dict_folder, "train.pickle"), "wb") as f:
+            pickle.dump(train_clusters_dict, f)
+        with open(os.path.join(dict_folder, "excluded.pickle"), "wb") as f:
+            pickle.dump(excluded_clusters_dict, f)
+        print("Moving excluded files...")
+        for biounit in tqdm(excluded_files):
+            shutil.move(os.path.join(dataset_path, biounit), excluded_path)
+    print("Moving files in the train set...")
+    for biounit in tqdm(train_biounits):
+        shutil.move(os.path.join(dataset_path, biounit), train_path)
+    print("Moving files in the validation set...")
+    for biounit in tqdm(valid_biounits):
+        shutil.move(os.path.join(dataset_path, biounit), valid_path)
+    print("Moving files in the test set...")
+    for biounit in tqdm(test_biounits):
+        shutil.move(os.path.join(dataset_path, biounit), test_path)

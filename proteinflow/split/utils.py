@@ -170,3 +170,55 @@ def _find_correspondences(files, dataset_dir):
                 correspondences[biounit].append(k)
 
     return correspondences
+
+
+def _biounits_in_clusters_dict(clusters_dict, excluded_files=None):
+    """
+    Return the list of all biounit files present in clusters_dict
+    """
+
+    if len(clusters_dict) == 0:
+        return np.array([])
+    if excluded_files is None:
+        excluded_files = []
+    return np.unique(
+        [
+            c[0]
+            for c in list(np.concatenate(list(clusters_dict.values())))
+            if c[0] not in excluded_files
+        ]
+    )
+
+
+def _exclude(clusters_dict, set_to_exclude, exclude_based_on_cdr=None):
+    """
+    Exclude biounits from clusters_dict
+
+    Parameters
+    ----------
+    clusters_dict : dict
+        dictionary of clusters
+    set_to_exclude : set
+        set of biounits to exclude
+    exclude_based_on_cdr : str, default None
+        if not None, exclude based only on clusters based on this CDR (e.g. "H3")
+
+    """
+    excluded_set = set()
+    excluded_dict = defaultdict(set)
+    for cluster in list(clusters_dict.keys()):
+        files = clusters_dict[cluster]
+        exclude = False
+        for biounit in files:
+            if biounit in set_to_exclude:
+                exclude = True
+                break
+        if exclude:
+            if exclude_based_on_cdr is not None:
+                if not cluster.endswith(exclude_based_on_cdr):
+                    continue
+            for biounit in files:
+                clusters_dict[cluster].remove(biounit)
+                excluded_dict[cluster].add(biounit)
+                excluded_set.add(biounit)
+    return excluded_dict, excluded_set
