@@ -32,6 +32,7 @@ dependencies = [
     "rcsbsearch",
     "blosum",
     "pre-commit",
+    "methodtools",
 ]
 keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning"]
 
