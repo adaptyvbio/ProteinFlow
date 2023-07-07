@@ -1,4 +1,4 @@
-r"""
+"""
 ProteinFlow is an open-source Python library that streamlines the pre-processing of protein structure data for deep learning applications. ProteinFlow enables users to efficiently filter, cluster, and generate new datasets from resources like the Protein Data Bank (PDB) and SAbDab (The Structural Antibody Database).
 
 Here are some of the key features we currently support:
@@ -160,7 +160,7 @@ You can download them with `proteinflow download --tag {tag}` in the command lin
 |-------|--------|--------|----|-------|-------|-------|----------|----------------------|-------------------------|---|---|----|
 |paper|10.11.22|20220103|24G|3.5|30|10'000|0.3|90/5/5|0.3/0.1|PDB|yes|first release, no mmCIF files|
 |20230102_stable|27.02.23|20230102|28G|3.5|30|10'000|0.3|90/5/5|0.3/0.1|PDB|yes|v1.1.1|
-|20230623_sabdab|26.06.23|live 26.06.23|1.4G|3.5|30|10'000|0.3|96/3/1|0.5/0.2|SAbDab|no|v1.4.1 (requires $\ge$ v1.4.0)|
+|20230623_sabdab|26.06.23|live 26.06.23|1.4G|3.5|30|10'000|0.3|96/3/1|0.5/0.2|SAbDab|no|v1.4.1 (requires >= v1.4.0)|
 
 """
 __pdoc__ = {
