@@ -166,6 +166,7 @@ def get_pdb_ids(
 
 
 def _download_pdb(pdb_id, local_folder):
+    """Download a PDB file and return a local path or the PDB ID if download failed"""
     try:
         return download_pdb(pdb_id, local_folder)
     except RuntimeError:
@@ -173,6 +174,7 @@ def _download_pdb(pdb_id, local_folder):
 
 
 def _download_fasta(pdb_id, local_folder):
+    """Download a FASTA file and return a local path or the PDB ID if download failed"""
     try:
         return download_fasta(pdb_id, local_folder)
     except RuntimeError:
@@ -187,7 +189,32 @@ def download_filtered_pdb_files(
     local_folder=".",
     load_live=False,
 ):
-    """Download filtered PDB files and return a list of local file paths."""
+    """Download filtered PDB files and return a list of local file paths
+
+    Parameters
+    ----------
+    resolution_thr : float, default 3.5
+        Resolution threshold
+    pdb_snapshot : str, default None
+        PDB snapshot to download from
+    filter_methods : bool, default True
+        Whether to filter by experimental method
+    n : int, default None
+        Number of PDB files to download (for debugging)
+    local_folder : str, default "."
+        Folder to save the downloaded files to
+    load_live : bool, default False
+        Whether to load the PDB files from the RCSB PDB database directly
+        instead of downloading them from the PDB snapshots
+
+    Returns
+    -------
+    local_paths : list of str
+        List of local file paths
+    error_ids : list of str
+        List of PDB IDs that could not be downloaded
+
+    """
     ordered_folders, pdb_ids = get_pdb_ids(
         resolution_thr=resolution_thr,
         pdb_snapshot=pdb_snapshot,
@@ -240,6 +267,25 @@ def _download_sabdab_by_method(
     resolution_thr=3.5,
     local_folder=".",
 ):
+    """Download SAbDab files by method
+
+    Parameters
+    ----------
+    methods : list of str
+        List of methods to download
+    resolution_thr : float, default 3.5
+        Resolution threshold
+    local_folder : str, default "."
+        Folder to save the downloaded files to
+
+    Returns
+    -------
+    local_paths : list of str
+        List of local file paths
+    error_ids : list of str
+        List of PDB IDs that could not be downloaded
+
+    """
     for method in methods:
         html = _make_sabdab_html(method, resolution_thr)
         page = requests.get(html)
@@ -277,6 +323,21 @@ def _download_sabdab_by_method(
 def _download_sabdab_all(
     local_folder=".",
 ):
+    """Download all SAbDab files
+
+    Parameters
+    ----------
+    local_folder : str, default "."
+        Folder to save the downloaded files to
+
+    Returns
+    -------
+    local_paths : list of str
+        List of local file paths
+    error_ids : list of str
+        List of PDB IDs that could not be downloaded
+
+    """
     print("Trying to download all data...")
     data_html = "https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/archive/all/"
     index_html = "https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/summary/all/"
@@ -322,7 +383,33 @@ def download_filtered_sabdab_files(
     require_antigen=True,
     n=None,
 ):
-    """Download filtered SAbDab files and return a list of local file paths."""
+    """Download filtered SAbDab files and return a list of local file paths
+
+    Parameters
+    ----------
+    resolution_thr : float, default 3.5
+        Resolution threshold
+    filter_methods : bool, default True
+        Whether to filter by method
+    pdb_snapshot : str, default None
+        PDB snapshot date in YYYYMMDD format
+    local_folder : str, default "."
+        Folder to save the downloaded files to
+    sabdab_data_path : str, default None
+        Path to the SAbDab data folder
+    require_antigen : bool, default True
+        Whether to require the presence of an antigen
+    n : int, default None
+        Number of structures to download (for debugging)
+
+    Returns
+    -------
+    local_paths : list of str
+        List of local file paths
+    error_ids : list of str
+        List of PDB IDs that could not be downloaded
+
+    """
     if not os.path.exists(local_folder):
         os.makedirs(local_folder)
     if pdb_snapshot is not None:
@@ -479,6 +566,7 @@ def _make_sabdab_html(method, resolution_thr):
 
 
 def _get_fasta_path(pdb_path):
+    """Get the path to the fasta file corresponding to the pdb file"""
     if isinstance(pdb_path, tuple):
         pdb_path = pdb_path[0]
     pdb_id = os.path.basename(pdb_path).split(".")[0].split("-")[0]
@@ -486,8 +574,7 @@ def _get_fasta_path(pdb_path):
 
 
 def _download_dataset(tag, local_datasets_folder="./data/"):
-    """
-    Download the pre-processed data and the split dictionaries
+    """Download the pre-processed data and the split dictionaries
 
     Parameters
     ----------

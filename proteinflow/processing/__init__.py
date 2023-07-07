@@ -379,18 +379,14 @@ def _remove_database_redundancies(dir, seq_identity_threshold=0.9):
 
 
 def _open_pdb(file):
-    """
-    Open a PDB file in the pickle format that follows the dwnloading and processing of the database
-    """
+    """Open a PDB file in the pickle format that follows the dwnloading and processing of the database"""
 
     with open(file, "rb") as f:
         return pickle.load(f)
 
 
 def _check_biounits(biounits_list, threshold):
-    """
-    Return the indexes of the redundant biounits within the list of files given by `biounits_list`
-    """
+    """Return the indexes of the redundant biounits within the list of files given by `biounits_list`"""
 
     biounits = [_open_pdb(b) for b in biounits_list]
     indexes = []
@@ -410,9 +406,7 @@ def _check_biounits(biounits_list, threshold):
 
 
 def _compare_identity(seq, seqs, threshold):
-    """
-    Assess whether a sequence is in a list of sequences (in the sense that it shares at least 90% to one of the sequences in the list)
-    """
+    """Assess whether a sequence is in a list of sequences (in the sense that it shares at least 90% to one of the sequences in the list)"""
 
     for s in seqs:
         if editdistance.eval(s, seq) / max(len(s), len(seq)) <= (1 - threshold):
@@ -422,9 +416,7 @@ def _compare_identity(seq, seqs, threshold):
 
 
 def _compare_seqs(seqs1, seqs2, threshold):
-    """
-    Assess whether 2 lists of sequences contain exactly the same set of sequences
-    """
+    """Assess whether 2 lists of sequences contain exactly the same set of sequences"""
 
     for seq in seqs1:
         if not _compare_identity(seq, seqs2, threshold):
@@ -438,9 +430,7 @@ def _compare_seqs(seqs1, seqs2, threshold):
 
 
 def _raise_rcsbsearch(e):
-    """
-    Raise a RuntimeError if the error is due to rcsbsearch
-    """
+    """Raise a RuntimeError if the error is due to rcsbsearch"""
 
     if "404 Client Error" in str(e):
         raise RuntimeError(

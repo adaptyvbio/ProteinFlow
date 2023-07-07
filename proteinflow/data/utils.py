@@ -23,31 +23,20 @@ from proteinflow.constants import (
 
 
 class PDBBuilder:
-    """Creates a PDB file given a protein's atomic coordinates and sequence.
-
-    The general idea is that if any model is capable of predicting a set of coordinates
-    and mapping between those coordinates and residue/atom names, then this object can
-    be use to transform that output into a PDB file.
-    """
+    """Creates a PDB file from a `ProteinEntry` object"""
 
     def __init__(
-        self,
-        protein_entry,
-        only_ca=False,
-        skip_oxygens=False,
+        self, protein_entry, only_ca=False, skip_oxygens=False, only_backbone=True
     ):
         """
         Parameters
         ----------
-        seq : torch.Tensor
-            a 1D tensor of integers representing the sequence of the protein
-        coords : torch.Tensor
-            a 3D tensor of shape (L, 4, 3) where L is the number of atoms in the protein
-            and the second dimension is the atom type (N, C, CA, O)
-        chain_dict : dict
-            a dictionary mapping chain IDs to chain names
-        chain_id_arr : torch.Tensor
-            a 1D tensor of integers representing the chain ID of each residue
+        protein_entry : ProteinEntry
+            The protein entry to build a PDB file from
+        only_ca : bool, default False
+            If True, only the alpha carbon atoms will be included in the PDB file
+        skip_oxygens : bool, default False
+            If True, the oxygen atoms will be excluded from the PDB file
 
         """
         seq = protein_entry.get_sequence()
@@ -55,7 +44,9 @@ class PDBBuilder:
         if only_ca:
             coords = coords[:, 2, :].unsqueeze(1)
         elif skip_oxygens:
-            coords = coords[:, :-1, :]
+            coords = coords[:, :3, :]
+        elif only_backbone:
+            coords = coords[:, :4, :]
         coords = rearrange(coords, "l n c -> (l n) c")
 
         if only_ca:
@@ -68,6 +59,7 @@ class PDBBuilder:
         self.only_ca = only_ca
         self.skip_oxygens = skip_oxygens
         self.atoms_per_res = atoms_per_res
+        self.only_backbone = only_backbone
         self.coords = coords
         self.seq = seq
         self.mapping = self._make_mapping_from_seq()
@@ -96,8 +88,11 @@ class PDBBuilder:
         self._pdb_body_lines = []
         self._pdb_lines = []
 
-    def coord_generator(coords, atoms_per_res=14, remove_padding=False):
+    def _coord_generator(self):
         """Return a generator to iteratively yield self.atoms_per_res atoms at a time."""
+        atoms_per_res = self.atoms_per_res
+        remove_padding = False
+        coords = self.coords
         coord_idx = 0
         while coord_idx < coords.shape[0]:
             _slice = coords[coord_idx : coord_idx + atoms_per_res]
@@ -107,17 +102,14 @@ class PDBBuilder:
             yield _slice
             coord_idx += atoms_per_res
 
-    def _coord_generator(self):
-        """Return a generator to iteratively yield self.atoms_per_res atoms at a time."""
-        return self.coord_generator(self.coords, self.atoms_per_res)
-
     def _get_line_for_atom(
         self, res_name, atom_name, atom_coords, chain_id, missing=False
     ):
-        """Return the 'ATOM...' line in PDB format for the specified atom.
+        """Return the 'ATOM...' line in PDB format for the specified atom
 
         If missing, this function should have special, but not yet determined,
         behavior.
+
         """
         if missing:
             occupancy = 0
@@ -144,9 +136,10 @@ class PDBBuilder:
     def _get_lines_for_residue(
         self, res_name, atom_names, coords, chain_id, n_terminal=False, c_terminal=False
     ):
-        """Return a list of PDB-formatted lines for all atoms in a single residue.
+        """Return a list of PDB-formatted lines for all atoms in a single residue
 
         Calls get_line_for_atom.
+
         """
         residue_lines = []
         for atom_name, atom_coord in zip(atom_names, coords):
@@ -161,32 +154,13 @@ class PDBBuilder:
             )
             self.atom_nbr += 1
 
-        # Add Terminal Atoms (Must be provided in terminal_atoms dict; Hs must be built)
-        if n_terminal and self.terminal_atoms:
-            residue_lines.append(
-                self._get_line_for_atom(
-                    res_name, "H2", self.terminal_atoms["H2"], chain_id
-                )
-            )
-            residue_lines.append(
-                self._get_line_for_atom(
-                    res_name, "H3", self.terminal_atoms["H3"], chain_id
-                )
-            )
-            self.atom_nbr += 2
-        if c_terminal and self.terminal_atoms:
-            residue_lines.append(
-                self._get_line_for_atom(
-                    res_name, "OXT", self.terminal_atoms["OXT"], chain_id
-                )
-            )
-
         return residue_lines
 
     def _get_lines_for_protein(self):
-        """Return a list of PDB-formatted lines for all residues in this protein.
+        """Return a list of PDB-formatted lines for all residues in this protein
 
         Calls get_lines_for_residue.
+
         """
         self._pdb_body_lines = []
         self.res_nbr = 1
@@ -208,17 +182,21 @@ class PDBBuilder:
         return self._pdb_body_lines
 
     def _make_header(self, title):
-        """Return a string representing the PDB header."""
+        """Return a string representing the PDB header"""
         return f"REMARK  {title}" + "\n" + self._make_SEQRES()
 
     @staticmethod
     def _make_footer():
-        """Return a string representing the PDB footer."""
+        """Return a string representing the PDB footer"""
         return "TER\nEND          \n"
 
     def _make_mapping_from_seq(self):
-        """Given a protein sequence, this returns a mapping that assumes coords are
-        generated in groups of atoms_per_res (the output is L x atoms_per_res x 3.)"""
+        """Make an atom name mapping
+
+        Given a protein sequence, this returns a mapping that assumes coords are
+        generated in groups of atoms_per_res (the output is L x atoms_per_res x 3).
+
+        """
         if self.only_ca:
             atom_names = ATOM_MAP_1
         elif self.skip_oxygens:
@@ -233,6 +211,7 @@ class PDBBuilder:
         return mapping
 
     def get_pdb_string(self, title=None):
+        """Return a string representing the PDB file for this protein"""
         if not title:
             title = self.title
 

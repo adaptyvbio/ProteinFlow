@@ -40,9 +40,7 @@ def get_error_summary(log_file, verbose=True):
 
 
 def _clean(pdb_id, tmp_folder):
-    """
-    Remove all temporary files associated with a PDB ID
-    """
+    """Remove all temporary files associated with a PDB ID"""
     for file in os.listdir(tmp_folder):
         if file.startswith(f"{pdb_id}."):
             subprocess.run(
@@ -53,10 +51,7 @@ def _clean(pdb_id, tmp_folder):
 
 
 def _log_exception(exception, log_file, pdb_id, tmp_folder, chain_id=None):
-    """
-    Record the error in the log file
-    """
-
+    """Record the error in the log file"""
     if chain_id is None:
         _clean(pdb_id, tmp_folder)
     else:
