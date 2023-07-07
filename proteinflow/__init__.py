@@ -162,121 +162,23 @@ import pickle
 import random
 import shutil
 import string
-import subprocess
 import tempfile
-import urllib
-import urllib.request
 import warnings
-import zipfile
-from collections import defaultdict
-from concurrent import futures
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
 
 import boto3
 import numpy as np
-import pandas as pd
-import requests
 from botocore import UNSIGNED
 from botocore.config import Config
-from bs4 import BeautifulSoup
-from editdistance import eval as edit_distance
-from p_tqdm import p_map
-from rcsbsearch import Attr
-from tqdm import tqdm
 
-from proteinflow.constants import ALLOWED_AG_TYPES, SIDECHAIN_ORDER
-from proteinflow.data import PDBEntry, ProteinEntry, SAbDabEntry
-from proteinflow.pdb import _align_structure, _open_structure
+from proteinflow.constants import SIDECHAIN_ORDER
+from proteinflow.data.torch import _download_dataset, _split_data
+from proteinflow.download.boto import _s3list
 from proteinflow.processing import run_processing
-from proteinflow.protein_dataset import (
-    ProteinDataset,
-    _download_dataset,
-    _remove_database_redundancies,
-    _split_data,
-)
-from proteinflow.protein_loader import ProteinLoader
-from proteinflow.sequences import _retrieve_fasta_chains
-from proteinflow.utils.boto_utils import _download_s3_parallel, _s3list
-from proteinflow.utils.cluster_and_partition import (
-    _build_dataset_partition,
+from proteinflow.split import (
     _check_mmseqs,
+    _get_excluded_files,
+    _get_split_dictionaries,
 )
-from proteinflow.utils.common_utils import (
-    PDBError,
-    _log_exception,
-    _log_removed,
-    _make_sabdab_html,
-    _raise_rcsbsearch,
-)
-
-
-def _get_split_dictionaries(
-    tmp_folder="./data/tmp_pdb",
-    output_folder="./data/pdb",
-    split_tolerance=0.2,
-    test_split=0.05,
-    valid_split=0.05,
-    out_split_dict_folder="./data/dataset_splits_dict",
-    min_seq_id=0.3,
-):
-    """Split preprocessed data into training, validation and test.
-
-    Parameters
-    ----------
-    tmp_folder : str, default "./data/tmp_pdb"
-        The folder where temporary files will be saved
-    output_folder : str, default "./data/pdb"
-        The folder where the output files will be saved
-    split_tolerance : float, default 0.2
-        The tolerance on the split ratio (default 20%)
-    test_split : float, default 0.05
-        The percentage of chains to put in the test set (default 5%)
-    valid_split : float, default 0.05
-        The percentage of chains to put in the validation set (default 5%)
-    out_split_dict_folder : str, default "./data/dataset_splits_dict"
-        The folder where the dictionaries containing the train/validation/test splits information will be saved"
-    min_seq_id : float in [0, 1], default 0.3
-        minimum sequence identity for `mmseqs`
-
-    """
-    if len([x for x in os.listdir(output_folder) if x.endswith(".pickle")]) == 0:
-        raise RuntimeError("No preprocessed data found in the output folder")
-    sample_file = [x for x in os.listdir(output_folder) if x.endswith(".pickle")][0]
-    ind = sample_file.split(".")[0].split("-")[1]
-    sabdab = not ind.isnumeric()
-
-    os.makedirs(out_split_dict_folder, exist_ok=True)
-    (
-        train_clusters_dict,
-        train_classes_dict,
-        valid_clusters_dict,
-        valid_classes_dict,
-        test_clusters_dict,
-        test_classes_dict,
-    ) = _build_dataset_partition(
-        output_folder,
-        tmp_folder,
-        valid_split=valid_split,
-        test_split=test_split,
-        tolerance=split_tolerance,
-        min_seq_id=min_seq_id,
-        sabdab=sabdab,
-    )
-
-    classes_dict = train_classes_dict
-    for d in [valid_classes_dict, test_classes_dict]:
-        for k, v in d.items():
-            classes_dict[k].update(v)
-
-    with open(os.path.join(out_split_dict_folder, "classes.pickle"), "wb") as f:
-        pickle.dump(classes_dict, f)
-    with open(os.path.join(out_split_dict_folder, "train.pickle"), "wb") as f:
-        pickle.dump(train_clusters_dict, f)
-    with open(os.path.join(out_split_dict_folder, "valid.pickle"), "wb") as f:
-        pickle.dump(valid_clusters_dict, f)
-    with open(os.path.join(out_split_dict_folder, "test.pickle"), "wb") as f:
-        pickle.dump(test_clusters_dict, f)
 
 
 def download_data(tag, local_datasets_folder="./data", skip_splitting=False):
@@ -308,7 +210,7 @@ def generate_data(
     not_filter_methods=False,
     not_remove_redundancies=False,
     skip_splitting=False,
-    seq_identity_threshold=0.9,
+    redundancy_thr=0.9,
     n=None,
     force=False,
     split_tolerance=0.2,
@@ -369,7 +271,7 @@ def generate_data(
         If 'False', removes biounits that are doubles of others sequence wise
     skip_splitting : bool, default False
         if `True`, skip the split dictionary creation and the file moving steps
-    seq_identity_threshold : float, default 0.9
+    redundancy_thr : float, default 0.9
         The threshold upon which sequences are considered as one and the same (default: 90%)
     n : int, default None
         The number of files to process (for debugging purposes)
@@ -432,7 +334,7 @@ def generate_data(
         missing_middle_thr=missing_middle_thr,
         filter_methods=filter_methods,
         remove_redundancies=remove_redundancies,
-        seq_identity_threshold=seq_identity_threshold,
+        seq_identity_threshold=redundancy_thr,
         n=n,
         force=force,
         tag=tag,
@@ -459,71 +361,6 @@ def generate_data(
         )
     shutil.rmtree(tmp_folder)
     return log_dict
-
-
-def _get_excluded_files(
-    tag, local_datasets_folder, tmp_folder, exclude_chains, exclude_threshold
-):
-    """Get a list of files to exclude from the dataset.
-
-    Biounits are excluded if they contain chains that are too similar
-    (above `exclude_threshold`) to chains in the list of excluded chains.
-
-    Parameters
-    ----------
-    tag : str
-        the name of the dataset
-    local_datasets_folder : str
-        the path to the folder that stores proteinflow datasets
-    tmp_folder : str
-        the path to the folder that stores temporary files
-    exclude_chains : list of str, optional
-        a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `["1A2B-A", "1A2B-B"]`); chain id is the author chain id
-    exclude_threshold : float in [0, 1], default 0.7
-        the sequence similarity threshold for excluding chains
-
-    """
-    # download fasta files for excluded chains
-    if not os.path.exists(tmp_folder):
-        os.makedirs(tmp_folder)
-    sequences = []
-    for chain in exclude_chains:
-        pdb_id, chain_id = chain.split("-")
-        downloadurl = "https://www.rcsb.org/fasta/entry/"
-        pdbfn = pdb_id + "/download"
-        outfnm = os.path.join(tmp_folder, f"{pdb_id.lower()}.fasta")
-        url = downloadurl + pdbfn
-        urllib.request.urlretrieve(url, outfnm)
-        chains = _retrieve_fasta_chains(outfnm)
-        sequences.append(chains[chain_id])
-        os.remove(outfnm)
-
-    # iterate over files in the dataset to check similarity
-    print("Checking excluded chains similarity...")
-    exclude_biounits = []
-    for fn in tqdm(
-        os.listdir(os.path.join(local_datasets_folder, f"proteinflow_{tag}"))
-    ):
-        if not fn.endswith(".pickle"):
-            continue
-        fp = os.path.join(local_datasets_folder, f"proteinflow_{tag}", fn)
-        with open(fp, "rb") as f:
-            entry = pickle.load(f)
-        break_flag = False
-        for chain, chain_data in entry.items():
-            for seq in sequences:
-                if (
-                    edit_distance(seq, chain_data["seq"]) / len(seq)
-                    < 1 - exclude_threshold
-                ):
-                    exclude_biounits.append(fn)
-                    break_flag = True
-                    break
-            if break_flag:
-                break
-
-    # return list of biounits to exclude
-    return exclude_biounits
 
 
 def split_data(

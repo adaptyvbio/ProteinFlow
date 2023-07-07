@@ -25,6 +25,7 @@ from proteinflow.constants import (
 )
 from proteinflow.data.utils import (
     CustomMmcif,
+    PDBBuilder,
     PDBError,
     _annotate_sse,
     _dihedral_angle,
@@ -541,8 +542,23 @@ class ProteinEntry:
                 data[chain]["cdr"] = self.cdr[chain]
         return data
 
-    def to_pdb(self, path):
-        ...
+    def to_pdb(self, path, only_ca=False, skip_oxygens=False, title="Untitled"):
+        """Save the protein entry to a PDB file
+
+        Parameters
+        ----------
+        path : str
+            Path to the output PDB file
+        only_ca : bool, default `False`
+            If `True`, only backbone atoms are saved
+        skip_oxygens : bool, default `False`
+            If `True`, oxygen atoms are not saved
+        title : str, default 'Untitled'
+            Title of the PDB file
+
+        """
+        pdb_builder = PDBBuilder(self, only_ca=only_ca, skip_oxygens=skip_oxygens)
+        pdb_builder.save_pdb(path, title=title)
 
     def to_pickle(self, path):
         """Save a protein entry to a pickle file
@@ -804,19 +820,22 @@ class ProteinEntry:
     def get_chain_id_dict(self, chains=None):
         """Get the dictionary mapping from chain indices to chain IDs
 
+        Parameters
+        ----------
+        chains : list of str, optional
+            If specified, only the chain IDs of the specified chains are returned
+
         Returns
         -------
         chain_id_dict : dict
             A dictionary mapping from chain indices to chain IDs
-        chains : list of str, optional
-            If specified, the dictionary will only contain the specified chains
 
         """
         chains = self._get_chains_list(chains)
         chain_id_dict = {i: x for i, x in enumerate(self.get_chains()) if x in chains}
         return chain_id_dict
 
-    def get_chain_id_array(self, chains=None):
+    def get_chain_id_array(self, chains=None, encode=True):
         """Get the chain ID array of the protein
 
         The chain ID array is a `'numpy'` array of shape `(L,)` with the chain ID of each residue.
@@ -828,6 +847,8 @@ class ProteinEntry:
         chains : list of str, optional
             If specified, only the chain ID array of the specified chains is returned (in the same order);
             otherwise, all features are concatenated in alphabetical order of the chain IDs
+        encode : bool, default True
+            If True, the chain ID is encoded as an integer; otherwise, the chain ID is the chain ID string
 
         Returns
         -------
@@ -840,7 +861,9 @@ class ProteinEntry:
         start_index = 0
         for chain in self._get_chains_list(chains):
             chain_length = self.get_length([chain])
-            index_array[start_index : start_index + chain_length] = id_dict[chain]
+            index_array[start_index : start_index + chain_length] = (
+                id_dict[chain] if encode else chain
+            )
             start_index += chain_length
         return index_array.astype(int)
 

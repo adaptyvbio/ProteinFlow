@@ -20,8 +20,7 @@ from rcsbsearch import Attr
 from tqdm import tqdm
 
 from proteinflow.constants import ALLOWED_AG_TYPES
-from proteinflow.utils.boto_utils import _download_s3_parallel, _s3list
-from proteinflow.utils.common_utils import _make_sabdab_html
+from proteinflow.download.boto import _download_s3_parallel, _s3list
 
 
 def _download_file(url, local_path):
@@ -461,3 +460,12 @@ def _load_files(
             n=n,
         )
     return out
+
+
+def _make_sabdab_html(method, resolution_thr):
+    """
+    Make a URL for SAbDab search
+    """
+
+    html = f"https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/search/?ABtype=All&method={'+'.join(method)}&species=All&resolution={resolution_thr}&rfactor=&antigen=All&ltype=All&constantregion=All&affinity=All&isin_covabdab=All&isin_therasabdab=All&chothiapos=&restype=ALA&field_0=Antigens&keyword_0=#downloads"
+    return html

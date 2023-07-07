@@ -1,36 +1,18 @@
 import os
 import pickle
+import subprocess
+from collections import Counter
 from datetime import datetime
 
+import editdistance
 import numpy as np
-from editdistance import eval as edit_distance
 from p_tqdm import p_map
-from rcsbsearch import Attr
 from tqdm import tqdm
 
-from proteinflow.constants import ALLOWED_AG_TYPES, SIDECHAIN_ORDER
-from proteinflow.data import PDBEntry, ProteinEntry, SAbDabEntry
+from proteinflow.data import PDBEntry, SAbDabEntry
+from proteinflow.data.utils import PDBError
 from proteinflow.download import _load_files
 from proteinflow.logging import _log_exception, _log_removed, get_error_summary
-from proteinflow.pdb import _align_structure, _open_structure
-from proteinflow.protein_dataset import (
-    ProteinDataset,
-    _download_dataset,
-    _remove_database_redundancies,
-    _split_data,
-)
-from proteinflow.protein_loader import ProteinLoader
-from proteinflow.sequences import _retrieve_fasta_chains
-from proteinflow.utils.boto_utils import _download_s3_parallel, _s3list
-from proteinflow.utils.cluster_and_partition import (
-    _build_dataset_partition,
-    _check_mmseqs,
-)
-from proteinflow.utils.common_utils import (
-    PDBError,
-    _make_sabdab_html,
-    _raise_rcsbsearch,
-)
 
 
 def run_processing(
@@ -346,3 +328,114 @@ def filter_and_convert(
         ):
             raise PDBError("Too many missing values in the middle")
     return pdb_dict
+
+
+def _remove_database_redundancies(dir, seq_identity_threshold=0.9):
+    """
+    Remove all biounits in the database that are copies to another biounits in terms of sequence
+
+    Sequence identity is defined by the 'seq_identity_threshold' parameter for robust detection of sequence similarity (missing residues, point mutations, ...).
+
+    Parameters
+    ----------
+    dir : str
+        the path to the database where all the biounits are stored in pickle files after their processing
+    seq_identity_threshold : float, default .9
+        the threshold that determines up to what percentage identity sequences are considered as the same
+
+    Returns
+    -------
+    total_removed : int
+        the total number of removed biounits
+    """
+
+    all_files = np.array(os.listdir(dir))
+    all_pdbs = np.array([file[:4] for file in all_files])
+    pdb_counts = Counter(all_pdbs)
+    pdbs_to_check = [pdb for pdb in pdb_counts.keys() if pdb_counts[pdb] > 1]
+    total_removed = []
+
+    for pdb in tqdm(pdbs_to_check):
+        biounits_list = np.array(
+            [os.path.join(dir, file) for file in all_files[all_pdbs == pdb]]
+        )
+        biounits_list = sorted(biounits_list)
+        redundancies = _check_biounits(biounits_list, seq_identity_threshold)
+        if redundancies != []:
+            for k in redundancies:
+                total_removed.append(os.path.basename(biounits_list[k]).split(".")[0])
+                subprocess.run(["rm", biounits_list[k]])
+
+    return total_removed
+
+
+def _open_pdb(file):
+    """
+    Open a PDB file in the pickle format that follows the dwnloading and processing of the database
+    """
+
+    with open(file, "rb") as f:
+        return pickle.load(f)
+
+
+def _check_biounits(biounits_list, threshold):
+    """
+    Return the indexes of the redundant biounits within the list of files given by `biounits_list`
+    """
+
+    biounits = [_open_pdb(b) for b in biounits_list]
+    indexes = []
+
+    for k, b1 in enumerate(biounits):
+        if k not in indexes:
+            b1_seqs = [b1[chain]["seq"] for chain in b1.keys()]
+            for i, b2 in enumerate(biounits[k + 1 :]):
+                if len(b1.keys()) != len(b2.keys()):
+                    continue
+
+                b2_seqs = [b2[chain]["seq"] for chain in b2.keys()]
+                if _compare_seqs(b1_seqs, b2_seqs, threshold):
+                    indexes.append(k + i + 1)
+
+    return indexes
+
+
+def _compare_identity(seq, seqs, threshold):
+    """
+    Assess whether a sequence is in a list of sequences (in the sense that it shares at least 90% to one of the sequences in the list)
+    """
+
+    for s in seqs:
+        if editdistance.eval(s, seq) / max(len(s), len(seq)) <= (1 - threshold):
+            return True
+
+    return False
+
+
+def _compare_seqs(seqs1, seqs2, threshold):
+    """
+    Assess whether 2 lists of sequences contain exactly the same set of sequences
+    """
+
+    for seq in seqs1:
+        if not _compare_identity(seq, seqs2, threshold):
+            return False
+
+    for seq in seqs2:
+        if not _compare_identity(seq, seqs1, threshold):
+            return False
+
+    return True
+
+
+def _raise_rcsbsearch(e):
+    """
+    Raise a RuntimeError if the error is due to rcsbsearch
+    """
+
+    if "404 Client Error" in str(e):
+        raise RuntimeError(
+            'Querying rcsbsearch is failing. Please install a version of rcsbsearch where this error is solved:\npython -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"'
+        )
+    else:
+        raise e
