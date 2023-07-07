@@ -36,7 +36,7 @@ dependencies = [
 keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning"]
 
 [project.scripts]
-proteinflow = "proteinflow.scripts.proteinflow_cli:cli"
+proteinflow = "proteinflow.cli:cli"
 
 [tool.setuptools.packages]
 find = {}

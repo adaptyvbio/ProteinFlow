@@ -9,10 +9,10 @@ from proteinflow import (
     check_pdb_snapshots,
     download_data,
     generate_data,
-    get_error_summary,
     split_data,
     unsplit_data,
 )
+from proteinflow.logging import get_error_summary
 
 
 @click.group(help="A data processing pipeline for protein design ML tasks")

@@ -4,7 +4,7 @@ import subprocess
 
 import pytest
 
-from proteinflow import ProteinLoader
+from proteinflow.data.torch import ProteinLoader
 
 
 @pytest.mark.parametrize("tag", ["test", "test_old"])

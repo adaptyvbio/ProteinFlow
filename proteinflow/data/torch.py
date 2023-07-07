@@ -726,6 +726,8 @@ class ProteinDataset(Dataset):
         output_names = []
         if self.cut_edges:
             data_entry.cut_missing_edges()
+        if self.interpolate != "none":
+            data_entry.interpolate_coords(fill_ends=(self.interpolate == "all"))
         for chains_i, chain_set in enumerate(chain_sets):
             output_file = os.path.join(
                 self.features_folder, no_extension_name + f"_{chains_i}.pickle"
@@ -775,12 +777,12 @@ class ProteinDataset(Dataset):
 
             out = {}
             out["pdb_id"] = no_extension_name.split("-")[0]
-            out["mask_original"] = torch.tensor(data_entry.get_mask(chain_set))
-            if self.interpolate != "none":
-                data_entry.interpolate_coords(fill_ends=(self.interpolate == "all"))
-            out["mask"] = torch.tensor(data_entry.get_mask(chain_set))
+            out["mask_original"] = torch.tensor(
+                data_entry.get_mask(chain_set, original=True)
+            )
+            out["mask"] = torch.tensor(data_entry.get_mask(chain_set, original=False))
             out["S"] = torch.tensor(data_entry.get_sequence(chain_set, encode=True))
-            out["X"] = torch.tensor(data_entry.get_coordinates(chain_set))
+            out["X"] = torch.tensor(data_entry.get_coordinates(chain_set, bb_only=True))
             out["residue_idx"] = torch.tensor(
                 data_entry.get_index_array(chain_set, index_bump=100)
             )
@@ -790,7 +792,7 @@ class ProteinDataset(Dataset):
             out["chain_dict"] = data_entry.get_chain_id_dict(chain_set)
             cdr_chain_set = set()
             if data_entry.has_cdr():
-                out["cdr"] = data_entry.get_cdr(chain_set)
+                out["cdr"] = torch.tensor(data_entry.get_cdr(chain_set, encode=True))
                 chain_type_dict = data_entry.get_chain_type_dict(chain_set)
                 if "heavy" in chain_type_dict:
                     cdr_chain_set.update(
@@ -810,7 +812,7 @@ class ProteinDataset(Dataset):
                 if name not in self.feature_functions:
                     continue
                 func = self.feature_functions[name]
-                out[name] = func(data_entry, chain_set)
+                out[name] = torch.tensor(func(data_entry, chain_set))
 
             if add_name:
                 output_names.append(

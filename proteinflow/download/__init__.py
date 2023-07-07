@@ -198,7 +198,7 @@ def download_filtered_pdb_files(
         pdbs = {x.split("-")[0] for x in ids}
         future_to_key = {
             executor.submit(
-                lambda x: _download_fasta(x, datadir=local_folder), key
+                lambda x: _download_fasta(x, local_folder=local_folder), key
             ): key
             for key in pdbs
         }
@@ -416,7 +416,7 @@ def download_filtered_sabdab_files(
         # pdb_ids = ["6tkb"]
         future_to_key = {
             executor.submit(
-                lambda x: _download_fasta(x, datadir=local_folder), key
+                lambda x: _download_fasta(x, local_folder=local_folder), key
             ): key
             for key in pdb_ids
         }
@@ -433,7 +433,7 @@ def _load_files(
     pdb_snapshot=None,
     filter_methods=True,
     n=None,
-    tmp_folder="data/tmp",
+    local_folder=".",
     load_live=False,
     sabdab=False,
     sabdab_data_path=None,
@@ -441,25 +441,26 @@ def _load_files(
 ):
     """Download filtered structure files and return a list of local file paths."""
     if sabdab:
-        out = download_filtered_sabdab_files(
+        paths, error_ids = download_filtered_sabdab_files(
             resolution_thr=resolution_thr,
             filter_methods=filter_methods,
             pdb_snapshot=pdb_snapshot,
-            tmp_folder=tmp_folder,
+            local_folder=local_folder,
             sabdab_data_path=sabdab_data_path,
             require_antigen=require_antigen,
             n=n,
         )
     else:
-        out = download_filtered_pdb_files(
+        paths, error_ids = download_filtered_pdb_files(
             resolution_thr=resolution_thr,
             filter_methods=filter_methods,
             pdb_snapshot=pdb_snapshot,
-            tmp_folder=tmp_folder,
+            local_folder=local_folder,
             load_live=load_live,
             n=n,
         )
-    return out
+    paths = [(x, _get_fasta_path(x)) for x in paths]
+    return paths, error_ids
 
 
 def _make_sabdab_html(method, resolution_thr):
@@ -469,3 +470,10 @@ def _make_sabdab_html(method, resolution_thr):
 
     html = f"https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/search/?ABtype=All&method={'+'.join(method)}&species=All&resolution={resolution_thr}&rfactor=&antigen=All&ltype=All&constantregion=All&affinity=All&isin_covabdab=All&isin_therasabdab=All&chothiapos=&restype=ALA&field_0=Antigens&keyword_0=#downloads"
     return html
+
+
+def _get_fasta_path(pdb_path):
+    if isinstance(pdb_path, tuple):
+        pdb_path = pdb_path[0]
+    pdb_id = os.path.basename(pdb_path).split(".")[0].split("-")[0]
+    return os.path.join(os.path.dirname(pdb_path), f"{pdb_id}.fasta")

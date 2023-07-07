@@ -2,7 +2,8 @@ import os
 import shutil
 from time import time
 
-from proteinflow import ProteinLoader, generate_data
+from proteinflow import generate_data
+from proteinflow.data.torch import ProteinLoader
 
 
 # @pytest.mark.skip()

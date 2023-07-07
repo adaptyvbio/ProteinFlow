@@ -147,16 +147,25 @@ def run_processing(
         f.write("\n")
 
     def process_f(
-        local_path,
+        local_paths,
         show_error=False,
         force=True,
         sabdab=False,
     ):
+        pdb_path, fasta_path = local_paths
         chain_id = None
         if sabdab:
-            local_path, chain_id = local_path
-            heavy, light, antigen = ...
-        fn = os.path.basename(local_path)
+            pdb_path, chain_id = pdb_path
+            heavy, light, antigen = chain_id.split("_")
+            if heavy == "nan":
+                heavy = None
+            if light == "nan":
+                light = None
+            if antigen == "nan":
+                antigen = []
+            else:
+                antigen = antigen.split(" | ")
+        fn = os.path.basename(pdb_path)
         pdb_id = fn.split(".")[0]
         try:
             # local_path = download_f(pdb_id, s3_client=s3_client, load_live=load_live)
@@ -166,14 +175,14 @@ def run_processing(
                 raise PDBError("File already exists")
             if sabdab:
                 pdb_entry = SAbDabEntry(
-                    pdb_path=local_path,
-                    heavy=heavy,
-                    light=light,
-                    antigen=antigen,
-                    fasta_path=...,
+                    pdb_path=pdb_path,
+                    heavy_chain=heavy,
+                    light_chain=light,
+                    antigen_chains=antigen,
+                    fasta_path=fasta_path,
                 )
             else:
-                pdb_entry = PDBEntry(pdb_path=local_path, fasta_path=...)
+                pdb_entry = PDBEntry(pdb_path=pdb_path, fasta_path=fasta_path)
             # filter and convert
             protein_dict = filter_and_convert(
                 pdb_entry,
