@@ -1,3 +1,4 @@
+"""Subclasses of `torch.utils.data.Dataset` and `torch.utils.data.DataLoader` that are tuned for loading proteinflow data."""
 import os
 import pickle
 import random
@@ -8,15 +9,11 @@ from itertools import combinations
 import numpy as np
 import torch
 from p_tqdm import p_map
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 from proteinflow.constants import ALPHABET, CDR_REVERSE, D3TO1, MAIN_ATOMS
 from proteinflow.data import ProteinEntry
-
-"""Protein loader class inherited from `torch.utils.data.DataLoader`."""
-
-from torch.utils.data import DataLoader
 
 
 class _PadCollate:
@@ -281,8 +278,8 @@ class ProteinLoader(DataLoader):
             if `True`, all CDRs are masked instead of just the sampled one
         collate_func : callable, optional
             a function that takes a list of samples and returns a batch and inherits from _PadCollate
-        """
 
+        """
         super().__init__(
             dataset,
             collate_fn=collate_func(
@@ -326,8 +323,7 @@ class ProteinLoader(DataLoader):
         *args,
         **kwargs,
     ) -> None:
-        """
-        Creates a `ProteinLoader` instance with a `ProteinDataset` from the given arguments
+        """Create a `ProteinLoader` instance with a `ProteinDataset` from the given arguments.
 
         Parameters
         ----------
@@ -374,8 +370,8 @@ class ProteinLoader(DataLoader):
             if `True`, all CDRs are masked instead of just the sampled one
         classes_dict_path : str, optional
             path to the pickled classes dictionary
-        """
 
+        """
         dataset = ProteinDataset(
             dataset_folder=dataset_folder,
             features_folder=features_folder,
@@ -408,8 +404,7 @@ class ProteinLoader(DataLoader):
 
 
 class ProteinDataset(Dataset):
-    """
-    Dataset to load proteinflow data
+    """Dataset to load proteinflow data.
 
     Saves the model input tensors as pickle files in `features_folder`. When `clustering_dict_path` is provided,
     at each iteration a random biounit from a cluster is sampled.
@@ -471,7 +466,8 @@ class ProteinDataset(Dataset):
         classes_dict_path=None,
         cut_edges=False,
     ):
-        """
+        """Initialize the dataset.
+
         Parameters
         ----------
         dataset_folder : str
@@ -664,45 +660,27 @@ class ProteinDataset(Dataset):
         self.set_cdr(None)
 
     def _dihedral(self, data_entry, chains):
-        """
-        Dihedral angles
-        """
-
+        """Return dihedral angles."""
         return data_entry.dihedral_angles(chains)
 
     def _sidechain(self, data_entry, chains):
-        """
-        Sidechain orientation (defined by the 'main atoms' in the `main_atom_dict` dictionary)
-        """
-
+        """Return Sidechain orientation (defined by the 'main atoms' in the `main_atom_dict` dictionary)."""
         return data_entry.sidechain_orientation(chains)
 
     def _chemical(self, data_entry, chains):
-        """
-        Chemical features (hydropathy, volume, charge, polarity, acceptor/donor)
-        """
-
+        """Return hemical features (hydropathy, volume, charge, polarity, acceptor/donor)."""
         return data_entry.chemical_features(chains)
 
     def _sse(self, data_entry, chains):
-        """
-        Secondary structure features
-        """
-
+        """Return secondary structure features."""
         return data_entry.secondary_structure(chains)
 
     def _sidechain_coords(self, data_entry, chains):
-        """
-        Sidechain coordinates
-        """
-
+        """Return idechain coordinates."""
         return data_entry.sidechain_coordinates(chains)
 
     def _process(self, filename, rewrite=False, max_length=None, min_cdr_length=None):
-        """
-        Process a proteinflow file and save it as ProteinMPNN features
-        """
-
+        """Process a proteinflow file and save it as ProteinMPNN features."""
         input_file = os.path.join(self.dataset_folder, filename)
         no_extension_name = filename.split(".")[0]
         data_entry = ProteinEntry.from_pickle(input_file)
@@ -822,15 +800,14 @@ class ProteinDataset(Dataset):
         return output_names
 
     def set_cdr(self, cdr):
-        """
-        Set the CDR to be iterated over (only for SAbDab datasets).
+        """Set the CDR to be iterated over (only for SAbDab datasets).
 
         Parameters
         ----------
         cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}
             The CDR to be iterated over. Set to `None` to go back to iterating over all chains.
-        """
 
+        """
         if not self.sabdab:
             cdr = None
         if cdr == self.cdr:
@@ -855,9 +832,18 @@ class ProteinDataset(Dataset):
                         self.indices.append(i)
 
     def __len__(self):
+        """Return the number of clusters or data entries in the dataset."""
         return len(self.indices)
 
     def __getitem__(self, idx):
+        """Return an entry from the dataset.
+
+        If a clusters file is provided, then the idx is the index of the cluster
+        and the chain is randomly selected from the cluster. Otherwise, the idx
+        is the index of the data entry and the chain is randomly selected from
+        the data entry.
+
+        """
         chain_id = None
         cdr = None
         idx = self.indices[idx]

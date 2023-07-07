@@ -1,14 +1,8 @@
-import numpy as np
-
-"""
-This module contains a function to annotate secondary structure elements (SSEs) in a chain.
-
-Adapted from: https://github.com/biotite-dev/biotite.
-"""
-
+"""Utility functions for working with protein data."""
 import itertools
 from copy import deepcopy
 
+import numpy as np
 from biopandas.mmcif import PandasMmcif
 from biotite.structure.geometry import angle, dihedral, distance
 from einops import rearrange
@@ -23,12 +17,13 @@ from proteinflow.constants import (
 
 
 class PDBBuilder:
-    """Creates a PDB file from a `ProteinEntry` object"""
+    """Creates a PDB file from a `ProteinEntry` object."""
 
     def __init__(
         self, protein_entry, only_ca=False, skip_oxygens=False, only_backbone=True
     ):
-        """
+        """Initialize a PDBBuilder object.
+
         Parameters
         ----------
         protein_entry : ProteinEntry
@@ -105,7 +100,7 @@ class PDBBuilder:
     def _get_line_for_atom(
         self, res_name, atom_name, atom_coords, chain_id, missing=False
     ):
-        """Return the 'ATOM...' line in PDB format for the specified atom
+        """Return the 'ATOM...' line in PDB format for the specified atom.
 
         If missing, this function should have special, but not yet determined,
         behavior.
@@ -136,7 +131,7 @@ class PDBBuilder:
     def _get_lines_for_residue(
         self, res_name, atom_names, coords, chain_id, n_terminal=False, c_terminal=False
     ):
-        """Return a list of PDB-formatted lines for all atoms in a single residue
+        """Return a list of PDB-formatted lines for all atoms in a single residue.
 
         Calls get_line_for_atom.
 
@@ -157,7 +152,7 @@ class PDBBuilder:
         return residue_lines
 
     def _get_lines_for_protein(self):
-        """Return a list of PDB-formatted lines for all residues in this protein
+        """Return a list of PDB-formatted lines for all residues in this protein.
 
         Calls get_lines_for_residue.
 
@@ -182,16 +177,16 @@ class PDBBuilder:
         return self._pdb_body_lines
 
     def _make_header(self, title):
-        """Return a string representing the PDB header"""
+        """Return a string representing the PDB header."""
         return f"REMARK  {title}" + "\n" + self._make_SEQRES()
 
     @staticmethod
     def _make_footer():
-        """Return a string representing the PDB footer"""
+        """Return a string representing the PDB footer."""
         return "TER\nEND          \n"
 
     def _make_mapping_from_seq(self):
-        """Make an atom name mapping
+        """Make an atom name mapping.
 
         Given a protein sequence, this returns a mapping that assumes coords are
         generated in groups of atoms_per_res (the output is L x atoms_per_res x 3).
@@ -211,7 +206,7 @@ class PDBBuilder:
         return mapping
 
     def get_pdb_string(self, title=None):
-        """Return a string representing the PDB file for this protein"""
+        """Return a string representing the PDB file for this protein."""
         if not title:
             title = self.title
 
@@ -259,6 +254,8 @@ def _split_every(n, iterable):
 
 
 class PDBError(ValueError):
+    """Class for errors related to PDB processing."""
+
     pass
 
 
@@ -396,8 +393,7 @@ def _annotate_sse(X):
 
 
 def _dihedral_angle(crd, msk):
-    """Compute the dihedral angle given coordinates"""
-
+    """Compute the dihedral angle given coordinates."""
     p0 = crd[..., 0, :]
     p1 = crd[..., 1, :]
     p2 = crd[..., 2, :]
@@ -421,12 +417,26 @@ def _dihedral_angle(crd, msk):
 
 class CustomMmcif(PandasMmcif):
     """
-    A modification of `PandasMmcif`
+    A modification of `PandasMmcif`.
 
     Adds a `get_model` method and renames the columns to match PDB format.
+
     """
 
     def read_mmcif(self, path: str):
+        """Read a PDB file in mmCIF format.
+
+        Parameters
+        ----------
+        path : str
+            Path to the file.
+
+        Returns
+        -------
+        x : CustomMmcif
+            The parsed file.
+
+        """
         x = super().read_mmcif(path)
         x.df["ATOM"].rename(
             {
@@ -445,12 +455,13 @@ class CustomMmcif(PandasMmcif):
         return x
 
     def amino3to1(self):
+        """Return a dataframe with the amino acid names converted to one letter codes."""
         df = super().amino3to1()
         df.columns = ["chain_id", "residue_name"]
         return df
 
     def get_model(self, model_index: int):
-        """Returns a new PandasPDB object with the dataframes subset to the given model index.
+        """Return a new PandasPDB object with the dataframes subset to the given model index.
 
         Parameters
         ----------
@@ -458,11 +469,11 @@ class CustomMmcif(PandasMmcif):
             An integer representing the model index to subset to.
 
         Returns
-        ---------
+        -------
         pandas_pdb.PandasPdb : A new PandasPdb object containing the
           structure subsetted to the given model.
-        """
 
+        """
         df = deepcopy(self)
 
         if "ATOM" in df.df.keys():
@@ -473,10 +484,7 @@ class CustomMmcif(PandasMmcif):
 
 
 def _retrieve_author_chain(chain):
-    """
-    Retrieve the (author) chain names present in the chain section (delimited by '|' chars) of a header line in a fasta file
-    """
-
+    """Retrieve the (author) chain names present in the chain section (delimited by '|' chars) of a header line in a fasta file."""
     if "auth" in chain:
         return chain.split(" ")[-1][:-1]
 
@@ -484,10 +492,7 @@ def _retrieve_author_chain(chain):
 
 
 def _retrieve_chain_names(entry):
-    """
-    Retrieve the (author) chain names present in one header line of a fasta file (line that begins with '>')
-    """
-
+    """Retrieve the (author) chain names present in one header line of a fasta file (line that begins with '>')."""
     entry = entry.split("|")[1]
 
     if "Chains" in entry:

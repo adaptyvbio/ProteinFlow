@@ -1,3 +1,4 @@
+"""Functions for processing PDB files and generating new datasets."""
 import os
 import pickle
 import subprocess
@@ -340,8 +341,7 @@ def filter_and_convert(
 
 
 def _remove_database_redundancies(dir, seq_identity_threshold=0.9):
-    """
-    Remove all biounits in the database that are copies to another biounits in terms of sequence
+    """Remove all biounits in the database that are copies to another biounits in terms of sequence.
 
     Sequence identity is defined by the 'seq_identity_threshold' parameter for robust detection of sequence similarity (missing residues, point mutations, ...).
 
@@ -356,8 +356,8 @@ def _remove_database_redundancies(dir, seq_identity_threshold=0.9):
     -------
     total_removed : int
         the total number of removed biounits
-    """
 
+    """
     all_files = np.array(os.listdir(dir))
     all_pdbs = np.array([file[:4] for file in all_files])
     pdb_counts = Counter(all_pdbs)
@@ -379,15 +379,13 @@ def _remove_database_redundancies(dir, seq_identity_threshold=0.9):
 
 
 def _open_pdb(file):
-    """Open a PDB file in the pickle format that follows the dwnloading and processing of the database"""
-
+    """Open a PDB file in the pickle format that follows the dwnloading and processing of the database."""
     with open(file, "rb") as f:
         return pickle.load(f)
 
 
 def _check_biounits(biounits_list, threshold):
-    """Return the indexes of the redundant biounits within the list of files given by `biounits_list`"""
-
+    """Return the indexes of the redundant biounits within the list of files given by `biounits_list`."""
     biounits = [_open_pdb(b) for b in biounits_list]
     indexes = []
 
@@ -406,8 +404,7 @@ def _check_biounits(biounits_list, threshold):
 
 
 def _compare_identity(seq, seqs, threshold):
-    """Assess whether a sequence is in a list of sequences (in the sense that it shares at least 90% to one of the sequences in the list)"""
-
+    """Assess whether a sequence is in a list of sequences (in the sense that it shares at least 90% to one of the sequences in the list)."""
     for s in seqs:
         if editdistance.eval(s, seq) / max(len(s), len(seq)) <= (1 - threshold):
             return True
@@ -416,8 +413,7 @@ def _compare_identity(seq, seqs, threshold):
 
 
 def _compare_seqs(seqs1, seqs2, threshold):
-    """Assess whether 2 lists of sequences contain exactly the same set of sequences"""
-
+    """Assess whether 2 lists of sequences contain exactly the same set of sequences."""
     for seq in seqs1:
         if not _compare_identity(seq, seqs2, threshold):
             return False
@@ -430,8 +426,7 @@ def _compare_seqs(seqs1, seqs2, threshold):
 
 
 def _raise_rcsbsearch(e):
-    """Raise a RuntimeError if the error is due to rcsbsearch"""
-
+    """Raise a RuntimeError if the error is due to rcsbsearch."""
     if "404 Client Error" in str(e):
         raise RuntimeError(
             'Querying rcsbsearch is failing. Please install a version of rcsbsearch where this error is solved:\npython -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"'

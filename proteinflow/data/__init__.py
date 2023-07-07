@@ -1,3 +1,15 @@
+"""
+Classes for downloading and manipulating protein data.
+
+- `ProteinEntry`: a class for manipulating proteinflow pickle files,
+- `PDBEntry`: a class for manipulating raw PDB files,
+- `SAbDabEntry`: a class for manipulating SAbDab files with specific methods for antibody data.
+
+A `ProteinEntry` object can be created from a proteinflow pickle file, a PDB file or a SAbDab file directly
+and can be used to process the data and extract additional features. The processed data can be saved as a
+proteinflow pickle file or a PDB file.
+
+"""
 import os
 import pickle
 import urllib
@@ -35,7 +47,7 @@ from proteinflow.download import download_fasta, download_pdb
 
 
 def interpolate_coords(crd, mask, fill_ends=True):
-    """Fill in missing values in a coordinates array with linear interpolation
+    """Fill in missing values in a coordinates array with linear interpolation.
 
     Parameters
     ----------
@@ -73,12 +85,13 @@ def interpolate_coords(crd, mask, fill_ends=True):
 
 
 class ProteinEntry:
-    """A class to interact with proteinflow data files"""
+    """A class to interact with proteinflow data files."""
 
     ATOM_ORDER = {k: BACKBONE_ORDER + v for k, v in SIDECHAIN_ORDER.items()}
 
     def __init__(self, seqs, crds, masks, chain_ids, cdrs=None):
-        """
+        """Initialize a `ProteinEntry` object.
+
         Parameters
         ----------
         seqs : list of str
@@ -105,7 +118,7 @@ class ProteinEntry:
         self.cdr = {x: cdr for x, cdr in zip(chain_ids, cdrs)}
 
     def interpolate_coords(self, fill_ends=True):
-        """Fill in missing values in the coordinates arrays with linear interpolation
+        """Fill in missing values in the coordinates arrays with linear interpolation.
 
         Parameters
         ----------
@@ -120,7 +133,7 @@ class ProteinEntry:
             )
 
     def cut_missing_edges(self):
-        """Cut off the ends of the protein sequence that have missing coordinates"""
+        """Cut off the ends of the protein sequence that have missing coordinates."""
         for chain in self.get_chains():
             mask = self.mask[chain]
             known_ind = np.where(mask == 1)[0]
@@ -133,7 +146,7 @@ class ProteinEntry:
 
     @lru_cache()
     def get_chains(self):
-        """Get the chain IDs of the protein
+        """Get the chain IDs of the protein.
 
         Returns
         -------
@@ -144,13 +157,13 @@ class ProteinEntry:
         return sorted(self.seq.keys())
 
     def _get_chains_list(self, chains):
-        """Get a list of chains to iterate over"""
+        """Get a list of chains to iterate over."""
         if chains is None:
             chains = self.get_chains()
         return chains
 
     def get_chain_type_dict(self, chains=None):
-        """Get the chain types of the protein
+        """Get the chain types of the protein.
 
         If the CDRs are not annotated, this function will return `None`.
 
@@ -183,7 +196,7 @@ class ProteinEntry:
         return chain_type_dict
 
     def get_length(self, chains):
-        """Get the total length of a set of chains
+        """Get the total length of a set of chains.
 
         Parameters
         ----------
@@ -199,7 +212,7 @@ class ProteinEntry:
         return sum([len(self.seq[x]) for x in chains])
 
     def get_cdr_length(self, chains):
-        """Get the length of the CDR regions of a set of chains
+        """Get the length of the CDR regions of a set of chains.
 
         Parameters
         ----------
@@ -220,7 +233,7 @@ class ProteinEntry:
         }
 
     def has_cdr(self):
-        """Check if the protein is from the SAbDab database
+        """Check if the protein is from the SAbDab database.
 
         Returns
         -------
@@ -231,10 +244,11 @@ class ProteinEntry:
         return list(self.cdr.values())[0] is not None
 
     def __len__(self):
+        """Get the total length of the protein chains."""
         return self.get_length(self.get_chains())
 
     def get_sequence(self, chains=None, encode=False, cdr=None, only_known=False):
-        """Get the amino acid sequence of the protein
+        """Get the amino acid sequence of the protein.
 
         Parameters
         ----------
@@ -276,7 +290,7 @@ class ProteinEntry:
         return seq
 
     def get_coordinates(self, chains=None, bb_only=False, cdr=None, only_known=False):
-        """Get the coordinates of the protein
+        """Get the coordinates of the protein.
 
         Backbone atoms are in the order of `N, C, CA, O`; for the full-atom
         order see `ProteinEntry.ATOM_ORDER` (sidechain atoms come after the
@@ -316,7 +330,7 @@ class ProteinEntry:
         return crd
 
     def get_mask(self, chains=None, cdr=None, original=False):
-        """Get the mask of the protein
+        """Get the mask of the protein.
 
         Parameters
         ----------
@@ -349,7 +363,7 @@ class ProteinEntry:
         return mask
 
     def get_cdr(self, chains=None, encode=False):
-        """Get the CDR information of the protein
+        """Get the CDR information of the protein.
 
         Parameters
         ----------
@@ -380,7 +394,7 @@ class ProteinEntry:
         return cdr
 
     def get_atom_mask(self, chains=None, cdr=None):
-        """Get the atom mask of the protein
+        """Get the atom mask of the protein.
 
         Parameters
         ----------
@@ -411,7 +425,7 @@ class ProteinEntry:
 
     @staticmethod
     def decode_cdr(cdr):
-        """Decode the CDR information
+        """Decode the CDR information.
 
         Parameters
         ----------
@@ -432,7 +446,7 @@ class ProteinEntry:
 
     @staticmethod
     def decode_sequence(seq):
-        """Decode the amino acid sequence
+        """Decode the amino acid sequence.
 
         Parameters
         ----------
@@ -450,7 +464,7 @@ class ProteinEntry:
 
     @staticmethod
     def from_dict(dictionary):
-        """Load a protein entry from a dictionary
+        """Load a protein entry from a dictionary.
 
         Parameters
         ----------
@@ -484,6 +498,22 @@ class ProteinEntry:
 
     @staticmethod
     def from_pdb(pdb_path, fasta_path=None):
+        """Load a protein entry from a PDB file.
+
+        Parameters
+        ----------
+        pdb_path : str
+            Path to the PDB file
+        fasta_path : str, optional
+            Path to the FASTA file; if not specified, the sequence is extracted
+            from the PDB file
+
+        Returns
+        -------
+        entry : ProteinEntry
+            A `ProteinEntry` object
+
+        """
         pdb_entry = PDBEntry(pdb_path=pdb_path, fasta_path=fasta_path)
         pdb_dict = {}
         fasta_dict = pdb_entry.get_fasta()
@@ -511,7 +541,7 @@ class ProteinEntry:
 
     @staticmethod
     def from_pickle(path):
-        """Load a protein entry from a pickle file
+        """Load a protein entry from a pickle file.
 
         Parameters
         ----------
@@ -529,7 +559,7 @@ class ProteinEntry:
         return ProteinEntry.from_dict(data)
 
     def to_dict(self):
-        """Convert a protein entry into a dictionary
+        """Convert a protein entry into a dictionary.
 
         Returns
         -------
@@ -559,7 +589,7 @@ class ProteinEntry:
         return data
 
     def to_pdb(self, path, only_ca=False, skip_oxygens=False, title="Untitled"):
-        """Save the protein entry to a PDB file
+        """Save the protein entry to a PDB file.
 
         Parameters
         ----------
@@ -577,7 +607,7 @@ class ProteinEntry:
         pdb_builder.save_pdb(path, title=title)
 
     def to_pickle(self, path):
-        """Save a protein entry to a pickle file
+        """Save a protein entry to a pickle file.
 
         The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:
         - `'crd_bb'`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),
@@ -601,7 +631,7 @@ class ProteinEntry:
             pickle.dump(data, f)
 
     def dihedral_angles(self, chains=None):
-        """Calculate the backbone dihedral angles (phi, psi) of the protein
+        """Calculate the backbone dihedral angles (phi, psi) of the protein.
 
         Returns
         -------
@@ -635,7 +665,7 @@ class ProteinEntry:
         return angles
 
     def secondary_structure(self, chains=None):
-        """Calculate the secondary structure of the protein
+        """Calculate the secondary structure of the protein.
 
         Returns
         -------
@@ -659,7 +689,7 @@ class ProteinEntry:
         return sse
 
     def sidechain_coordinates(self, chains=None):
-        """Get the sidechain coordinates of the protein
+        """Get the sidechain coordinates of the protein.
 
         Returns
         -------
@@ -676,7 +706,7 @@ class ProteinEntry:
         return self.get_coordinates(chains)[:, 4:, :]
 
     def chemical_features(self, chains=None):
-        """Calculate chemical features of the protein
+        """Calculate chemical features of the protein.
 
         Returns
         -------
@@ -695,7 +725,7 @@ class ProteinEntry:
         return features
 
     def sidechain_orientation(self, chains=None):
-        """Calculate the (global) sidechain orientation of the protein
+        """Calculate the (global) sidechain orientation of the protein.
 
         Returns
         -------
@@ -725,7 +755,7 @@ class ProteinEntry:
 
     @lru_cache()
     def is_valid_pair(self, chain1, chain2, margin=30, cutoff=10):
-        """Check if two chains are a valid pair based on the distance between them
+        """Check if two chains are a valid pair based on the distance between them.
 
         We consider two chains to be a valid pair if the distance between them is
         smaller than `cutoff` Angstroms. The distance is calculated as the minimum
@@ -801,7 +831,7 @@ class ProteinEntry:
             return True
 
     def get_index_array(self, chains=None, index_bump=100):
-        """Get the index array of the protein
+        """Get the index array of the protein.
 
         The index array is a `'numpy'` array of shape `(L,)` with the index of each residue along the chain.
 
@@ -834,7 +864,7 @@ class ProteinEntry:
         return index_array.astype(int)
 
     def get_chain_id_dict(self, chains=None):
-        """Get the dictionary mapping from chain indices to chain IDs
+        """Get the dictionary mapping from chain indices to chain IDs.
 
         Parameters
         ----------
@@ -852,7 +882,7 @@ class ProteinEntry:
         return chain_id_dict
 
     def get_chain_id_array(self, chains=None, encode=True):
-        """Get the chain ID array of the protein
+        """Get the chain ID array of the protein.
 
         The chain ID array is a `'numpy'` array of shape `(L,)` with the chain ID of each residue.
         The chain ID is the index of the chain in the alphabetical order of the chain IDs. To get a
@@ -885,10 +915,10 @@ class ProteinEntry:
 
 
 class PDBEntry:
-    """A class for parsing PDB entries"""
+    """A class for parsing PDB entries."""
 
     def __init__(self, pdb_path, fasta_path=None):
-        """A class for parsing PDB files
+        """Initialize a PDBEntry object.
 
         If no FASTA path is provided, the sequences will be fully inferred
         from the PDB file.
@@ -909,7 +939,7 @@ class PDBEntry:
 
     @staticmethod
     def from_id(pdb_id, local_folder="."):
-        """Initialize a `PDBEntry` object from a PDB Id
+        """Initialize a `PDBEntry` object from a PDB Id.
 
         Downloads the PDB and FASTA files to the local folder.
 
@@ -931,12 +961,12 @@ class PDBEntry:
         return PDBEntry(pdb_path=pdb_path, fasta_path=fasta_path)
 
     def _get_relevant_chains(self):
-        """Get the chains that are included in the entry"""
+        """Get the chains that are included in the entry."""
         return list(self.seq_df["chain_id"].unique())
 
     @staticmethod
     def parse_fasta(fasta_path):
-        """Read a fasta file
+        """Read a fasta file.
 
         Parameters
         ----------
@@ -967,7 +997,7 @@ class PDBEntry:
         return out_dict
 
     def _parse_fasta(self):
-        """Parse the fasta file"""
+        """Parse the fasta file."""
         # download fasta and check if it contains only proteins
         chains = self._get_relevant_chains()
         if self.fasta_path is None:
@@ -988,7 +1018,7 @@ class PDBEntry:
         return fasta_dict
 
     def _parse_structure(self, chains=None):
-        """Parse the structure of the protein"""
+        """Parse the structure of the protein."""
         cif = self.pdb_path.endswith("cif.gz")
 
         # load coordinates in a nice format
@@ -1012,7 +1042,7 @@ class PDBEntry:
         return crd_df, seq_df
 
     def _get_chain(self, chain):
-        """Check the chain ID"""
+        """Check the chain ID."""
         if chain is None:
             return chain
         if chain not in self.get_chains():
@@ -1020,7 +1050,7 @@ class PDBEntry:
         return chain
 
     def get_pdb_df(self, chain=None):
-        """Return the PDB dataframe
+        """Return the PDB dataframe.
 
         If `chain` is provided, only information for this chain is returned.
 
@@ -1042,7 +1072,7 @@ class PDBEntry:
             return self.crd_df[self.crd_df["chain_id"] == chain]
 
     def get_sequence_df(self, chain=None):
-        """Return the sequence dataframe
+        """Return the sequence dataframe.
 
         If `chain` is provided, only information for this chain is returned.
 
@@ -1065,7 +1095,7 @@ class PDBEntry:
             return self.seq_df[self.seq_df["chain_id"] == chain]
 
     def get_fasta(self):
-        """Return the fasta dictionary
+        """Return the fasta dictionary.
 
         Returns
         -------
@@ -1077,7 +1107,7 @@ class PDBEntry:
         return self.fasta_dict
 
     def get_chains(self):
-        """Return the chains in the PDB
+        """Return the chains in the PDB.
 
         Returns
         -------
@@ -1089,13 +1119,13 @@ class PDBEntry:
 
     @lru_cache()
     def _pdb_sequence(self, chain):
-        """Return the PDB sequence for a given chain ID"""
+        """Return the PDB sequence for a given chain ID."""
         chain = self._get_chain(chain)
         return "".join(self.get_sequence_df(chain)["residue_name"])
 
     @lru_cache()
     def _align_chain(self, chain):
-        """Align the PDB sequence to the FASTA sequence for a given chain ID"""
+        """Align the PDB sequence to the FASTA sequence for a given chain ID."""
         chain = self._get_chain(chain)
         pdb_seq = self._pdb_sequence(chain)
         # aligner = PairwiseAligner()
@@ -1112,7 +1142,7 @@ class PDBEntry:
         return aligned_seq, fasta_seq
 
     def get_alignment(self, chains=None):
-        """Return the alignment between the PDB and the FASTA sequence
+        """Return the alignment between the PDB and the FASTA sequence.
 
         Parameters
         ----------
@@ -1130,7 +1160,7 @@ class PDBEntry:
         return {chain: self._align_chain(chain)[0] for chain in chains}
 
     def get_mask(self, chains=None):
-        """Return the mask of the alignment between the PDB and the FASTA sequence
+        """Return the mask of the alignment between the PDB and the FASTA sequence.
 
         Parameters
         ----------
@@ -1151,7 +1181,7 @@ class PDBEntry:
         }
 
     def has_unnatural_amino_acids(self, chains=None):
-        """Check if the PDB contains unnatural amino acids
+        """Check if the PDB contains unnatural amino acids.
 
         Parameters
         ----------
@@ -1173,7 +1203,7 @@ class PDBEntry:
         return False
 
     def get_coordinates_array(self, chain):
-        """Return the coordinates of the PDB as a numpy array
+        """Return the coordinates of the PDB as a numpy array.
 
         The atom order is the same as in the `ProteinEntry.ATOM_ORDER` dictionary.
         The array has zeros where the mask has zeros and that is where the sequence
@@ -1225,7 +1255,7 @@ class PDBEntry:
         return crd_arr
 
     def get_unique_residue_numbers(self, chain):
-        """Return the unique residue numbers (residue number + insertion code)
+        """Return the unique residue numbers (residue number + insertion code).
 
         Parameters
         ----------
@@ -1242,7 +1272,7 @@ class PDBEntry:
 
 
 class SAbDabEntry(PDBEntry):
-    """A class for parsing SAbDab entries"""
+    """A class for parsing SAbDab entries."""
 
     def __init__(
         self,
@@ -1252,7 +1282,8 @@ class SAbDabEntry(PDBEntry):
         light_chain=None,
         antigen_chains=None,
     ):
-        """
+        """Initialize the SAbDabEntry.
+
         Parameters
         ----------
         pdb_path : str
@@ -1285,7 +1316,7 @@ class SAbDabEntry(PDBEntry):
         super().__init__(pdb_path, fasta_path)
 
     def _get_relevant_chains(self):
-        """Get the chains that are included in the entry"""
+        """Get the chains that are included in the entry."""
         chains = []
         if self.chain_dict["heavy"] is not None:
             chains.append(self.chain_dict["heavy"])
@@ -1302,7 +1333,7 @@ class SAbDabEntry(PDBEntry):
         heavy_chain=None,
         antigen_chains=None,
     ):
-        """Create a SAbDabEntry from a PDB ID
+        """Create a SAbDabEntry from a PDB ID.
 
         Either the light or the heavy chain must be provided.
 
@@ -1336,13 +1367,13 @@ class SAbDabEntry(PDBEntry):
         )
 
     def _get_chain(self, chain):
-        """Return the chain identifier"""
+        """Return the chain identifier."""
         if chain in ["heavy", "light"]:
             chain = self.chain_dict[chain]
         return super()._get_chain(chain)
 
     def heavy_chain(self):
-        """Return the heavy chain identifier
+        """Return the heavy chain identifier.
 
         Returns
         -------
@@ -1353,7 +1384,7 @@ class SAbDabEntry(PDBEntry):
         return self.chain_dict["heavy"]
 
     def light_chain(self):
-        """Return the light chain identifier
+        """Return the light chain identifier.
 
         Returns
         -------
@@ -1364,7 +1395,7 @@ class SAbDabEntry(PDBEntry):
         return self.chain_dict["light"]
 
     def antigen_chains(self):
-        """Return the antigen chain identifiers
+        """Return the antigen chain identifiers.
 
         Returns
         -------
@@ -1375,7 +1406,7 @@ class SAbDabEntry(PDBEntry):
         return self.chain_dict["antigen"]
 
     def chains(self):
-        """Return the chains in the PDB
+        """Return the chains in the PDB.
 
         Returns
         -------
@@ -1386,7 +1417,7 @@ class SAbDabEntry(PDBEntry):
         return [self.heavy_chain(), self.light_chain()] + self.antigen_chains()
 
     def chain_type(self, chain):
-        """Return the type of a chain
+        """Return the type of a chain.
 
         Parameters
         ----------
@@ -1405,7 +1436,7 @@ class SAbDabEntry(PDBEntry):
 
     @lru_cache()
     def _get_chain_cdr(self, chain, align_to_fasta=True):
-        """Return the CDRs for a given chain ID"""
+        """Return the CDRs for a given chain ID."""
         chain = self._get_chain(chain)
         chain_crd = self.get_pdb_df(chain)
         chain_type = self.chain_type(chain)[0].upper()
@@ -1429,7 +1460,7 @@ class SAbDabEntry(PDBEntry):
         return cdr_arr
 
     def get_cdr(self, chains=None):
-        """Return CDR arrays
+        """Return CDR arrays.
 
         Parameters
         ----------

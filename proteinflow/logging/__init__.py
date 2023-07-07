@@ -1,3 +1,5 @@
+"""Functions for logging errors and warnings."""
+
 import os
 import subprocess
 import traceback
@@ -40,7 +42,7 @@ def get_error_summary(log_file, verbose=True):
 
 
 def _clean(pdb_id, tmp_folder):
-    """Remove all temporary files associated with a PDB ID"""
+    """Remove all temporary files associated with a PDB ID."""
     for file in os.listdir(tmp_folder):
         if file.startswith(f"{pdb_id}."):
             subprocess.run(
@@ -51,7 +53,7 @@ def _clean(pdb_id, tmp_folder):
 
 
 def _log_exception(exception, log_file, pdb_id, tmp_folder, chain_id=None):
-    """Record the error in the log file"""
+    """Record the error in the log file."""
     if chain_id is None:
         _clean(pdb_id, tmp_folder)
     else:
@@ -67,10 +69,7 @@ def _log_exception(exception, log_file, pdb_id, tmp_folder, chain_id=None):
 
 
 def _log_removed(removed, log_file):
-    """
-    Record which files we removed due to redundancy
-    """
-
+    """Record which files we removed due to redundancy."""
     for pdb_id in removed:
         with open(log_file, "a") as f:
             f.write(f"<<< Removed due to redundancy: {pdb_id} \n")

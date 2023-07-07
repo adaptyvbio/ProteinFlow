@@ -1,3 +1,5 @@
+"""Functions for downloading protein data from various sources."""
+
 import os
 import shutil
 import subprocess
@@ -30,14 +32,13 @@ from proteinflow.download.boto import (
 
 
 def _download_file(url, local_path):
-    """Download a file from a URL to a local path"""
+    """Download a file from a URL to a local path."""
     response = requests.get(url)
     open(local_path, "wb").write(response.content)
 
 
 def download_pdb(pdb_id, local_folder=".", sabdab=False):
-    """
-    Download a PDB file from the RCSB PDB database.
+    """Download a PDB file from the RCSB PDB database.
 
     Parameters
     ----------
@@ -166,7 +167,7 @@ def get_pdb_ids(
 
 
 def _download_pdb(pdb_id, local_folder):
-    """Download a PDB file and return a local path or the PDB ID if download failed"""
+    """Download a PDB file and return a local path or the PDB ID if download failed."""
     try:
         return download_pdb(pdb_id, local_folder)
     except RuntimeError:
@@ -174,7 +175,7 @@ def _download_pdb(pdb_id, local_folder):
 
 
 def _download_fasta(pdb_id, local_folder):
-    """Download a FASTA file and return a local path or the PDB ID if download failed"""
+    """Download a FASTA file and return a local path or the PDB ID if download failed."""
     try:
         return download_fasta(pdb_id, local_folder)
     except RuntimeError:
@@ -189,7 +190,7 @@ def download_filtered_pdb_files(
     local_folder=".",
     load_live=False,
 ):
-    """Download filtered PDB files and return a list of local file paths
+    """Download filtered PDB files and return a list of local file paths.
 
     Parameters
     ----------
@@ -267,7 +268,7 @@ def _download_sabdab_by_method(
     resolution_thr=3.5,
     local_folder=".",
 ):
-    """Download SAbDab files by method
+    """Download SAbDab files by method.
 
     Parameters
     ----------
@@ -323,7 +324,7 @@ def _download_sabdab_by_method(
 def _download_sabdab_all(
     local_folder=".",
 ):
-    """Download all SAbDab files
+    """Download all SAbDab files.
 
     Parameters
     ----------
@@ -383,7 +384,7 @@ def download_filtered_sabdab_files(
     require_antigen=True,
     n=None,
 ):
-    """Download filtered SAbDab files and return a list of local file paths
+    """Download filtered SAbDab files and return a list of local file paths.
 
     Parameters
     ----------
@@ -557,16 +558,13 @@ def _load_files(
 
 
 def _make_sabdab_html(method, resolution_thr):
-    """
-    Make a URL for SAbDab search
-    """
-
+    """Make a URL for SAbDab search."""
     html = f"https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/search/?ABtype=All&method={'+'.join(method)}&species=All&resolution={resolution_thr}&rfactor=&antigen=All&ltype=All&constantregion=All&affinity=All&isin_covabdab=All&isin_therasabdab=All&chothiapos=&restype=ALA&field_0=Antigens&keyword_0=#downloads"
     return html
 
 
 def _get_fasta_path(pdb_path):
-    """Get the path to the fasta file corresponding to the pdb file"""
+    """Get the path to the fasta file corresponding to the pdb file."""
     if isinstance(pdb_path, tuple):
         pdb_path = pdb_path[0]
     pdb_id = os.path.basename(pdb_path).split(".")[0].split("-")[0]
@@ -574,7 +572,7 @@ def _get_fasta_path(pdb_path):
 
 
 def _download_dataset(tag, local_datasets_folder="./data/"):
-    """Download the pre-processed data and the split dictionaries
+    """Download the pre-processed data and the split dictionaries.
 
     Parameters
     ----------
@@ -587,8 +585,8 @@ def _download_dataset(tag, local_datasets_folder="./data/"):
     -------
     data_folder : str
         the path to the downloaded data folder
-    """
 
+    """
     s3_data_path, s3_dict_path = _get_s3_paths_from_tag(tag)
     data_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
     dict_folder = os.path.join(
