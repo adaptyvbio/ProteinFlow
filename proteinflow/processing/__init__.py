@@ -79,16 +79,6 @@ def run_processing(
         The number of files to process (for debugging purposes)
     force : bool, default False
         When `True`, rewrite the files if they already exist
-    split_tolerance : float, default 0.2
-        The tolerance on the split ratio (default 20%)
-    split_database : bool, default False
-        Whether or not to split the database
-    test_split : float, default 0.05
-        The percentage of chains to put in the test set (default 5%)
-    valid_split : float, default 0.05
-        The percentage of chains to put in the validation set (default 5%)
-    out_split_dict_folder : str, default "./data/dataset_splits_dict"
-        The folder where the dictionaries containing the train/validation/test splits information will be saved
     tag : str, optional
         A tag to add to the log file
     pdb_snapshot : str, optional

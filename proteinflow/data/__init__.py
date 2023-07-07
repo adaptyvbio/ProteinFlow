@@ -252,15 +252,15 @@ class ProteinEntry:
 
         Parameters
         ----------
+        chains : list of str, optional
+            If specified, only the sequences of the specified chains is returned (in the same order);
+            otherwise, all sequences are concatenated in alphabetical order of the chain IDs
         encode : bool, default False
             If `True`, the sequence is encoded as a `'numpy'` array of integers
             where each integer corresponds to the index of the amino acid in
             `proteinflow.constants.ALPHABET`
         cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}, optional
             If specified, only the CDR region of the specified type is returned
-        chains : list of str, optional
-            If specified, only the sequences of the specified chains is returned (in the same order);
-            otherwise, all sequences are concatenated in alphabetical order of the chain IDs
         only_known : bool, default False
             If `True`, only the residues with known coordinates are returned
 
@@ -298,13 +298,13 @@ class ProteinEntry:
 
         Parameters
         ----------
+        chains : list of str, optional
+            If specified, only the coordinates of the specified chains are returned (in the same order);
+            otherwise, all coordinates are concatenated in alphabetical order of the chain IDs
         bb_only : bool, default False
             If `True`, only the backbone atoms are returned
         cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}, optional
             If specified, only the CDR region of the specified type is returned
-        chains : list of str, optional
-            If specified, only the coordinates of the specified chains are returned (in the same order);
-            otherwise, all coordinates are concatenated in alphabetical order of the chain IDs
         only_known : bool, default False
             If `True`, only return the coordinates of residues with known coordinates
 
@@ -334,8 +334,13 @@ class ProteinEntry:
 
         Parameters
         ----------
+        chains : list of str, optional
+            If specified, only the masks of the specified chains are returned (in the same order);
+            otherwise, all masks are concatenated in alphabetical order of the chain IDs
         cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}, optional
             If specified, only the CDR region of the specified type is returned
+        original : bool, default False
+            If `True`, return the original mask (before interpolation)
 
         Returns
         -------
@@ -345,8 +350,6 @@ class ProteinEntry:
         chains : list of str, optional
             If specified, only the masks of the specified chains are returned (in the same order);
             otherwise, all masks are concatenated in alphabetical order of the chain IDs
-        original : bool, default False
-            If `True`, return the original mask (before interpolation)
 
         """
         if cdr is not None and self.cdr is None:
@@ -367,6 +370,10 @@ class ProteinEntry:
 
         Parameters
         ----------
+        chains : list of str, optional
+            If specified, only the CDR information of the specified chains is
+            returned (in the same order); otherwise, all CDR information is concatenated in
+            alphabetical order of the chain IDs
         encode : bool, default False
             If `True`, the CDR information is encoded as a `'numpy'` array of
             integers where each integer corresponds to the index of the CDR
@@ -398,11 +405,11 @@ class ProteinEntry:
 
         Parameters
         ----------
-        cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}, optional
-            If specified, only the CDR region of the specified type is returned
         chains : str, optional
             If specified, only the atom masks of the specified chains are returned (in the same order);
             otherwise, all atom masks are concatenated in alphabetical order of the chain IDs
+        cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}, optional
+            If specified, only the CDR region of the specified type is returned
 
         Returns
         -------
@@ -633,6 +640,12 @@ class ProteinEntry:
     def dihedral_angles(self, chains=None):
         """Calculate the backbone dihedral angles (phi, psi) of the protein.
 
+        Parameters
+        ----------
+        chains : list of str, optional
+            If specified, only the dihedral angles of the specified chains are returned (in the same order);
+            otherwise, all features are concatenated in alphabetical order of the chain IDs
+
         Returns
         -------
         angles : np.ndarray
@@ -667,6 +680,12 @@ class ProteinEntry:
     def secondary_structure(self, chains=None):
         """Calculate the secondary structure of the protein.
 
+        Parameters
+        ----------
+        chains : list of str, optional
+            If specified, only the secondary structure of the specified chains is returned (in the same order);
+            otherwise, all features are concatenated in alphabetical order of the chain IDs
+
         Returns
         -------
         sse : np.ndarray
@@ -691,6 +710,12 @@ class ProteinEntry:
     def sidechain_coordinates(self, chains=None):
         """Get the sidechain coordinates of the protein.
 
+        Parameters
+        ----------
+        chains : list of str, optional
+            If specified, only the sidechain coordinates of the specified chains is returned (in the same order);
+            otherwise, all features are concatenated in alphabetical order of the chain IDs
+
         Returns
         -------
         crd : np.ndarray
@@ -707,6 +732,12 @@ class ProteinEntry:
 
     def chemical_features(self, chains=None):
         """Calculate chemical features of the protein.
+
+        Parameters
+        ----------
+        chains : list of str, optional
+            If specified, only the chemical features of the specified chains is returned (in the same order);
+            otherwise, all features are concatenated in alphabetical order of the chain IDs
 
         Returns
         -------
@@ -726,6 +757,12 @@ class ProteinEntry:
 
     def sidechain_orientation(self, chains=None):
         """Calculate the (global) sidechain orientation of the protein.
+
+        Parameters
+        ----------
+        chains : list of str, optional
+            If specified, only the sidechain orientation of the specified chains is returned (in the same order);
+            otherwise, all features are concatenated in alphabetical order of the chain IDs
 
         Returns
         -------
@@ -754,7 +791,7 @@ class ProteinEntry:
         return orientation
 
     @lru_cache()
-    def is_valid_pair(self, chain1, chain2, margin=30, cutoff=10):
+    def is_valid_pair(self, chain1, chain2, cutoff=10):
         """Check if two chains are a valid pair based on the distance between them.
 
         We consider two chains to be a valid pair if the distance between them is

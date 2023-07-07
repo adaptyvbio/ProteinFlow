@@ -355,10 +355,12 @@ class ProteinLoader(DataLoader):
             the minimum number of residues to mask
         upper_limit : int, default 100
             the maximum number of residues to mask
-        mask_frac : float, optional
-            if given, the `lower_limit` and `upper_limit` are ignored and the number of residues to mask is `mask_frac` times the length of the chain
+        mask_residues : bool, default True
+            if `True`, generate a mask key
         mask_whole_chains : bool, default False
             if `True`, `upper_limit`, `force_binding_sites` and `lower_limit` are ignored and the whole chain is masked instead
+        mask_frac : float, optional
+            if given, the `lower_limit` and `upper_limit` are ignored and the number of residues to mask is `mask_frac` times the length of the chain
         force_binding_sites_frac : float, default 0
             if > 0, in the fraction of cases where a chain from a polymer is sampled, the center of the masked region will be
             forced to be in a binding site
@@ -370,6 +372,10 @@ class ProteinLoader(DataLoader):
             if `True`, all CDRs are masked instead of just the sampled one
         classes_dict_path : str, optional
             path to the pickled classes dictionary
+        *args
+            additional arguments to `torch.utils.data.DataLoader`
+        **kwargs
+            additional keyword arguments to `torch.utils.data.DataLoader`
 
         """
         dataset = ProteinDataset(

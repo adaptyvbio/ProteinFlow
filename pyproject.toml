@@ -44,3 +44,9 @@ find = {}
 [tool.pydocstyle]
 convention = "numpy"
 match_dir = 'proteinflow'
+
+[tool.docsig]
+disable = [
+    "E109",
+]
+ignore-no-parameters = true
