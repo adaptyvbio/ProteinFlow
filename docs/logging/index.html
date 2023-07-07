@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
-<title>proteinflow.metrics API documentation</title>
-<meta name="description" content="Metrics for evaluating prediction quality." />
+<title>proteinflow.logging API documentation</title>
+<meta name="description" content="Functions for logging errors and warnings." />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -20,70 +20,89 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>proteinflow.metrics</code></h1>
+<h1 class="title">Module <code>proteinflow.logging</code></h1>
 </header>
 <section id="section-intro">
-<p>Metrics for evaluating prediction quality.</p>
+<p>Functions for logging errors and warnings.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">&#34;&#34;&#34;Metrics for evaluating prediction quality.&#34;&#34;&#34;
+<pre><code class="python">&#34;&#34;&#34;Functions for logging errors and warnings.&#34;&#34;&#34;
 
-import blosum as bl
-import numpy as np
+import os
+import subprocess
+import traceback
+from collections import defaultdict
 
-
-def blosum62_score(seq_before, seq_after):
-    &#34;&#34;&#34;Calculate the BLOSUM62 score between two sequences.
-
-    Parameters
-    ----------
-    seq_before : str
-        The sequence before the mutation.
-    seq_after : str
-        The sequence after the mutation.
-
-    Returns
-    -------
-    score : int
-        The BLOSUM62 score between the two sequences.
-
-    &#34;&#34;&#34;
-    assert len(seq_before) == len(seq_after)
-    matrix = bl.BLOSUM(62)
-    score = 0
-    for x_before, x_after in zip(seq_before, seq_after):
-        score += matrix[x_before][x_after]
-    return score
+from proteinflow.data.utils import PDBError
 
 
-def long_repeat_num(seq, thr=5):
-    &#34;&#34;&#34;Calculate the number of long repeats in a sequence.
+def get_error_summary(log_file, verbose=True):
+    &#34;&#34;&#34;Get an exception summary.
+
+    The output is a dictionary where keys are recognized exception names and values are lists of
+    PDB ids that caused the exceptions.
 
     Parameters
     ----------
-    seq : str
-        The sequence to be evaluated.
-    thr : int, default 5
-        The threshold of the length of a repeat.
+    log_file : str
+        the log file path
+    verbose : bool, default True
+        if `True`, the statistics are written in the standard output
 
     Returns
     -------
-    num : int
-        The number of long repeats in the sequence.
+    log_dict : dict
+        a dictionary where keys are recognized exception names and values are lists of PDB ids that
+        caused the exceptions
 
     &#34;&#34;&#34;
-    arr = np.array(list(seq))
-    # Find the indices where the array changes its value
-    changes = np.flatnonzero(arr[:-1] != arr[1:])
-    # Split the array into consecutive groups
-    groups = np.split(arr, changes + 1)
-    # Filter groups that are longer than N
-    long_groups = filter(lambda g: len(g) &gt; thr, groups)
-    # Count the number of long groups
-    count = sum(1 for _ in long_groups)
-    return count</code></pre>
+    stats = defaultdict(lambda: [])
+    with open(log_file) as f:
+        for line in f.readlines():
+            if line.startswith(&#34;&lt;&lt;&lt;&#34;):
+                stats[line.split(&#34;:&#34;)[0]].append(line.split(&#34;:&#34;)[-1].strip())
+    if verbose:
+        keys = sorted(stats.keys(), key=lambda x: len(stats[x]), reverse=True)
+        for key in keys:
+            print(f&#34;{key}: {len(stats[key])}&#34;)
+        print(f&#34;Total exceptions: {sum([len(x) for x in stats.values()])}&#34;)
+    return stats
+
+
+def _clean(pdb_id, tmp_folder):
+    &#34;&#34;&#34;Remove all temporary files associated with a PDB ID.&#34;&#34;&#34;
+    for file in os.listdir(tmp_folder):
+        if file.startswith(f&#34;{pdb_id}.&#34;):
+            subprocess.run(
+                [&#34;rm&#34;, os.path.join(tmp_folder, file)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+
+def _log_exception(exception, log_file, pdb_id, tmp_folder, chain_id=None):
+    &#34;&#34;&#34;Record the error in the log file.&#34;&#34;&#34;
+    if chain_id is None:
+        _clean(pdb_id, tmp_folder)
+    else:
+        pdb_id = pdb_id + &#34;-&#34; + chain_id
+    if isinstance(exception, PDBError):
+        with open(log_file, &#34;a&#34;) as f:
+            f.write(f&#34;&lt;&lt;&lt; {str(exception)}: {pdb_id} \n&#34;)
+    else:
+        with open(log_file, &#34;a&#34;) as f:
+            f.write(f&#34;&lt;&lt;&lt; Unknown: {pdb_id} \n&#34;)
+            f.write(traceback.format_exc())
+            f.write(&#34;\n&#34;)
+
+
+def _log_removed(removed, log_file):
+    &#34;&#34;&#34;Record which files we removed due to redundancy.&#34;&#34;&#34;
+    for pdb_id in removed:
+        with open(log_file, &#34;a&#34;) as f:
+            f.write(f&#34;&lt;&lt;&lt; Removed due to redundancy: {pdb_id} \n&#34;)</code></pre>
 </details>
 </section>
 <section>
@@ -93,98 +112,61 @@ def long_repeat_num(seq, thr=5):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="proteinflow.metrics.blosum62_score"><code class="name flex">
-<span>def <span class="ident">blosum62_score</span></span>(<span>seq_before, seq_after)</span>
+<dt id="proteinflow.logging.get_error_summary"><code class="name flex">
+<span>def <span class="ident">get_error_summary</span></span>(<span>log_file, verbose=True)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Calculate the BLOSUM62 score between two sequences.</p>
+<div class="desc"><p>Get an exception summary.</p>
+<p>The output is a dictionary where keys are recognized exception names and values are lists of
+PDB ids that caused the exceptions.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>seq_before</code></strong> :&ensp;<code>str</code></dt>
-<dd>The sequence before the mutation.</dd>
-<dt><strong><code>seq_after</code></strong> :&ensp;<code>str</code></dt>
-<dd>The sequence after the mutation.</dd>
+<dt><strong><code>log_file</code></strong> :&ensp;<code>str</code></dt>
+<dd>the log file path</dd>
+<dt><strong><code>verbose</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
+<dd>if <code>True</code>, the statistics are written in the standard output</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
-<dt><strong><code>score</code></strong> :&ensp;<code>int</code></dt>
-<dd>The BLOSUM62 score between the two sequences.</dd>
+<dt><strong><code>log_dict</code></strong> :&ensp;<code>dict</code></dt>
+<dd>a dictionary where keys are recognized exception names and values are lists of PDB ids that
+caused the exceptions</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def blosum62_score(seq_before, seq_after):
-    &#34;&#34;&#34;Calculate the BLOSUM62 score between two sequences.
+<pre><code class="python">def get_error_summary(log_file, verbose=True):
+    &#34;&#34;&#34;Get an exception summary.
+
+    The output is a dictionary where keys are recognized exception names and values are lists of
+    PDB ids that caused the exceptions.
 
     Parameters
     ----------
-    seq_before : str
-        The sequence before the mutation.
-    seq_after : str
-        The sequence after the mutation.
+    log_file : str
+        the log file path
+    verbose : bool, default True
+        if `True`, the statistics are written in the standard output
 
     Returns
     -------
-    score : int
-        The BLOSUM62 score between the two sequences.
+    log_dict : dict
+        a dictionary where keys are recognized exception names and values are lists of PDB ids that
+        caused the exceptions
 
     &#34;&#34;&#34;
-    assert len(seq_before) == len(seq_after)
-    matrix = bl.BLOSUM(62)
-    score = 0
-    for x_before, x_after in zip(seq_before, seq_after):
-        score += matrix[x_before][x_after]
-    return score</code></pre>
-</details>
-</dd>
-<dt id="proteinflow.metrics.long_repeat_num"><code class="name flex">
-<span>def <span class="ident">long_repeat_num</span></span>(<span>seq, thr=5)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Calculate the number of long repeats in a sequence.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>seq</code></strong> :&ensp;<code>str</code></dt>
-<dd>The sequence to be evaluated.</dd>
-<dt><strong><code>thr</code></strong> :&ensp;<code>int</code>, default <code>5</code></dt>
-<dd>The threshold of the length of a repeat.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><strong><code>num</code></strong> :&ensp;<code>int</code></dt>
-<dd>The number of long repeats in the sequence.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def long_repeat_num(seq, thr=5):
-    &#34;&#34;&#34;Calculate the number of long repeats in a sequence.
-
-    Parameters
-    ----------
-    seq : str
-        The sequence to be evaluated.
-    thr : int, default 5
-        The threshold of the length of a repeat.
-
-    Returns
-    -------
-    num : int
-        The number of long repeats in the sequence.
-
-    &#34;&#34;&#34;
-    arr = np.array(list(seq))
-    # Find the indices where the array changes its value
-    changes = np.flatnonzero(arr[:-1] != arr[1:])
-    # Split the array into consecutive groups
-    groups = np.split(arr, changes + 1)
-    # Filter groups that are longer than N
-    long_groups = filter(lambda g: len(g) &gt; thr, groups)
-    # Count the number of long groups
-    count = sum(1 for _ in long_groups)
-    return count</code></pre>
+    stats = defaultdict(lambda: [])
+    with open(log_file) as f:
+        for line in f.readlines():
+            if line.startswith(&#34;&lt;&lt;&lt;&#34;):
+                stats[line.split(&#34;:&#34;)[0]].append(line.split(&#34;:&#34;)[-1].strip())
+    if verbose:
+        keys = sorted(stats.keys(), key=lambda x: len(stats[x]), reverse=True)
+        for key in keys:
+            print(f&#34;{key}: {len(stats[key])}&#34;)
+        print(f&#34;Total exceptions: {sum([len(x) for x in stats.values()])}&#34;)
+    return stats</code></pre>
 </details>
 </dd>
 </dl>
@@ -210,8 +192,7 @@ def long_repeat_num(seq, thr=5):
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
-<li><code><a title="proteinflow.metrics.blosum62_score" href="#proteinflow.metrics.blosum62_score">blosum62_score</a></code></li>
-<li><code><a title="proteinflow.metrics.long_repeat_num" href="#proteinflow.metrics.long_repeat_num">long_repeat_num</a></code></li>
+<li><code><a title="proteinflow.logging.get_error_summary" href="#proteinflow.logging.get_error_summary">get_error_summary</a></code></li>
 </ul>
 </li>
 </ul>

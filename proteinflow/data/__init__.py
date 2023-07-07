@@ -88,6 +88,7 @@ class ProteinEntry:
     """A class to interact with proteinflow data files."""
 
     ATOM_ORDER = {k: BACKBONE_ORDER + v for k, v in SIDECHAIN_ORDER.items()}
+    """A dictionary mapping 3-letter residue names to the order of atoms in the coordinates array."""
 
     def __init__(self, seqs, crds, masks, chain_ids, cdrs=None):
         """Initialize a `ProteinEntry` object.

@@ -146,14 +146,15 @@ for batch in train_loader:
     to_predict = batch["masked_res"] # (B, L), 1 where the residues should be masked, 0 otherwise
     ...
 ```
+
 """
 __pdoc__ = {
-    "utils": False,
-    "scripts": False,
+    "data.utils": False,
+    "data.torch": False,
+    "download.boto": False,
     "constants": False,
-    "custom_mmcif": False,
-    "pdb": False,
-    "sequences": False,
+    "split": False,
+    "cli": False,
 }
 __docformat__ = "numpy"
 
