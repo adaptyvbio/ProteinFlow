@@ -12,7 +12,7 @@ repos:
     rev: 6.1.1
     hooks:
       - id: pydocstyle
-        args: ["--match-dir proteinflow"]
+        args: ["--match-dir=proteinflow"]
         additional_dependencies:
           - toml
 -   repo: https://github.com/pre-commit/pre-commit-hooks
