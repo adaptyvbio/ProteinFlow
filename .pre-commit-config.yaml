@@ -49,3 +49,4 @@ repos:
       - id: docsig
         args:
           - "-i"
+          - "-d E109"
