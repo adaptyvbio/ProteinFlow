@@ -62,4 +62,4 @@ def test_download(tag):
 
 
 if __name__ == "__main__":
-    test_download("test_old")
+    test_download("test")
