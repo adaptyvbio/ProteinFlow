@@ -284,7 +284,8 @@ class ProteinEntry:
         elif cdr is not None or only_known:
             seq = np.array(list(seq))
         if cdr is not None:
-            seq = seq[self.cdr == cdr]
+            cdr_arr = self.get_cdr(chains=chains)
+            seq = seq[cdr_arr == cdr]
         if only_known:
             seq = seq[self.get_mask(chains=chains, cdr=cdr).astype(bool)]
         if not encode and not isinstance(seq, str):
