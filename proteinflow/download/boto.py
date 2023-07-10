@@ -3,6 +3,7 @@ import asyncio
 import os
 import shutil
 import subprocess
+import zipfile
 from operator import attrgetter
 
 from aiobotocore.session import get_session
@@ -121,6 +122,31 @@ def _s3list(
 
 def _download_dataset_from_s3(
     dataset_path="./data/proteinflow_20221110/",
+    s3_path="s3://ml4-main-storage/proteinflow_20221110/proteinflow_20221110.zip",
+):
+    """Download the pre-processed files."""
+    if s3_path.startswith("s3"):
+        print("Downloading the dataset from s3...")
+        local_zip_path = dataset_path.rstrip("/\\") + ".zip"
+        subprocess.run(
+            ["aws", "s3", "cp", "--no-sign-request", s3_path, local_zip_path]
+        )
+        print("Done!")
+    else:
+        shutil.move(s3_path, dataset_path)
+    with zipfile.ZipFile(local_zip_path, "r") as zip_ref:
+        zip_ref.extractall(os.path.dirname(dataset_path))
+
+
+def _get_s3_paths_from_tag(tag):
+    """Get the path to the data and split dictionary folders on S3 given a tag."""
+    dict_path = f"s3://proteinflow-datasets/{tag}/proteinflow_{tag}_splits_dict/"
+    data_path = f"s3://proteinflow-datasets/{tag}/proteinflow_{tag}.zip"
+    return data_path, dict_path
+
+
+def _download_zip_dataset_from_s3(
+    dataset_path="./data/proteinflow_20221110/",
     s3_path="s3://ml4-main-storage/proteinflow_20221110/",
 ):
     """Download the pre-processed files."""
@@ -132,13 +158,6 @@ def _download_dataset_from_s3(
         print("Done!")
     else:
         shutil.move(s3_path, dataset_path)
-
-
-def _get_s3_paths_from_tag(tag):
-    """Get the path to the data and split dictionary folders on S3 given a tag."""
-    dict_path = f"s3://proteinflow-datasets/{tag}/proteinflow_{tag}_splits_dict/"
-    data_path = f"s3://proteinflow-datasets/{tag}/proteinflow_{tag}/"
-    return data_path, dict_path
 
 
 async def _getobj(client, key):
