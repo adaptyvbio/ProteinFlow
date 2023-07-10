@@ -97,7 +97,7 @@ def download(**kwargs):
     help="Unless this flag is used, removes biounits that are doubles of others sequence wise",
 )
 @click.option(
-    "--seq_identity_threshold",
+    "--redundancy_thr",
     default=0.9,
     type=float,
     help="The threshold upon which sequences are considered as one and the same (default: 90%)",
