@@ -144,6 +144,8 @@ def run_processing(
         sabdab=False,
     ):
         pdb_path, fasta_path = local_paths
+        if os.path.getsize(pdb_path) > 1e7:
+            raise PDBError("PDB / mmCIF file is too large")
         chain_id = None
         if sabdab:
             pdb_path, chain_id = pdb_path
