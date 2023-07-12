@@ -26,7 +26,7 @@ def run_processing(
     missing_middle_thr=0.1,
     filter_methods=True,
     remove_redundancies=False,
-    seq_identity_threshold=0.9,
+    redundancy_thr=0.9,
     n=None,
     force=False,
     tag=None,
@@ -74,7 +74,7 @@ def run_processing(
         If `True`, only files obtained with X-ray or EM will be processed
     remove_redundancies : bool, default False
         If `True`, removes biounits that are doubles of others sequence wise
-    seq_identity_threshold : float, default 0.9
+    redundancy_thr : float, default 0.9
         The threshold upon which sequences are considered as one and the same (default: 90%)
     n : int, default None
         The number of files to process (for debugging purposes)
@@ -131,8 +131,9 @@ def run_processing(
         f.write(f"    remove_redundancies: {remove_redundancies} \n")
         f.write(f"    sabdab: {sabdab} \n")
         f.write(f"    pdb_snapshot: {pdb_snapshot} \n")
+        f.write(f"    max_chains: {max_chains} \n")
         if remove_redundancies:
-            f.write(f"    seq_identity_threshold: {seq_identity_threshold} \n")
+            f.write(f"    redundancy_threshold: {redundancy_thr} \n")
         if sabdab:
             f.write(f"    require_antigen: {require_antigen} \n")
             f.write(f"    sabdab_data_path: {sabdab_data_path} \n")
@@ -258,7 +259,7 @@ def run_processing(
 
     if remove_redundancies:
         removed = _remove_database_redundancies(
-            OUTPUT_FOLDER, seq_identity_threshold=seq_identity_threshold
+            OUTPUT_FOLDER, seq_identity_threshold=redundancy_thr
         )
         _log_removed(removed, LOG_FILE)
 
