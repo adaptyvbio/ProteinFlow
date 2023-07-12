@@ -219,10 +219,13 @@ def run_processing(
         for id in error_ids:
             with open(LOG_FILE, "a") as f:
                 f.write(f"<<< Could not download PDB/mmCIF file: {id} \n")
-        # paths = [(os.path.join(TMP_FOLDER, "6tkb.pdb"), "H_L_nan")]
+        # paths = [("data/6m8p-4.cif.gz", "data/6m8p.fasta")]
         print("Filter and process...")
         _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
-        # _ = [process_f(x, force=force, sabdab=sabdab, show_error=True) for x in tqdm(paths)]
+        # _ = [
+        #     process_f(x, force=force, sabdab=sabdab, show_error=True)
+        #     for x in tqdm(paths)
+        # ]
     except Exception as e:
         _raise_rcsbsearch(e)
 
