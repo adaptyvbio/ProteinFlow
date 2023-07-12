@@ -1,6 +1,6 @@
 repos:
 -   repo: https://github.com/ambv/black
-    rev: stable
+    rev: 23.7.0
     hooks:
       - id: black
 -   repo: https://github.com/econchick/interrogate
@@ -9,7 +9,7 @@ repos:
       - id: interrogate
         args: ["--fail-under=50", "-v"]
 -   repo: https://github.com/PyCQA/pydocstyle
-    rev: 6.1.1
+    rev: 6.3.0
     hooks:
       - id: pydocstyle
         additional_dependencies:
@@ -24,12 +24,12 @@ repos:
       - id: isort
         args: ["--profile", "black", "--filter-files"]
 -   repo: https://github.com/asottile/pyupgrade
-    rev: v3.6.0
+    rev: v3.9.0
     hooks:
       - id: pyupgrade
         args: [--py36-plus]
 -   repo: https://github.com/codespell-project/codespell
-    rev: v1.16.0
+    rev: v2.2.5
     hooks:
     -   id: codespell
         name: codespell

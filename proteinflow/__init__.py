@@ -565,6 +565,7 @@ def _get_pdb_ids(
 
                     # Add extracted elements to the list
                     pdb_ids.extend(line_elements)
+                random.shuffle(pdb_ids)
         except FileNotFoundError:
             print(f"The file '{pdb_id_list_path}' does not exist.")
     else:
