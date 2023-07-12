@@ -169,6 +169,9 @@ def download(**kwargs):
     type=int,
     help="The random seed to use for splitting",
 )
+@click.option(
+    "--max_chains", default=5, type=int, help="The maximum number of chains per biounit"
+)
 @cli.command("generate", help="Generate a new ProteinFlow dataset")
 def generate(**kwargs):
     """Generate a new ProteinFlow dataset."""

@@ -120,6 +120,7 @@ def get_pdb_ids(
     resolution_thr=3.5,
     pdb_snapshot=None,
     filter_methods=True,
+    max_chains=5,
 ):
     """Get PDB ids from PDB API."""
     # get filtered PDB ids from PDB API
@@ -132,6 +133,10 @@ def get_pdb_ids(
     # if include_na:
     #     pdb_ids = pdb_ids.or_('rcsb_entry_info.polymer_composition').in_(["protein/NA", "protein/NA/oligosaccharide"])
 
+    if max_chains is not None:
+        pdb_ids = pdb_ids.and_(
+            "rcsb_assembly_info.polymer_entity_instance_count_protein"
+        ).__le__(max_chains)
     if resolution_thr is not None:
         pdb_ids = pdb_ids.and_("rcsb_entry_info.resolution_combined").__le__(
             resolution_thr
@@ -189,6 +194,7 @@ def download_filtered_pdb_files(
     n=None,
     local_folder=".",
     load_live=False,
+    max_chains=5,
 ):
     """Download filtered PDB files and return a list of local file paths.
 
@@ -207,6 +213,8 @@ def download_filtered_pdb_files(
     load_live : bool, default False
         Whether to load the PDB files from the RCSB PDB database directly
         instead of downloading them from the PDB snapshots
+    max_chains : int, default 5
+        Maximum number of chains per biounit
 
     Returns
     -------
@@ -220,6 +228,7 @@ def download_filtered_pdb_files(
         resolution_thr=resolution_thr,
         pdb_snapshot=pdb_snapshot,
         filter_methods=filter_methods,
+        max_chains=max_chains,
     )
     with ThreadPoolExecutor(max_workers=8) as executor:
         print("Getting a file list...")
@@ -532,6 +541,7 @@ def _load_files(
     sabdab=False,
     sabdab_data_path=None,
     require_antigen=False,
+    max_chains=5,
 ):
     """Download filtered structure files and return a list of local file paths."""
     if sabdab:
@@ -552,6 +562,7 @@ def _load_files(
             local_folder=local_folder,
             load_live=load_live,
             n=n,
+            max_chains=max_chains,
         )
     paths = [(x, _get_fasta_path(x)) for x in paths]
     return paths, error_ids

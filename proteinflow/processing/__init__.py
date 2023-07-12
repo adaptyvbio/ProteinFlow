@@ -35,6 +35,7 @@ def run_processing(
     sabdab=False,
     sabdab_data_path=None,
     require_antigen=False,
+    max_chains=5,
 ):
     """Download and parse PDB files that meet filtering criteria.
 
@@ -91,6 +92,8 @@ def run_processing(
         path to a zip file or a directory containing SAbDab files (only used if `sabdab` is `True`)
     require_antigen : bool, default False
         if `True`, only keep files with antigen chains (only used if `sabdab` is `True`)
+    max_chains : int, default 5
+        the maximum number of chains per biounit
 
     Returns
     -------
@@ -144,8 +147,6 @@ def run_processing(
         sabdab=False,
     ):
         pdb_path, fasta_path = local_paths
-        if os.path.getsize(pdb_path) > 1e7:
-            raise PDBError("PDB / mmCIF file is too large")
         chain_id = None
         if sabdab:
             pdb_path, chain_id = pdb_path
@@ -160,6 +161,14 @@ def run_processing(
                 antigen = antigen.split(" | ")
         fn = os.path.basename(pdb_path)
         pdb_id = fn.split(".")[0]
+        if os.path.getsize(pdb_path) > 1e7:
+            _log_exception(
+                PDBError("PDB / mmCIF file is too large"),
+                LOG_FILE,
+                pdb_id,
+                TMP_FOLDER,
+                chain_id=chain_id,
+            )
         try:
             # local_path = download_f(pdb_id, s3_client=s3_client, load_live=load_live)
             name = pdb_id if not sabdab else pdb_id + "-" + chain_id
@@ -204,6 +213,7 @@ def run_processing(
             sabdab=sabdab,
             sabdab_data_path=sabdab_data_path,
             require_antigen=require_antigen,
+            max_chains=max_chains,
         )
         for id in error_ids:
             with open(LOG_FILE, "a") as f:
