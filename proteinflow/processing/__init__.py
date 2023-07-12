@@ -219,7 +219,7 @@ def run_processing(
         for id in error_ids:
             with open(LOG_FILE, "a") as f:
                 f.write(f"<<< Could not download PDB/mmCIF file: {id} \n")
-        # paths = [("data/6m8p-4.cif.gz", "data/6m8p.fasta")]
+        # paths = [("data/2c2m-1.pdb.gz", "data/2c2m.fasta")]
         print("Filter and process...")
         _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
         # _ = [
@@ -306,7 +306,7 @@ def filter_and_convert(
     if pdb_entry.has_unnatural_amino_acids():
         raise PDBError("Unnatural amino acids found")
 
-    for (chain,) in pdb_entry.get_chains():
+    for chain in pdb_entry.get_chains():
         pdb_dict[chain] = {}
         chain_crd = pdb_entry.get_sequence_df(chain)
         fasta_seq = fasta_dict[chain]
