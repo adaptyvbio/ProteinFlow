@@ -161,6 +161,7 @@ import os
 import pickle
 import random
 import shutil
+import socket
 import string
 import subprocess
 import tempfile
@@ -209,6 +210,8 @@ from proteinflow.utils.common_utils import (
     _process_strings,
     _raise_rcsbsearch,
 )
+
+socket.setdefaulttimeout(15)
 
 
 def _get_split_dictionaries(

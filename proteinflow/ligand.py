@@ -1,3 +1,8 @@
+"""
+Ligand class for ProteinFlow.
+
+Description: Retrieve ligand information from PDB files and cluster them using Tanimoto similarity.
+"""
 import warnings
 
 import numpy as np
@@ -45,6 +50,7 @@ D3TO1 = {
 
 
 def is_ion(st):
+    """Determine if a string is an ion."""
     if len("".join([i for i in st if not i.isdigit()])) <= 2:
         return True
     if st in D3TO1.keys():
@@ -53,6 +59,7 @@ def is_ion(st):
 
 
 def atom2mol(p):
+    """Convert a PDB file to a molecule."""
     small_molecules = p.df["HETATM"]
 
     # Group small molecules using residue3to1()
@@ -73,6 +80,7 @@ def atom2mol(p):
 def get_covalent_bonds(
     chain1, chain2, connect_dict, distance_check=False, Time_profiling=False
 ):
+    """Get covalent bonds between two chains."""
     from time import time
 
     t0 = time()
@@ -140,6 +148,7 @@ def get_covalent_bonds(
 
 
 def fix_connect(conect_line, minimum=0):
+    """Fix a CONECT line."""
     if "CONECT" not in conect_line:
         return ""
     separated_line = conect_line.split(" ")
@@ -199,6 +208,7 @@ def fix_connect(conect_line, minimum=0):
 
 
 def parse_pdb_file(pdb_file, minimum=0):
+    """Parse a PDB file and return a dictionary with the connectivity information."""
     connect_dict = {}
     with open(pdb_file) as f:
         for line in f:
@@ -215,6 +225,7 @@ def parse_pdb_file(pdb_file, minimum=0):
 
 
 def connected(claster1, cluster2, connectivity):
+    """Check if two clusters are connected."""
     for atom1 in claster1:
         for atom2 in cluster2:
             if connectivity[atom1, atom2] == 1:
@@ -223,6 +234,7 @@ def connected(claster1, cluster2, connectivity):
 
 
 def merge_components(clusters, connectivity):
+    """Merge clusters that are connected."""
     if len(clusters) == 1:
         return clusters
     for i, cluster1 in enumerate(clusters):
@@ -237,6 +249,7 @@ def merge_components(clusters, connectivity):
 
 
 def get_raw_ligands(file_path, ligand):
+    """Get the raw ligands from a PDB file."""
     ligands = []
     for molecule in ligand:
         resname = molecule.getResname()
@@ -253,26 +266,25 @@ def get_raw_ligands(file_path, ligand):
 
 
 def describe_chemical(chem_id):
-    #     """
+    """
+    Get the chemical description of a ligand from the PDB.
 
-    #     Parameters
-    #     ----------
+    Parameters
+    ----------
+    chem_id : string
+    A 3 character string representing the full chemical sequence of interest (ie, NAG)
 
-    #     chem_id : string
-    #         A 3 character string representing the full chemical sequence of interest (ie, NAG)
+    Returns
+    -------
+    out : dict
+        A dictionary containing the chemical description associated with the PDB ID
 
-    #     Returns
-    #     -------
-
-    #     out : dict
-    #         A dictionary containing the chemical description associated with the PDB ID
-
-    #     Examples
-    #     --------
-    #     >>> chem_desc = describe_chemical('NAG')
-    #     >>> print(chem_desc["rcsb_chem_comp_descriptor"]["smiles"])
-    #     'CC(=O)NC1C(C(C(OC1O)CO)O)O'
-    #     """
+    Examples
+    --------
+    >>> chem_desc = describe_chemical('NAG')
+    >>> print(chem_desc["rcsb_chem_comp_descriptor"]["smiles"])
+    'CC(=O)NC1C(C(C(OC1O)CO)O)O'
+    """
     if len(chem_id) > 3:
         raise Exception("Ligand id with more than 3 characters provided")
 
@@ -283,7 +295,8 @@ def describe_chemical(chem_id):
 
 def process_ligand(pdb_string, res_name, tmp_pdb_string=None):
     """
-    Add bond orders to a pdb ligand
+    Add bond orders to a pdb ligand.
+
     1. Select the ligand component with name "res_name"
     2. Get the corresponding SMILES from pypdb
     3. Create a template molecule from the SMILES in step 2
@@ -308,11 +321,36 @@ def process_ligand(pdb_string, res_name, tmp_pdb_string=None):
             rd_mol = AllChem.MolFromPDBBlock(tmp_pdb_string)
     # if template is None or rd_mol is None:
     #    return template
-    new_mol = AllChem.AssignBondOrdersFromTemplate(template, rd_mol)
+    try:
+        new_mol = AllChem.AssignBondOrdersFromTemplate(template, rd_mol)
+    except Exception:
+        Chem.MolToSmiles(rd_mol)
+        m_order = eval(rd_mol.GetProp("_smilesAtomOutputOrder"))
+
+        rd_mol2 = Chem.RenumberAtoms(rd_mol, m_order)
+
+        # print(Chem.MolToSmiles(template))
+        test_rd_mol = Chem.MolFromSmiles(Chem.MolToSmiles(rd_mol))
+        Chem.MolToSmiles(test_rd_mol)
+        m1_order = eval(test_rd_mol.GetProp("_smilesAtomOutputOrder"))
+        test_rd_mol = Chem.RenumberAtoms(test_rd_mol, m1_order)
+
+        mols = []
+        for atom in rd_mol2.GetAtoms():
+            mols.append(atom)
+        conv = False
+        for i, atom in enumerate(test_rd_mol.GetAtoms()):
+            if mols[i].GetSymbol() != atom.GetSymbol():
+                conv = True
+        if conv:
+            raise Exception("Ligand ordering error")
+        else:
+            return rd_mol
     return new_mol
 
 
 def get_ligand_block(pdb_file, res_name, res_chain, res_num):
+    """Get the block of a ligand from a PDB file."""
     block = ""
     tmp_block = ""
     parsed_atoms = []
@@ -320,45 +358,48 @@ def get_ligand_block(pdb_file, res_name, res_chain, res_num):
         for line in f:
             # line = line.replace(res_name, ' '+res_name+ ' ')
             tmp_line = line
-            if res_name in tmp_line:
-                if tmp_line.split(res_name)[0][-1] != " ":
-                    tmp_line = tmp_line.replace(
-                        tmp_line.split(res_name)[0][-1] + res_name, " " + res_name
-                    )
-            if (
-                str(res_num) in tmp_line
-                and not tmp_line.split(str(res_num))[0][-1].isnumeric()
-            ):
-                if tmp_line.split(str(res_num))[0][-1] != " ":
-                    tmp_line = tmp_line.replace(str(res_num), " " + str(res_num))
             if "HETATM" in tmp_line:
                 if tmp_line.replace("HETATM", "")[0] != " ":
                     tmp_line = tmp_line.replace("HETATM", "HETATM ")
-            if len(tmp_line.split()) > 5:
-                if (
-                    tmp_line.split()[0] == "HETATM"
-                    and tmp_line.split()[3] == res_name
-                    and tmp_line.split()[5] == str(res_num)
-                    and tmp_line.split()[4] == res_chain
-                ):
-                    # and line.split()[2][0] != 'H'\
-                    parsed = (
-                        tmp_line.split()[2],
-                        tmp_line.split()[3],
-                        tmp_line.split()[4],
-                        tmp_line.split()[5],
-                    ) in parsed_atoms
-                    if not parsed:
-                        parsed_atoms.append(
-                            (
-                                tmp_line.split()[2],
-                                tmp_line.split()[3],
-                                tmp_line.split()[4],
-                                tmp_line.split()[5],
-                            )
+                if res_name in tmp_line:
+                    if tmp_line.split(res_name)[0][-1] != " ":
+                        tmp_line = tmp_line.replace(
+                            tmp_line.split(res_name)[0][-1] + res_name, " " + res_name
                         )
-                        block += line
-                        tmp_block += tmp_line
+                if (
+                    str(res_num) in tmp_line
+                    and not tmp_line.split(str(res_num))[0][-1].isnumeric()
+                ):
+                    if (
+                        tmp_line.split(str(res_num))[0][-1] != " "
+                        and str(res_num) not in tmp_line.split()[2]
+                    ):
+                        tmp_line = tmp_line.replace(str(res_num), " " + str(res_num))
+                if len(tmp_line.split()) > 5:
+                    if (
+                        tmp_line.split()[0] == "HETATM"
+                        and tmp_line.split()[3] == res_name
+                        and tmp_line.split()[5] == str(res_num)
+                        and tmp_line.split()[4] == res_chain
+                    ):
+                        # and line.split()[2][0] != 'H'\
+                        parsed = (
+                            tmp_line.split()[2],
+                            tmp_line.split()[3],
+                            tmp_line.split()[4],
+                            tmp_line.split()[5],
+                        ) in parsed_atoms
+                        if not parsed:
+                            parsed_atoms.append(
+                                (
+                                    tmp_line.split()[2],
+                                    tmp_line.split()[3],
+                                    tmp_line.split()[4],
+                                    tmp_line.split()[5],
+                                )
+                            )
+                            block += line
+                            tmp_block += tmp_line
     return block, tmp_block
 
 
@@ -368,6 +409,7 @@ def _get_ligands(
     file_path,
     tmp_folder,
 ):
+    """Get the ligands from a PDB file."""
     import warnings
 
     from rdkit import RDLogger
@@ -578,12 +620,6 @@ def _get_ligands(
                                     len(eval(smiles_order)),
                                     len(pdb_atom_list),
                                 )
-                                print(atomic_sequence)
-                                print(sub_smiles)
-                                print(res_name, chain_name, res_number)
-                                print(ligand_mol.GetNumAtoms())
-                                print(lig_block)
-                                print("end")
                                 atom = pdb_atom_list[eval(smiles_order)[j]]
                             atomic_sequence.append(atom.get_name().replace("'", ""))
                             coordinates.append(atom.get_coord())
@@ -628,9 +664,7 @@ def _get_ligands(
 
 
 def _load_smiles(dir):
-    """
-    Load biounits and group their sequences by PDB and similarity (90%)
-    """
+    """Load biounits and group their sequences by PDB and similarity (90%)."""
     smiles_dict = defaultdict(lambda: [])
 
     for file in tqdm([x for x in os.listdir(dir) if x.endswith(".pickle")]):
@@ -658,10 +692,7 @@ def _load_smiles(dir):
 
 
 def _unique_chains(seqs_list):
-    """
-    Get unique chains
-    """
-
+    """Get unique chains."""
     new_seqs_list = [seqs_list[0]]
     chains = [new_seqs_list[0][0]]
 
@@ -674,10 +705,7 @@ def _unique_chains(seqs_list):
 
 
 def _merge_chains_ligands(seqs_dict_):
-    """
-    Look into the chains of each PDB and regroup redundancies (at 90% sequence identity)
-    """
-
+    """Look into the chains of each PDB and regroup redundancies (at 90% sequence identity)."""
     seqs_dict = copy.deepcopy(seqs_dict_)
     pdbs_to_delete = []
 
@@ -723,6 +751,7 @@ def _merge_chains_ligands(seqs_dict_):
 
 
 def calculate_tanimoto_similarity(mol1, mol2):
+    """Calculate the Tanimoto similarity between two molecules."""
     fp1 = Chem.RDKFingerprint(mol1)
     fp2 = Chem.RDKFingerprint(mol2)
     similarity = DataStructs.FingerprintSimilarity(fp1, fp2)
@@ -730,6 +759,7 @@ def calculate_tanimoto_similarity(mol1, mol2):
 
 
 def _compare_lig_identity(lig, ligs, threshold):
+    """Assess whether a sequence is identical to another one in a list of sequences."""
     mol1 = Chem.MolFromSmiles(lig)
     for lig2 in ligs:
         mol2 = Chem.MolFromSmiles(lig2)
@@ -739,10 +769,7 @@ def _compare_lig_identity(lig, ligs, threshold):
 
 
 def _compare_smiles(ligs1, ligs2, threshold):
-    """
-    Assess whether 2 lists of sequences contain exactly the same set of sequences
-    """
-
+    """Assess whether 2 lists of sequences contain exactly the same set of sequences."""
     for lig in ligs1:
         if not _compare_lig_identity(lig, ligs2, threshold):
             return False
@@ -755,13 +782,24 @@ def _compare_smiles(ligs1, ligs2, threshold):
 
 
 def calculate_tanimoto_distance(sm1, sm2):
+    """Calculate the Tanimoto distance between two SMILES."""
     mol1 = Chem.MolFromSmiles(sm1)
     mol2 = Chem.MolFromSmiles(sm2)
     return 1 - calculate_tanimoto_similarity(mol1, mol2)
 
 
+def calculate_similarity(args):
+    """Calculate the Tanimoto distance between two molecules."""
+    i, j, molecule1, molecule2 = args
+    similarity = calculate_tanimoto_similarity(molecule1, molecule2)
+    return i, j, 1 - similarity
+
+
 # Define a function to perform Tanimoto clustering
 def perform_tanimoto_clustering(smiles_list, threshold):
+    """Perform Tanimoto clustering."""
+    from multiprocessing import Pool
+
     # Convert SMILES to RDKit molecules
     molecules = [Chem.MolFromSmiles(smiles) for smiles in smiles_list]
 
@@ -770,12 +808,20 @@ def perform_tanimoto_clustering(smiles_list, threshold):
 
     print("Constructing distance matrix...")
     similarity_matrix = []
-    for i in tqdm(range(len(molecules))):
-        # for j in range(i+1, len(molecules)):
+    args_list = []
+    for i in range(len(molecules)):
         for j in range(i):
-            similarity = calculate_tanimoto_similarity(molecules[i], molecules[j])
-            # similarity_matrix[i, j] = similarity
-            similarity_matrix.append(1 - similarity)
+            args_list.append((i, j, molecules[i], molecules[j]))
+    with Pool() as pool:
+        # results = pool.map(calculate_similarity, args_list)
+        results = []
+        for result in tqdm(
+            pool.imap_unordered(calculate_similarity, args_list), total=len(args_list)
+        ):
+            results.append(result)
+
+    for i, j, distance in sorted(results):
+        similarity_matrix.append(distance)
 
     # Perform clustering
     # dist_matrix = 1 - similarity_matrix
@@ -789,6 +835,7 @@ def perform_tanimoto_clustering(smiles_list, threshold):
 
 
 def _run_tanimoto_clustering(smiles_dict, threshold):
+    """Run Tanimoto clustering on a dictionary of SMILES."""
     smiles_list = []
     chains_list = []
     for k in smiles_dict.keys():
