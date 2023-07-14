@@ -30,7 +30,7 @@ dependencies = [
     "awscli==1.25.60",
     "bs4>=0.0.1",
     "rcsbsearch",
-    "blosum",
+    "blosum>=2.0",
     "pre-commit",
 ]
 keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning"]
