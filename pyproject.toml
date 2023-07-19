@@ -31,7 +31,7 @@ dependencies = [
     "bs4>=0.0.1",
     "pyyaml==5.3",
     "rcsbsearch",
-    "blosum",
+    "blosum>=2.0",
     "pre-commit",
     "methodtools",
 ]
