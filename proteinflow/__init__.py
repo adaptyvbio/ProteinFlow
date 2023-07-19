@@ -186,6 +186,7 @@ from botocore import UNSIGNED
 from botocore.config import Config
 
 from proteinflow.constants import SIDECHAIN_ORDER
+from proteinflow.data.torch import ProteinDataset, ProteinLoader
 from proteinflow.download import _download_dataset
 from proteinflow.download.boto import _s3list
 from proteinflow.processing import run_processing
