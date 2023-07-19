@@ -26,7 +26,7 @@ def run_processing(
     missing_middle_thr=0.1,
     filter_methods=True,
     remove_redundancies=False,
-    seq_identity_threshold=0.9,
+    redundancy_thr=0.9,
     n=None,
     force=False,
     tag=None,
@@ -35,6 +35,7 @@ def run_processing(
     sabdab=False,
     sabdab_data_path=None,
     require_antigen=False,
+    max_chains=5,
 ):
     """Download and parse PDB files that meet filtering criteria.
 
@@ -73,7 +74,7 @@ def run_processing(
         If `True`, only files obtained with X-ray or EM will be processed
     remove_redundancies : bool, default False
         If `True`, removes biounits that are doubles of others sequence wise
-    seq_identity_threshold : float, default 0.9
+    redundancy_thr : float, default 0.9
         The threshold upon which sequences are considered as one and the same (default: 90%)
     n : int, default None
         The number of files to process (for debugging purposes)
@@ -91,6 +92,8 @@ def run_processing(
         path to a zip file or a directory containing SAbDab files (only used if `sabdab` is `True`)
     require_antigen : bool, default False
         if `True`, only keep files with antigen chains (only used if `sabdab` is `True`)
+    max_chains : int, default 5
+        the maximum number of chains per biounit
 
     Returns
     -------
@@ -128,8 +131,9 @@ def run_processing(
         f.write(f"    remove_redundancies: {remove_redundancies} \n")
         f.write(f"    sabdab: {sabdab} \n")
         f.write(f"    pdb_snapshot: {pdb_snapshot} \n")
+        f.write(f"    max_chains: {max_chains} \n")
         if remove_redundancies:
-            f.write(f"    seq_identity_threshold: {seq_identity_threshold} \n")
+            f.write(f"    redundancy_threshold: {redundancy_thr} \n")
         if sabdab:
             f.write(f"    require_antigen: {require_antigen} \n")
             f.write(f"    sabdab_data_path: {sabdab_data_path} \n")
@@ -158,6 +162,14 @@ def run_processing(
                 antigen = antigen.split(" | ")
         fn = os.path.basename(pdb_path)
         pdb_id = fn.split(".")[0]
+        if os.path.getsize(pdb_path) > 1e7:
+            _log_exception(
+                PDBError("PDB / mmCIF file is too large"),
+                LOG_FILE,
+                pdb_id,
+                TMP_FOLDER,
+                chain_id=chain_id,
+            )
         try:
             # local_path = download_f(pdb_id, s3_client=s3_client, load_live=load_live)
             name = pdb_id if not sabdab else pdb_id + "-" + chain_id
@@ -202,14 +214,18 @@ def run_processing(
             sabdab=sabdab,
             sabdab_data_path=sabdab_data_path,
             require_antigen=require_antigen,
+            max_chains=max_chains,
         )
         for id in error_ids:
             with open(LOG_FILE, "a") as f:
                 f.write(f"<<< Could not download PDB/mmCIF file: {id} \n")
-        # paths = [(os.path.join(TMP_FOLDER, "6tkb.pdb"), "H_L_nan")]
+        # paths = [("data/2c2m-1.pdb.gz", "data/2c2m.fasta")]
         print("Filter and process...")
         _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
-        # _ = [process_f(x, force=force, sabdab=sabdab, show_error=True) for x in tqdm(paths)]
+        # _ = [
+        #     process_f(x, force=force, sabdab=sabdab, show_error=True)
+        #     for x in tqdm(paths)
+        # ]
     except Exception as e:
         _raise_rcsbsearch(e)
 
@@ -246,7 +262,7 @@ def run_processing(
 
     if remove_redundancies:
         removed = _remove_database_redundancies(
-            OUTPUT_FOLDER, seq_identity_threshold=seq_identity_threshold
+            OUTPUT_FOLDER, seq_identity_threshold=redundancy_thr
         )
         _log_removed(removed, LOG_FILE)
 
@@ -290,7 +306,7 @@ def filter_and_convert(
     if pdb_entry.has_unnatural_amino_acids():
         raise PDBError("Unnatural amino acids found")
 
-    for (chain,) in pdb_entry.get_chains():
+    for chain in pdb_entry.get_chains():
         pdb_dict[chain] = {}
         chain_crd = pdb_entry.get_sequence_df(chain)
         fasta_seq = fasta_dict[chain]

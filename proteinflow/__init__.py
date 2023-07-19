@@ -243,6 +243,7 @@ def generate_data(
     exclude_clusters=False,
     exclude_based_on_cdr=None,
     random_seed=42,
+    max_chains=10,
 ):
     """Download and parse PDB files that meet filtering criteria.
 
@@ -321,6 +322,8 @@ def generate_data(
         if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
     random_seed : int, default 42
         the random seed to use for splitting
+    max_chains : int, default 10
+        the maximum number of chains per biounit
 
     Returns
     -------
@@ -350,7 +353,7 @@ def generate_data(
         missing_middle_thr=missing_middle_thr,
         filter_methods=filter_methods,
         remove_redundancies=remove_redundancies,
-        seq_identity_threshold=redundancy_thr,
+        redundancy_thr=redundancy_thr,
         n=n,
         force=force,
         tag=tag,
@@ -359,6 +362,7 @@ def generate_data(
         sabdab=sabdab,
         sabdab_data_path=sabdab_data_path,
         require_antigen=require_antigen,
+        max_chains=max_chains,
     )
     if not skip_splitting:
         split_data(

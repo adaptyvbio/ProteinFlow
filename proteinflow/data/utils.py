@@ -3,6 +3,7 @@ import itertools
 from copy import deepcopy
 
 import numpy as np
+import pandas as pd
 from biopandas.mmcif import PandasMmcif
 from biotite.structure.geometry import angle, dihedral, distance
 from einops import rearrange
@@ -12,6 +13,7 @@ from proteinflow.constants import (
     ATOM_MAP_3,
     ATOM_MAP_4,
     ATOM_MAP_14,
+    D3TO1,
     GLOBAL_PAD_CHAR,
     ONE_TO_THREE_LETTER_MAP,
 )
@@ -451,6 +453,7 @@ class CustomMmcif(PandasMmcif):
                 "Cartn_x": "x_coord",
                 "Cartn_y": "y_coord",
                 "Cartn_z": "z_coord",
+                "pdbx_PDB_ins_code": "insertion",
             },
             axis=1,
             inplace=True,
@@ -460,7 +463,20 @@ class CustomMmcif(PandasMmcif):
 
     def amino3to1(self):
         """Return a dataframe with the amino acid names converted to one letter codes."""
-        df = super().amino3to1()
+        tmp = self.df["ATOM"]
+        cmp = "placeholder"
+        indices = []
+
+        residue_number_insertion = tmp["residue_number"].astype(str) + tmp["insertion"]
+
+        for num, ind in zip(residue_number_insertion, np.arange(tmp.shape[0])):
+            if num != cmp:
+                indices.append(ind)
+            cmp = num
+
+        transl = tmp.iloc[indices]["auth_comp_id"].map(D3TO1).fillna("?")
+
+        df = pd.concat((tmp.iloc[indices]["auth_asym_id"], transl), axis=1)
         df.columns = ["chain_id", "residue_name"]
         return df
 

@@ -1326,6 +1326,9 @@ class PDBEntry:
         informative_mask = indices != -1
         res_indices = np.where(mask == 1)[0]
         unique_numbers = self.get_unique_residue_numbers(chain)
+        pdb_seq = self._pdb_sequence(chain)
+        if len(unique_numbers) != len(pdb_seq):
+            raise PDBError("Inconsistencies in the biopandas dataframe")
         replace_dict = {x: y for x, y in zip(unique_numbers, res_indices)}
         chain_crd.loc[:, "unique_residue_number"] = chain_crd[
             "unique_residue_number"
