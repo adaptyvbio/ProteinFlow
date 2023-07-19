@@ -322,7 +322,8 @@ class ProteinEntry:
         elif cdr is not None or only_known:
             seq = np.array(list(seq))
         if cdr is not None:
-            seq = seq[self.cdr == cdr]
+            cdr_arr = self.get_cdr(chains=chains)
+            seq = seq[cdr_arr == cdr]
         if only_known:
             seq = seq[self.get_mask(chains=chains, cdr=cdr).astype(bool)]
         if not encode and not isinstance(seq, str):
@@ -1363,6 +1364,9 @@ class PDBEntry:
         informative_mask = indices != -1
         res_indices = np.where(mask == 1)[0]
         unique_numbers = self.get_unique_residue_numbers(chain)
+        pdb_seq = self._pdb_sequence(chain)
+        if len(unique_numbers) != len(pdb_seq):
+            raise PDBError(&#34;Inconsistencies in the biopandas dataframe&#34;)
         replace_dict = {x: y for x, y in zip(unique_numbers, res_indices)}
         chain_crd.loc[:, &#34;unique_residue_number&#34;] = chain_crd[
             &#34;unique_residue_number&#34;
@@ -2036,6 +2040,9 @@ from the PDB file.</p>
         informative_mask = indices != -1
         res_indices = np.where(mask == 1)[0]
         unique_numbers = self.get_unique_residue_numbers(chain)
+        pdb_seq = self._pdb_sequence(chain)
+        if len(unique_numbers) != len(pdb_seq):
+            raise PDBError(&#34;Inconsistencies in the biopandas dataframe&#34;)
         replace_dict = {x: y for x, y in zip(unique_numbers, res_indices)}
         chain_crd.loc[:, &#34;unique_residue_number&#34;] = chain_crd[
             &#34;unique_residue_number&#34;
@@ -2299,6 +2306,9 @@ of the PDB (zeros where the coordinates are unknown)</dd>
     informative_mask = indices != -1
     res_indices = np.where(mask == 1)[0]
     unique_numbers = self.get_unique_residue_numbers(chain)
+    pdb_seq = self._pdb_sequence(chain)
+    if len(unique_numbers) != len(pdb_seq):
+        raise PDBError(&#34;Inconsistencies in the biopandas dataframe&#34;)
     replace_dict = {x: y for x, y in zip(unique_numbers, res_indices)}
     chain_crd.loc[:, &#34;unique_residue_number&#34;] = chain_crd[
         &#34;unique_residue_number&#34;
@@ -2780,7 +2790,8 @@ and non-CDR residues are marked with <code>'-'</code></dd>
         elif cdr is not None or only_known:
             seq = np.array(list(seq))
         if cdr is not None:
-            seq = seq[self.cdr == cdr]
+            cdr_arr = self.get_cdr(chains=chains)
+            seq = seq[cdr_arr == cdr]
         if only_known:
             seq = seq[self.get_mask(chains=chains, cdr=cdr).astype(bool)]
         if not encode and not isinstance(seq, str):
@@ -4554,7 +4565,8 @@ sequence as a <code>'numpy'</code> array of integers</dd>
     elif cdr is not None or only_known:
         seq = np.array(list(seq))
     if cdr is not None:
-        seq = seq[self.cdr == cdr]
+        cdr_arr = self.get_cdr(chains=chains)
+        seq = seq[cdr_arr == cdr]
     if only_known:
         seq = seq[self.get_mask(chains=chains, cdr=cdr).astype(bool)]
     if not encode and not isinstance(seq, str):

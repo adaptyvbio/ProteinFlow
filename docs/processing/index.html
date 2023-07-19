@@ -56,7 +56,7 @@ def run_processing(
     missing_middle_thr=0.1,
     filter_methods=True,
     remove_redundancies=False,
-    seq_identity_threshold=0.9,
+    redundancy_thr=0.9,
     n=None,
     force=False,
     tag=None,
@@ -65,6 +65,7 @@ def run_processing(
     sabdab=False,
     sabdab_data_path=None,
     require_antigen=False,
+    max_chains=5,
 ):
     &#34;&#34;&#34;Download and parse PDB files that meet filtering criteria.
 
@@ -103,7 +104,7 @@ def run_processing(
         If `True`, only files obtained with X-ray or EM will be processed
     remove_redundancies : bool, default False
         If `True`, removes biounits that are doubles of others sequence wise
-    seq_identity_threshold : float, default 0.9
+    redundancy_thr : float, default 0.9
         The threshold upon which sequences are considered as one and the same (default: 90%)
     n : int, default None
         The number of files to process (for debugging purposes)
@@ -121,6 +122,8 @@ def run_processing(
         path to a zip file or a directory containing SAbDab files (only used if `sabdab` is `True`)
     require_antigen : bool, default False
         if `True`, only keep files with antigen chains (only used if `sabdab` is `True`)
+    max_chains : int, default 5
+        the maximum number of chains per biounit
 
     Returns
     -------
@@ -158,8 +161,9 @@ def run_processing(
         f.write(f&#34;    remove_redundancies: {remove_redundancies} \n&#34;)
         f.write(f&#34;    sabdab: {sabdab} \n&#34;)
         f.write(f&#34;    pdb_snapshot: {pdb_snapshot} \n&#34;)
+        f.write(f&#34;    max_chains: {max_chains} \n&#34;)
         if remove_redundancies:
-            f.write(f&#34;    seq_identity_threshold: {seq_identity_threshold} \n&#34;)
+            f.write(f&#34;    redundancy_threshold: {redundancy_thr} \n&#34;)
         if sabdab:
             f.write(f&#34;    require_antigen: {require_antigen} \n&#34;)
             f.write(f&#34;    sabdab_data_path: {sabdab_data_path} \n&#34;)
@@ -188,6 +192,14 @@ def run_processing(
                 antigen = antigen.split(&#34; | &#34;)
         fn = os.path.basename(pdb_path)
         pdb_id = fn.split(&#34;.&#34;)[0]
+        if os.path.getsize(pdb_path) &gt; 1e7:
+            _log_exception(
+                PDBError(&#34;PDB / mmCIF file is too large&#34;),
+                LOG_FILE,
+                pdb_id,
+                TMP_FOLDER,
+                chain_id=chain_id,
+            )
         try:
             # local_path = download_f(pdb_id, s3_client=s3_client, load_live=load_live)
             name = pdb_id if not sabdab else pdb_id + &#34;-&#34; + chain_id
@@ -232,14 +244,18 @@ def run_processing(
             sabdab=sabdab,
             sabdab_data_path=sabdab_data_path,
             require_antigen=require_antigen,
+            max_chains=max_chains,
         )
         for id in error_ids:
             with open(LOG_FILE, &#34;a&#34;) as f:
                 f.write(f&#34;&lt;&lt;&lt; Could not download PDB/mmCIF file: {id} \n&#34;)
-        # paths = [(os.path.join(TMP_FOLDER, &#34;6tkb.pdb&#34;), &#34;H_L_nan&#34;)]
+        # paths = [(&#34;data/2c2m-1.pdb.gz&#34;, &#34;data/2c2m.fasta&#34;)]
         print(&#34;Filter and process...&#34;)
         _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
-        # _ = [process_f(x, force=force, sabdab=sabdab, show_error=True) for x in tqdm(paths)]
+        # _ = [
+        #     process_f(x, force=force, sabdab=sabdab, show_error=True)
+        #     for x in tqdm(paths)
+        # ]
     except Exception as e:
         _raise_rcsbsearch(e)
 
@@ -276,7 +292,7 @@ def run_processing(
 
     if remove_redundancies:
         removed = _remove_database_redundancies(
-            OUTPUT_FOLDER, seq_identity_threshold=seq_identity_threshold
+            OUTPUT_FOLDER, seq_identity_threshold=redundancy_thr
         )
         _log_removed(removed, LOG_FILE)
 
@@ -320,7 +336,7 @@ def filter_and_convert(
     if pdb_entry.has_unnatural_amino_acids():
         raise PDBError(&#34;Unnatural amino acids found&#34;)
 
-    for (chain,) in pdb_entry.get_chains():
+    for chain in pdb_entry.get_chains():
         pdb_dict[chain] = {}
         chain_crd = pdb_entry.get_sequence_df(chain)
         fasta_seq = fasta_dict[chain]
@@ -526,7 +542,7 @@ def _raise_rcsbsearch(e):
     if pdb_entry.has_unnatural_amino_acids():
         raise PDBError(&#34;Unnatural amino acids found&#34;)
 
-    for (chain,) in pdb_entry.get_chains():
+    for chain in pdb_entry.get_chains():
         pdb_dict[chain] = {}
         chain_crd = pdb_entry.get_sequence_df(chain)
         fasta_seq = fasta_dict[chain]
@@ -567,7 +583,7 @@ def _raise_rcsbsearch(e):
 </details>
 </dd>
 <dt id="proteinflow.processing.run_processing"><code class="name flex">
-<span>def <span class="ident">run_processing</span></span>(<span>tmp_folder='./data/tmp_pdb', output_folder='./data/pdb', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, filter_methods=True, remove_redundancies=False, seq_identity_threshold=0.9, n=None, force=False, tag=None, pdb_snapshot=None, load_live=False, sabdab=False, sabdab_data_path=None, require_antigen=False)</span>
+<span>def <span class="ident">run_processing</span></span>(<span>tmp_folder='./data/tmp_pdb', output_folder='./data/pdb', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, filter_methods=True, remove_redundancies=False, redundancy_thr=0.9, n=None, force=False, tag=None, pdb_snapshot=None, load_live=False, sabdab=False, sabdab_data_path=None, require_antigen=False, max_chains=5)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Download and parse PDB files that meet filtering criteria.</p>
@@ -604,7 +620,7 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
 <dd>If <code>True</code>, only files obtained with X-ray or EM will be processed</dd>
 <dt><strong><code>remove_redundancies</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>If <code>True</code>, removes biounits that are doubles of others sequence wise</dd>
-<dt><strong><code>seq_identity_threshold</code></strong> :&ensp;<code>float</code>, default <code>0.9</code></dt>
+<dt><strong><code>redundancy_thr</code></strong> :&ensp;<code>float</code>, default <code>0.9</code></dt>
 <dd>The threshold upon which sequences are considered as one and the same (default: 90%)</dd>
 <dt><strong><code>n</code></strong> :&ensp;<code>int</code>, default <code>None</code></dt>
 <dd>The number of files to process (for debugging purposes)</dd>
@@ -622,6 +638,8 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
 <dd>path to a zip file or a directory containing SAbDab files (only used if <code>sabdab</code> is <code>True</code>)</dd>
 <dt><strong><code>require_antigen</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, only keep files with antigen chains (only used if <code>sabdab</code> is <code>True</code>)</dd>
+<dt><strong><code>max_chains</code></strong> :&ensp;<code>int</code>, default <code>5</code></dt>
+<dd>the maximum number of chains per biounit</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -642,7 +660,7 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
     missing_middle_thr=0.1,
     filter_methods=True,
     remove_redundancies=False,
-    seq_identity_threshold=0.9,
+    redundancy_thr=0.9,
     n=None,
     force=False,
     tag=None,
@@ -651,6 +669,7 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
     sabdab=False,
     sabdab_data_path=None,
     require_antigen=False,
+    max_chains=5,
 ):
     &#34;&#34;&#34;Download and parse PDB files that meet filtering criteria.
 
@@ -689,7 +708,7 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
         If `True`, only files obtained with X-ray or EM will be processed
     remove_redundancies : bool, default False
         If `True`, removes biounits that are doubles of others sequence wise
-    seq_identity_threshold : float, default 0.9
+    redundancy_thr : float, default 0.9
         The threshold upon which sequences are considered as one and the same (default: 90%)
     n : int, default None
         The number of files to process (for debugging purposes)
@@ -707,6 +726,8 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
         path to a zip file or a directory containing SAbDab files (only used if `sabdab` is `True`)
     require_antigen : bool, default False
         if `True`, only keep files with antigen chains (only used if `sabdab` is `True`)
+    max_chains : int, default 5
+        the maximum number of chains per biounit
 
     Returns
     -------
@@ -744,8 +765,9 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
         f.write(f&#34;    remove_redundancies: {remove_redundancies} \n&#34;)
         f.write(f&#34;    sabdab: {sabdab} \n&#34;)
         f.write(f&#34;    pdb_snapshot: {pdb_snapshot} \n&#34;)
+        f.write(f&#34;    max_chains: {max_chains} \n&#34;)
         if remove_redundancies:
-            f.write(f&#34;    seq_identity_threshold: {seq_identity_threshold} \n&#34;)
+            f.write(f&#34;    redundancy_threshold: {redundancy_thr} \n&#34;)
         if sabdab:
             f.write(f&#34;    require_antigen: {require_antigen} \n&#34;)
             f.write(f&#34;    sabdab_data_path: {sabdab_data_path} \n&#34;)
@@ -774,6 +796,14 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
                 antigen = antigen.split(&#34; | &#34;)
         fn = os.path.basename(pdb_path)
         pdb_id = fn.split(&#34;.&#34;)[0]
+        if os.path.getsize(pdb_path) &gt; 1e7:
+            _log_exception(
+                PDBError(&#34;PDB / mmCIF file is too large&#34;),
+                LOG_FILE,
+                pdb_id,
+                TMP_FOLDER,
+                chain_id=chain_id,
+            )
         try:
             # local_path = download_f(pdb_id, s3_client=s3_client, load_live=load_live)
             name = pdb_id if not sabdab else pdb_id + &#34;-&#34; + chain_id
@@ -818,14 +848,18 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
             sabdab=sabdab,
             sabdab_data_path=sabdab_data_path,
             require_antigen=require_antigen,
+            max_chains=max_chains,
         )
         for id in error_ids:
             with open(LOG_FILE, &#34;a&#34;) as f:
                 f.write(f&#34;&lt;&lt;&lt; Could not download PDB/mmCIF file: {id} \n&#34;)
-        # paths = [(os.path.join(TMP_FOLDER, &#34;6tkb.pdb&#34;), &#34;H_L_nan&#34;)]
+        # paths = [(&#34;data/2c2m-1.pdb.gz&#34;, &#34;data/2c2m.fasta&#34;)]
         print(&#34;Filter and process...&#34;)
         _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
-        # _ = [process_f(x, force=force, sabdab=sabdab, show_error=True) for x in tqdm(paths)]
+        # _ = [
+        #     process_f(x, force=force, sabdab=sabdab, show_error=True)
+        #     for x in tqdm(paths)
+        # ]
     except Exception as e:
         _raise_rcsbsearch(e)
 
@@ -862,7 +896,7 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
 
     if remove_redundancies:
         removed = _remove_database_redundancies(
-            OUTPUT_FOLDER, seq_identity_threshold=seq_identity_threshold
+            OUTPUT_FOLDER, seq_identity_threshold=redundancy_thr
         )
         _log_removed(removed, LOG_FILE)
 
