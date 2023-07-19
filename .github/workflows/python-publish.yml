@@ -41,7 +41,7 @@ jobs:
           conda run -n proteinflow black .
       - name: Update the docs
         run: |
-          git pull
+          git pull origin main
           conda run -n proteinflow . dev/make_docs.sh
           echo ${{ needs.test.outputs.update }}
       - uses: stefanzweifel/git-auto-commit-action@v4
