@@ -1,7 +1,6 @@
 test.ipynb
-data/
+/data/
 .vscode/
-log*
 *egg-info
 */__pycache__/
 */*/__pycache__/

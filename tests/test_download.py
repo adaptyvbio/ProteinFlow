@@ -1,16 +1,16 @@
+"""Test download."""
 import os
 import shutil
 import subprocess
 
 import pytest
 
-from proteinflow import ProteinLoader
+from proteinflow.data.torch import ProteinLoader
 
 
 @pytest.mark.parametrize("tag", ["test", "test_old"])
 def test_download(tag):
-    """Test download_data + split_data + ProteinLoader"""
-
+    """Test download_data + split_data + ProteinLoader."""
     folder = f"./data/proteinflow_{tag}"
     if os.path.exists(folder):
         shutil.rmtree(folder)
@@ -62,4 +62,4 @@ def test_download(tag):
 
 
 if __name__ == "__main__":
-    test_download("test_old")
+    test_download("test")

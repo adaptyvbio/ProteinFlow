@@ -126,7 +126,8 @@ FEATURES_DICT["acceptor"].update(
 FEATURES_DICT["donor"].update(
     {**{x: 1 for x in "RKWNQHSTY"}, **{x: 0 for x in "DEACGILMFPV-"}}
 )
-CDR = {"-": 0, "H1": 1, "H2": 2, "H3": 3, "L1": 4, "L2": 5, "L3": 6}
+CDR_REVERSE = {"-": 0, "H1": 1, "H2": 2, "H3": 3, "L1": 4, "L2": 5, "L3": 6}
+CDR_ALPHABET = {v: k for k, v in CDR_REVERSE.items()}
 
 ALLOWED_AG_TYPES = {
     "protein",
@@ -162,6 +163,18 @@ SIDECHAIN_ORDER = {
 
 BACKBONE_ORDER = ["N", "C", "CA", "O"]
 
+MAIN_ATOM_DICT = defaultdict(lambda: None)
+d1to3 = {v: k for k, v in D3TO1.items()}
+for i, letter in enumerate(ALPHABET):
+    if i == 0:
+        continue
+    MAIN_ATOM_DICT[i] = MAIN_ATOMS[d1to3[letter]]
+
+ATOM_MASKS = dict()
+for k, v in SIDECHAIN_ORDER.items():
+    ATOM_MASKS[k] = np.ones(14)
+    ATOM_MASKS[k][len(v) + 4 :] = 0
+
 CDR_ENDS = {
     "L": {"L1": (24, 34), "L2": (50, 56), "L3": (89, 97)},
     "H": {"H1": (26, 32), "H2": (52, 56), "H3": (95, 102)},
@@ -184,6 +197,9 @@ S3Obj = namedtuple("S3Obj", ["key", "mtime", "size", "ETag"])
 ################################# PDB Constants ###################################
 ###################################################################################
 ALPHABET_PDB = "XACDEFGHIKLMNPQRSTVWY"
+
+ALPHABET_REVERSE = {x: i for i, x in enumerate(ALPHABET_PDB)}
+ALPHABET_REVERSE["-"] = 0
 
 GLOBAL_PAD_CHAR = 0
 ONE_TO_THREE_LETTER_MAP = {
@@ -211,6 +227,7 @@ ONE_TO_THREE_LETTER_MAP = {
 ATOM_MAP_4 = {a: ["N", "C", "CA", "O"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
 ATOM_MAP_1 = {a: ["CA"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
 ATOM_MAP_3 = {a: ["N", "C", "CA"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
+ATOM_MAP_14 = {D3TO1[k]: BACKBONE_ORDER + v for k, v in SIDECHAIN_ORDER.items()}
 
 
 def _PMAP(x):

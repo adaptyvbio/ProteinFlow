@@ -1,7 +1,9 @@
+"""Boto3 helper functions for downloading files from S3."""
 import asyncio
 import os
 import shutil
 import subprocess
+import zipfile
 from operator import attrgetter
 
 from aiobotocore.session import get_session
@@ -13,10 +15,7 @@ from proteinflow.constants import S3Obj
 
 
 def _download_dataset_dicts_from_s3(dict_folder_path, s3_path):
-    """
-    Download dictionaries containing database split information from s3 to a local folder
-    """
-
+    """Download dictionaries containing database split information from s3 to a local folder."""
     train_path = os.path.join(s3_path, "train.pickle")
     valid_path = os.path.join(s3_path, "valid.pickle")
     test_path = os.path.join(s3_path, "test.pickle")
@@ -49,7 +48,7 @@ def _s3list(
     list_objs=True,
     limit=None,
 ):
-    """Iterator that lists a bucket's objects under path, (optionally) starting with start and ending before end.
+    """Return an iterator that lists a bucket's objects under path, (optionally) starting with start and ending before end.
 
     If recursive is False, then list only the "depth=0" items (dirs and objects).
 
@@ -82,8 +81,8 @@ def _s3list(
     -------
     iterator
         an iterator of S3Obj.
-    """
 
+    """
     kwargs = dict()
     if start is not None:
         if not start.startswith(path):
@@ -123,6 +122,31 @@ def _s3list(
 
 def _download_dataset_from_s3(
     dataset_path="./data/proteinflow_20221110/",
+    s3_path="s3://ml4-main-storage/proteinflow_20221110/proteinflow_20221110.zip",
+):
+    """Download the pre-processed files."""
+    if s3_path.startswith("s3"):
+        print("Downloading the dataset from s3...")
+        local_zip_path = dataset_path.rstrip("/\\") + ".zip"
+        subprocess.run(
+            ["aws", "s3", "cp", "--no-sign-request", s3_path, local_zip_path]
+        )
+        print("Done!")
+    else:
+        shutil.move(s3_path, dataset_path)
+    with zipfile.ZipFile(local_zip_path, "r") as zip_ref:
+        zip_ref.extractall(os.path.dirname(dataset_path))
+
+
+def _get_s3_paths_from_tag(tag):
+    """Get the path to the data and split dictionary folders on S3 given a tag."""
+    dict_path = f"s3://proteinflow-datasets/{tag}/proteinflow_{tag}_splits_dict/"
+    data_path = f"s3://proteinflow-datasets/{tag}/proteinflow_{tag}.zip"
+    return data_path, dict_path
+
+
+def _download_zip_dataset_from_s3(
+    dataset_path="./data/proteinflow_20221110/",
     s3_path="s3://ml4-main-storage/proteinflow_20221110/",
 ):
     """Download the pre-processed files."""
@@ -136,19 +160,14 @@ def _download_dataset_from_s3(
         shutil.move(s3_path, dataset_path)
 
 
-def _get_s3_paths_from_tag(tag):
-    """Get the path to the data and split dictionary folders on S3 given a tag."""
-    dict_path = f"s3://proteinflow-datasets/{tag}/proteinflow_{tag}_splits_dict/"
-    data_path = f"s3://proteinflow-datasets/{tag}/proteinflow_{tag}/"
-    return data_path, dict_path
-
-
 async def _getobj(client, key):
+    """Get an object from S3."""
     resp = await client.get_object(Bucket="pdbsnapshots", Key=key)
     return await resp["Body"].read()
 
 
 async def _download_file(client, snapshots, tmp_folder, id):
+    """Download a file from S3."""
     pdb_id, biounit = id.lower().split("-")
     prefixes = [
         "/pub/pdb/data/biounit/PDB/all/",
@@ -175,6 +194,7 @@ async def _download_file(client, snapshots, tmp_folder, id):
 
 
 async def _go(download_list, tmp_folder, snapshots):
+    """Download multiple files from S3."""
     session = get_session()
     async with session.create_client(
         "s3", config=Config(signature_version=UNSIGNED)
@@ -202,6 +222,7 @@ def _singleProcess(download_list, tmp_folder, snapshots):
 
 
 def _download_s3_parallel(pdb_ids, tmp_folder, snapshots):
+    """Download files from S3 in parallel."""
     # number of process
     no_tasks = max(16, len(pdb_ids) // 5000)
 
