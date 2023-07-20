@@ -239,3 +239,6 @@ def _PMAP(x):
         FEATURES_DICT["acceptor"][x],
         FEATURES_DICT["donor"][x],
     ]
+
+
+COLORS = ["#62B9DC", "#EAB1C5", "#8090E6", "#3089A7", "#96E396", "#FCAC97", "#0C9094"]

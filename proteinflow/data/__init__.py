@@ -12,11 +12,13 @@ proteinflow pickle file or a PDB file.
 """
 import os
 import pickle
+import tempfile
 import urllib
 import warnings
 
 import numpy as np
 import pandas as pd
+import py3Dmol
 import requests
 from Bio import pairwise2
 from biopandas.pdb import PandasPdb
@@ -31,6 +33,7 @@ from proteinflow.constants import (
     CDR_ALPHABET,
     CDR_REVERSE,
     CDR_VALUES,
+    COLORS,
     D3TO1,
     MAIN_ATOM_DICT,
     SIDECHAIN_ORDER,
@@ -40,6 +43,7 @@ from proteinflow.data.utils import (
     PDBBuilder,
     PDBError,
     _annotate_sse,
+    _Atom,
     _dihedral_angle,
     _retrieve_chain_names,
 )
@@ -991,6 +995,13 @@ class ProteinEntry:
             start_index += chain_length
         return index_array
 
+    def visualize(self):
+        """Visualize the protein in 3D."""
+        with tempfile.NamedTemporaryFile(suffix=".pdb") as tmp:
+            self.to_pdb(tmp.name)
+            pdb_entry = PDBEntry(tmp.name)
+        pdb_entry.visualize()
+
 
 class PDBEntry:
     """A class for parsing PDB entries."""
@@ -1354,6 +1365,26 @@ class PDBEntry:
 
         """
         return self.get_pdb_df(chain)["unique_residue_number"].unique().tolist()
+
+    def visualize(self):
+        """Visualize the protein in 3D."""
+        outstr = []
+        for _, row in self.crd_df.iterrows():
+            outstr.append(_Atom(row))
+        chains = self.get_chains()
+        colors = {ch: COLORS[i % len(COLORS)] for i, ch in enumerate(chains)}
+        vis_string = "".join([str(x) for x in outstr])
+
+        view = py3Dmol.view(width=400, height=300)
+        view.addModelsAsFrames(vis_string)
+        for i, at in enumerate(outstr):
+            view.setStyle(
+                {"model": -1, "serial": i + 1},
+                {"cartoon": {"color": colors[at["chain"]]}},
+            )
+
+        view.zoomTo()
+        view.show()
 
 
 class SAbDabEntry(PDBEntry):

@@ -519,3 +519,31 @@ def _retrieve_chain_names(entry):
         return [_retrieve_author_chain(e) for e in entry[7:].split(", ")]
 
     return [_retrieve_author_chain(entry[6:])]
+
+
+class _Atom(dict):
+    def __init__(self, row):
+        self["type"] = row["record_name"]
+        self["idx"] = row["atom_number"]
+        self["name"] = row["atom_name"]
+        self["resname"] = row["residue_name"]
+        self["resid"] = row["residue_number"]
+        self["chain"] = row["chain_id"]
+        self["x"] = row["x_coord"]
+        self["y"] = row["y_coord"]
+        self["z"] = row["z_coord"]
+        self["sym"] = row["element_symbol"]
+
+    def __str__(self):
+        line = list(" " * 80)
+
+        line[0:6] = self["type"].ljust(6)
+        line[6:11] = str(self["idx"]).ljust(5)
+        line[12:16] = self["name"].ljust(4)
+        line[17:20] = self["resname"].ljust(3)
+        line[22:26] = str(self["resid"]).ljust(4)
+        line[30:38] = str(self["x"]).rjust(8)
+        line[38:46] = str(self["y"]).rjust(8)
+        line[46:54] = str(self["z"]).rjust(8)
+        line[76:78] = self["sym"].rjust(2)
+        return "".join(line) + "\n"
