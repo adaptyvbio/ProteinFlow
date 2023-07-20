@@ -996,7 +996,7 @@ class ProteinEntry:
         return index_array
 
     def visualize(self):
-        """Visualize the protein in 3D."""
+        """Visualize the protein in a notebook."""
         with tempfile.NamedTemporaryFile(suffix=".pdb") as tmp:
             self.to_pdb(tmp.name)
             pdb_entry = PDBEntry(tmp.name)
@@ -1367,7 +1367,7 @@ class PDBEntry:
         return self.get_pdb_df(chain)["unique_residue_number"].unique().tolist()
 
     def visualize(self):
-        """Visualize the protein in 3D."""
+        """Visualize the protein in a notebook."""
         outstr = []
         for _, row in self.crd_df.iterrows():
             outstr.append(_Atom(row))
