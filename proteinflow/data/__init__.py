@@ -1053,6 +1053,26 @@ class ProteinEntry:
             start_index += chain_length
         return index_array
 
+    def _get_highlight_mask_dict(self, highlight_mask=None):
+        chain_arr = self.get_chain_id_array(encode=False)
+        mask_arr = self.get_mask().astype(bool)
+        highlight_mask_dict = {}
+        if highlight_mask is not None:
+            chains = self.get_chains()
+            for chain in chains:
+                chain_mask = chain_arr == chain
+                pdb_highlight = highlight_mask[mask_arr & chain_mask]
+                highlight_mask_dict[chain] = pdb_highlight
+        return highlight_mask_dict
+
+    def _get_atom_dicts(self, highlight_mask=None):
+        """Get the atom dictionaries of the protein."""
+        highlight_mask_dict = self._get_highlight_mask_dict(highlight_mask)
+        with tempfile.NamedTemporaryFile(suffix=".pdb") as tmp:
+            self.to_pdb(tmp.name)
+            pdb_entry = PDBEntry(tmp.name)
+        return pdb_entry._get_atom_dicts(highlight_mask_dict=highlight_mask_dict)
+
     def visualize(self, highlight_mask=None):
         """Visualize the protein in a notebook.
 
@@ -1063,15 +1083,7 @@ class ProteinEntry:
             marked with 1 and the rest marked with 0
 
         """
-        chain_arr = self.get_chain_id_array(encode=False)
-        mask_arr = self.get_mask().astype(bool)
-        highlight_mask_dict = {}
-        if highlight_mask is not None:
-            chains = self.get_chains()
-            for chain in chains:
-                chain_mask = chain_arr == chain
-                pdb_highlight = highlight_mask[mask_arr & chain_mask]
-                highlight_mask_dict[chain] = pdb_highlight
+        highlight_mask_dict = self._get_highlight_mask_dict(highlight_mask)
         with tempfile.NamedTemporaryFile(suffix=".pdb") as tmp:
             self.to_pdb(tmp.name)
             pdb_entry = PDBEntry(tmp.name)
@@ -1460,11 +1472,11 @@ class PDBEntry:
             if at["resid"] != chain_last_res[at["chain"]]:
                 chain_last_res[at["chain"]] = at["resid"]
                 chain_counters[at["chain"]] += 1
-            at["pymol"] = {"cartoon": {"color": colors[at["chain"]]}}
+            at["pymol"] = {"stick": {"color": colors[at["chain"]]}}
             if highlight_mask_dict is not None and at["chain"] in highlight_mask_dict:
                 num = chain_counters[at["chain"]]
                 if highlight_mask_dict[at["chain"]][num - 1] == 1:
-                    at["pymol"] = {"cartoon": {"color": "red"}}
+                    at["pymol"] = {"stick": {"color": "red"}}
         return outstr
 
     def visualize(self, highlight_mask_dict=None):
