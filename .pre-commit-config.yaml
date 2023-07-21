@@ -37,6 +37,13 @@ repos:
         entry: codespell -L ser,unx,conect --skip "*ipynb,*/constants.py"
         language: python
         types: [text]
+-   repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.5.0
+    hooks:
+    -   id: commitlint
+        stages: [commit-msg]
+        additional_dependencies: ['@commitlint/config-conventional']
+
 # -   repo: https://github.com/jshwi/docsig
 #     rev: v0.30.0
 #     hooks:
