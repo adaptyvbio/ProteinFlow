@@ -1173,6 +1173,7 @@ def _get_split_dictionaries(
     valid_split=0.05,
     out_split_dict_folder="./data/dataset_splits_dict",
     min_seq_id=0.3,
+    tanimoto_clustering=False,
 ):
     """Split preprocessed data into training, validation and test.
 
@@ -1216,6 +1217,7 @@ def _get_split_dictionaries(
         tolerance=split_tolerance,
         min_seq_id=min_seq_id,
         sabdab=sabdab,
+        tanimoto_clustering=tanimoto_clustering,
     )
 
     classes_dict = train_classes_dict
