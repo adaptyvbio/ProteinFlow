@@ -1065,15 +1065,17 @@ class ProteinEntry:
                 highlight_mask_dict[chain] = pdb_highlight
         return highlight_mask_dict
 
-    def _get_atom_dicts(self, highlight_mask=None):
+    def _get_atom_dicts(self, highlight_mask=None, style="cartoon"):
         """Get the atom dictionaries of the protein."""
         highlight_mask_dict = self._get_highlight_mask_dict(highlight_mask)
         with tempfile.NamedTemporaryFile(suffix=".pdb") as tmp:
             self.to_pdb(tmp.name)
             pdb_entry = PDBEntry(tmp.name)
-        return pdb_entry._get_atom_dicts(highlight_mask_dict=highlight_mask_dict)
+        return pdb_entry._get_atom_dicts(
+            highlight_mask_dict=highlight_mask_dict, style=style
+        )
 
-    def visualize(self, highlight_mask=None):
+    def visualize(self, highlight_mask=None, style="cartoon"):
         """Visualize the protein in a notebook.
 
         Parameters
@@ -1081,6 +1083,8 @@ class ProteinEntry:
         highlight_mask : np.ndarray, optional
             A `'numpy'` array of shape `(L,)` with the residues to highlight
             marked with 1 and the rest marked with 0
+        style : str, default 'cartoon'
+            The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
 
         """
         highlight_mask_dict = self._get_highlight_mask_dict(highlight_mask)
@@ -1453,8 +1457,9 @@ class PDBEntry:
         """
         return self.get_pdb_df(chain)["unique_residue_number"].unique().tolist()
 
-    def _get_atom_dicts(self, highlight_mask_dict=None):
+    def _get_atom_dicts(self, highlight_mask_dict=None, style="cartoon"):
         """Get the atom dictionaries for visualization."""
+        assert style in ["cartoon", "sphere", "stick", "line", "cross"]
         outstr = []
         df_ = self.crd_df.sort_values(["chain_id", "residue_number"], inplace=False)
         for _, row in df_.iterrows():
@@ -1472,14 +1477,14 @@ class PDBEntry:
             if at["resid"] != chain_last_res[at["chain"]]:
                 chain_last_res[at["chain"]] = at["resid"]
                 chain_counters[at["chain"]] += 1
-            at["pymol"] = {"stick": {"color": colors[at["chain"]]}}
+            at["pymol"] = {style: {"color": colors[at["chain"]]}}
             if highlight_mask_dict is not None and at["chain"] in highlight_mask_dict:
                 num = chain_counters[at["chain"]]
                 if highlight_mask_dict[at["chain"]][num - 1] == 1:
-                    at["pymol"] = {"stick": {"color": "red"}}
+                    at["pymol"] = {style: {"color": "red"}}
         return outstr
 
-    def visualize(self, highlight_mask_dict=None):
+    def visualize(self, highlight_mask_dict=None, style="cartoon"):
         """Visualize the protein in a notebook.
 
         Parameters
@@ -1487,9 +1492,11 @@ class PDBEntry:
         highlight_mask_dict : dict, optional
             A dictionary mapping from chain IDs to a mask of 0s and 1s of the same length as the chain sequence;
             the atoms corresponding to 1s will be highlighted in red
+        style : str, default 'cartoon'
+            The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
 
         """
-        outstr = self._get_atom_dicts(highlight_mask_dict)
+        outstr = self._get_atom_dicts(highlight_mask_dict, style=style)
         vis_string = "".join([str(x) for x in outstr])
         view = py3Dmol.view(width=400, height=300)
         view.addModelsAsFrames(vis_string)

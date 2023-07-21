@@ -5,7 +5,7 @@ import py3Dmol
 from proteinflow.data import PDBEntry, ProteinEntry
 
 
-def show_animation_from_pdb(pdb_paths, highlight_mask_dict=None):
+def show_animation_from_pdb(pdb_paths, highlight_mask_dict=None, style="cartoon"):
     """Show an animation of the given PDB files.
 
     Parameters
@@ -15,13 +15,17 @@ def show_animation_from_pdb(pdb_paths, highlight_mask_dict=None):
     highlight_mask_dict : dict, optional
         Dictionary of masks to highlight. The keys are the names of the chains, and the values are `numpy` arrays of
         1s and 0s, where 1s indicate the atoms to highlight.
+    style : str, optional
+        The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
 
     """
     entries = [PDBEntry(path) for path in pdb_paths]
     models = ""
     for i, mol in enumerate(entries):
         models += "MODEL " + str(i) + "\n"
-        atoms = mol._get_atom_dicts(highlight_mask_dict=highlight_mask_dict)
+        atoms = mol._get_atom_dicts(
+            highlight_mask_dict=highlight_mask_dict, style=style
+        )
         models += "".join([str(x) for x in atoms])
         models += "ENDMDL\n"
 
@@ -37,7 +41,7 @@ def show_animation_from_pdb(pdb_paths, highlight_mask_dict=None):
     view.show()
 
 
-def show_animation_from_pickle(pickle_paths, highlight_mask=None):
+def show_animation_from_pickle(pickle_paths, highlight_mask=None, style="cartoon"):
     """Show an animation of the given pickle files.
 
     Parameters
@@ -47,13 +51,15 @@ def show_animation_from_pickle(pickle_paths, highlight_mask=None):
     highlight_mask : numpy.ndarray, optional
         Mask to highlight. 1s indicate the atoms to highlight; assumes
         the chains to be concatenated in alphabetical order.
+    style : str, optional
+        The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
 
     """
     entries = [ProteinEntry.from_pickle(path) for path in pickle_paths]
     models = ""
     for i, mol in enumerate(entries):
         models += "MODEL " + str(i) + "\n"
-        atoms = mol._get_atom_dicts(highlight_mask=highlight_mask)
+        atoms = mol._get_atom_dicts(highlight_mask=highlight_mask, style=style)
         models += "".join([str(x) for x in atoms])
         models += "ENDMDL\n"
 
