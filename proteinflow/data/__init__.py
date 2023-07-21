@@ -12,11 +12,14 @@ proteinflow pickle file or a PDB file.
 """
 import os
 import pickle
+import tempfile
 import urllib
 import warnings
+from collections import defaultdict
 
 import numpy as np
 import pandas as pd
+import py3Dmol
 import requests
 from Bio import pairwise2
 from biopandas.pdb import PandasPdb
@@ -31,6 +34,7 @@ from proteinflow.constants import (
     CDR_ALPHABET,
     CDR_REVERSE,
     CDR_VALUES,
+    COLORS,
     D3TO1,
     MAIN_ATOM_DICT,
     SIDECHAIN_ORDER,
@@ -40,6 +44,7 @@ from proteinflow.data.utils import (
     PDBBuilder,
     PDBError,
     _annotate_sse,
+    _Atom,
     _dihedral_angle,
     _retrieve_chain_names,
 )
@@ -508,6 +513,44 @@ class ProteinEntry:
         return ProteinEntry(seqs=seq, crds=crd, masks=mask, cdrs=cdr, chain_ids=chains)
 
     @staticmethod
+    def from_pdb_entry(pdb_entry):
+        """Load a protein entry from a `PDBEntry` object.
+
+        Parameters
+        ----------
+        pdb_entry : PDBEntry
+            A `PDBEntry` object
+
+        Returns
+        -------
+        entry : ProteinEntry
+            A `ProteinEntry` object
+
+        """
+        pdb_dict = {}
+        fasta_dict = pdb_entry.get_fasta()
+        for (chain,) in pdb_entry.get_chains():
+            pdb_dict[chain] = {}
+            fasta_seq = fasta_dict[chain]
+
+            # align fasta and pdb and check criteria)
+            mask = pdb_entry.get_mask([chain])[chain]
+            if isinstance(pdb_entry, SAbDabEntry):
+                pdb_dict[chain]["cdr"] = pdb_entry.get_cdr([chain])[chain]
+            pdb_dict[chain]["seq"] = fasta_seq
+            pdb_dict[chain]["msk"] = mask
+
+            # go over rows of coordinates
+            crd_arr = pdb_entry.get_coordinates_array(chain)
+
+            pdb_dict[chain]["crd_bb"] = crd_arr[:, :4, :]
+            pdb_dict[chain]["crd_sc"] = crd_arr[:, 4:, :]
+            pdb_dict[chain]["msk"][
+                (pdb_dict[chain]["crd_bb"] == 0).sum(-1).sum(-1) > 0
+            ] = 0
+        return ProteinEntry.from_dict(pdb_dict)
+
+    @staticmethod
     def from_pdb(
         pdb_path,
         fasta_path=None,
@@ -547,29 +590,48 @@ class ProteinEntry:
             )
         else:
             pdb_entry = PDBEntry(pdb_path=pdb_path, fasta_path=fasta_path)
-        pdb_dict = {}
-        fasta_dict = pdb_entry.get_fasta()
+        return ProteinEntry.from_pdb_entry(pdb_entry)
 
-        for (chain,) in pdb_entry.get_chains():
-            pdb_dict[chain] = {}
-            fasta_seq = fasta_dict[chain]
+    @staticmethod
+    def from_id(
+        pdb_id,
+        local_folder=".",
+        heavy_chain=None,
+        light_chain=None,
+        antigen_chains=None,
+    ):
+        """Load a protein entry from a PDB file.
 
-            # align fasta and pdb and check criteria)
-            mask = pdb_entry.get_mask([chain])[chain]
-            if isinstance(pdb_entry, SAbDabEntry):
-                pdb_dict[chain]["cdr"] = pdb_entry.get_cdr([chain])[chain]
-            pdb_dict[chain]["seq"] = fasta_seq
-            pdb_dict[chain]["msk"] = mask
+        Parameters
+        ----------
+        pdb_id : str
+            PDB ID of the protein
+        local_folder : str, default "."
+            Path to the local folder where the PDB file is saved
+        heavy_chain : str, optional
+            Chain ID of the heavy chain (to load a SAbDab entry)
+        light_chain : str, optional
+            Chain ID of the light chain (to load a SAbDab entry)
+        antigen_chains : list of str, optional
+            Chain IDs of the antigen chains (to load a SAbDab entry)
 
-            # go over rows of coordinates
-            crd_arr = pdb_entry.get_coordinates_array(chain)
+        Returns
+        -------
+        entry : ProteinEntry
+            A `ProteinEntry` object
 
-            pdb_dict[chain]["crd_bb"] = crd_arr[:, :4, :]
-            pdb_dict[chain]["crd_sc"] = crd_arr[:, 4:, :]
-            pdb_dict[chain]["msk"][
-                (pdb_dict[chain]["crd_bb"] == 0).sum(-1).sum(-1) > 0
-            ] = 0
-        return ProteinEntry.from_dict(pdb_dict)
+        """
+        if heavy_chain is not None or light_chain is not None:
+            pdb_entry = SAbDabEntry.from_id(
+                pdb_id=pdb_id,
+                local_folder=local_folder,
+                heavy_chain=heavy_chain,
+                light_chain=light_chain,
+                antigen_chains=antigen_chains,
+            )
+        else:
+            pdb_entry = PDBEntry.from_id(pdb_id=pdb_id)
+        return ProteinEntry.from_pdb_entry(pdb_entry)
 
     @staticmethod
     def from_pickle(path):
@@ -992,6 +1054,46 @@ class ProteinEntry:
             start_index += chain_length
         return index_array
 
+    def _get_highlight_mask_dict(self, highlight_mask=None):
+        chain_arr = self.get_chain_id_array(encode=False)
+        mask_arr = self.get_mask().astype(bool)
+        highlight_mask_dict = {}
+        if highlight_mask is not None:
+            chains = self.get_chains()
+            for chain in chains:
+                chain_mask = chain_arr == chain
+                pdb_highlight = highlight_mask[mask_arr & chain_mask]
+                highlight_mask_dict[chain] = pdb_highlight
+        return highlight_mask_dict
+
+    def _get_atom_dicts(self, highlight_mask=None, style="cartoon"):
+        """Get the atom dictionaries of the protein."""
+        highlight_mask_dict = self._get_highlight_mask_dict(highlight_mask)
+        with tempfile.NamedTemporaryFile(suffix=".pdb") as tmp:
+            self.to_pdb(tmp.name)
+            pdb_entry = PDBEntry(tmp.name)
+        return pdb_entry._get_atom_dicts(
+            highlight_mask_dict=highlight_mask_dict, style=style
+        )
+
+    def visualize(self, highlight_mask=None, style="cartoon"):
+        """Visualize the protein in a notebook.
+
+        Parameters
+        ----------
+        highlight_mask : np.ndarray, optional
+            A `'numpy'` array of shape `(L,)` with the residues to highlight
+            marked with 1 and the rest marked with 0
+        style : str, default 'cartoon'
+            The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
+
+        """
+        highlight_mask_dict = self._get_highlight_mask_dict(highlight_mask)
+        with tempfile.NamedTemporaryFile(suffix=".pdb") as tmp:
+            self.to_pdb(tmp.name)
+            pdb_entry = PDBEntry(tmp.name)
+        pdb_entry.visualize(highlight_mask_dict=highlight_mask_dict)
+
 
 class PDBEntry:
     """A class for parsing PDB entries."""
@@ -1383,6 +1485,57 @@ class PDBEntry:
 
         """
         return self.get_pdb_df(chain)["unique_residue_number"].unique().tolist()
+
+    def _get_atom_dicts(self, highlight_mask_dict=None, style="cartoon"):
+        """Get the atom dictionaries for visualization."""
+        assert style in ["cartoon", "sphere", "stick", "line", "cross"]
+        outstr = []
+        df_ = self.crd_df.sort_values(["chain_id", "residue_number"], inplace=False)
+        for _, row in df_.iterrows():
+            outstr.append(_Atom(row))
+        chains = self.get_chains()
+        colors = {ch: COLORS[i % len(COLORS)] for i, ch in enumerate(chains)}
+        chain_counters = defaultdict(int)
+        chain_last_res = defaultdict(lambda: None)
+        if highlight_mask_dict is not None:
+            for chain, mask in highlight_mask_dict.items():
+                assert len(mask) == len(
+                    self._pdb_sequence(chain)
+                ), "Mask length does not match sequence length"
+        for at in outstr:
+            if at["resid"] != chain_last_res[at["chain"]]:
+                chain_last_res[at["chain"]] = at["resid"]
+                chain_counters[at["chain"]] += 1
+            at["pymol"] = {style: {"color": colors[at["chain"]]}}
+            if highlight_mask_dict is not None and at["chain"] in highlight_mask_dict:
+                num = chain_counters[at["chain"]]
+                if highlight_mask_dict[at["chain"]][num - 1] == 1:
+                    at["pymol"] = {style: {"color": "red"}}
+        return outstr
+
+    def visualize(self, highlight_mask_dict=None, style="cartoon"):
+        """Visualize the protein in a notebook.
+
+        Parameters
+        ----------
+        highlight_mask_dict : dict, optional
+            A dictionary mapping from chain IDs to a mask of 0s and 1s of the same length as the chain sequence;
+            the atoms corresponding to 1s will be highlighted in red
+        style : str, default 'cartoon'
+            The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
+
+        """
+        outstr = self._get_atom_dicts(highlight_mask_dict, style=style)
+        vis_string = "".join([str(x) for x in outstr])
+        view = py3Dmol.view(width=400, height=300)
+        view.addModelsAsFrames(vis_string)
+        for i, at in enumerate(outstr):
+            view.setStyle(
+                {"model": -1, "serial": i + 1},
+                at["pymol"],
+            )
+        view.zoomTo()
+        view.show()
 
 
 class SAbDabEntry(PDBEntry):

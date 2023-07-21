@@ -56,6 +56,7 @@ def download_pdb(pdb_id, local_folder=".", sabdab=False):
         Path to the downloaded file
 
     """
+    pdb_id = pdb_id.lower()
     if sabdab:
         try:
             url = f"https://opig.stats.ox.ac.uk/webapps/sabdab-sabpred/sabdab/pdb/{pdb_id}/?scheme=chothia"
@@ -105,6 +106,7 @@ def download_fasta(pdb_id, local_folder="."):
         Path to the downloaded file
 
     """
+    pdb_id = pdb_id.lower()
     if "-" in pdb_id:
         pdb_id = pdb_id.split("-")[0]
     downloadurl = "https://www.rcsb.org/fasta/entry/"
