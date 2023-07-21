@@ -571,7 +571,7 @@ def _fill_dataset(
     n_homomers,
     n_heteromers,
     remaining_indices,
-    n_max_iter=50,
+    n_max_iter=100,
     tolerance=0.2,
 ):
     """
@@ -585,6 +585,7 @@ def _fill_dataset(
     sc_available, hm_available, ht_available = _test_availability(
         size_array, n_samples
     )  # rule of thumb to estimate if it is logical to try to fill the dataset with a given class
+
     distribution_satisfied = False
     n_iter = 0
     best_score = -np.inf
@@ -612,20 +613,38 @@ def _fill_dataset(
         )
 
         distribution_score = (
-            (single_chains_size - (1 - tolerance) * n_single_chains) * int(sc_available)
-            + ((1 + tolerance) * n_single_chains - single_chains_size)
-            * int(sc_available)
-            + (homomers_size - (1 - tolerance) * n_homomers) * int(hm_available)
-            + ((1 + tolerance) * n_homomers - homomers_size) * int(hm_available)
-            + (heteromers_size - (1 - tolerance) * n_heteromers) * int(ht_available)
-            + ((1 + tolerance) * n_heteromers - heteromers_size) * int(ht_available)
+            max(
+                (single_chains_size - (1 - tolerance) * n_single_chains)
+                * int(sc_available),
+                ((1 + tolerance) * n_single_chains - single_chains_size)
+                * int(sc_available),
+            )
+            + max(
+                (homomers_size - (1 - tolerance) * n_homomers) * int(hm_available),
+                ((1 + tolerance) * n_homomers - homomers_size) * int(hm_available),
+            )
+            + max(
+                (heteromers_size - (1 - tolerance) * n_heteromers) * int(ht_available),
+                ((1 + tolerance) * n_heteromers - heteromers_size) * int(ht_available),
+            )
         )
+
         if distribution_score > best_score:
             best_score = distribution_score
             best_indices = indices
+            best_dataset_clusters_dict = dataset_clusters_dict
+            best_dataset_classes_dict = dataset_classes_dict
+            best_single_chains_size = single_chains_size
+            best_homomers_size = homomers_size
+            best_heteromers_size = heteromers_size
 
+    indices = best_indices
+    dataset_clusters_dict = best_dataset_clusters_dict
+    dataset_classes_dict = best_dataset_classes_dict
+    single_chains_size = best_single_chains_size
+    homomers_size = best_homomers_size
+    heteromers_size = best_heteromers_size
     if not distribution_satisfied:
-        indices = best_indices
         (
             dataset_clusters_dict,
             dataset_classes_dict,
@@ -649,6 +668,30 @@ def _fill_dataset(
             ht_available,
             tolerance=tolerance,
         )
+        distribution_score = (
+            max(
+                (single_chains_size - (1 - tolerance) * n_single_chains)
+                * int(sc_available),
+                ((1 + tolerance) * n_single_chains - single_chains_size)
+                * int(sc_available),
+            )
+            + max(
+                (homomers_size - (1 - tolerance) * n_homomers) * int(hm_available),
+                ((1 + tolerance) * n_homomers - homomers_size) * int(hm_available),
+            )
+            + max(
+                (heteromers_size - (1 - tolerance) * n_heteromers) * int(ht_available),
+                ((1 + tolerance) * n_heteromers - heteromers_size) * int(ht_available),
+            )
+        )
+        if distribution_score < best_score:
+            indices = best_indices
+            dataset_clusters_dict = best_dataset_clusters_dict
+            dataset_classes_dict = best_dataset_classes_dict
+            single_chains_size = best_single_chains_size
+            homomers_size = best_homomers_size
+            heteromers_size = best_heteromers_size
+            remaining_indices = [i for i in remaining_indices if i not in indices]
     else:
         remaining_indices = [i for i in remaining_indices if i not in indices]
 
@@ -1039,7 +1082,7 @@ def _build_dataset_partition(
             lengths += [len(x[1]) for x in v]
         merged_seqs_dict = _merge_chains_ligands(smiles_dict)
         clusters_dict, clusters_pdb_dict = _run_tanimoto_clustering(
-            merged_seqs_dict, min_seq_id
+            merged_seqs_dict, min_seq_id, tmp_folder
         )
     else:
         cdrs = ["L1", "L2", "L3", "H1", "H2", "H3"] if sabdab else [None]

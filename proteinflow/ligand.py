@@ -16,13 +16,16 @@ with warnings.catch_warnings():
 
 import copy
 import gzip
+import mmap
 import os
 import pickle
 import shutil
 from collections import defaultdict
+from functools import partial
 
 from rdkit import Chem, DataStructs
-from rdkit.Chem import AllChem
+from rdkit.Chem import AllChem, rdFingerprintGenerator
+from rdkit.DataStructs.cDataStructs import ExplicitBitVect
 from rdkit.ML.Cluster import Butina
 
 D3TO1 = {
@@ -750,12 +753,78 @@ def _merge_chains_ligands(seqs_dict_):
     return seqs_dict
 
 
-def calculate_tanimoto_similarity(mol1, mol2):
+def save_binary_vectors_to_file(vectors, file_path):
+    """Save binary vectors to a file."""
+    with open(file_path, "wb") as file:
+        for vector in vectors:
+            bytes_vector = np.packbits(vector)  # Convert binary array to bytes
+            file.write(bytes_vector)
+
+
+def get_binary_vector_by_index(file_path, index, vector_length):
+    """Get a binary vector from a file by index."""
+    # vector_length = 2048
+    vector_byte_size = (vector_length + 7) // 8  # Number of bytes per vector
+
+    with open(file_path, "rb") as file:
+        with mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+            start = index * vector_byte_size
+            end = start + vector_byte_size
+
+            bytes_vector = mm[start:end]
+            binary_vector = np.unpackbits(np.frombuffer(bytes_vector, dtype=np.uint8))
+
+    return binary_vector[:vector_length]  # Trim the array to the original size
+
+
+def calculate_fingerprint_similarity(fp1, fp2):
     """Calculate the Tanimoto similarity between two molecules."""
-    fp1 = Chem.RDKFingerprint(mol1)
-    fp2 = Chem.RDKFingerprint(mol2)
+    # fpgen = rdFingerprintGenerator.GetMorganGenerator(radius=3, fpSize=2048)
+    # fp1 = fpgen.GetFingerprint(mol1)
+    # fp2 = fpgen.GetFingerprint(mol2)
+    # bit_string = ''.join(str(bit) for bit in fp1)
+    # bfp1 = DataStructs.CreateFromBitString(bit_string)
+
+    # bit_string = ''.join(str(bit) for bit in fp2)
+    # bfp2 = DataStructs.CreateFromBitString(bit_string)
+
     similarity = DataStructs.FingerprintSimilarity(fp1, fp2)
     return similarity
+
+
+def calculate_tanimoto_similarity(mol1, mol2):
+    """Calculate the Tanimoto similarity between two molecules."""
+    fpgen = rdFingerprintGenerator.GetMorganGenerator(radius=3, fpSize=2048)
+    fp1 = fpgen.GetFingerprint(mol1)
+    fp2 = fpgen.GetFingerprint(mol2)
+    similarity = DataStructs.FingerprintSimilarity(fp1, fp2)
+    return similarity
+
+
+def calculate_similarity(args, vector_length=2048, root_path="bin_fps"):
+    """Calculate the Tanimoto distance between two fp vectors."""
+    i, j = args
+    # i, j, txt_file = args
+
+    # sm1 = get_line_by_index(txt_file, i)
+    # sm2 = get_line_by_index(txt_file, j)
+
+    # molecule1 = Chem.MolFromSmiles(sm1)
+    # molecule2 = Chem.MolFromSmiles(sm2)
+    # fp1, fp2 = get_binary_vector_by_index(file_path, i, vector_length), get_binary_vector_by_index(file_path, j, vector_length)
+    with open(root_path + str(i) + ".pickle", "rb") as file:
+        bfp1 = pickle.load(file)
+
+    with open(root_path + str(j) + ".pickle", "rb") as file:
+        bfp2 = pickle.load(file)
+
+    fp1 = ExplicitBitVect(2048)
+    fp1.FromBase64(bfp1)
+    fp2 = ExplicitBitVect(2048)
+    fp2.FromBase64(bfp2)
+
+    similarity = calculate_fingerprint_similarity(fp1, fp2)
+    return i, j, 1 - similarity
 
 
 def _compare_lig_identity(lig, ligs, threshold):
@@ -788,53 +857,146 @@ def calculate_tanimoto_distance(sm1, sm2):
     return 1 - calculate_tanimoto_similarity(mol1, mol2)
 
 
-def calculate_similarity(args):
-    """Calculate the Tanimoto distance between two molecules."""
-    i, j, molecule1, molecule2 = args
-    similarity = calculate_tanimoto_similarity(molecule1, molecule2)
-    return i, j, 1 - similarity
+def get_line_by_index(file_path, index):
+    """Get a line from a file by index."""
+    with open(file_path) as file:
+        with mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+            start = mm.find(b"\n", mm.find(b"\n", 0) + 1)  # Skip the first line
+
+            for _ in range(index):
+                start = mm.find(b"\n", start + 1)
+
+            end = mm.find(b"\n", start + 1)
+            line = mm[start + 1 : end].decode().strip()
+
+    return line
 
 
 # Define a function to perform Tanimoto clustering
-def perform_tanimoto_clustering(smiles_list, threshold):
+def perform_tanimoto_clustering(smiles_list, threshold, tmp_folder):
     """Perform Tanimoto clustering."""
     from multiprocessing import Pool
 
+    unique_smiles = []
+    smiles_mapping = []
+    print("Mapping unique smiles for Tanimoto...")
+    counter = 0
+    for i, sm in tqdm(enumerate(smiles_list)):
+        if sm not in unique_smiles:
+            unique_smiles.append(sm)
+            smiles_mapping.append(counter)
+            counter += 1
+        else:
+            smiles_mapping.append(unique_smiles.index(sm))
     # Convert SMILES to RDKit molecules
-    molecules = [Chem.MolFromSmiles(smiles) for smiles in smiles_list]
+    # molecules = [Chem.MolFromSmiles(smiles) for smiles in unique_smiles]
 
     # Calculate pairwise similarities
     # similarity_matrix = np.zeros((len(molecules), len(molecules)))
 
-    print("Constructing distance matrix...")
+    print("Calculating fingerprints...")
+    fpSize = 2048
+    tmp_root_path = "./tmp_fps/"
+    # filename = tmp_root_path+"bin_fps.h5"
+
+    if os.path.exists(tmp_root_path):
+        # Remove the old directory and its contents
+        for root, dirs, files in os.walk(tmp_root_path, topdown=False):
+            for file_name in files:
+                file_path = os.path.join(root, file_name)
+                os.remove(file_path)
+            for dir_name in dirs:
+                dir_path = os.path.join(root, dir_name)
+                os.rmdir(dir_path)
+        os.rmdir(tmp_root_path)
+
+    # Create the new directory
+    os.makedirs(tmp_root_path)
+
+    # FPs = np.zeros((len(unique_smiles), fpSize), dtype=int)
+    fpgen = rdFingerprintGenerator.GetMorganGenerator(radius=3, fpSize=fpSize)
+    # fp1 = fpgen.GetFingerprint(mol1)
+    for i, sm in tqdm(enumerate(unique_smiles)):
+        mol = Chem.MolFromSmiles(sm)
+        fp = fpgen.GetFingerprint(mol)
+        # data = base64.b64decode(fp.ToBase64())
+        with open(tmp_root_path + str(i) + ".pickle", "wb") as file:
+            pickle.dump(fp.ToBase64(), file)
+
+    print("Preparing parallel Tanimoto...")
+    # with open("unique_smiles.txt", "w") as file:
+    #    for item in unique_smiles:
+    #        file.write(item + "\n")
+
     similarity_matrix = []
     args_list = []
-    for i in range(len(molecules)):
+    for i in tqdm(range(len(unique_smiles))):
         for j in range(i):
-            args_list.append((i, j, molecules[i], molecules[j]))
+            args_list.append((i, j))
+            # args_list.append((i, j, "unique_smiles.txt"))
+
+    print("Constructing distance matrix...")
     with Pool() as pool:
         # results = pool.map(calculate_similarity, args_list)
         results = []
         for result in tqdm(
-            pool.imap_unordered(calculate_similarity, args_list), total=len(args_list)
+            pool.imap_unordered(
+                partial(
+                    calculate_similarity, vector_length=fpSize, root_path=tmp_root_path
+                ),
+                args_list,
+            ),
+            total=len(args_list),
         ):
             results.append(result)
 
+    square_dist = np.zeros((len(unique_smiles), len(unique_smiles)))
     for i, j, distance in sorted(results):
-        similarity_matrix.append(distance)
+        square_dist[i][j] = distance
 
+    print("Saving distance matrix...")
+    np.save(tmp_folder + "/" + "Tanimoto_distance_matrix.npy", square_dist)
+    N = len(smiles_list)
+    results = None
+    unique_smiles = None
+    smiles_list = None
+    args_list = None
+
+    print("Copying results...")
+    counter = 0
+    for i in tqdm(range(N)):
+        for j in range(i):
+            # similarity_matrix.append(np.random.random())
+            counter += 1
+    similarity_matrix = np.zeros(counter)
+    k = 0
+    for i in tqdm(range(N)):
+        for j in range(i):
+            Ii = max(smiles_mapping[i], smiles_mapping[j])
+            J = min(smiles_mapping[i], smiles_mapping[j])
+            similarity_matrix[k] = square_dist[Ii][J]
+            k += 1
     # Perform clustering
     # dist_matrix = 1 - similarity_matrix
     # print(similarity_matrix)
     print("Clustering with Butina")
-    clusters = Butina.ClusterData(
-        similarity_matrix, len(smiles_list), threshold, isDistData=True
-    )
+    clusters = Butina.ClusterData(similarity_matrix, N, threshold, isDistData=True)
+
+    if os.path.exists(tmp_root_path):
+        # Remove the old directory and its contents
+        for root, dirs, files in os.walk(tmp_root_path, topdown=False):
+            for file_name in files:
+                file_path = os.path.join(root, file_name)
+                os.remove(file_path)
+            for dir_name in dirs:
+                dir_path = os.path.join(root, dir_name)
+                os.rmdir(dir_path)
+        os.rmdir(tmp_root_path)
 
     return clusters
 
 
-def _run_tanimoto_clustering(smiles_dict, threshold):
+def _run_tanimoto_clustering(smiles_dict, threshold, tmp_folder):
     """Run Tanimoto clustering on a dictionary of SMILES."""
     smiles_list = []
     chains_list = []
@@ -842,7 +1004,7 @@ def _run_tanimoto_clustering(smiles_dict, threshold):
         for c in smiles_dict[k]:
             chains_list.append(k + "_" + c[0])
             smiles_list.append(c[1])
-    clusters = perform_tanimoto_clustering(smiles_list, threshold)
+    clusters = perform_tanimoto_clustering(smiles_list, threshold, tmp_folder)
     chain_cluster_dict = {}
     pdb_cluster_dict = {}
     for i, cluster in enumerate(clusters):

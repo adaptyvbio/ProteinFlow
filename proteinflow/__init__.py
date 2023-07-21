@@ -568,6 +568,7 @@ def _get_pdb_ids(
 
                     # Add extracted elements to the list
                     pdb_ids.extend(line_elements)
+                pdb_ids = np.unique(pdb_ids)
                 random.shuffle(pdb_ids)
         except FileNotFoundError:
             print(f"The file '{pdb_id_list_path}' does not exist.")
@@ -991,6 +992,7 @@ def generate_data(
     not_filter_methods=False,
     not_remove_redundancies=False,
     skip_splitting=False,
+    skip_processing=False,
     seq_identity_threshold=0.9,
     n=None,
     force=False,
@@ -1058,6 +1060,8 @@ def generate_data(
         If 'False', removes biounits that are doubles of others sequence wise
     skip_splitting : bool, default False
         if `True`, skip the split dictionary creation and the file moving steps
+    skip_splitting : bool, default False
+        if `True`, skip downloading and processing the data
     seq_identity_threshold : float, default 0.9
         The threshold upon which sequences are considered as one and the same (default: 90%)
     n : int, default None
@@ -1104,7 +1108,7 @@ def generate_data(
     if tag is None:
         if pdb_id_list_path is None:
             raise RuntimeError(
-                "Please input a data source: valid tag of or a pdb ids list"
+                "Please input a data source: valid tag or a pdb ids list"
             )
         else:
             tag = pdb_id_list_path.split("/")[-1].split(".")[0]
@@ -1123,31 +1127,33 @@ def generate_data(
 
     output_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
 
-    if force and os.path.exists(output_folder):
-        shutil.rmtree(output_folder)
+    if not skip_processing:
+        if force and os.path.exists(output_folder):
+            shutil.rmtree(output_folder)
 
-    log_dict = _run_processing(
-        tmp_folder=tmp_folder,
-        output_folder=output_folder,
-        min_length=min_length,
-        max_length=max_length,
-        resolution_thr=resolution_thr,
-        missing_ends_thr=missing_ends_thr,
-        missing_middle_thr=missing_middle_thr,
-        filter_methods=filter_methods,
-        remove_redundancies=remove_redundancies,
-        seq_identity_threshold=seq_identity_threshold,
-        n=n,
-        force=force,
-        tag=tag,
-        pdb_snapshot=pdb_snapshot,
-        load_live=load_live,
-        sabdab=sabdab,
-        sabdab_data_path=sabdab_data_path,
-        require_antigen=require_antigen,
-        pdb_id_list_path=pdb_id_list_path,
-        load_ligands=load_ligands,
-    )
+        log_dict = _run_processing(
+            tmp_folder=tmp_folder,
+            output_folder=output_folder,
+            min_length=min_length,
+            max_length=max_length,
+            resolution_thr=resolution_thr,
+            missing_ends_thr=missing_ends_thr,
+            missing_middle_thr=missing_middle_thr,
+            filter_methods=filter_methods,
+            remove_redundancies=remove_redundancies,
+            seq_identity_threshold=seq_identity_threshold,
+            n=n,
+            force=force,
+            tag=tag,
+            pdb_snapshot=pdb_snapshot,
+            load_live=load_live,
+            sabdab=sabdab,
+            sabdab_data_path=sabdab_data_path,
+            require_antigen=require_antigen,
+            pdb_id_list_path=pdb_id_list_path,
+            load_ligands=load_ligands,
+        )
+
     if not skip_splitting:
         if tanimoto_clustering and not load_ligands:
             print(
@@ -1242,7 +1248,7 @@ def _get_excluded_files(
     return exclude_biounits
 
 
-def _exclude_files_with_no_ligand(tag, local_datasets_folder, tmp_folder):
+def _exclude_files_with_no_ligand(tag, local_datasets_folder):
     """Get a list of files to exclude from the dataset.
 
     Biounits are excluded if they don't contain ligands.
@@ -1255,14 +1261,8 @@ def _exclude_files_with_no_ligand(tag, local_datasets_folder, tmp_folder):
         the path to the folder that stores proteinflow datasets
     tmp_folder : str
         the path to the folder that stores temporary files
-    exclude_chains_w_no_lig: bool, default False
-        Whether or not to exclude chains with no ligand from the clustering
 
     """
-    # download fasta files for excluded chains
-    if not os.path.exists(tmp_folder):
-        os.makedirs(tmp_folder)
-
     # iterate over files in the dataset to check ligand
     exclude_biounits = []
     for fn in tqdm(
@@ -1371,7 +1371,6 @@ def split_data(
         excluded_biounits += _exclude_files_with_no_ligand(
             tag,
             local_datasets_folder,
-            temp_folder,
         )
 
     output_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
