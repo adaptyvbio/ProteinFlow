@@ -63,7 +63,7 @@ def _log_exception(exception, log_file, pdb_id, tmp_folder, chain_id=None):
             f.write(f"<<< {str(exception)}: {pdb_id} \n")
     else:
         with open(log_file, "a") as f:
-            f.write(f"<<< Unknown: {pdb_id} \n")
+            f.write(f"<<< Unknown: {pdb_id} {exception}\n")
             f.write(traceback.format_exc())
             f.write("\n")
 

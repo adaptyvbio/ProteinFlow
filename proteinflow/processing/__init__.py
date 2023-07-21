@@ -319,6 +319,7 @@ def filter_and_convert(
     """
     pdb_dict = {}
     fasta_dict = pdb_entry.get_fasta()
+    loaded_ligands = False
     if load_ligands and pdb_entry.get_ligands() is not None:
         ligand_dict = pdb_entry.get_ligands()
         loaded_ligands = True
