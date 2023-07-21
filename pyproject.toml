@@ -33,6 +33,10 @@ dependencies = [
     "rcsbsearch",
     "blosum>=2.0",
     "pre-commit",
+    "rdkit",
+    "pypdb",
+    "prody",
+    "joblib",
     "methodtools",
     "py3Dmol",
 ]

@@ -13,6 +13,7 @@ from tqdm import tqdm
 from proteinflow.data import PDBEntry, SAbDabEntry
 from proteinflow.data.utils import PDBError
 from proteinflow.download import _load_files
+from proteinflow.ligand import _compare_smiles
 from proteinflow.logging import _log_exception, _log_removed, get_error_summary
 
 
@@ -36,6 +37,8 @@ def run_processing(
     sabdab_data_path=None,
     require_antigen=False,
     max_chains=5,
+    pdb_id_list_path=None,
+    load_ligands=False,
 ):
     """Download and parse PDB files that meet filtering criteria.
 
@@ -94,6 +97,10 @@ def run_processing(
         if `True`, only keep files with antigen chains (only used if `sabdab` is `True`)
     max_chains : int, default 5
         the maximum number of chains per biounit
+    pdb_id_list_path : str, default None
+        if provided, get pdb_ids from list (format pdb_id-num example: 1XYZ-1)
+    load_ligands: boool, default False
+        Whether or not to load the ligands in the pdbs
 
     Returns
     -------
@@ -146,6 +153,7 @@ def run_processing(
         show_error=False,
         force=True,
         sabdab=False,
+        ligand=False,
     ):
         pdb_path, fasta_path = local_paths
         chain_id = None
@@ -185,7 +193,9 @@ def run_processing(
                     fasta_path=fasta_path,
                 )
             else:
-                pdb_entry = PDBEntry(pdb_path=pdb_path, fasta_path=fasta_path)
+                pdb_entry = PDBEntry(
+                    pdb_path=pdb_path, fasta_path=fasta_path, load_ligand=ligand
+                )
             # filter and convert
             protein_dict = filter_and_convert(
                 pdb_entry,
@@ -193,6 +203,7 @@ def run_processing(
                 max_length=MAX_LENGTH,
                 max_missing_ends=MISSING_ENDS_THR,
                 max_missing_middle=MISSING_MIDDLE_THR,
+                load_ligands=ligand,
             )
             # save
             with open(target_file, "wb") as f:
@@ -215,13 +226,17 @@ def run_processing(
             sabdab_data_path=sabdab_data_path,
             require_antigen=require_antigen,
             max_chains=max_chains,
+            pdb_id_list_path=pdb_id_list_path,
         )
         for id in error_ids:
             with open(LOG_FILE, "a") as f:
                 f.write(f"<<< Could not download PDB/mmCIF file: {id} \n")
         # paths = [("data/2c2m-1.pdb.gz", "data/2c2m.fasta")]
         print("Filter and process...")
-        _ = p_map(lambda x: process_f(x, force=force, sabdab=sabdab), paths)
+        _ = p_map(
+            lambda x: process_f(x, force=force, sabdab=sabdab, ligand=load_ligands),
+            paths,
+        )
         # _ = [
         #     process_f(x, force=force, sabdab=sabdab, show_error=True)
         #     for x in tqdm(paths)
@@ -262,7 +277,9 @@ def run_processing(
 
     if remove_redundancies:
         removed = _remove_database_redundancies(
-            OUTPUT_FOLDER, seq_identity_threshold=redundancy_thr
+            OUTPUT_FOLDER,
+            seq_identity_threshold=redundancy_thr,
+            ligand_identity=load_ligands,
         )
         _log_removed(removed, LOG_FILE)
 
@@ -275,6 +292,7 @@ def filter_and_convert(
     max_length=150,
     max_missing_ends=5,
     max_missing_middle=5,
+    load_ligands: bool = False,
 ):
     """Filter and convert a PDBEntry to a ProteinEntry.
 
@@ -290,6 +308,8 @@ def filter_and_convert(
         The maximum fraction of missing residues at the ends
     missing_middle_thr : float, default 0.1
         The maximum fraction of missing residues in the middle (after missing ends are disregarded)
+    load_ligands: boool, default False
+        Whether or not to load the ligands in the pdbs
 
     Returns
     -------
@@ -299,6 +319,10 @@ def filter_and_convert(
     """
     pdb_dict = {}
     fasta_dict = pdb_entry.get_fasta()
+    loaded_ligands = False
+    if load_ligands and pdb_entry.get_ligands() is not None:
+        ligand_dict = pdb_entry.get_ligands()
+        loaded_ligands = True
 
     if len(pdb_entry.get_chains()) == 0:
         raise PDBError("No chains found")
@@ -339,6 +363,9 @@ def filter_and_convert(
         pdb_dict[chain]["crd_bb"] = crd_arr[:, :4, :]
         pdb_dict[chain]["crd_sc"] = crd_arr[:, 4:, :]
         pdb_dict[chain]["msk"][(pdb_dict[chain]["crd_bb"] == 0).sum(-1).sum(-1) > 0] = 0
+        if loaded_ligands:
+            if chain in ligand_dict.keys():
+                pdb_dict[chain]["ligand"] = ligand_dict[chain]
         if (pdb_dict[chain]["msk"][start:end] == 0).sum() > max_missing_middle * (
             end - start
         ):
@@ -346,7 +373,9 @@ def filter_and_convert(
     return pdb_dict
 
 
-def _remove_database_redundancies(dir, seq_identity_threshold=0.9):
+def _remove_database_redundancies(
+    dir, seq_identity_threshold=0.9, ligand_identity=False
+):
     """Remove all biounits in the database that are copies to another biounits in terms of sequence.
 
     Sequence identity is defined by the 'seq_identity_threshold' parameter for robust detection of sequence similarity (missing residues, point mutations, ...).
@@ -375,7 +404,9 @@ def _remove_database_redundancies(dir, seq_identity_threshold=0.9):
             [os.path.join(dir, file) for file in all_files[all_pdbs == pdb]]
         )
         biounits_list = sorted(biounits_list)
-        redundancies = _check_biounits(biounits_list, seq_identity_threshold)
+        redundancies = _check_biounits(
+            biounits_list, seq_identity_threshold, ligand_identity
+        )
         if redundancies != []:
             for k in redundancies:
                 total_removed.append(os.path.basename(biounits_list[k]).split(".")[0])
@@ -390,7 +421,7 @@ def _open_pdb(file):
         return pickle.load(f)
 
 
-def _check_biounits(biounits_list, threshold):
+def _check_biounits(biounits_list, threshold, ligand_identity):
     """Return the indexes of the redundant biounits within the list of files given by `biounits_list`."""
     biounits = [_open_pdb(b) for b in biounits_list]
     indexes = []
@@ -403,7 +434,27 @@ def _check_biounits(biounits_list, threshold):
                     continue
 
                 b2_seqs = [b2[chain]["seq"] for chain in b2.keys()]
-                if _compare_seqs(b1_seqs, b2_seqs, threshold):
+                if ligand_identity:
+                    ligs1 = []
+                    for chain in b1.keys():
+                        if "ligand" in b1[chain].keys():
+                            ligs1.append(
+                                ".".join(
+                                    list([c["smiles"] for c in b1[chain]["ligand"]])
+                                )
+                            )
+                    ligs2 = []
+                    for chain in b2.keys():
+                        if "ligand" in b2[chain].keys():
+                            ligs2.append(
+                                ".".join(
+                                    list([c["smiles"] for c in b2[chain]["ligand"]])
+                                )
+                            )
+                    equal_ligands = _compare_smiles(ligs1, ligs2, threshold)
+                else:
+                    equal_ligands = True
+                if _compare_seqs(b1_seqs, b2_seqs, threshold) and equal_ligands:
                     indexes.append(k + i + 1)
 
     return indexes

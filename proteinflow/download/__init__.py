@@ -123,31 +123,51 @@ def get_pdb_ids(
     pdb_snapshot=None,
     filter_methods=True,
     max_chains=5,
+    pdb_id_list_path=None,
 ):
     """Get PDB ids from PDB API."""
-    # get filtered PDB ids from PDB API
-    pdb_ids = (
-        Attr("rcsb_entry_info.selected_polymer_entity_types")
-        .__eq__("Protein (only)")
-        .or_("rcsb_entry_info.polymer_composition")
-        .__eq__("protein/oligosaccharide")
-    )
-    # if include_na:
-    #     pdb_ids = pdb_ids.or_('rcsb_entry_info.polymer_composition').in_(["protein/NA", "protein/NA/oligosaccharide"])
+    if pdb_id_list_path is not None:
+        pdb_ids = []  # List to store the extracted elements
 
-    if max_chains is not None:
-        pdb_ids = pdb_ids.and_(
-            "rcsb_assembly_info.polymer_entity_instance_count_protein"
-        ).__le__(max_chains)
-    if resolution_thr is not None:
-        pdb_ids = pdb_ids.and_("rcsb_entry_info.resolution_combined").__le__(
-            resolution_thr
+        try:
+            with open(pdb_id_list_path) as file:
+                # Read lines from the file
+                lines = file.readlines()
+
+                # Process each line
+                for line in lines:
+                    # Extract elements from the line (example: splitting by whitespace)
+                    line_elements = line.split()
+
+                    # Add extracted elements to the list
+                    pdb_ids.extend(line_elements)
+                pdb_ids = np.unique(pdb_ids)
+        except FileNotFoundError:
+            print(f"The file '{pdb_id_list_path}' does not exist.")
+    else:
+        # get filtered PDB ids from PDB API
+        pdb_ids = (
+            Attr("rcsb_entry_info.selected_polymer_entity_types")
+            .__eq__("Protein (only)")
+            .or_("rcsb_entry_info.polymer_composition")
+            .__eq__("protein/oligosaccharide")
         )
-    if filter_methods:
-        pdb_ids = pdb_ids.and_("exptl.method").in_(
-            ["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"]
-        )
-    pdb_ids = pdb_ids.exec("assembly")
+        # if include_na:
+        #     pdb_ids = pdb_ids.or_('rcsb_entry_info.polymer_composition').in_(["protein/NA", "protein/NA/oligosaccharide"])
+
+        if max_chains is not None:
+            pdb_ids = pdb_ids.and_(
+                "rcsb_assembly_info.polymer_entity_instance_count_protein"
+            ).__le__(max_chains)
+        if resolution_thr is not None:
+            pdb_ids = pdb_ids.and_("rcsb_entry_info.resolution_combined").__le__(
+                resolution_thr
+            )
+        if filter_methods:
+            pdb_ids = pdb_ids.and_("exptl.method").in_(
+                ["X-RAY DIFFRACTION", "ELECTRON MICROSCOPY"]
+            )
+        pdb_ids = pdb_ids.exec("assembly")
 
     ordered_folders = [
         x.key.strip("/")
@@ -197,6 +217,7 @@ def download_filtered_pdb_files(
     local_folder=".",
     load_live=False,
     max_chains=5,
+    pdb_id_list_path=None,
 ):
     """Download filtered PDB files and return a list of local file paths.
 
@@ -217,6 +238,8 @@ def download_filtered_pdb_files(
         instead of downloading them from the PDB snapshots
     max_chains : int, default 5
         Maximum number of chains per biounit
+    pdb_id_list_path : str, default None
+        Path to a file with a list of PDB IDs to download
 
     Returns
     -------
@@ -224,13 +247,13 @@ def download_filtered_pdb_files(
         List of local file paths
     error_ids : list of str
         List of PDB IDs that could not be downloaded
-
     """
     ordered_folders, pdb_ids = get_pdb_ids(
         resolution_thr=resolution_thr,
         pdb_snapshot=pdb_snapshot,
         filter_methods=filter_methods,
         max_chains=max_chains,
+        pdb_id_list_path=pdb_id_list_path,
     )
     with ThreadPoolExecutor(max_workers=8) as executor:
         print("Getting a file list...")
@@ -544,6 +567,7 @@ def _load_files(
     sabdab_data_path=None,
     require_antigen=False,
     max_chains=5,
+    pdb_id_list_path=None,
 ):
     """Download filtered structure files and return a list of local file paths."""
     if sabdab:
@@ -565,6 +589,7 @@ def _load_files(
             load_live=load_live,
             n=n,
             max_chains=max_chains,
+            pdb_id_list_path=pdb_id_list_path,
         )
     paths = [(x, _get_fasta_path(x)) for x in paths]
     return paths, error_ids

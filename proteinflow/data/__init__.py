@@ -49,6 +49,7 @@ from proteinflow.data.utils import (
     _retrieve_chain_names,
 )
 from proteinflow.download import download_fasta, download_pdb
+from proteinflow.ligand import _get_ligands
 
 
 def interpolate_coords(crd, mask, fill_ends=True):
@@ -1097,7 +1098,7 @@ class ProteinEntry:
 class PDBEntry:
     """A class for parsing PDB entries."""
 
-    def __init__(self, pdb_path, fasta_path=None):
+    def __init__(self, pdb_path, fasta_path=None, load_ligand=False):
         """Initialize a PDBEntry object.
 
         If no FASTA path is provided, the sequences will be fully inferred
@@ -1114,7 +1115,11 @@ class PDBEntry:
         self.pdb_path = pdb_path
         self.fasta_path = fasta_path
         self.pdb_id = os.path.basename(pdb_path).split(".")[0].split("-")[0]
-        self.crd_df, self.seq_df = self._parse_structure()
+        self.load_ligand = load_ligand
+        if load_ligand:
+            self.crd_df, self.seq_df, self.ligands = self._parse_structure()
+        else:
+            self.crd_df, self.seq_df = self._parse_structure()
         self.fasta_dict = self._parse_fasta()
 
     @staticmethod
@@ -1219,6 +1224,18 @@ class PDBEntry:
             )
         seq_df = p.amino3to1()
 
+        if self.load_ligand:
+            chain2ligands = None
+            try:
+                chain2ligands = _get_ligands(
+                    self.pdb_id,
+                    p,
+                    self.pdb_path,
+                )
+            except Exception:
+                raise PDBError("Failed to retrieve ligands")
+            return crd_df, seq_df, chain2ligands
+
         return crd_df, seq_df
 
     def _get_chain(self, chain):
@@ -1288,6 +1305,18 @@ class PDBEntry:
 
         """
         return self.fasta_dict
+
+    def get_ligands(self):
+        """Return the ligands dictionary.
+
+        Returns
+        -------
+        ligands : dict
+            A dictionary containing all the chains in a pdb file (keys)
+            and their corresponding processed ligands (values)
+
+        """
+        return self.ligands
 
     def get_chains(self):
         """Return the chains in the PDB.
