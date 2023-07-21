@@ -1,3 +1,4 @@
+"""Test generation."""
 import os
 import pickle
 import shutil
@@ -10,8 +11,7 @@ from proteinflow import generate_data, split_data
 
 
 def get_class(seqs_dict):
-    """Check if the protein is a homomer, a heteromer or a single chain"""
-
+    """Check if the protein is a homomer, a heteromer or a single chain."""
     keys = list(seqs_dict.keys())
     if len(keys) == 1:
         return "single_chains"
@@ -30,8 +30,7 @@ def get_class(seqs_dict):
 
 # @pytest.mark.skip()
 def test_generate():
-    """Test generate_data + split_data + chain class distribution"""
-
+    """Test generate_data + split_data + chain class distribution."""
     folder = "./data/proteinflow_test"
     if os.path.exists(folder):
         shutil.rmtree(folder)

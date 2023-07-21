@@ -1,3 +1,4 @@
+"""Provide common util functions."""
 import itertools
 import multiprocessing
 import os
@@ -12,6 +13,8 @@ from joblib import Parallel, delayed
 
 
 class PDBError(ValueError):
+    """Error raised when there is a problem with a PDB file."""
+
     pass
 
 
@@ -25,10 +28,7 @@ def _split_every(n, iterable):
 
 
 def _log_exception(exception, log_file, pdb_id, tmp_folder, chain_id=None):
-    """
-    Record the error in the log file
-    """
-
+    """Record the error in the log file."""
     if chain_id is None:
         _clean(pdb_id, tmp_folder)
     else:
@@ -44,19 +44,14 @@ def _log_exception(exception, log_file, pdb_id, tmp_folder, chain_id=None):
 
 
 def _log_removed(removed, log_file):
-    """
-    Record which files we removed due to redundancy
-    """
-
+    """Record which files we removed due to redundancy."""
     for pdb_id in removed:
         with open(log_file, "a") as f:
             f.write(f"<<< Removed due to redundancy: {pdb_id} \n")
 
 
 def _clean(pdb_id, tmp_folder):
-    """
-    Remove all temporary files associated with a PDB ID
-    """
+    """Remove all temporary files associated with a PDB ID."""
     for file in os.listdir(tmp_folder):
         if file.startswith(f"{pdb_id}."):
             subprocess.run(
@@ -67,10 +62,7 @@ def _clean(pdb_id, tmp_folder):
 
 
 def _raise_rcsbsearch(e):
-    """
-    Raise a RuntimeError if the error is due to rcsbsearch
-    """
-
+    """Raise a RuntimeError if the error is due to rcsbsearch."""
     if "404 Client Error" in str(e):
         raise RuntimeError(
             'Querying rcsbsearch is failing. Please install a version of rcsbsearch where this error is solved:\npython -m pip install "rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e"'
@@ -80,10 +72,7 @@ def _raise_rcsbsearch(e):
 
 
 def _make_sabdab_html(method, resolution_thr):
-    """
-    Make a URL for SAbDab search
-    """
-
+    """Make a URL for SAbDab search."""
     html = f"https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/search/?ABtype=All&method={'+'.join(method)}&species=All&resolution={resolution_thr}&rfactor=&antigen=All&ltype=All&constantregion=All&affinity=All&isin_covabdab=All&isin_therasabdab=All&chothiapos=&restype=ALA&field_0=Antigens&keyword_0=#downloads"
     return html
 
@@ -92,19 +81,13 @@ def _test_availability(
     size_array,
     n_samples,
 ):
-    """
-    Test if there are enough groups in each class to construct a dataset with the required number of samples
-    """
-
+    """Test if there are enough groups in each class to construct a dataset with the required number of samples."""
     present = np.sum(size_array != 0, axis=0)
     return present[0] > n_samples, present[1] > n_samples, present[2] > n_samples
 
 
 def _find_correspondences(files, dataset_dir):
-    """
-    Return a dictionary that contains all the biounits in the database (keys) and the list of all the chains that are in these biounits (values)
-    """
-
+    """Return a dictionary that contains all the biounits in the database (keys) and the list of all the chains that are in these biounits (values)."""
     correspondences = defaultdict(lambda: [])
     for file in files:
         biounit = file
@@ -117,6 +100,7 @@ def _find_correspondences(files, dataset_dir):
 
 
 def _get_number_of_chains(pdb_id):
+    """Return the number of chains in a PDB file."""
     api_url = f"https://data.rcsb.org/rest/v1/core/entry/{pdb_id}"
 
     try:
@@ -141,6 +125,7 @@ def _get_number_of_chains(pdb_id):
 
 
 def _create_jobs(file_path, strings, results):
+    """Create jobs for parallel processing."""
     # Perform your job creation logic here
     jobs = []
     for string in strings:
@@ -150,6 +135,7 @@ def _create_jobs(file_path, strings, results):
 
 
 def _process_strings(strings):
+    """Process strings in parallel."""
     results = {}
     processed_results = Parallel(n_jobs=-1)(
         delayed(_get_number_of_chains)(string) for string in strings
@@ -162,11 +148,13 @@ def _process_strings(strings):
 
 
 def _write_string_to_file(file_path, string, i):
+    """Write a string to a file."""
     with open(file_path, "a") as file:
         file.write(string.upper() + "-" + str(i + 1) + "\n")
 
 
 def _parallel_write_to_file(file_path, jobs):
+    """Write a list of strings to a file in parallel."""
     # Create a multiprocessing Pool with the desired number of processes
     pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
 
@@ -181,6 +169,7 @@ def _parallel_write_to_file(file_path, jobs):
 
 
 def _write_list_to_file(file_path, string_list):
+    """Write a list of strings to a file."""
     try:
         with open(file_path, "w") as file:
             # Write each string in the list to the file

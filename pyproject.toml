@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "proteinflow"
-version = "1.4.1"
+version = "2.0.0"
 authors = [
     {name = "Liza Kozlova", email = "liza@adaptyvbio.com"},
     {name = "Arthur Valentin", email = "arthur@adaptyvbio.com"}
@@ -29,23 +29,29 @@ dependencies = [
     "aiobotocore==2.4.2",
     "awscli==1.25.60",
     "bs4>=0.0.1",
+    "pyyaml==5.3",
     "rcsbsearch",
-    "blosum",
+    "blosum>=2.0",
     "pre-commit",
     "rdkit",
     "pypdb",
     "prody",
-    "joblib"
+    "joblib",
+    "methodtools",
 ]
 keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning"]
 
 [project.scripts]
-proteinflow = "proteinflow.scripts.proteinflow_cli:cli"
+proteinflow = "proteinflow.cli:cli"
 
 [tool.setuptools.packages]
 find = {}
 
 [tool.pydocstyle]
 convention = "numpy"
-match_dir = 'proteinflow'
-match = '__init__.py'
+
+[tool.docsig]
+disable = [
+    "E109",
+]
+ignore-no-parameters = true

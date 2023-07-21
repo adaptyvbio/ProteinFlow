@@ -9,15 +9,15 @@ from proteinflow import (
     check_pdb_snapshots,
     download_data,
     generate_data,
-    get_error_summary,
     split_data,
     unsplit_data,
 )
+from proteinflow.logging import get_error_summary
 
 
 @click.group(help="A data processing pipeline for protein design ML tasks")
 def cli():
-    """Perform data processing for protein design ML tasks."""
+    """Use a data processing pipeline for protein design ML tasks."""
     pass
 
 
@@ -101,7 +101,7 @@ def download(**kwargs):
     help="Unless this flag is used, removes biounits that are doubles of others sequence wise",
 )
 @click.option(
-    "--seq_identity_threshold",
+    "--redundancy_thr",
     default=0.9,
     type=float,
     help="The threshold upon which sequences are considered as one and the same (default: 90%)",
@@ -192,6 +192,12 @@ def download(**kwargs):
     default=42,
     type=int,
     help="The random seed to use for splitting",
+)
+@click.option(
+    "--max_chains",
+    default=10,
+    type=int,
+    help="The maximum number of chains per biounit",
 )
 @cli.command("generate", help="Generate a new ProteinFlow dataset")
 def generate(**kwargs):

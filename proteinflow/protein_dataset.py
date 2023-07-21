@@ -1,3 +1,4 @@
+"""Provide data loading and processing functionality for proteinflow datasets."""
 import os
 import pickle
 import random
@@ -25,7 +26,7 @@ from proteinflow.utils.boto_utils import (
 
 class ProteinDataset(Dataset):
     """
-    Dataset to load proteinflow data
+    Dataset to load proteinflow data.
 
     Saves the model input tensors as pickle files in `features_folder`. When `clustering_dict_path` is provided,
     at each iteration a random biounit from a cluster is sampled.
@@ -87,7 +88,9 @@ class ProteinDataset(Dataset):
         cut_edges=False,
     ):
         """
-        Parameters
+        Init method.
+
+        Parameters.
         ----------
         dataset_folder : str
             the path to the folder with proteinflow format input files (assumes that files are named {biounit_id}.pickle)
@@ -280,12 +283,11 @@ class ProteinDataset(Dataset):
 
     def _interpolate(self, crd_i, mask_i):
         """
-        Fill in missing values in the middle with linear interpolation and (if fill_ends is true) build an initialization for the ends
+        Fill in missing values in the middle with linear interpolation and (if fill_ends is true) build an initialization for the ends.
 
         For the ends, the first 10 residues are 3.6 A apart from each other on a straight line from the last known value away from the center.
         Next they are 3.6 A apart in a random direction.
         """
-
         if self.interpolate in ["all", "only_middle"]:
             crd_i[(1 - mask_i).astype(bool)] = np.nan
             df = pd.DataFrame(crd_i.reshape((crd_i.shape[0], -1)))
@@ -332,9 +334,7 @@ class ProteinDataset(Dataset):
         return crd_i, mask_i
 
     def _dihedral_angle(self, crd, msk):
-        """Praxeolitic formula
-        1 sqrt, 1 cross product"""
-
+        """Praxeolitic formula 1 sqrt, 1 cross product."""
         p0 = crd[..., 0, :]
         p1 = crd[..., 1, :]
         p2 = crd[..., 2, :]
@@ -356,10 +356,7 @@ class ProteinDataset(Dataset):
         return dh
 
     def _dihedral(self, chain_dict, seq):
-        """
-        Dihedral angles
-        """
-
+        """Dihedral angles."""
         crd = chain_dict["crd_bb"]
         msk = chain_dict["msk"]
         angles = []
@@ -378,10 +375,7 @@ class ProteinDataset(Dataset):
         return angles
 
     def _sidechain(self, chain_dict, seq):
-        """
-        Sidechain orientation (defined by the 'main atoms' in the `main_atom_dict` dictionary)
-        """
-
+        """Sidechain orientation (defined by the 'main atoms' in the `main_atom_dict` dictionary)."""
         crd_sc = chain_dict["crd_sc"]
         crd_bb = chain_dict["crd_bb"]
         orientation = np.zeros((crd_sc.shape[0], 3))
@@ -397,36 +391,24 @@ class ProteinDataset(Dataset):
         return orientation
 
     def _chemical(self, chain_dict, seq):
-        """
-        Chemical features (hydropathy, volume, charge, polarity, acceptor/donor)
-        """
-
+        """Chemical features (hydropathy, volume, charge, polarity, acceptor/donor)."""
         features = np.array([_PMAP(x) for x in seq])
         return features
 
     def _sse(self, chain_dict, seq):
-        """
-        Secondary structure features
-        """
-
+        """Secondary structure features."""
         sse_map = {"c": [0, 0, 1], "b": [0, 1, 0], "a": [1, 0, 0], "": [0, 0, 0]}
         sse = _annotate_sse(chain_dict["crd_bb"])
         sse = np.array([sse_map[x] for x in sse]) * chain_dict["msk"][:, None]
         return sse
 
     def _sidechain_coords(self, chain_dict, seq):
-        """
-        Sidechain coordinates
-        """
-
+        """Sidechain coordinates."""
         crd_sc = chain_dict["crd_sc"]
         return crd_sc
 
     def _process(self, filename, rewrite=False, max_length=None, min_cdr_length=None):
-        """
-        Process a proteinflow file and save it as ProteinMPNN features
-        """
-
+        """Process a proteinflow file and save it as ProteinMPNN features."""
         input_file = os.path.join(self.dataset_folder, filename)
         no_extension_name = filename.split(".")[0]
         with open(input_file, "rb") as f:
@@ -639,7 +621,6 @@ class ProteinDataset(Dataset):
         cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}
             The CDR to be iterated over. Set to `None` to go back to iterating over all chains.
         """
-
         if not self.sabdab:
             cdr = None
         if cdr == self.cdr:
@@ -664,9 +645,11 @@ class ProteinDataset(Dataset):
                         self.indices.append(i)
 
     def __len__(self):
+        """Length."""
         return len(self.indices)
 
     def __getitem__(self, idx):
+        """Get item."""
         chain_id = None
         cdr = None
         idx = self.indices[idx]
@@ -710,21 +693,20 @@ class ProteinDataset(Dataset):
 
 def _download_dataset(tag, local_datasets_folder="./data/"):
     """
-    Download the pre-processed data and the split dictionaries
+    Download the pre-processed data and the split dictionaries.
 
-    Parameters
+    Parameters.
     ----------
     tag : str
-        name of the dataset (check `get_available_tags` to see the options)
+        name of the dataset (check `get_available_tags` to see the options).
     local_dataset_folder : str, default "./data/"
-        the local folder that will contain proteinflow dataset folders, temporary files and logs
+        the local folder that will contain proteinflow dataset folders, temporary files and logs.
 
     Returns
     -------
     data_folder : str
         the path to the downloaded data folder
     """
-
     s3_data_path, s3_dict_path = _get_s3_paths_from_tag(tag)
     data_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
     dict_folder = os.path.join(
@@ -740,10 +722,7 @@ def _download_dataset(tag, local_datasets_folder="./data/"):
 
 
 def _biounits_in_clusters_dict(clusters_dict, excluded_files=None):
-    """
-    Return the list of all biounit files present in clusters_dict
-    """
-
+    """Return the list of all biounit files present in clusters_dict."""
     if len(clusters_dict) == 0:
         return np.array([])
     if excluded_files is None:
@@ -759,7 +738,7 @@ def _biounits_in_clusters_dict(clusters_dict, excluded_files=None):
 
 def _exclude(clusters_dict, set_to_exclude, exclude_based_on_cdr=None):
     """
-    Exclude biounits from clusters_dict
+    Exclude biounits from clusters_dict.
 
     Parameters
     ----------
@@ -769,7 +748,6 @@ def _exclude(clusters_dict, set_to_exclude, exclude_based_on_cdr=None):
         set of biounits to exclude
     exclude_based_on_cdr : str, default None
         if not None, exclude based only on clusters based on this CDR (e.g. "H3")
-
     """
     excluded_set = set()
     excluded_dict = defaultdict(set)
@@ -798,7 +776,7 @@ def _split_data(
     exclude_based_on_cdr=None,
 ):
     """
-    Rearrange files into folders according to the dataset split dictionaries at `dataset_path/splits_dict`
+    Rearrange files into folders according to the dataset split dictionaries at `dataset_path/splits_dict`.
 
     Parameters
     ----------
@@ -811,7 +789,6 @@ def _split_data(
     exclude_based_on_cdr : str, optional
         If not `None`, exclude all files in a cluster if the cluster name does not end with `exclude_based_on_cdr`
     """
-
     if excluded_files is None:
         excluded_files = []
 
