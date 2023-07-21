@@ -231,6 +231,7 @@ ATOM_MAP_14 = {D3TO1[k]: BACKBONE_ORDER + v for k, v in SIDECHAIN_ORDER.items()}
 
 
 def _PMAP(x):
+    """Get chemical properties of amino acid."""
     return [
         FEATURES_DICT["hydropathy"][x] / 5,
         FEATURES_DICT["volume"][x] / 200,
@@ -239,3 +240,6 @@ def _PMAP(x):
         FEATURES_DICT["acceptor"][x],
         FEATURES_DICT["donor"][x],
     ]
+
+
+COLORS = ["#62B9DC", "#EAB1C5", "#0C9094", "#8090E6", "#96E396", "#FCAC97", "#740E66"]
