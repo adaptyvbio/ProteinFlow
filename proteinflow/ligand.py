@@ -1,8 +1,4 @@
-"""
-Ligand class for ProteinFlow.
-
-Description: Retrieve ligand information from PDB files and cluster them using Tanimoto similarity.
-"""
+"""Methods for retrieving ligand information from PDB files and clustering them using Tanimoto similarity."""
 import warnings
 
 import numpy as np

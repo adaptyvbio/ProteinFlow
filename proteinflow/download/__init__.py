@@ -1,5 +1,6 @@
 """Functions for downloading protein data from various sources."""
 
+import multiprocessing
 import os
 import shutil
 import subprocess
@@ -17,6 +18,7 @@ import requests
 from botocore import UNSIGNED
 from botocore.config import Config
 from bs4 import BeautifulSoup
+from joblib import Parallel, delayed
 from p_tqdm import p_map
 from rcsbsearch import Attr
 from tqdm import tqdm
@@ -637,3 +639,107 @@ def _download_dataset(tag, local_datasets_folder="./data/"):
 
     _download_dataset_from_s3(dataset_path=data_folder, s3_path=s3_data_path)
     return data_folder
+
+
+def _create_jobs(file_path, strings, results):
+    """Create jobs for parallel processing."""
+    # Perform your job creation logic here
+    jobs = []
+    for string in strings:
+        for i in range(results[string]):
+            jobs.append((file_path, string, i))
+    return jobs
+
+
+def _process_strings(strings):
+    """Process strings in parallel."""
+    results = {}
+    processed_results = Parallel(n_jobs=-1)(
+        delayed(_get_number_of_chains)(string) for string in strings
+    )
+
+    for string, result in zip(strings, processed_results):
+        results[string] = result
+
+    return results
+
+
+def _write_string_to_file(file_path, string, i):
+    """Write a string to a file."""
+    with open(file_path, "a") as file:
+        file.write(string.upper() + "-" + str(i + 1) + "\n")
+
+
+def _parallel_write_to_file(file_path, jobs):
+    """Write a list of strings to a file in parallel."""
+    # Create a multiprocessing Pool with the desired number of processes
+    pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
+
+    # Map the write_string_to_file function to each string in the list
+    pool.starmap(_write_string_to_file, jobs)
+
+    # Close the pool and wait for all processes to complete
+    pool.close()
+    pool.join()
+
+    print(f"The list has been written to the file '{file_path}' successfully.")
+
+
+def _write_list_to_file(file_path, string_list):
+    """Write a list of strings to a file."""
+    try:
+        with open(file_path, "w") as file:
+            # Write each string in the list to the file
+            for string in string_list:
+                file.write(string + "\n")  # Add a newline character after each string
+
+        print(f"The list has been written to the file '{file_path}' successfully.")
+
+    except OSError:
+        print(f"An error occurred while writing to the file '{file_path}'.")
+
+
+def _get_number_of_chains(pdb_id):
+    """Return the number of chains in a PDB file."""
+    api_url = f"https://data.rcsb.org/rest/v1/core/entry/{pdb_id}"
+
+    try:
+        response = requests.get(api_url)
+        response.raise_for_status()
+        data = response.json()
+
+        # Extracting chain IDs
+        chains = set()
+        if "rcsb_entry_container_identifiers" in data:
+            entity_container_identifiers = data["rcsb_entry_container_identifiers"]
+            if "assembly_ids" in entity_container_identifiers:
+                return len(entity_container_identifiers["assembly_ids"])
+
+        num_chains = len(chains)
+
+        return num_chains
+
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}")
+        return 0
+
+
+def _get_chain_pdb_ids(pdb_id_list_path, tmp_folder):
+    print("Generating chain pdb ids")
+    pdb_ids = []
+    with open(pdb_id_list_path) as file:
+        # Read lines from the file
+        lines = file.readlines()
+
+        # Process each line
+        for line in lines:
+            # Extract elements from the line (example: splitting by whitespace)
+            line_elements = line.split()
+
+            # Add extracted elements to the list
+            pdb_ids.extend(line_elements)
+    results = _process_strings(pdb_ids)
+    new_file_path = tmp_folder + "chain_id_" + pdb_id_list_path.split("/")[-1]
+    jobs = _create_jobs(new_file_path, pdb_ids, results)
+    _parallel_write_to_file(new_file_path, jobs)
+    return new_file_path
