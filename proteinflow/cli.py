@@ -267,6 +267,16 @@ def generate(**kwargs):
     help="if given and exclude_clusters is true + the dataset is SAbDab, exclude files based on only the given CDR clusters",
 )
 @click.option(
+    "--exclude_chains_without_ligands",
+    is_flag=True,
+    help="Exclude chains without ligands from the generated dataset",
+)
+@click.option(
+    "--tanimoto_clustering",
+    is_flag=True,
+    help="Whether to use Tanimoto Clustering instead of MMSeqs2. Only works if the dataset contains ligands",
+)
+@click.option(
     "--random_seed",
     default=42,
     type=int,

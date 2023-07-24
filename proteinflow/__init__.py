@@ -170,6 +170,7 @@ __pdoc__ = {
     "constants": False,
     "split": False,
     "cli": False,
+    "processing.ligand": False,
 }
 __docformat__ = "numpy"
 
@@ -190,19 +191,15 @@ from tqdm import tqdm
 
 from proteinflow.constants import SIDECHAIN_ORDER
 from proteinflow.data.torch import ProteinDataset, ProteinLoader
-from proteinflow.download import _download_dataset
+from proteinflow.download import _download_dataset, _get_chain_pdb_ids
 from proteinflow.download.boto import _s3list
 from proteinflow.processing import run_processing
 from proteinflow.split import (
     _check_mmseqs,
+    _exclude_files_with_no_ligand,
     _get_excluded_files,
     _get_split_dictionaries,
     _split_data,
-)
-from proteinflow.utils.common_utils import (
-    _create_jobs,
-    _parallel_write_to_file,
-    _process_strings,
 )
 
 
@@ -224,27 +221,6 @@ def download_data(tag, local_datasets_folder="./data", skip_splitting=False):
         _split_data(sabdab_data_path)
 
 
-def _get_chain_pdb_ids(pdb_id_list_path, tmp_folder):
-    print("Generating chain pdb ids")
-    pdb_ids = []
-    with open(pdb_id_list_path) as file:
-        # Read lines from the file
-        lines = file.readlines()
-
-        # Process each line
-        for line in lines:
-            # Extract elements from the line (example: splitting by whitespace)
-            line_elements = line.split()
-
-            # Add extracted elements to the list
-            pdb_ids.extend(line_elements)
-    results = _process_strings(pdb_ids)
-    new_file_path = tmp_folder + "chain_id_" + pdb_id_list_path.split("/")[-1]
-    jobs = _create_jobs(new_file_path, pdb_ids, results)
-    _parallel_write_to_file(new_file_path, jobs)
-    return new_file_path
-
-
 def generate_data(
     tag=None,
     pdb_id_list_path=None,
@@ -257,7 +233,6 @@ def generate_data(
     not_filter_methods=False,
     not_remove_redundancies=False,
     skip_splitting=False,
-    skip_processing=False,
     redundancy_thr=0.9,
     n=None,
     force=False,
@@ -303,9 +278,9 @@ def generate_data(
 
     Parameters
     ----------
-    tag : str, default None
+    tag : str, optional
         the name of the dataset to load
-    pdb_id_list_path : str, default None
+    pdb_id_list_path : str, optional
         if provided, get pdb_ids from text file where each line contains one chain id (format pdb_id-num example: 1XYZ-1)
         pdb_ids can also be passed, an automatic retrieval of chain id s will be performed in that case
     local_datasets_folder : str, default "./data"
@@ -326,8 +301,6 @@ def generate_data(
         If 'False', removes biounits that are doubles of others sequence wise
     skip_splitting : bool, default False
         if `True`, skip the split dictionary creation and the file moving steps
-    skip_processing : bool, default False
-        if `True`, skip downloading and processing the data
     redundancy_thr : float, default 0.9
         The threshold upon which sequences are considered as one and the same (default: 90%)
     n : int, default None
@@ -402,33 +375,32 @@ def generate_data(
 
     output_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
 
-    if not skip_processing:
-        if force and os.path.exists(output_folder):
-            shutil.rmtree(output_folder)
+    if force and os.path.exists(output_folder):
+        shutil.rmtree(output_folder)
 
-        log_dict = run_processing(
-            tmp_folder=tmp_folder,
-            output_folder=output_folder,
-            min_length=min_length,
-            max_length=max_length,
-            resolution_thr=resolution_thr,
-            missing_ends_thr=missing_ends_thr,
-            missing_middle_thr=missing_middle_thr,
-            filter_methods=filter_methods,
-            remove_redundancies=remove_redundancies,
-            redundancy_thr=redundancy_thr,
-            n=n,
-            force=force,
-            tag=tag,
-            pdb_snapshot=pdb_snapshot,
-            load_live=load_live,
-            sabdab=sabdab,
-            sabdab_data_path=sabdab_data_path,
-            require_antigen=require_antigen,
-            max_chains=max_chains,
-            pdb_id_list_path=pdb_id_list_path,
-            load_ligands=load_ligands,
-        )
+    log_dict = run_processing(
+        tmp_folder=tmp_folder,
+        output_folder=output_folder,
+        min_length=min_length,
+        max_length=max_length,
+        resolution_thr=resolution_thr,
+        missing_ends_thr=missing_ends_thr,
+        missing_middle_thr=missing_middle_thr,
+        filter_methods=filter_methods,
+        remove_redundancies=remove_redundancies,
+        redundancy_thr=redundancy_thr,
+        n=n,
+        force=force,
+        tag=tag,
+        pdb_snapshot=pdb_snapshot,
+        load_live=load_live,
+        sabdab=sabdab,
+        sabdab_data_path=sabdab_data_path,
+        require_antigen=require_antigen,
+        max_chains=max_chains,
+        pdb_id_list_path=pdb_id_list_path,
+        load_ligands=load_ligands,
+    )
 
     if not skip_splitting:
         if tanimoto_clustering and not load_ligands:
@@ -449,45 +421,11 @@ def generate_data(
             exclude_clusters=exclude_clusters,
             exclude_based_on_cdr=exclude_based_on_cdr,
             random_seed=random_seed,
-            ligand_chains_only=exclude_chains_without_ligands,
+            exclude_chains_without_ligands=exclude_chains_without_ligands,
             tanimoto_clustering=tanimoto_clustering,
         )
     shutil.rmtree(tmp_folder)
     return log_dict
-
-
-def _exclude_files_with_no_ligand(tag, local_datasets_folder):
-    """Get a list of files to exclude from the dataset.
-
-    Biounits are excluded if they don't contain ligands.
-
-    Parameters
-    ----------
-    tag : str
-        the name of the dataset
-    local_datasets_folder : str
-        the path to the folder that stores proteinflow datasets
-    tmp_folder : str
-        the path to the folder that stores temporary files
-
-    """
-    # iterate over files in the dataset to check ligand
-    exclude_biounits = []
-    for fn in tqdm(
-        os.listdir(os.path.join(local_datasets_folder, f"proteinflow_{tag}"))
-    ):
-        if not fn.endswith(".pickle"):
-            continue
-        fp = os.path.join(local_datasets_folder, f"proteinflow_{tag}", fn)
-        with open(fp, "rb") as f:
-            entry = pickle.load(f)
-        for chain, chain_data in entry.items():
-            if "ligand" not in chain_data.keys():
-                exclude_biounits.append(fn)
-                break
-
-    # return list of biounits to exclude
-    return exclude_biounits
 
 
 def split_data(
@@ -503,7 +441,7 @@ def split_data(
     exclude_clusters=False,
     exclude_based_on_cdr=None,
     random_seed=42,
-    ligand_chains_only=False,
+    exclude_chains_without_ligands=False,
     tanimoto_clustering=False,
 ):
     """Split `proteinflow` entry files into training, test and validation.
@@ -553,7 +491,7 @@ def split_data(
         if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
     random_seed : int, default 42
         random seed for reproducibility (set to `None` to use a random seed)
-    ligand_chains_only : bool, default False
+    exclude_chains_without_ligands : bool, default False
         if `True`, exclude biounits that don't contain ligands
     tanimoto_clustering: bool, default False
         cluster chains based on the tanimoto similarity of their ligands
@@ -577,7 +515,7 @@ def split_data(
             exclude_chains,
             exclude_threshold,
         )
-    if ligand_chains_only:
+    if exclude_chains_without_ligands:
         excluded_biounits += _exclude_files_with_no_ligand(
             tag,
             local_datasets_folder,
