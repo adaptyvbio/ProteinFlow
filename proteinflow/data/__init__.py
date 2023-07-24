@@ -159,7 +159,6 @@ class ProteinEntry:
             if self.cdr[chain] is not None:
                 self.cdr[chain] = self.cdr[chain][start:end]
 
-    @lru_cache()
     def get_chains(self):
         """Get the chain IDs of the protein.
 
@@ -485,6 +484,42 @@ class ProteinEntry:
 
         """
         return "".join([ALPHABET[x] for x in seq])
+
+    def rename_chains(self, chain_dict):
+        """Rename the chains of the protein.
+
+        Parameters
+        ----------
+        chain_dict : dict
+            A dictionary mapping old chain IDs to new chain IDs
+
+        """
+        for old_chain, new_chain in chain_dict.items():
+            self.seq[new_chain] = self.seq.pop(old_chain)
+            self.crd[new_chain] = self.crd.pop(old_chain)
+            self.mask[new_chain] = self.mask.pop(old_chain)
+            self.mask_original[new_chain] = self.mask_original.pop(old_chain)
+            self.cdr[new_chain] = self.cdr.pop(old_chain)
+            self.predict_mask[new_chain] = self.predict_mask.pop(old_chain)
+
+    def merge(self, entry):
+        """Merge another `ProteinEntry` object into this one.
+
+        Parameters
+        ----------
+        entry : ProteinEntry
+            A `ProteinEntry` object
+
+        """
+        for chain in entry.get_chains():
+            if chain.split("_")[0] in {x.split("_")[0] for x in self.get_chains()}:
+                raise ValueError("Chain IDs must be unique")
+            self.seq[chain] = entry.seq[chain]
+            self.crd[chain] = entry.crd[chain]
+            self.mask[chain] = entry.mask[chain]
+            self.mask_original[chain] = entry.mask_original[chain]
+            self.cdr[chain] = entry.cdr[chain]
+            self.predict_mask[chain] = entry.predict_mask[chain]
 
     @staticmethod
     def from_arrays(
@@ -1174,7 +1209,7 @@ class ProteinEntry:
         """
         if highlight_mask is not None:
             highlight_mask_dict = self._get_highlight_mask_dict(highlight_mask)
-        elif self.predict_mask is not None:
+        elif list(self.predict_mask.values())[0] is not None:
             highlight_mask_dict = self.predict_mask
         else:
             highlight_mask_dict = None
@@ -1233,6 +1268,49 @@ class PDBEntry:
         pdb_path = download_pdb(pdb_id, local_folder)
         fasta_path = download_fasta(pdb_id, local_folder)
         return PDBEntry(pdb_path=pdb_path, fasta_path=fasta_path)
+
+    def rename_chains(self, chain_dict):
+        """Rename chains in the PDB entry.
+
+        Parameters
+        ----------
+        chain_dict : dict
+            A dictionary mapping from old chain IDs to new chain IDs
+
+        Returns
+        -------
+        entry : PDBEntry
+            A `PDBEntry` object
+
+        """
+        self.crd_df["chain_id"] = self.crd_df["chain_id"].replace(chain_dict)
+        self.seq_df["chain_id"] = self.seq_df["chain_id"].replace(chain_dict)
+        return self
+
+    def merge(self, entry):
+        """Merge two PDB entries.
+
+        Parameters
+        ----------
+        entry : PDBEntry
+            A `PDBEntry` object
+
+        Returns
+        -------
+        entry : PDBEntry
+            A `PDBEntry` object
+
+        """
+        if entry.pdb_id != self.pdb_id:
+            self.pdb_id = f"{self.pdb_id}+{entry.pdb_id}"
+        for chain in entry.get_chains():
+            if chain.split("_")[0] in {x.split("_")[0] for x in self.get_chains()}:
+                raise ValueError("Chain IDs must be unique")
+        self.crd_df = pd.concat([self.crd_df, entry.crd_df], ignore_index=True)
+        self.seq_df = pd.concat([self.seq_df, entry.seq_df], ignore_index=True)
+        self.crd_df.loc[:, "atom_number"] = np.arange(len(self.crd_df))
+        self.fasta_dict.update(entry.fasta_dict)
+        return self
 
     def _get_relevant_chains(self):
         """Get the chains that are included in the entry."""
