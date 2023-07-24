@@ -70,6 +70,8 @@ def show_animation_from_pickle(
     models = ""
     for i, mol in enumerate(entries):
         models += "MODEL " + str(i) + "\n"
+        if highlight_mask is None:
+            highlight_mask = mol.get_predict_mask()
         atoms = mol._get_atom_dicts(
             highlight_mask=highlight_mask, style=style, opacity=opacity
         )
