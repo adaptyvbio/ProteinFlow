@@ -1,4 +1,5 @@
 """Functions for processing PDB files and generating new datasets."""
+import multiprocessing
 import os
 import pickle
 import subprocess
@@ -7,6 +8,8 @@ from datetime import datetime
 
 import editdistance
 import numpy as np
+import requests
+from joblib import Parallel, delayed
 from p_tqdm import p_map
 from tqdm import tqdm
 

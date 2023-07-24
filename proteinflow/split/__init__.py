@@ -1385,3 +1385,37 @@ def _split_data(
     print("Moving files in the test set...")
     for biounit in tqdm(test_biounits):
         shutil.move(os.path.join(dataset_path, biounit), test_path)
+
+
+def _exclude_files_with_no_ligand(tag, local_datasets_folder):
+    """Get a list of files to exclude from the dataset.
+
+    Biounits are excluded if they don't contain ligands.
+
+    Parameters
+    ----------
+    tag : str
+        the name of the dataset
+    local_datasets_folder : str
+        the path to the folder that stores proteinflow datasets
+    tmp_folder : str
+        the path to the folder that stores temporary files
+
+    """
+    # iterate over files in the dataset to check ligand
+    exclude_biounits = []
+    for fn in tqdm(
+        os.listdir(os.path.join(local_datasets_folder, f"proteinflow_{tag}"))
+    ):
+        if not fn.endswith(".pickle"):
+            continue
+        fp = os.path.join(local_datasets_folder, f"proteinflow_{tag}", fn)
+        with open(fp, "rb") as f:
+            entry = pickle.load(f)
+        for chain, chain_data in entry.items():
+            if "ligand" not in chain_data.keys():
+                exclude_biounits.append(fn)
+                break
+
+    # return list of biounits to exclude
+    return exclude_biounits
