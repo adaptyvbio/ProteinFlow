@@ -223,6 +223,7 @@ ONE_TO_THREE_LETTER_MAP = {
     "F": "PHE",
     "Y": "TYR",
     "W": "TRP",
+    "-": "GLY",
 }
 ATOM_MAP_4 = {a: ["N", "C", "CA", "O"] for a in ONE_TO_THREE_LETTER_MAP.keys()}
 ATOM_MAP_1 = {a: ["CA"] for a in ONE_TO_THREE_LETTER_MAP.keys()}

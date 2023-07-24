@@ -13,17 +13,16 @@ proteinflow pickle file or a PDB file.
 import os
 import pickle
 import tempfile
-import urllib
 import warnings
 from collections import defaultdict
 
 import numpy as np
 import pandas as pd
 import py3Dmol
-import requests
 from Bio import pairwise2
 from biopandas.pdb import PandasPdb
 from methodtools import lru_cache
+from torch import Tensor
 
 from proteinflow.constants import (
     _PMAP,
@@ -121,6 +120,10 @@ class ProteinEntry:
             `'numpy'` arrays of shape `(L,)` where CDR residues are marked with the corresponding type (`'H1'`, `'L1'`, ...)
 
         """
+        if crds[0].shape[1] != 14:
+            raise ValueError(
+                "Coordinates array must have 14 atoms in the order of N, C, CA, O, sidechain atoms"
+            )
         self.seq = {x: seq for x, seq in zip(chain_ids, seqs)}
         self.crd = {x: crd for x, crd in zip(chain_ids, crds)}
         self.mask = {x: mask for x, mask in zip(chain_ids, masks)}
@@ -363,9 +366,6 @@ class ProteinEntry:
         mask : np.ndarray
             Mask array where 1 indicates residues with known coordinates and 0
             indicates missing values
-        chains : list of str, optional
-            If specified, only the masks of the specified chains are returned (in the same order);
-            otherwise, all masks are concatenated in alphabetical order of the chain IDs
 
         """
         if cdr is not None and self.cdr is None:
@@ -465,7 +465,16 @@ class ProteinEntry:
             residues are marked with `'-'`
 
         """
-        return np.array([CDR_ALPHABET[x] for x in cdr])
+        cdr = ProteinEntry._to_numpy(cdr)
+        return np.array([CDR_ALPHABET[x] for x in cdr.astype(int)])
+
+    @staticmethod
+    def _to_numpy(arr):
+        if isinstance(arr, Tensor):
+            arr = arr.detach().cpu().numpy()
+        if isinstance(arr, list):
+            arr = np.array(arr)
+        return arr
 
     @staticmethod
     def decode_sequence(seq):
@@ -483,7 +492,8 @@ class ProteinEntry:
             Amino acid sequence of the protein (one-letter code)
 
         """
-        return "".join([ALPHABET[x] for x in seq])
+        seq = ProteinEntry._to_numpy(seq)
+        return "".join([ALPHABET[x] for x in seq.astype(int)])
 
     def rename_chains(self, chain_dict):
         """Rename the chains of the protein.
@@ -520,6 +530,10 @@ class ProteinEntry:
             self.mask_original[chain] = entry.mask_original[chain]
             self.cdr[chain] = entry.cdr[chain]
             self.predict_mask[chain] = entry.predict_mask[chain]
+        if not all([x is None for x in entry.predict_mask.values()]):
+            for k, v in self.predict_mask.items():
+                if v is None:
+                    self.predict_mask[k] = np.zeros(len(self.get_sequence(k)))
 
     @staticmethod
     def from_arrays(
@@ -532,7 +546,7 @@ class ProteinEntry:
         seqs : np.ndarray
             Amino acid sequences of the protein (encoded as integers, see `proteinflow.constants.ALPHABET`), `'numpy'` array of shape `(L,)`
         crds : np.ndarray
-            Coordinates of the protein, `'numpy'` array of shape `(L, 14, 3)`
+            Coordinates of the protein, `'numpy'` array of shape `(L, 14, 3)` or `(L, 4, 3)`
         masks : np.ndarray
             Mask array where 1 indicates residues with known coordinates and 0
             indicates missing values, `'numpy'` array of shape `(L,)`
@@ -557,18 +571,24 @@ class ProteinEntry:
         crds_list = []
         masks_list = []
         chain_ids_list = []
-        predict_masks_list = None if predict_masks is None else {}
-        cdrs_list = None if cdrs is None else {}
-        for ind, chain_id in chain_id_dict.items():
+        predict_masks_list = None if predict_masks is None else []
+        cdrs_list = None if cdrs is None else []
+        if crds.shape[1] != 14:
+            crds_ = np.zeros((crds.shape[0], 14, 3))
+            crds_[:, :4, :] = ProteinEntry._to_numpy(crds)
+            crds = crds_
+        for chain_id, ind in chain_id_dict.items():
             chain_ids_list.append(chain_id)
             chain_mask = chain_id_array == ind
             seqs_list.append(ProteinEntry.decode_sequence(seqs[chain_mask]))
-            crds_list.append(ProteinEntry.decode_cdr(crds[chain_mask]))
-            masks_list.append(masks[chain_mask])
+            crds_list.append(ProteinEntry._to_numpy(crds[chain_mask]))
+            masks_list.append(ProteinEntry._to_numpy(masks[chain_mask]))
             if predict_masks is not None:
-                predict_masks_list.append(predict_masks[chain_mask])
+                predict_masks_list.append(
+                    ProteinEntry._to_numpy(predict_masks[chain_mask])
+                )
             if cdrs is not None:
-                cdrs_list.append(cdrs[chain_mask])
+                cdrs_list.append(ProteinEntry.decode_cdr(cdrs[chain_mask]))
         return ProteinEntry(
             seqs_list,
             crds_list,
@@ -1194,6 +1214,33 @@ class ProteinEntry:
             highlight_mask_dict=highlight_mask_dict, style=style, opacity=opacity
         )
 
+    def get_predict_mask(self, chains=None):
+        """Get the prediction mask of the protein.
+
+        The prediction mask is a `'numpy'` array of shape `(L,)` with ones
+        corresponding to residues that were generated by a model and zeros to
+        residues with known coordinates. If the prediction mask is not available,
+        `None` is returned.
+
+        Parameters
+        ----------
+        chains : list of str, optional
+            If specified, only the prediction mask of the specified chains is returned (in the same order);
+            otherwise, all features are concatenated in alphabetical order of the chain IDs
+
+        Returns
+        -------
+        predict_mask : np.ndarray
+            A `'numpy'` array of shape `(L,)` with ones corresponding to residues that were generated by a model and
+            zeros to residues with known coordinates
+
+        """
+        if list(self.predict_mask.values())[0] is None:
+            return None
+        chains = self._get_chains_list(chains)
+        predict_mask = np.concatenate([self.predict_mask[chain] for chain in chains])
+        return predict_mask
+
     def visualize(self, highlight_mask=None, style="cartoon", opacity=1):
         """Visualize the protein in a notebook.
 
@@ -1205,14 +1252,19 @@ class ProteinEntry:
             `self.predict_mask` is not `None`, the predicted residues are highlighted
         style : str, default 'cartoon'
             The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
-        opacity : float, default 1
-            Opacity of the visualization
+        opacity : float or dict, default 1
+            Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)
 
         """
+        print(f"{highlight_mask=}")
         if highlight_mask is not None:
             highlight_mask_dict = self._get_highlight_mask_dict(highlight_mask)
         elif list(self.predict_mask.values())[0] is not None:
-            highlight_mask_dict = self.predict_mask
+            print("HERE")
+            highlight_mask_dict = {
+                chain: self.predict_mask[chain][self.get_mask([chain]).astype(bool)]
+                for chain in self.get_chains()
+            }
         else:
             highlight_mask_dict = None
         with tempfile.NamedTemporaryFile(suffix=".pdb") as tmp:
@@ -1674,14 +1726,18 @@ class PDBEntry:
                     self._pdb_sequence(chain)
                 ), "Mask length does not match sequence length"
         for at in outstr:
+            if isinstance(opacity, dict):
+                op_ = opacity[at["chain"]]
+            else:
+                op_ = opacity
             if at["resid"] != chain_last_res[at["chain"]]:
                 chain_last_res[at["chain"]] = at["resid"]
                 chain_counters[at["chain"]] += 1
-            at["pymol"] = {style: {"color": colors[at["chain"]], "opacity": opacity}}
+            at["pymol"] = {style: {"color": colors[at["chain"]], "opacity": op_}}
             if highlight_mask_dict is not None and at["chain"] in highlight_mask_dict:
                 num = chain_counters[at["chain"]]
                 if highlight_mask_dict[at["chain"]][num - 1] == 1:
-                    at["pymol"] = {style: {"color": "red", "opacity": opacity}}
+                    at["pymol"] = {style: {"color": "red", "opacity": op_}}
         return outstr
 
     def visualize(self, highlight_mask_dict=None, style="cartoon", opacity=1):
@@ -1694,8 +1750,8 @@ class PDBEntry:
             the atoms corresponding to 1s will be highlighted in red
         style : str, default 'cartoon'
             The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
-        opacity : float, default 1
-            Opacity of the visualization
+        opacity : float or dict, default 1
+            Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)
 
         """
         outstr = self._get_atom_dicts(highlight_mask_dict, style=style, opacity=opacity)

@@ -70,6 +70,8 @@ def show_animation_from_pickle(
     models = ""
     for i, mol in enumerate(entries):
         models += "MODEL " + str(i) + "\n"
+        if highlight_mask is None:
+            highlight_mask = mol.get_predict_mask()
         atoms = mol._get_atom_dicts(
             highlight_mask=highlight_mask, style=style, opacity=opacity
         )
@@ -124,17 +126,22 @@ def show_merged_pickle(file_paths, highlight_masks=None, style="cartoon", opacit
         the chains to be concatenated in alphabetical order.
     style : str, optional
         The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
-    opacity : float, default 1
+    opacity : float or list, default 1
         The opacity of the visualization.
 
     """
     create_fn = ProteinEntry.from_pickle
     entries = [create_fn(path) for path in file_paths]
     alphabet = list(string.ascii_uppercase)
+    opacity_dict = {}
+    if isinstance(opacity, float):
+        opacity = [opacity] * len(entries)
     for i, entry in enumerate(entries):
-        entry.rename_chains({chain: alphabet.pop(0) for chain in entry.get_chains()})
+        update_dict = {chain: alphabet.pop(0) for chain in entry.get_chains()}
+        entry.rename_chains(update_dict)
+        opacity_dict.update({chain: opacity[i] for chain in entry.get_chains()})
         if highlight_masks is not None and highlight_masks[i] is None:
-            highlight_masks[i] = np.zeros(len(entry))
+            highlight_masks[i] = np.zeros(entry.get_mask().sum())
     merged_entry = entries[0]
     for entry in entries[1:]:
         merged_entry.merge(entry)
@@ -142,7 +149,9 @@ def show_merged_pickle(file_paths, highlight_masks=None, style="cartoon", opacit
         highlight_mask = np.concatenate(highlight_masks, axis=0)
     else:
         highlight_mask = None
-    merged_entry.visualize(style=style, highlight_mask=highlight_mask, opacity=opacity)
+    merged_entry.visualize(
+        style=style, highlight_mask=highlight_mask, opacity=opacity_dict
+    )
 
 
 def show_merged_pdb(file_paths, highlight_mask_dicts=None, style="cartoon", opacity=1):
@@ -157,7 +166,7 @@ def show_merged_pdb(file_paths, highlight_mask_dicts=None, style="cartoon", opac
         1s and 0s, where 1s indicate the atoms to highlight.
     style : str, optional
         The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
-    opacity : float, default 1
+    opacity : float or list, default 1
         The opacity of the visualization.
 
     """
@@ -165,9 +174,13 @@ def show_merged_pdb(file_paths, highlight_mask_dicts=None, style="cartoon", opac
     entries = [create_fn(path) for path in file_paths]
     alphabet = list(string.ascii_uppercase)
     highlight_mask_dict = {} if highlight_mask_dicts is not None else None
+    opacity_dict = {}
+    if isinstance(opacity, float):
+        opacity = [opacity] * len(entries)
     for i, entry in enumerate(entries):
         update_dict = {chain: alphabet.pop(0) for chain in entry.get_chains()}
         entry.rename_chains(update_dict)
+        opacity_dict.update({chain: opacity[i] for chain in entry.get_chains()})
         if highlight_mask_dicts is not None:
             highlight_mask_dict.update(
                 {
@@ -179,5 +192,5 @@ def show_merged_pdb(file_paths, highlight_mask_dicts=None, style="cartoon", opac
     for entry in entries[1:]:
         merged_entry.merge(entry)
     merged_entry.visualize(
-        style=style, highlight_mask_dict=highlight_mask_dict, opacity=opacity
+        style=style, highlight_mask_dict=highlight_mask_dict, opacity=opacity_dict
     )
