@@ -1,0 +1,1839 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>proteinflow.ligand API documentation</title>
+<meta name="description" content="Methods for retrieving ligand information from PDB files and clustering them using Tanimoto similarity." />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+<link rel="shortcut icon" type="image/x-icon" href="favicon.png?">
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>proteinflow.ligand</code></h1>
+</header>
+<section id="section-intro">
+<p>Methods for retrieving ligand information from PDB files and clustering them using Tanimoto similarity.</p>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">&#34;&#34;&#34;Methods for retrieving ligand information from PDB files and clustering them using Tanimoto similarity.&#34;&#34;&#34;
+import warnings
+
+import numpy as np
+import pypdb
+from Bio import BiopythonWarning
+from Bio.PDB import PDBParser
+from tqdm import tqdm
+
+with warnings.catch_warnings():
+    warnings.simplefilter(&#34;ignore&#34;, BiopythonWarning)
+
+import copy
+import gzip
+import mmap
+import os
+import pickle
+import shutil
+from collections import defaultdict
+from functools import partial
+
+from rdkit import Chem, DataStructs
+from rdkit.Chem import AllChem, rdFingerprintGenerator
+from rdkit.DataStructs.cDataStructs import ExplicitBitVect
+from rdkit.ML.Cluster import Butina
+
+D3TO1 = {
+    &#34;CYS&#34;: &#34;C&#34;,
+    &#34;ASP&#34;: &#34;D&#34;,
+    &#34;SER&#34;: &#34;S&#34;,
+    &#34;GLN&#34;: &#34;Q&#34;,
+    &#34;LYS&#34;: &#34;K&#34;,
+    &#34;ILE&#34;: &#34;I&#34;,
+    &#34;PRO&#34;: &#34;P&#34;,
+    &#34;THR&#34;: &#34;T&#34;,
+    &#34;PHE&#34;: &#34;F&#34;,
+    &#34;ASN&#34;: &#34;N&#34;,
+    &#34;GLY&#34;: &#34;G&#34;,
+    &#34;HIS&#34;: &#34;H&#34;,
+    &#34;LEU&#34;: &#34;L&#34;,
+    &#34;ARG&#34;: &#34;R&#34;,
+    &#34;TRP&#34;: &#34;W&#34;,
+    &#34;ALA&#34;: &#34;A&#34;,
+    &#34;VAL&#34;: &#34;V&#34;,
+    &#34;GLU&#34;: &#34;E&#34;,
+    &#34;TYR&#34;: &#34;Y&#34;,
+    &#34;MET&#34;: &#34;M&#34;,
+}
+
+
+def is_ion(st):
+    &#34;&#34;&#34;Determine if a string is an ion.&#34;&#34;&#34;
+    if len(&#34;&#34;.join([i for i in st if not i.isdigit()])) &lt;= 2:
+        return True
+    if st in D3TO1.keys():
+        return True
+    return False
+
+
+def atom2mol(p):
+    &#34;&#34;&#34;Convert a PDB file to a molecule.&#34;&#34;&#34;
+    small_molecules = p.df[&#34;HETATM&#34;]
+
+    # Group small molecules using residue3to1()
+    small_molecules[&#34;residue_name&#34;] = small_molecules[&#34;residue_name&#34;].apply(
+        lambda x: x.upper()
+    )
+    small_molecules[&#34;residue_number&#34;] = small_molecules[&#34;residue_number&#34;].astype(int)
+    small_molecules[&#34;chain_id&#34;] = small_molecules[&#34;chain_id&#34;].astype(str)
+    small_molecules[&#34;residue&#34;] = small_molecules.apply(
+        lambda row: row[&#34;residue_name&#34;] + str(row[&#34;residue_number&#34;]) + row[&#34;chain_id&#34;],
+        axis=1,
+    )
+
+    grouped_small_molecules = small_molecules.groupby(&#34;residue&#34;).first()
+    return grouped_small_molecules[[&#34;chain_id&#34;, &#34;residue_name&#34;]]
+
+
+def get_covalent_bonds(
+    chain1, chain2, connect_dict, distance_check=False, Time_profiling=False
+):
+    &#34;&#34;&#34;Get covalent bonds between two chains.&#34;&#34;&#34;
+    from time import time
+
+    t0 = time()
+    atoms_chain1 = []
+    # atom2M_1 = {}
+
+    atom2M_1_num = {}
+    atom2M_1_num_reverse = {}
+    for i in range(len(chain1)):
+        atoms_chain1 += list(chain1[i].get_atoms())
+        # atom2M_1[chain1[i].get_id()[1]] = list(chain1[i].get_atoms())
+
+        atom2M_1_num[chain1[i].get_id()[1]] = []
+        for at in list(chain1[i].get_atoms()):
+            atom2M_1_num[chain1[i].get_id()[1]].append(at.get_serial_number())
+            if (
+                at.get_serial_number() in connect_dict
+                or at.get_serial_number() in connect_dict.values()
+            ):
+                atom2M_1_num_reverse[at.get_serial_number()] = chain1[i].get_id()[1]
+
+    t1 = time()
+
+    atoms_chain2 = []
+    # atom2M_2 = {}
+    atom2M_2_num = {}
+    atom2M_2_num_reverse = {}
+    for i in range(len(chain2)):
+        atoms_chain2 += list(chain2[i].get_atoms())
+        # atom2M_2[chain2[i].get_id()[1]] = list(chain2[i].get_atoms())
+
+        atom2M_2_num[chain2[i].get_id()[1]] = []
+        for at in list(chain2[i].get_atoms()):
+            atom2M_2_num[chain2[i].get_id()[1]].append(at.get_serial_number())
+            if (
+                at.get_serial_number() in connect_dict
+                or at.get_serial_number() in connect_dict.values()
+            ):
+                atom2M_2_num_reverse[at.get_serial_number()] = chain2[i].get_id()[1]
+
+    t2 = time()
+    # Check for covalent bonds between the chains
+    covalent_bonds_new = []
+
+    for atom1 in atom2M_1_num_reverse:
+        for atom2 in atom2M_2_num_reverse:
+            if (
+                atom2 in atom2M_1_num[atom2M_1_num_reverse[atom1]]
+                or atom1 in atom2M_2_num[atom2M_2_num_reverse[atom2]]
+            ):
+                continue
+            if (atom1 in connect_dict and atom2 in connect_dict[atom1]) or (
+                atom2 in connect_dict and atom1 in connect_dict[atom2]
+            ):
+                covalent_bonds_new.append((atom1, atom2))
+    t3 = time()
+    if Time_profiling:
+        total_time = t3 - t0
+        print(&#34;Get atom chains 1 ratio: &#34;, (t1 - t0) / total_time)
+        print(&#34;Get atom chains 2 ratio: &#34;, (t2 - t1) / total_time)
+        print(&#34;Get covalent bonds ratio: &#34;, (t3 - t2) / total_time)
+        print(len(atoms_chain1), len(atoms_chain2), len(covalent_bonds_new))
+        print(&#34;Total time: &#34;, total_time)
+    return covalent_bonds_new, None, None
+
+
+def fix_connect(conect_line, minimum=0):
+    &#34;&#34;&#34;Fix a CONECT line.&#34;&#34;&#34;
+    if &#34;CONECT&#34; not in conect_line:
+        return &#34;&#34;
+    separated_line = conect_line.split(&#34; &#34;)
+    separated_line = list(filter((&#34;&#34;).__ne__, separated_line))
+    try:
+        separated_line.remove(&#34;\n&#34;)
+    except Exception:
+        pass
+    conect_line = &#34; &#34;.join(separated_line)
+    if len(separated_line) &gt;= 3:
+        return conect_line
+    if len(separated_line) == 1 or separated_line[0] != &#34;CONECT&#34;:
+        conect_line = conect_line.replace(&#34;CONECT&#34;, &#34;CONECT &#34;)
+    separated_line = conect_line.split(&#34; &#34;)
+    if len(separated_line) == 2:
+        numbers = separated_line[1]
+        potential_connections = 10
+        diffs = []
+        numbers_lists = []
+        for i in range(2, potential_connections):
+            if len(numbers) % i == 0:
+                numbers_list = [
+                    numbers[j : j + len(numbers) // i]
+                    for j in range(0, len(numbers), len(numbers) // i)
+                ]
+                # minimum difference between every numbers pair
+                mean_diff = 0
+                all_small = 1
+                for k in range(len(numbers_list)):
+                    if int(numbers_list[k]) &gt;= minimum:
+                        all_small *= 0
+                    for l_idx in range(k + 1, len(numbers_list)):
+                        mean_diff += abs(
+                            int(numbers_list[k]) - int(numbers_list[l_idx])
+                        )
+                mean_diff /= len(numbers_list)
+                le = len(numbers) // i
+                if all_small:
+                    mean_diff += 100000
+                diffs.append(mean_diff / (le * le * le))
+                numbers_lists.append(numbers_list)
+        diffs = np.array(diffs)
+        if len(diffs) &gt; 0:
+            best_candidates = diffs[diffs == min(diffs)]
+            if best_candidates.shape[0] &gt; 1:
+                # choose candidate with highest numbers list length
+                best_candidates_lengths = list(
+                    [len(numbers_lists[i]) for i in (diffs == min(diffs)).nonzero()[0]]
+                )
+                best_candidate = best_candidates_lengths.index(
+                    max(best_candidates_lengths)
+                )
+            else:
+                best_candidate = (diffs == min(diffs)).nonzero()[0][0]
+            conect_line = &#34;CONECT &#34; + &#34; &#34;.join(numbers_lists[best_candidate])
+    return conect_line
+
+
+def parse_pdb_file(pdb_file, minimum=0):
+    &#34;&#34;&#34;Parse a PDB file and return a dictionary with the connectivity information.&#34;&#34;&#34;
+    connect_dict = {}
+    with open(pdb_file) as f:
+        for line in f:
+            if line.startswith(&#34;CONECT&#34;):
+                line = fix_connect(line, minimum=minimum)
+                try:
+                    fields = line.split()
+                    atom_serial = int(fields[1])
+                    connected_atoms = [int(x) for x in fields[2:] if x.isdigit()]
+                    connect_dict[atom_serial] = connected_atoms
+                except Exception:
+                    pass
+    return connect_dict
+
+
+def connected(claster1, cluster2, connectivity):
+    &#34;&#34;&#34;Check if two clusters are connected.&#34;&#34;&#34;
+    for atom1 in claster1:
+        for atom2 in cluster2:
+            if connectivity[atom1, atom2] == 1:
+                return True
+    return False
+
+
+def merge_components(clusters, connectivity):
+    &#34;&#34;&#34;Merge clusters that are connected.&#34;&#34;&#34;
+    if len(clusters) == 1:
+        return clusters
+    for i, cluster1 in enumerate(clusters):
+        for j, cluster2 in enumerate(clusters):
+            if cluster1 == cluster2:
+                continue
+            if connected(cluster1, cluster2, connectivity):
+                clusters[i] = cluster1 + cluster2
+                clusters.remove(cluster2)
+                return merge_components(clusters, connectivity)
+    return clusters
+
+
+def get_raw_ligands(file_path, ligand):
+    &#34;&#34;&#34;Get the raw ligands from a PDB file.&#34;&#34;&#34;
+    ligands = []
+    for molecule in ligand:
+        resname = molecule.getResname()
+        ligand_id = f&#34;{molecule.getChid()} {molecule.getResnum()}&#34;
+        is_ligand = False
+        with open(file_path) as pdb_file:
+            for line in pdb_file:
+                if line.startswith(&#34;HET   &#34; + resname + ligand_id) and &#34;LIGAND&#34; in line:
+                    is_ligand = True
+                    break
+        if is_ligand:
+            ligands.append(molecule)
+    return ligands
+
+
+def describe_chemical(chem_id):
+    &#34;&#34;&#34;
+    Get the chemical description from pypdb.
+
+    :param chem_id: chemical id
+    :return: chemical description
+    &#34;&#34;&#34;
+    if len(chem_id) &gt; 3:
+        raise Exception(&#34;Ligand id with more than 3 characters provided&#34;)
+
+    return pypdb.get_info(
+        chem_id, url_root=&#34;https://data.rcsb.org/rest/v1/core/chemcomp/&#34;
+    )
+
+
+def process_ligand(pdb_string, res_name, tmp_pdb_string=None):
+    &#34;&#34;&#34;
+    Add bond orders to a pdb ligand.
+
+    1. Select the ligand component with name &#34;res_name&#34;
+    2. Get the corresponding SMILES from pypdb
+    3. Create a template molecule from the SMILES in step 2
+    4. Write the PDB file to a stream
+    5. Read the stream into an RDKit molecule
+    6. Assign the bond orders from the template from step 3
+
+    :param pdb_string: pdb string to process
+    :param res_name: residue name of ligand to extract
+    :param tmp_pdb_string: optional pdb string to use if the first one fails
+    :return: molecule with bond orders assigned
+    &#34;&#34;&#34;
+    # output = StringIO()
+    # sub_mol = ligand.select(f&#34;resname {res_name}&#34;)
+    # sub_mol = ligand
+    chem_desc = describe_chemical(f&#34;{res_name}&#34;)
+    sub_smiles = chem_desc[&#34;rcsb_chem_comp_descriptor&#34;][&#34;smiles&#34;]
+    template = AllChem.MolFromSmiles(sub_smiles)
+    # writePDBStream(output, sub_mol)
+    # pdb_string = output.getvalue()
+    rd_mol = AllChem.MolFromPDBBlock(pdb_string)
+    if tmp_pdb_string is not None:
+        if rd_mol is None or rd_mol.GetNumAtoms() == 0:
+            rd_mol = AllChem.MolFromPDBBlock(tmp_pdb_string)
+    # if template is None or rd_mol is None:
+    #    return template
+    try:
+        new_mol = AllChem.AssignBondOrdersFromTemplate(template, rd_mol)
+    except Exception:
+        Chem.MolToSmiles(rd_mol)
+        m_order = eval(rd_mol.GetProp(&#34;_smilesAtomOutputOrder&#34;))
+
+        rd_mol2 = Chem.RenumberAtoms(rd_mol, m_order)
+
+        # print(Chem.MolToSmiles(template))
+        test_rd_mol = Chem.MolFromSmiles(Chem.MolToSmiles(rd_mol))
+        Chem.MolToSmiles(test_rd_mol)
+        m1_order = eval(test_rd_mol.GetProp(&#34;_smilesAtomOutputOrder&#34;))
+        test_rd_mol = Chem.RenumberAtoms(test_rd_mol, m1_order)
+
+        mols = []
+        for atom in rd_mol2.GetAtoms():
+            mols.append(atom)
+        conv = False
+        for i, atom in enumerate(test_rd_mol.GetAtoms()):
+            if mols[i].GetSymbol() != atom.GetSymbol():
+                conv = True
+        if conv:
+            raise Exception(&#34;Ligand ordering error&#34;)
+        else:
+            return rd_mol
+    return new_mol
+
+
+def get_ligand_block(pdb_file, res_name, res_chain, res_num):
+    &#34;&#34;&#34;Get the block of a ligand from a PDB file.&#34;&#34;&#34;
+    block = &#34;&#34;
+    tmp_block = &#34;&#34;
+    parsed_atoms = []
+    with open(pdb_file) as f:
+        for line in f:
+            # line = line.replace(res_name, &#39; &#39;+res_name+ &#39; &#39;)
+            tmp_line = line
+            if &#34;HETATM&#34; in tmp_line:
+                if tmp_line.replace(&#34;HETATM&#34;, &#34;&#34;)[0] != &#34; &#34;:
+                    tmp_line = tmp_line.replace(&#34;HETATM&#34;, &#34;HETATM &#34;)
+                if res_name in tmp_line:
+                    if tmp_line.split(res_name)[0][-1] != &#34; &#34;:
+                        tmp_line = tmp_line.replace(
+                            tmp_line.split(res_name)[0][-1] + res_name, &#34; &#34; + res_name
+                        )
+                if (
+                    str(res_num) in tmp_line
+                    and not tmp_line.split(str(res_num))[0][-1].isnumeric()
+                ):
+                    if (
+                        tmp_line.split(str(res_num))[0][-1] != &#34; &#34;
+                        and str(res_num) not in tmp_line.split()[2]
+                    ):
+                        tmp_line = tmp_line.replace(str(res_num), &#34; &#34; + str(res_num))
+                if len(tmp_line.split()) &gt; 5:
+                    if (
+                        tmp_line.split()[0] == &#34;HETATM&#34;
+                        and tmp_line.split()[3] == res_name
+                        and tmp_line.split()[5] == str(res_num)
+                        and tmp_line.split()[4] == res_chain
+                    ):
+                        # and line.split()[2][0] != &#39;H&#39;\
+                        parsed = (
+                            tmp_line.split()[2],
+                            tmp_line.split()[3],
+                            tmp_line.split()[4],
+                            tmp_line.split()[5],
+                        ) in parsed_atoms
+                        if not parsed:
+                            parsed_atoms.append(
+                                (
+                                    tmp_line.split()[2],
+                                    tmp_line.split()[3],
+                                    tmp_line.split()[4],
+                                    tmp_line.split()[5],
+                                )
+                            )
+                            block += line
+                            tmp_block += tmp_line
+    return block, tmp_block
+
+
+def _get_ligands(
+    pdb_id,
+    p,
+    file_path,
+):
+    &#34;&#34;&#34;Get the ligands from a PDB file.&#34;&#34;&#34;
+    import warnings
+
+    from rdkit import RDLogger
+
+    RDLogger.DisableLog(&#34;rdApp.*&#34;)
+    warnings.filterwarnings(&#34;ignore&#34;)
+
+    # unzip file
+    if len(p.df[&#34;HETATM&#34;]) &gt; 0:
+        pdb_tmp_path = file_path.split(&#34;.&#34;)[0] + &#34;.pdb&#34;
+        with gzip.open(file_path, &#34;rb&#34;) as f_in:
+            with open(pdb_tmp_path, &#34;wb&#34;) as f_out:
+                shutil.copyfileobj(f_in, f_out)
+
+        parser = PDBParser()
+        structure = parser.get_structure(pdb_id.upper(), pdb_tmp_path)
+
+        first_atom_idx = p.df[&#34;HETATM&#34;][&#34;atom_number&#34;][0]
+
+        main_df = p.amino3to1()
+        main_chains = []
+        main_ligands = []
+        for chain in main_df[&#34;chain_id&#34;].unique():
+            main_chain_length = len(main_df[main_df.chain_id == chain])
+            main_chain = list(structure[0][chain].get_residues())[:main_chain_length]
+            main_ligand = list(structure[0][chain].get_residues())[main_chain_length:]
+            # remove water
+            main_ligand = [
+                x
+                for x in main_ligand
+                if x.get_resname() != &#34;HOH&#34;
+                and x.get_resname() != &#34;DOD&#34;
+                and x.get_resname() != &#34;UNK&#34;
+                and x.get_resname() != &#34;UNL&#34;
+                and x.get_resname() != &#34;UNX&#34;
+                and x.get_resname() not in D3TO1.keys()
+                and len(&#34;&#34;.join([i for i in x.get_resname() if not i.isdigit()])) &gt; 2
+            ]
+
+            # if len(main_ligand) &gt;= 30:
+            main_chains += main_chain
+            main_ligands.append(main_ligand)
+
+        other_chains = []
+        for chain in structure[0].get_chains():
+            if chain.id not in main_df[&#34;chain_id&#34;].unique():
+                other_chains.append(list(chain.get_residues()))
+
+        all_connection = parse_pdb_file(pdb_tmp_path, minimum=first_atom_idx)
+
+        # test covalent bonds between chains
+        covbonds_ligand = []
+        covbonds_cl = []
+
+        for main_ligand in main_ligands:
+            covbond_ligand, _, _ = get_covalent_bonds(
+                main_ligand, main_ligand, all_connection, Time_profiling=False
+            )
+            covbonds_ligand.append(covbond_ligand)
+
+            covbon_cl, A2M_C, A2M_L = get_covalent_bonds(
+                main_chain, main_ligand, all_connection, Time_profiling=False
+            )
+            covbonds_cl.append(covbon_cl)
+
+        covbonds = []
+        interbonds = []
+
+        for chain in other_chains:
+            c1, _, c3 = get_covalent_bonds(chain, chain, all_connection)
+            interbonds.append(c1)
+            # A2M_Ls.append(c3)
+            # print(&#34;covalent bonds between main chain and chain&#34;, chain[0].get_parent().id)
+            c1, _, _ = get_covalent_bonds(main_chain, chain, all_connection)
+            covbonds.append(c1)
+
+        components = sum(main_ligands, []) + sum(other_chains, [])
+
+        atom2component = np.zeros(len(list(structure[0].get_atoms())))
+        for i, component in enumerate(main_chain):
+            for atom in component.get_atoms():
+                try:
+                    atom2component[atom.get_serial_number()] = 0
+                except Exception:
+                    pass
+        for i, component in enumerate(components):
+            for atom in component.get_atoms():
+                try:
+                    atom2component[atom.get_serial_number()] = i + 1
+                except Exception:
+                    pass
+
+        connectivity = np.zeros((len(components) + 1, len(components) + 1))
+        id2component = {}
+        connectivity[-1, -1] = 1
+        for i, component in enumerate(components):
+            id2component[component.get_id()[1]] = i
+            connectivity[i, i] = 1
+
+        for covbond_ligand in covbonds_ligand:
+            for conn in covbond_ligand:
+                atom1, atom2 = conn
+                if atom1 &lt; len(atom2component) and atom2 &lt; len(atom2component):
+                    connectivity[int(atom2component[atom1])][
+                        int(atom2component[atom2])
+                    ] = 1
+                    connectivity[int(atom2component[atom2])][
+                        int(atom2component[atom1])
+                    ] = 1
+
+        for covbon_cl in covbonds_cl:
+            for conn in covbon_cl:
+                atom1, atom2 = conn
+                if atom1 &lt; len(atom2component) and atom2 &lt; len(atom2component):
+                    connectivity[int(atom2component[atom1])][
+                        int(atom2component[atom2])
+                    ] = 1
+                    connectivity[int(atom2component[atom2])][
+                        int(atom2component[atom1])
+                    ] = 1
+
+        for i, covbon in enumerate(covbonds):
+            for conn in covbon:
+                atom1, atom2 = conn
+                if atom1 &lt; len(atom2component) and atom2 &lt; len(atom2component):
+                    connectivity[int(atom2component[atom1])][
+                        int(atom2component[atom2])
+                    ] = 1
+                    connectivity[int(atom2component[atom2])][
+                        int(atom2component[atom1])
+                    ] = 1
+
+        for i, covbon in enumerate(interbonds):
+            for conn in covbon:
+                atom1, atom2 = conn
+                if atom1 &lt; len(atom2component) and atom2 &lt; len(atom2component):
+                    connectivity[int(atom2component[atom1])][
+                        int(atom2component[atom2])
+                    ] = 1
+                    connectivity[int(atom2component[atom2])][
+                        int(atom2component[atom1])
+                    ] = 1
+        # connectivity
+        idependent_components = []
+        for i in range(len(components) + 1):
+            idependent_components.append([i])
+
+        idependent_components = merge_components(idependent_components, connectivity)
+
+        chain2ligands = {}
+        # Atom_seq = []
+        # X = []
+        # lengths = []
+        chain2molecule = {}
+        for id, idependent_component in enumerate(idependent_components):
+            atomic_sequence = []
+            coordinates = []
+            length = 0
+            for i in idependent_component:
+                if i &gt; 0:
+                    try:
+                        chain2molecule[components[i - 1].get_parent().id].append(
+                            components[i - 1].get_resname()
+                        )
+                    except Exception:
+                        chain2molecule[components[i - 1].get_parent().id] = [
+                            components[i - 1].get_resname()
+                        ]
+                    if id &gt; 0:
+                        &#34;&#34;&#34;for atom in components[i-1].get_atoms():
+                            atomic_sequence.append(atom.get_name().replace(&#34;&#39;&#34;, &#39;&#39;))
+                            coordinates.append(atom.get_coord())
+                            length += 1
+
+                        res_name = components[i-1].get_resname()
+                        chem_desc = describe_chemical(f&#34;{res_name}&#34;)
+                        sub_smiles = chem_desc[&#34;rcsb_chem_comp_descriptor&#34;][&#34;smiles&#34;]&#34;&#34;&#34;
+
+                        res_name = components[i - 1].get_resname()
+                        chain_name = components[i - 1].get_full_id()[2]
+                        res_number = components[i - 1].get_full_id()[3][1]
+                        lig_block, tmp_lig_block = get_ligand_block(
+                            pdb_tmp_path, res_name, chain_name, res_number
+                        )
+                        ligand_mol = process_ligand(lig_block, res_name, tmp_lig_block)
+
+                        sub_smiles = Chem.MolToSmiles(ligand_mol)
+                        smiles_order = ligand_mol.GetProp(&#34;_smilesAtomOutputOrder&#34;)
+                        # print(other_mol.GetProp(&#39;_smilesAtomOutputOrder&#39;))
+
+                        pdb_atom_list = []
+                        pdb_atom_list_names = []
+                        for atom in components[i - 1].get_unpacked_list():
+                            if (
+                                atom.get_name()[0] != &#34;H&#34;
+                                and atom.get_name() not in pdb_atom_list_names
+                            ):
+                                pdb_atom_list.append(atom)
+                                pdb_atom_list_names.append(atom.get_name())
+
+                        for j in range(len(pdb_atom_list)):
+                            try:
+                                atom = pdb_atom_list[eval(smiles_order)[j]]
+                            except Exception:
+                                print(
+                                    &#34;eval error&#34;,
+                                    pdb_tmp_path,
+                                    len(eval(smiles_order)),
+                                    len(pdb_atom_list),
+                                )
+                                atom = pdb_atom_list[eval(smiles_order)[j]]
+                            atomic_sequence.append(atom.get_name().replace(&#34;&#39;&#34;, &#34;&#34;))
+                            coordinates.append(atom.get_coord())
+                            length += 1
+            if id &gt; 0:
+                # print(&#34;Atomic sequence&#34;, np.array(atomic_sequence))
+                # print(&#34;Coordinates&#34;, np.array(coordinates)[:10])
+                try:
+                    chain2ligands[components[i - 1].get_parent().id].append(
+                        {
+                            &#34;seq&#34;: &#34;-&#34;.join(
+                                chain2molecule[components[i - 1].get_parent().id]
+                            ),
+                            &#34;smiles&#34;: sub_smiles,
+                            &#34;atoms&#34;: atomic_sequence,
+                            &#34;X&#34;: np.array(coordinates),
+                            &#34;length&#34;: length,
+                            &#34;chain&#34;: components[i - 1].get_parent().id,
+                        }
+                    )
+                except Exception:
+                    chain2ligands[components[i - 1].get_parent().id] = [
+                        {
+                            &#34;seq&#34;: &#34;-&#34;.join(
+                                chain2molecule[components[i - 1].get_parent().id]
+                            ),
+                            &#34;smiles&#34;: sub_smiles,
+                            &#34;atoms&#34;: atomic_sequence,
+                            &#34;X&#34;: np.array(coordinates),
+                            &#34;length&#34;: length,
+                            &#34;chain&#34;: components[i - 1].get_parent().id,
+                        }
+                    ]
+                # Atom_seq.append(&#39;&#39;.join(atomic_sequence))
+                # X.append(coordinates)
+                # lengths.append(length)
+
+        os.remove(pdb_tmp_path)
+        return chain2ligands
+    else:
+        return None
+
+
+def _load_smiles(dir):
+    &#34;&#34;&#34;Load biounits and group their sequences by PDB and similarity (90%).&#34;&#34;&#34;
+    smiles_dict = defaultdict(lambda: [])
+
+    for file in tqdm([x for x in os.listdir(dir) if x.endswith(&#34;.pickle&#34;)]):
+        load_path = os.path.join(dir, file)
+        if os.path.isdir(load_path):
+            continue
+        with open(load_path, &#34;rb&#34;) as f:
+            pdb_dict = pickle.load(f)
+        smiles = [
+            (
+                chain,
+                &#34;&#34;.join(
+                    np.array(
+                        list(&#34;.&#34;.join(lg[&#34;smiles&#34;] for lg in pdb_dict[chain][&#34;ligand&#34;]))
+                    ).tolist()
+                ),
+            )
+            for chain in pdb_dict.keys()
+            if &#34;ligand&#34; in pdb_dict[chain].keys()
+        ]
+        smiles = [(chain, sm) for chain, sm in smiles if len(sm) &gt; 0]
+        smiles_dict[file[:4]] += smiles
+
+    return smiles_dict
+
+
+def _unique_chains(seqs_list):
+    &#34;&#34;&#34;Get unique chains.&#34;&#34;&#34;
+    new_seqs_list = [seqs_list[0]]
+    chains = [new_seqs_list[0][0]]
+
+    for seq in seqs_list[1:]:
+        if seq[0] not in chains:
+            new_seqs_list.append(seq)
+            chains.append(seq[0])
+
+    return new_seqs_list
+
+
+def _merge_chains_ligands(seqs_dict_):
+    &#34;&#34;&#34;Look into the chains of each PDB and regroup redundancies (at 90% sequence identity).&#34;&#34;&#34;
+    seqs_dict = copy.deepcopy(seqs_dict_)
+    pdbs_to_delete = []
+
+    for pdb in tqdm(seqs_dict.keys()):
+        if seqs_dict[pdb] == []:
+            pdbs_to_delete.append(pdb)
+            continue
+
+        seqs_dict[pdb] = _unique_chains(seqs_dict[pdb])
+        groups, ref_sms, indexes = [], [], []
+
+        for k in range(len(seqs_dict[pdb])):
+            if k in indexes:
+                continue
+            group = [seqs_dict[pdb][k][0]]
+            ref_sm = seqs_dict[pdb][k][1]
+            ref_sms.append(ref_sm)
+            indexes.append(k)
+
+            for i in range(k + 1, len(seqs_dict[pdb])):
+                chain, seq = seqs_dict[pdb][i][0], seqs_dict[pdb][i][1]
+                if (
+                    i in indexes
+                    or len(seq) &gt; 1.1 * len(ref_sm)
+                    or len(seq) &lt; 0.9 * len(ref_sm)
+                    or calculate_tanimoto_distance(seq, ref_sm) &gt; 0.1
+                ):
+                    continue
+                group.append(chain)
+                indexes.append(i)
+
+            groups.append(group)
+
+        new_group = []
+        for group, seq in zip(groups, ref_sms):
+            new_group.append((&#34;-&#34;.join(group), seq))
+        seqs_dict[pdb] = new_group
+
+    for pdb in pdbs_to_delete:
+        del seqs_dict[pdb]
+
+    return seqs_dict
+
+
+def save_binary_vectors_to_file(vectors, file_path):
+    &#34;&#34;&#34;Save binary vectors to a file.&#34;&#34;&#34;
+    with open(file_path, &#34;wb&#34;) as file:
+        for vector in vectors:
+            bytes_vector = np.packbits(vector)  # Convert binary array to bytes
+            file.write(bytes_vector)
+
+
+def get_binary_vector_by_index(file_path, index, vector_length):
+    &#34;&#34;&#34;Get a binary vector from a file by index.&#34;&#34;&#34;
+    # vector_length = 2048
+    vector_byte_size = (vector_length + 7) // 8  # Number of bytes per vector
+
+    with open(file_path, &#34;rb&#34;) as file:
+        with mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+            start = index * vector_byte_size
+            end = start + vector_byte_size
+
+            bytes_vector = mm[start:end]
+            binary_vector = np.unpackbits(np.frombuffer(bytes_vector, dtype=np.uint8))
+
+    return binary_vector[:vector_length]  # Trim the array to the original size
+
+
+def calculate_fingerprint_similarity(fp1, fp2):
+    &#34;&#34;&#34;Calculate the Tanimoto similarity between two molecules.&#34;&#34;&#34;
+    # fpgen = rdFingerprintGenerator.GetMorganGenerator(radius=3, fpSize=2048)
+    # fp1 = fpgen.GetFingerprint(mol1)
+    # fp2 = fpgen.GetFingerprint(mol2)
+    # bit_string = &#39;&#39;.join(str(bit) for bit in fp1)
+    # bfp1 = DataStructs.CreateFromBitString(bit_string)
+
+    # bit_string = &#39;&#39;.join(str(bit) for bit in fp2)
+    # bfp2 = DataStructs.CreateFromBitString(bit_string)
+
+    similarity = DataStructs.FingerprintSimilarity(fp1, fp2)
+    return similarity
+
+
+def calculate_tanimoto_similarity(mol1, mol2):
+    &#34;&#34;&#34;Calculate the Tanimoto similarity between two molecules.&#34;&#34;&#34;
+    fpgen = rdFingerprintGenerator.GetMorganGenerator(radius=3, fpSize=2048)
+    fp1 = fpgen.GetFingerprint(mol1)
+    fp2 = fpgen.GetFingerprint(mol2)
+    similarity = DataStructs.FingerprintSimilarity(fp1, fp2)
+    return similarity
+
+
+def calculate_similarity(args, vector_length=2048, root_path=&#34;bin_fps&#34;):
+    &#34;&#34;&#34;Calculate the Tanimoto distance between two fp vectors.&#34;&#34;&#34;
+    i, j = args
+    # i, j, txt_file = args
+
+    # sm1 = get_line_by_index(txt_file, i)
+    # sm2 = get_line_by_index(txt_file, j)
+
+    # molecule1 = Chem.MolFromSmiles(sm1)
+    # molecule2 = Chem.MolFromSmiles(sm2)
+    # fp1, fp2 = get_binary_vector_by_index(file_path, i, vector_length), get_binary_vector_by_index(file_path, j, vector_length)
+    with open(root_path + str(i) + &#34;.pickle&#34;, &#34;rb&#34;) as file:
+        bfp1 = pickle.load(file)
+
+    with open(root_path + str(j) + &#34;.pickle&#34;, &#34;rb&#34;) as file:
+        bfp2 = pickle.load(file)
+
+    fp1 = ExplicitBitVect(2048)
+    fp1.FromBase64(bfp1)
+    fp2 = ExplicitBitVect(2048)
+    fp2.FromBase64(bfp2)
+
+    similarity = calculate_fingerprint_similarity(fp1, fp2)
+    return i, j, 1 - similarity
+
+
+def _compare_lig_identity(lig, ligs, threshold):
+    &#34;&#34;&#34;Assess whether a sequence is identical to another one in a list of sequences.&#34;&#34;&#34;
+    mol1 = Chem.MolFromSmiles(lig)
+    for lig2 in ligs:
+        mol2 = Chem.MolFromSmiles(lig2)
+        if calculate_tanimoto_similarity(mol1, mol2) &lt;= threshold:
+            return True
+    return False
+
+
+def _compare_smiles(ligs1, ligs2, threshold):
+    &#34;&#34;&#34;Assess whether 2 lists of sequences contain exactly the same set of sequences.&#34;&#34;&#34;
+    for lig in ligs1:
+        if not _compare_lig_identity(lig, ligs2, threshold):
+            return False
+
+    for lig in ligs2:
+        if not _compare_lig_identity(lig, ligs1, threshold):
+            return False
+
+    return True
+
+
+def calculate_tanimoto_distance(sm1, sm2):
+    &#34;&#34;&#34;Calculate the Tanimoto distance between two SMILES.&#34;&#34;&#34;
+    mol1 = Chem.MolFromSmiles(sm1)
+    mol2 = Chem.MolFromSmiles(sm2)
+    return 1 - calculate_tanimoto_similarity(mol1, mol2)
+
+
+def get_line_by_index(file_path, index):
+    &#34;&#34;&#34;Get a line from a file by index.&#34;&#34;&#34;
+    with open(file_path) as file:
+        with mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+            start = mm.find(b&#34;\n&#34;, mm.find(b&#34;\n&#34;, 0) + 1)  # Skip the first line
+
+            for _ in range(index):
+                start = mm.find(b&#34;\n&#34;, start + 1)
+
+            end = mm.find(b&#34;\n&#34;, start + 1)
+            line = mm[start + 1 : end].decode().strip()
+
+    return line
+
+
+# Define a function to perform Tanimoto clustering
+def perform_tanimoto_clustering(smiles_list, threshold, tmp_folder):
+    &#34;&#34;&#34;Perform Tanimoto clustering.&#34;&#34;&#34;
+    from multiprocessing import Pool
+
+    unique_smiles = []
+    smiles_mapping = []
+    print(&#34;Mapping unique smiles for Tanimoto...&#34;)
+    counter = 0
+    for i, sm in tqdm(enumerate(smiles_list)):
+        if sm not in unique_smiles:
+            unique_smiles.append(sm)
+            smiles_mapping.append(counter)
+            counter += 1
+        else:
+            smiles_mapping.append(unique_smiles.index(sm))
+    # Convert SMILES to RDKit molecules
+    # molecules = [Chem.MolFromSmiles(smiles) for smiles in unique_smiles]
+
+    # Calculate pairwise similarities
+    # similarity_matrix = np.zeros((len(molecules), len(molecules)))
+
+    print(&#34;Calculating fingerprints...&#34;)
+    fpSize = 2048
+    tmp_root_path = &#34;./tmp_fps/&#34;
+    # filename = tmp_root_path+&#34;bin_fps.h5&#34;
+
+    if os.path.exists(tmp_root_path):
+        # Remove the old directory and its contents
+        for root, dirs, files in os.walk(tmp_root_path, topdown=False):
+            for file_name in files:
+                file_path = os.path.join(root, file_name)
+                os.remove(file_path)
+            for dir_name in dirs:
+                dir_path = os.path.join(root, dir_name)
+                os.rmdir(dir_path)
+        os.rmdir(tmp_root_path)
+
+    # Create the new directory
+    os.makedirs(tmp_root_path)
+
+    # FPs = np.zeros((len(unique_smiles), fpSize), dtype=int)
+    fpgen = rdFingerprintGenerator.GetMorganGenerator(radius=3, fpSize=fpSize)
+    # fp1 = fpgen.GetFingerprint(mol1)
+    for i, sm in tqdm(enumerate(unique_smiles)):
+        mol = Chem.MolFromSmiles(sm)
+        fp = fpgen.GetFingerprint(mol)
+        # data = base64.b64decode(fp.ToBase64())
+        with open(tmp_root_path + str(i) + &#34;.pickle&#34;, &#34;wb&#34;) as file:
+            pickle.dump(fp.ToBase64(), file)
+
+    print(&#34;Preparing parallel Tanimoto...&#34;)
+    # with open(&#34;unique_smiles.txt&#34;, &#34;w&#34;) as file:
+    #    for item in unique_smiles:
+    #        file.write(item + &#34;\n&#34;)
+
+    similarity_matrix = []
+    args_list = []
+    for i in tqdm(range(len(unique_smiles))):
+        for j in range(i):
+            args_list.append((i, j))
+            # args_list.append((i, j, &#34;unique_smiles.txt&#34;))
+
+    print(&#34;Constructing distance matrix...&#34;)
+    with Pool() as pool:
+        # results = pool.map(calculate_similarity, args_list)
+        results = []
+        for result in tqdm(
+            pool.imap_unordered(
+                partial(
+                    calculate_similarity, vector_length=fpSize, root_path=tmp_root_path
+                ),
+                args_list,
+            ),
+            total=len(args_list),
+        ):
+            results.append(result)
+
+    square_dist = np.zeros((len(unique_smiles), len(unique_smiles)))
+    for i, j, distance in sorted(results):
+        square_dist[i][j] = distance
+
+    print(&#34;Saving distance matrix...&#34;)
+    np.save(tmp_folder + &#34;/&#34; + &#34;Tanimoto_distance_matrix.npy&#34;, square_dist)
+    N = len(smiles_list)
+    results = None
+    unique_smiles = None
+    smiles_list = None
+    args_list = None
+
+    print(&#34;Copying results...&#34;)
+    counter = 0
+    for i in tqdm(range(N)):
+        for j in range(i):
+            # similarity_matrix.append(np.random.random())
+            counter += 1
+    similarity_matrix = np.zeros(counter)
+    k = 0
+    for i in tqdm(range(N)):
+        for j in range(i):
+            Ii = max(smiles_mapping[i], smiles_mapping[j])
+            J = min(smiles_mapping[i], smiles_mapping[j])
+            similarity_matrix[k] = square_dist[Ii][J]
+            k += 1
+    # Perform clustering
+    # dist_matrix = 1 - similarity_matrix
+    # print(similarity_matrix)
+    print(&#34;Clustering with Butina&#34;)
+    clusters = Butina.ClusterData(similarity_matrix, N, threshold, isDistData=True)
+
+    if os.path.exists(tmp_root_path):
+        # Remove the old directory and its contents
+        for root, dirs, files in os.walk(tmp_root_path, topdown=False):
+            for file_name in files:
+                file_path = os.path.join(root, file_name)
+                os.remove(file_path)
+            for dir_name in dirs:
+                dir_path = os.path.join(root, dir_name)
+                os.rmdir(dir_path)
+        os.rmdir(tmp_root_path)
+
+    return clusters
+
+
+def _run_tanimoto_clustering(smiles_dict, threshold, tmp_folder):
+    &#34;&#34;&#34;Run Tanimoto clustering on a dictionary of SMILES.&#34;&#34;&#34;
+    smiles_list = []
+    chains_list = []
+    for k in smiles_dict.keys():
+        for c in smiles_dict[k]:
+            chains_list.append(k + &#34;_&#34; + c[0])
+            smiles_list.append(c[1])
+    clusters = perform_tanimoto_clustering(smiles_list, threshold, tmp_folder)
+    chain_cluster_dict = {}
+    pdb_cluster_dict = {}
+    for i, cluster in enumerate(clusters):
+        chain_cluster_dict[chains_list[cluster[0]]] = list(
+            [chains_list[cl] for cl in cluster]
+        )
+        pdb_cluster_dict[chains_list[cluster[0]]] = np.array(
+            list(set(list([chains_list[cl].split(&#34;_&#34;)[0] for cl in cluster])))
+        )
+    return chain_cluster_dict, pdb_cluster_dict</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="proteinflow.ligand.atom2mol"><code class="name flex">
+<span>def <span class="ident">atom2mol</span></span>(<span>p)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Convert a PDB file to a molecule.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def atom2mol(p):
+    &#34;&#34;&#34;Convert a PDB file to a molecule.&#34;&#34;&#34;
+    small_molecules = p.df[&#34;HETATM&#34;]
+
+    # Group small molecules using residue3to1()
+    small_molecules[&#34;residue_name&#34;] = small_molecules[&#34;residue_name&#34;].apply(
+        lambda x: x.upper()
+    )
+    small_molecules[&#34;residue_number&#34;] = small_molecules[&#34;residue_number&#34;].astype(int)
+    small_molecules[&#34;chain_id&#34;] = small_molecules[&#34;chain_id&#34;].astype(str)
+    small_molecules[&#34;residue&#34;] = small_molecules.apply(
+        lambda row: row[&#34;residue_name&#34;] + str(row[&#34;residue_number&#34;]) + row[&#34;chain_id&#34;],
+        axis=1,
+    )
+
+    grouped_small_molecules = small_molecules.groupby(&#34;residue&#34;).first()
+    return grouped_small_molecules[[&#34;chain_id&#34;, &#34;residue_name&#34;]]</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.calculate_fingerprint_similarity"><code class="name flex">
+<span>def <span class="ident">calculate_fingerprint_similarity</span></span>(<span>fp1, fp2)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate the Tanimoto similarity between two molecules.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def calculate_fingerprint_similarity(fp1, fp2):
+    &#34;&#34;&#34;Calculate the Tanimoto similarity between two molecules.&#34;&#34;&#34;
+    # fpgen = rdFingerprintGenerator.GetMorganGenerator(radius=3, fpSize=2048)
+    # fp1 = fpgen.GetFingerprint(mol1)
+    # fp2 = fpgen.GetFingerprint(mol2)
+    # bit_string = &#39;&#39;.join(str(bit) for bit in fp1)
+    # bfp1 = DataStructs.CreateFromBitString(bit_string)
+
+    # bit_string = &#39;&#39;.join(str(bit) for bit in fp2)
+    # bfp2 = DataStructs.CreateFromBitString(bit_string)
+
+    similarity = DataStructs.FingerprintSimilarity(fp1, fp2)
+    return similarity</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.calculate_similarity"><code class="name flex">
+<span>def <span class="ident">calculate_similarity</span></span>(<span>args, vector_length=2048, root_path='bin_fps')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate the Tanimoto distance between two fp vectors.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def calculate_similarity(args, vector_length=2048, root_path=&#34;bin_fps&#34;):
+    &#34;&#34;&#34;Calculate the Tanimoto distance between two fp vectors.&#34;&#34;&#34;
+    i, j = args
+    # i, j, txt_file = args
+
+    # sm1 = get_line_by_index(txt_file, i)
+    # sm2 = get_line_by_index(txt_file, j)
+
+    # molecule1 = Chem.MolFromSmiles(sm1)
+    # molecule2 = Chem.MolFromSmiles(sm2)
+    # fp1, fp2 = get_binary_vector_by_index(file_path, i, vector_length), get_binary_vector_by_index(file_path, j, vector_length)
+    with open(root_path + str(i) + &#34;.pickle&#34;, &#34;rb&#34;) as file:
+        bfp1 = pickle.load(file)
+
+    with open(root_path + str(j) + &#34;.pickle&#34;, &#34;rb&#34;) as file:
+        bfp2 = pickle.load(file)
+
+    fp1 = ExplicitBitVect(2048)
+    fp1.FromBase64(bfp1)
+    fp2 = ExplicitBitVect(2048)
+    fp2.FromBase64(bfp2)
+
+    similarity = calculate_fingerprint_similarity(fp1, fp2)
+    return i, j, 1 - similarity</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.calculate_tanimoto_distance"><code class="name flex">
+<span>def <span class="ident">calculate_tanimoto_distance</span></span>(<span>sm1, sm2)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate the Tanimoto distance between two SMILES.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def calculate_tanimoto_distance(sm1, sm2):
+    &#34;&#34;&#34;Calculate the Tanimoto distance between two SMILES.&#34;&#34;&#34;
+    mol1 = Chem.MolFromSmiles(sm1)
+    mol2 = Chem.MolFromSmiles(sm2)
+    return 1 - calculate_tanimoto_similarity(mol1, mol2)</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.calculate_tanimoto_similarity"><code class="name flex">
+<span>def <span class="ident">calculate_tanimoto_similarity</span></span>(<span>mol1, mol2)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate the Tanimoto similarity between two molecules.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def calculate_tanimoto_similarity(mol1, mol2):
+    &#34;&#34;&#34;Calculate the Tanimoto similarity between two molecules.&#34;&#34;&#34;
+    fpgen = rdFingerprintGenerator.GetMorganGenerator(radius=3, fpSize=2048)
+    fp1 = fpgen.GetFingerprint(mol1)
+    fp2 = fpgen.GetFingerprint(mol2)
+    similarity = DataStructs.FingerprintSimilarity(fp1, fp2)
+    return similarity</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.connected"><code class="name flex">
+<span>def <span class="ident">connected</span></span>(<span>claster1, cluster2, connectivity)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Check if two clusters are connected.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def connected(claster1, cluster2, connectivity):
+    &#34;&#34;&#34;Check if two clusters are connected.&#34;&#34;&#34;
+    for atom1 in claster1:
+        for atom2 in cluster2:
+            if connectivity[atom1, atom2] == 1:
+                return True
+    return False</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.describe_chemical"><code class="name flex">
+<span>def <span class="ident">describe_chemical</span></span>(<span>chem_id)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the chemical description from pypdb.</p>
+<p>:param chem_id: chemical id
+:return: chemical description</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def describe_chemical(chem_id):
+    &#34;&#34;&#34;
+    Get the chemical description from pypdb.
+
+    :param chem_id: chemical id
+    :return: chemical description
+    &#34;&#34;&#34;
+    if len(chem_id) &gt; 3:
+        raise Exception(&#34;Ligand id with more than 3 characters provided&#34;)
+
+    return pypdb.get_info(
+        chem_id, url_root=&#34;https://data.rcsb.org/rest/v1/core/chemcomp/&#34;
+    )</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.fix_connect"><code class="name flex">
+<span>def <span class="ident">fix_connect</span></span>(<span>conect_line, minimum=0)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Fix a CONECT line.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def fix_connect(conect_line, minimum=0):
+    &#34;&#34;&#34;Fix a CONECT line.&#34;&#34;&#34;
+    if &#34;CONECT&#34; not in conect_line:
+        return &#34;&#34;
+    separated_line = conect_line.split(&#34; &#34;)
+    separated_line = list(filter((&#34;&#34;).__ne__, separated_line))
+    try:
+        separated_line.remove(&#34;\n&#34;)
+    except Exception:
+        pass
+    conect_line = &#34; &#34;.join(separated_line)
+    if len(separated_line) &gt;= 3:
+        return conect_line
+    if len(separated_line) == 1 or separated_line[0] != &#34;CONECT&#34;:
+        conect_line = conect_line.replace(&#34;CONECT&#34;, &#34;CONECT &#34;)
+    separated_line = conect_line.split(&#34; &#34;)
+    if len(separated_line) == 2:
+        numbers = separated_line[1]
+        potential_connections = 10
+        diffs = []
+        numbers_lists = []
+        for i in range(2, potential_connections):
+            if len(numbers) % i == 0:
+                numbers_list = [
+                    numbers[j : j + len(numbers) // i]
+                    for j in range(0, len(numbers), len(numbers) // i)
+                ]
+                # minimum difference between every numbers pair
+                mean_diff = 0
+                all_small = 1
+                for k in range(len(numbers_list)):
+                    if int(numbers_list[k]) &gt;= minimum:
+                        all_small *= 0
+                    for l_idx in range(k + 1, len(numbers_list)):
+                        mean_diff += abs(
+                            int(numbers_list[k]) - int(numbers_list[l_idx])
+                        )
+                mean_diff /= len(numbers_list)
+                le = len(numbers) // i
+                if all_small:
+                    mean_diff += 100000
+                diffs.append(mean_diff / (le * le * le))
+                numbers_lists.append(numbers_list)
+        diffs = np.array(diffs)
+        if len(diffs) &gt; 0:
+            best_candidates = diffs[diffs == min(diffs)]
+            if best_candidates.shape[0] &gt; 1:
+                # choose candidate with highest numbers list length
+                best_candidates_lengths = list(
+                    [len(numbers_lists[i]) for i in (diffs == min(diffs)).nonzero()[0]]
+                )
+                best_candidate = best_candidates_lengths.index(
+                    max(best_candidates_lengths)
+                )
+            else:
+                best_candidate = (diffs == min(diffs)).nonzero()[0][0]
+            conect_line = &#34;CONECT &#34; + &#34; &#34;.join(numbers_lists[best_candidate])
+    return conect_line</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.get_binary_vector_by_index"><code class="name flex">
+<span>def <span class="ident">get_binary_vector_by_index</span></span>(<span>file_path, index, vector_length)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get a binary vector from a file by index.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_binary_vector_by_index(file_path, index, vector_length):
+    &#34;&#34;&#34;Get a binary vector from a file by index.&#34;&#34;&#34;
+    # vector_length = 2048
+    vector_byte_size = (vector_length + 7) // 8  # Number of bytes per vector
+
+    with open(file_path, &#34;rb&#34;) as file:
+        with mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+            start = index * vector_byte_size
+            end = start + vector_byte_size
+
+            bytes_vector = mm[start:end]
+            binary_vector = np.unpackbits(np.frombuffer(bytes_vector, dtype=np.uint8))
+
+    return binary_vector[:vector_length]  # Trim the array to the original size</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.get_covalent_bonds"><code class="name flex">
+<span>def <span class="ident">get_covalent_bonds</span></span>(<span>chain1, chain2, connect_dict, distance_check=False, Time_profiling=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get covalent bonds between two chains.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_covalent_bonds(
+    chain1, chain2, connect_dict, distance_check=False, Time_profiling=False
+):
+    &#34;&#34;&#34;Get covalent bonds between two chains.&#34;&#34;&#34;
+    from time import time
+
+    t0 = time()
+    atoms_chain1 = []
+    # atom2M_1 = {}
+
+    atom2M_1_num = {}
+    atom2M_1_num_reverse = {}
+    for i in range(len(chain1)):
+        atoms_chain1 += list(chain1[i].get_atoms())
+        # atom2M_1[chain1[i].get_id()[1]] = list(chain1[i].get_atoms())
+
+        atom2M_1_num[chain1[i].get_id()[1]] = []
+        for at in list(chain1[i].get_atoms()):
+            atom2M_1_num[chain1[i].get_id()[1]].append(at.get_serial_number())
+            if (
+                at.get_serial_number() in connect_dict
+                or at.get_serial_number() in connect_dict.values()
+            ):
+                atom2M_1_num_reverse[at.get_serial_number()] = chain1[i].get_id()[1]
+
+    t1 = time()
+
+    atoms_chain2 = []
+    # atom2M_2 = {}
+    atom2M_2_num = {}
+    atom2M_2_num_reverse = {}
+    for i in range(len(chain2)):
+        atoms_chain2 += list(chain2[i].get_atoms())
+        # atom2M_2[chain2[i].get_id()[1]] = list(chain2[i].get_atoms())
+
+        atom2M_2_num[chain2[i].get_id()[1]] = []
+        for at in list(chain2[i].get_atoms()):
+            atom2M_2_num[chain2[i].get_id()[1]].append(at.get_serial_number())
+            if (
+                at.get_serial_number() in connect_dict
+                or at.get_serial_number() in connect_dict.values()
+            ):
+                atom2M_2_num_reverse[at.get_serial_number()] = chain2[i].get_id()[1]
+
+    t2 = time()
+    # Check for covalent bonds between the chains
+    covalent_bonds_new = []
+
+    for atom1 in atom2M_1_num_reverse:
+        for atom2 in atom2M_2_num_reverse:
+            if (
+                atom2 in atom2M_1_num[atom2M_1_num_reverse[atom1]]
+                or atom1 in atom2M_2_num[atom2M_2_num_reverse[atom2]]
+            ):
+                continue
+            if (atom1 in connect_dict and atom2 in connect_dict[atom1]) or (
+                atom2 in connect_dict and atom1 in connect_dict[atom2]
+            ):
+                covalent_bonds_new.append((atom1, atom2))
+    t3 = time()
+    if Time_profiling:
+        total_time = t3 - t0
+        print(&#34;Get atom chains 1 ratio: &#34;, (t1 - t0) / total_time)
+        print(&#34;Get atom chains 2 ratio: &#34;, (t2 - t1) / total_time)
+        print(&#34;Get covalent bonds ratio: &#34;, (t3 - t2) / total_time)
+        print(len(atoms_chain1), len(atoms_chain2), len(covalent_bonds_new))
+        print(&#34;Total time: &#34;, total_time)
+    return covalent_bonds_new, None, None</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.get_ligand_block"><code class="name flex">
+<span>def <span class="ident">get_ligand_block</span></span>(<span>pdb_file, res_name, res_chain, res_num)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the block of a ligand from a PDB file.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_ligand_block(pdb_file, res_name, res_chain, res_num):
+    &#34;&#34;&#34;Get the block of a ligand from a PDB file.&#34;&#34;&#34;
+    block = &#34;&#34;
+    tmp_block = &#34;&#34;
+    parsed_atoms = []
+    with open(pdb_file) as f:
+        for line in f:
+            # line = line.replace(res_name, &#39; &#39;+res_name+ &#39; &#39;)
+            tmp_line = line
+            if &#34;HETATM&#34; in tmp_line:
+                if tmp_line.replace(&#34;HETATM&#34;, &#34;&#34;)[0] != &#34; &#34;:
+                    tmp_line = tmp_line.replace(&#34;HETATM&#34;, &#34;HETATM &#34;)
+                if res_name in tmp_line:
+                    if tmp_line.split(res_name)[0][-1] != &#34; &#34;:
+                        tmp_line = tmp_line.replace(
+                            tmp_line.split(res_name)[0][-1] + res_name, &#34; &#34; + res_name
+                        )
+                if (
+                    str(res_num) in tmp_line
+                    and not tmp_line.split(str(res_num))[0][-1].isnumeric()
+                ):
+                    if (
+                        tmp_line.split(str(res_num))[0][-1] != &#34; &#34;
+                        and str(res_num) not in tmp_line.split()[2]
+                    ):
+                        tmp_line = tmp_line.replace(str(res_num), &#34; &#34; + str(res_num))
+                if len(tmp_line.split()) &gt; 5:
+                    if (
+                        tmp_line.split()[0] == &#34;HETATM&#34;
+                        and tmp_line.split()[3] == res_name
+                        and tmp_line.split()[5] == str(res_num)
+                        and tmp_line.split()[4] == res_chain
+                    ):
+                        # and line.split()[2][0] != &#39;H&#39;\
+                        parsed = (
+                            tmp_line.split()[2],
+                            tmp_line.split()[3],
+                            tmp_line.split()[4],
+                            tmp_line.split()[5],
+                        ) in parsed_atoms
+                        if not parsed:
+                            parsed_atoms.append(
+                                (
+                                    tmp_line.split()[2],
+                                    tmp_line.split()[3],
+                                    tmp_line.split()[4],
+                                    tmp_line.split()[5],
+                                )
+                            )
+                            block += line
+                            tmp_block += tmp_line
+    return block, tmp_block</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.get_line_by_index"><code class="name flex">
+<span>def <span class="ident">get_line_by_index</span></span>(<span>file_path, index)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get a line from a file by index.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_line_by_index(file_path, index):
+    &#34;&#34;&#34;Get a line from a file by index.&#34;&#34;&#34;
+    with open(file_path) as file:
+        with mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+            start = mm.find(b&#34;\n&#34;, mm.find(b&#34;\n&#34;, 0) + 1)  # Skip the first line
+
+            for _ in range(index):
+                start = mm.find(b&#34;\n&#34;, start + 1)
+
+            end = mm.find(b&#34;\n&#34;, start + 1)
+            line = mm[start + 1 : end].decode().strip()
+
+    return line</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.get_raw_ligands"><code class="name flex">
+<span>def <span class="ident">get_raw_ligands</span></span>(<span>file_path, ligand)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the raw ligands from a PDB file.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_raw_ligands(file_path, ligand):
+    &#34;&#34;&#34;Get the raw ligands from a PDB file.&#34;&#34;&#34;
+    ligands = []
+    for molecule in ligand:
+        resname = molecule.getResname()
+        ligand_id = f&#34;{molecule.getChid()} {molecule.getResnum()}&#34;
+        is_ligand = False
+        with open(file_path) as pdb_file:
+            for line in pdb_file:
+                if line.startswith(&#34;HET   &#34; + resname + ligand_id) and &#34;LIGAND&#34; in line:
+                    is_ligand = True
+                    break
+        if is_ligand:
+            ligands.append(molecule)
+    return ligands</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.is_ion"><code class="name flex">
+<span>def <span class="ident">is_ion</span></span>(<span>st)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Determine if a string is an ion.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def is_ion(st):
+    &#34;&#34;&#34;Determine if a string is an ion.&#34;&#34;&#34;
+    if len(&#34;&#34;.join([i for i in st if not i.isdigit()])) &lt;= 2:
+        return True
+    if st in D3TO1.keys():
+        return True
+    return False</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.merge_components"><code class="name flex">
+<span>def <span class="ident">merge_components</span></span>(<span>clusters, connectivity)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Merge clusters that are connected.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def merge_components(clusters, connectivity):
+    &#34;&#34;&#34;Merge clusters that are connected.&#34;&#34;&#34;
+    if len(clusters) == 1:
+        return clusters
+    for i, cluster1 in enumerate(clusters):
+        for j, cluster2 in enumerate(clusters):
+            if cluster1 == cluster2:
+                continue
+            if connected(cluster1, cluster2, connectivity):
+                clusters[i] = cluster1 + cluster2
+                clusters.remove(cluster2)
+                return merge_components(clusters, connectivity)
+    return clusters</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.parse_pdb_file"><code class="name flex">
+<span>def <span class="ident">parse_pdb_file</span></span>(<span>pdb_file, minimum=0)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Parse a PDB file and return a dictionary with the connectivity information.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def parse_pdb_file(pdb_file, minimum=0):
+    &#34;&#34;&#34;Parse a PDB file and return a dictionary with the connectivity information.&#34;&#34;&#34;
+    connect_dict = {}
+    with open(pdb_file) as f:
+        for line in f:
+            if line.startswith(&#34;CONECT&#34;):
+                line = fix_connect(line, minimum=minimum)
+                try:
+                    fields = line.split()
+                    atom_serial = int(fields[1])
+                    connected_atoms = [int(x) for x in fields[2:] if x.isdigit()]
+                    connect_dict[atom_serial] = connected_atoms
+                except Exception:
+                    pass
+    return connect_dict</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.perform_tanimoto_clustering"><code class="name flex">
+<span>def <span class="ident">perform_tanimoto_clustering</span></span>(<span>smiles_list, threshold, tmp_folder)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Perform Tanimoto clustering.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def perform_tanimoto_clustering(smiles_list, threshold, tmp_folder):
+    &#34;&#34;&#34;Perform Tanimoto clustering.&#34;&#34;&#34;
+    from multiprocessing import Pool
+
+    unique_smiles = []
+    smiles_mapping = []
+    print(&#34;Mapping unique smiles for Tanimoto...&#34;)
+    counter = 0
+    for i, sm in tqdm(enumerate(smiles_list)):
+        if sm not in unique_smiles:
+            unique_smiles.append(sm)
+            smiles_mapping.append(counter)
+            counter += 1
+        else:
+            smiles_mapping.append(unique_smiles.index(sm))
+    # Convert SMILES to RDKit molecules
+    # molecules = [Chem.MolFromSmiles(smiles) for smiles in unique_smiles]
+
+    # Calculate pairwise similarities
+    # similarity_matrix = np.zeros((len(molecules), len(molecules)))
+
+    print(&#34;Calculating fingerprints...&#34;)
+    fpSize = 2048
+    tmp_root_path = &#34;./tmp_fps/&#34;
+    # filename = tmp_root_path+&#34;bin_fps.h5&#34;
+
+    if os.path.exists(tmp_root_path):
+        # Remove the old directory and its contents
+        for root, dirs, files in os.walk(tmp_root_path, topdown=False):
+            for file_name in files:
+                file_path = os.path.join(root, file_name)
+                os.remove(file_path)
+            for dir_name in dirs:
+                dir_path = os.path.join(root, dir_name)
+                os.rmdir(dir_path)
+        os.rmdir(tmp_root_path)
+
+    # Create the new directory
+    os.makedirs(tmp_root_path)
+
+    # FPs = np.zeros((len(unique_smiles), fpSize), dtype=int)
+    fpgen = rdFingerprintGenerator.GetMorganGenerator(radius=3, fpSize=fpSize)
+    # fp1 = fpgen.GetFingerprint(mol1)
+    for i, sm in tqdm(enumerate(unique_smiles)):
+        mol = Chem.MolFromSmiles(sm)
+        fp = fpgen.GetFingerprint(mol)
+        # data = base64.b64decode(fp.ToBase64())
+        with open(tmp_root_path + str(i) + &#34;.pickle&#34;, &#34;wb&#34;) as file:
+            pickle.dump(fp.ToBase64(), file)
+
+    print(&#34;Preparing parallel Tanimoto...&#34;)
+    # with open(&#34;unique_smiles.txt&#34;, &#34;w&#34;) as file:
+    #    for item in unique_smiles:
+    #        file.write(item + &#34;\n&#34;)
+
+    similarity_matrix = []
+    args_list = []
+    for i in tqdm(range(len(unique_smiles))):
+        for j in range(i):
+            args_list.append((i, j))
+            # args_list.append((i, j, &#34;unique_smiles.txt&#34;))
+
+    print(&#34;Constructing distance matrix...&#34;)
+    with Pool() as pool:
+        # results = pool.map(calculate_similarity, args_list)
+        results = []
+        for result in tqdm(
+            pool.imap_unordered(
+                partial(
+                    calculate_similarity, vector_length=fpSize, root_path=tmp_root_path
+                ),
+                args_list,
+            ),
+            total=len(args_list),
+        ):
+            results.append(result)
+
+    square_dist = np.zeros((len(unique_smiles), len(unique_smiles)))
+    for i, j, distance in sorted(results):
+        square_dist[i][j] = distance
+
+    print(&#34;Saving distance matrix...&#34;)
+    np.save(tmp_folder + &#34;/&#34; + &#34;Tanimoto_distance_matrix.npy&#34;, square_dist)
+    N = len(smiles_list)
+    results = None
+    unique_smiles = None
+    smiles_list = None
+    args_list = None
+
+    print(&#34;Copying results...&#34;)
+    counter = 0
+    for i in tqdm(range(N)):
+        for j in range(i):
+            # similarity_matrix.append(np.random.random())
+            counter += 1
+    similarity_matrix = np.zeros(counter)
+    k = 0
+    for i in tqdm(range(N)):
+        for j in range(i):
+            Ii = max(smiles_mapping[i], smiles_mapping[j])
+            J = min(smiles_mapping[i], smiles_mapping[j])
+            similarity_matrix[k] = square_dist[Ii][J]
+            k += 1
+    # Perform clustering
+    # dist_matrix = 1 - similarity_matrix
+    # print(similarity_matrix)
+    print(&#34;Clustering with Butina&#34;)
+    clusters = Butina.ClusterData(similarity_matrix, N, threshold, isDistData=True)
+
+    if os.path.exists(tmp_root_path):
+        # Remove the old directory and its contents
+        for root, dirs, files in os.walk(tmp_root_path, topdown=False):
+            for file_name in files:
+                file_path = os.path.join(root, file_name)
+                os.remove(file_path)
+            for dir_name in dirs:
+                dir_path = os.path.join(root, dir_name)
+                os.rmdir(dir_path)
+        os.rmdir(tmp_root_path)
+
+    return clusters</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.process_ligand"><code class="name flex">
+<span>def <span class="ident">process_ligand</span></span>(<span>pdb_string, res_name, tmp_pdb_string=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Add bond orders to a pdb ligand.</p>
+<ol>
+<li>Select the ligand component with name "res_name"</li>
+<li>Get the corresponding SMILES from pypdb</li>
+<li>Create a template molecule from the SMILES in step 2</li>
+<li>Write the PDB file to a stream</li>
+<li>Read the stream into an RDKit molecule</li>
+<li>Assign the bond orders from the template from step 3</li>
+</ol>
+<p>:param pdb_string: pdb string to process
+:param res_name: residue name of ligand to extract
+:param tmp_pdb_string: optional pdb string to use if the first one fails
+:return: molecule with bond orders assigned</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def process_ligand(pdb_string, res_name, tmp_pdb_string=None):
+    &#34;&#34;&#34;
+    Add bond orders to a pdb ligand.
+
+    1. Select the ligand component with name &#34;res_name&#34;
+    2. Get the corresponding SMILES from pypdb
+    3. Create a template molecule from the SMILES in step 2
+    4. Write the PDB file to a stream
+    5. Read the stream into an RDKit molecule
+    6. Assign the bond orders from the template from step 3
+
+    :param pdb_string: pdb string to process
+    :param res_name: residue name of ligand to extract
+    :param tmp_pdb_string: optional pdb string to use if the first one fails
+    :return: molecule with bond orders assigned
+    &#34;&#34;&#34;
+    # output = StringIO()
+    # sub_mol = ligand.select(f&#34;resname {res_name}&#34;)
+    # sub_mol = ligand
+    chem_desc = describe_chemical(f&#34;{res_name}&#34;)
+    sub_smiles = chem_desc[&#34;rcsb_chem_comp_descriptor&#34;][&#34;smiles&#34;]
+    template = AllChem.MolFromSmiles(sub_smiles)
+    # writePDBStream(output, sub_mol)
+    # pdb_string = output.getvalue()
+    rd_mol = AllChem.MolFromPDBBlock(pdb_string)
+    if tmp_pdb_string is not None:
+        if rd_mol is None or rd_mol.GetNumAtoms() == 0:
+            rd_mol = AllChem.MolFromPDBBlock(tmp_pdb_string)
+    # if template is None or rd_mol is None:
+    #    return template
+    try:
+        new_mol = AllChem.AssignBondOrdersFromTemplate(template, rd_mol)
+    except Exception:
+        Chem.MolToSmiles(rd_mol)
+        m_order = eval(rd_mol.GetProp(&#34;_smilesAtomOutputOrder&#34;))
+
+        rd_mol2 = Chem.RenumberAtoms(rd_mol, m_order)
+
+        # print(Chem.MolToSmiles(template))
+        test_rd_mol = Chem.MolFromSmiles(Chem.MolToSmiles(rd_mol))
+        Chem.MolToSmiles(test_rd_mol)
+        m1_order = eval(test_rd_mol.GetProp(&#34;_smilesAtomOutputOrder&#34;))
+        test_rd_mol = Chem.RenumberAtoms(test_rd_mol, m1_order)
+
+        mols = []
+        for atom in rd_mol2.GetAtoms():
+            mols.append(atom)
+        conv = False
+        for i, atom in enumerate(test_rd_mol.GetAtoms()):
+            if mols[i].GetSymbol() != atom.GetSymbol():
+                conv = True
+        if conv:
+            raise Exception(&#34;Ligand ordering error&#34;)
+        else:
+            return rd_mol
+    return new_mol</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.ligand.save_binary_vectors_to_file"><code class="name flex">
+<span>def <span class="ident">save_binary_vectors_to_file</span></span>(<span>vectors, file_path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Save binary vectors to a file.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def save_binary_vectors_to_file(vectors, file_path):
+    &#34;&#34;&#34;Save binary vectors to a file.&#34;&#34;&#34;
+    with open(file_path, &#34;wb&#34;) as file:
+        for vector in vectors:
+            bytes_vector = np.packbits(vector)  # Convert binary array to bytes
+            file.write(bytes_vector)</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+</section>
+</article>
+<nav id="sidebar">
+<header>
+<a class="homelink" rel="home" title="pdoc Home" href="https://adaptyvbio.github.io/ProteinFlow/">
+<img src="https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/logo.png" alt="">
+</a>
+</header>
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="proteinflow" href="index.html">proteinflow</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="proteinflow.ligand.atom2mol" href="#proteinflow.ligand.atom2mol">atom2mol</a></code></li>
+<li><code><a title="proteinflow.ligand.calculate_fingerprint_similarity" href="#proteinflow.ligand.calculate_fingerprint_similarity">calculate_fingerprint_similarity</a></code></li>
+<li><code><a title="proteinflow.ligand.calculate_similarity" href="#proteinflow.ligand.calculate_similarity">calculate_similarity</a></code></li>
+<li><code><a title="proteinflow.ligand.calculate_tanimoto_distance" href="#proteinflow.ligand.calculate_tanimoto_distance">calculate_tanimoto_distance</a></code></li>
+<li><code><a title="proteinflow.ligand.calculate_tanimoto_similarity" href="#proteinflow.ligand.calculate_tanimoto_similarity">calculate_tanimoto_similarity</a></code></li>
+<li><code><a title="proteinflow.ligand.connected" href="#proteinflow.ligand.connected">connected</a></code></li>
+<li><code><a title="proteinflow.ligand.describe_chemical" href="#proteinflow.ligand.describe_chemical">describe_chemical</a></code></li>
+<li><code><a title="proteinflow.ligand.fix_connect" href="#proteinflow.ligand.fix_connect">fix_connect</a></code></li>
+<li><code><a title="proteinflow.ligand.get_binary_vector_by_index" href="#proteinflow.ligand.get_binary_vector_by_index">get_binary_vector_by_index</a></code></li>
+<li><code><a title="proteinflow.ligand.get_covalent_bonds" href="#proteinflow.ligand.get_covalent_bonds">get_covalent_bonds</a></code></li>
+<li><code><a title="proteinflow.ligand.get_ligand_block" href="#proteinflow.ligand.get_ligand_block">get_ligand_block</a></code></li>
+<li><code><a title="proteinflow.ligand.get_line_by_index" href="#proteinflow.ligand.get_line_by_index">get_line_by_index</a></code></li>
+<li><code><a title="proteinflow.ligand.get_raw_ligands" href="#proteinflow.ligand.get_raw_ligands">get_raw_ligands</a></code></li>
+<li><code><a title="proteinflow.ligand.is_ion" href="#proteinflow.ligand.is_ion">is_ion</a></code></li>
+<li><code><a title="proteinflow.ligand.merge_components" href="#proteinflow.ligand.merge_components">merge_components</a></code></li>
+<li><code><a title="proteinflow.ligand.parse_pdb_file" href="#proteinflow.ligand.parse_pdb_file">parse_pdb_file</a></code></li>
+<li><code><a title="proteinflow.ligand.perform_tanimoto_clustering" href="#proteinflow.ligand.perform_tanimoto_clustering">perform_tanimoto_clustering</a></code></li>
+<li><code><a title="proteinflow.ligand.process_ligand" href="#proteinflow.ligand.process_ligand">process_ligand</a></code></li>
+<li><code><a title="proteinflow.ligand.save_binary_vectors_to_file" href="#proteinflow.ligand.save_binary_vectors_to_file">save_binary_vectors_to_file</a></code></li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>
