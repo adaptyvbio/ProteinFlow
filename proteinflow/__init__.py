@@ -170,15 +170,13 @@ __pdoc__ = {
     "constants": False,
     "split": False,
     "cli": False,
-    "processing.ligand": False,
+    "ligand": False,
 }
 __docformat__ = "numpy"
 
 import os
-import pickle
 import random
 import shutil
-import socket
 import string
 import tempfile
 import warnings
@@ -187,7 +185,6 @@ import boto3
 import numpy as np
 from botocore import UNSIGNED
 from botocore.config import Config
-from tqdm import tqdm
 
 from proteinflow.constants import SIDECHAIN_ORDER
 from proteinflow.data.torch import ProteinDataset, ProteinLoader
