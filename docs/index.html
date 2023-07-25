@@ -1,0 +1,1632 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>proteinflow API documentation</title>
+<meta name="description" content="ProteinFlow is an open-source Python library that streamlines the pre-processing of protein structure data for deep learning applications. ProteinFlow …" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+<link rel="shortcut icon" type="image/x-icon" href="favicon.png?">
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Package <code>proteinflow</code></h1>
+</header>
+<section id="section-intro">
+<p>ProteinFlow is an open-source Python library that streamlines the pre-processing of protein structure data for deep learning applications. ProteinFlow enables users to efficiently filter, cluster, and generate new datasets from resources like the Protein Data Bank (PDB) and SAbDab (The Structural Antibody Database).</p>
+<p>Here are some of the key features we currently support:</p>
+<ul>
+<li>⛓️ Processing of both single-chain and multi-chain protein structures (Biounit PDB definition)</li>
+<li>🏷️ Various featurization options can be computed, including secondary structure features, torsion angles, etc.</li>
+<li>💾 A variety of data loading options and conversions to cater to different downstream training frameworks</li>
+<li>🧬 Access to up-to-date, pre-computed protein structure datasets</li>
+</ul>
+<p><img alt="overview" src="https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/pf-1.png"></p>
+<hr>
+<h2 id="installation">Installation</h2>
+<p>conda:</p>
+<pre><code class="language-bash"># This should take a few minutes, be patient
+conda install -c conda-forge -c bioconda -c adaptyvbio proteinflow
+</code></pre>
+<p>pip:</p>
+<pre><code class="language-bash">pip install proteinflow
+</code></pre>
+<p>docker:</p>
+<pre><code class="language-bash">docker pull adaptyvbio/proteinflow
+</code></pre>
+<h3 id="troubleshooting">Troubleshooting</h3>
+<ul>
+<li>If you are using python 3.10 and encountering installation problems, try running <code>python -m pip install prody==2.4.0</code> before installing <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code>.</li>
+<li>If you are planning to generate new datasets and installed <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> with <code>pip</code> (or with <code>conda</code> on Mac OS with an M1 processor), you will need to additionally install <a href="https://github.com/soedinglab/MMseqs2"><code>mmseqs</code></a>.</li>
+<li>Generating new datasets also depends on the <code>rcsbsearch</code> package and the latest release <a href="https://github.com/sbliven/rcsbsearch/releases/tag/v0.2.3">v0.2.3</a> is currently not working correctly. The recommended fix is installing the version from <a href="https://github.com/sbliven/rcsbsearch/pull/6">this pull request</a>.</li>
+</ul>
+<pre><code class="language-bash">python -m pip install &quot;rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e&quot;
+</code></pre>
+<ul>
+<li>The docker image can be accessed in interactive mode with this command.</li>
+</ul>
+<pre><code class="language-bash">docker run -it -v /path/to/data:/media adaptyvbio/proteinflow bash
+</code></pre>
+<h2 id="usage">Usage</h2>
+<h3 id="downloading-pre-computed-datasets-stable">Downloading pre-computed datasets (stable)</h3>
+<p>Already precomputed datasets with consensus set of parameters and can be accessed and downloaded using the <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code>. package. Check the output of <code><a title="proteinflow" href="#proteinflow">proteinflow</a> check_tags</code> for a list of available tags.</p>
+<pre><code class="language-bash">proteinflow download --tag 20230102_stable
+</code></pre>
+<h3 id="running-the-pipeline-pdb">Running the pipeline (PDB)</h3>
+<p>You can also run <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> with your own parameters. Check the output of <code><a title="proteinflow" href="#proteinflow">proteinflow</a> check_snapshots</code> for a list of available PDB snapshots (naming rule: <code>yyyymmdd</code>).</p>
+<p>For instance, let's generate a dataset with the following description:
+- resolution threshold: 5 angstrom,
+- PDB snapshot: 20190101,
+- structure methods accepted: all (x-ray christolography, NRM, Cryo-EM),
+- sequence identity threshold for clustering: 40% sequence similarity,
+- maximum length per sequence: 1000 residues,
+- minimum length per sequence: 5 residues,
+- maximum fraction of missing values at the ends: 10%,
+- size of validation subset: 10%.</p>
+<pre><code class="language-bash">proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods --min_seq_id 0.4 --max_length 1000 --min_length 5 --missing_ends_thr 0.1 --valid_split 0.1
+</code></pre>
+<p>See the <a href="https://adaptyvbio.github.io/ProteinFlow/">docs</a> (or <code>proteinflow generate --help</code>) for the full list of parameters and more information.</p>
+<p>A registry of all the files that are removed during the filtering as well as description with the reason for their removal is created automatically for each <code>generate</code> command. The log files are save (at <code>data/logs</code> by default) and a summary can be accessed running <code>proteinflow get_summary {log_path}</code>.</p>
+<h3 id="running-the-pipeline-sabdab">Running the pipeline (SAbDab)</h3>
+<p>You can also use the <code>--sabdab</code> option in <code><a title="proteinflow" href="#proteinflow">proteinflow</a> generate</code> to load files from SAbDab and cluster them based on CDRs. By default the <code>--sabdab</code> tag will download the latest up-to-date version of the SabDab dataset and cluster the antibodies based on their CDR sequence.
+Alternatively, it can be used together with the tag <code>--sabdab_data_path</code> to process a custom SAbDab-like zip file or folder. This allows you to use search and query tools from the <a href="https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/">SabDab web interface</a> to create a custom dataset by downloading the archived zip file of the structures selected. (Under Downloads section of your SabDab query).</p>
+<p>SAbDab sequences clustering is done across all 6 Complementary Determining Regions (CDRs) - H1, H2, H3, L1, L2, L3, based on the <a href="https://pubmed.ncbi.nlm.nih.gov/9367782/">Chothia numbering</a> implemented by SabDab. CDRs from nanobodies and other synthetic constructs are clustered together with other heavy chain CDRs. The resulting CDR clusters are split into training, test and validation in a way that ensures that every PDB file only appears in one subset.</p>
+<p>Individual output pickle files represent heavy chain - light chain - antigen complexes (created from SAbDab annotation, sometimes more than one per PDB entry). Each of the elements (heavy chain, light chain, antigen) can be missing in specific entries and there can be multiple antigen chains. In order to filter for at least one antigen chain, use the <code>--require_antigen</code> option.</p>
+<p>For instance, let's generate a dataset with the following description:
+- SabDab version: latest (up-to-date),
+- resolution threshold: 5 angstrom,
+- structure methods accepted: all (x-ray christolography, NRM, Cryo-EM),
+- sequence identity threshold for clustering (CDRs): 40%,
+- size of validation subset: 10%.</p>
+<pre><code class="language-bash">proteinflow generate --sabdab --resolution_thr 5 --not_filter_methods --min_seq_id 0.4 --valid_split 0.1
+</code></pre>
+<h3 id="splitting">Splitting</h3>
+<p>By default, both <code><a title="proteinflow" href="#proteinflow">proteinflow</a> generate</code> and <code><a title="proteinflow" href="#proteinflow">proteinflow</a> <a title="proteinflow.download" href="download/index.html">proteinflow.download</a></code> will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a <code>--skip_splitting</code> flag and then perform it separately with the <code><a title="proteinflow" href="#proteinflow">proteinflow</a> split</code> command.</p>
+<p>The following command will perform the splitting with a 10% validation set, a 5% test set and a 50% threshold for sequence identity clusters.</p>
+<pre><code class="language-bash">proteinflow split --tag new --valid_split 0.1 --test_split 0.5 --min_seq_id 0.5
+</code></pre>
+<p>Use the <code>--exclude_chains</code> and <code>--exclude_threshold</code> parameters to move all biounits that contain chains similar to what you specify to a separate folder.</p>
+<h3 id="using-the-data">Using the data</h3>
+<p>The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:
+- <code>'crd_bb'</code>: a <code>numpy</code> array of shape <code>(L, 4, 3)</code> with backbone atom coordinates (N, C, CA, O),
+- <code>'crd_sc'</code>: a <code>numpy</code> array of shape <code>(L, 10, 3)</code> with sidechain atom coordinates (check <code><a title="proteinflow.sidechain_order" href="#proteinflow.sidechain_order">sidechain_order()</a></code> for the order of atoms),
+- <code>'msk'</code>: a <code>numpy</code> array of shape <code>(L,)</code> where ones correspond to residues with known coordinates and
+zeros to missing values,
+- <code>'seq'</code>: a string of length <code>L</code> with residue types.</p>
+<p>In a SAbDab datasets, an additional key is added to the dictionary:
+- <code>'cdr'</code>: a <code>numpy</code> array of shape <code>(L,)</code> where CDR residues are marked with the corresponding type (<code>'H1'</code>, <code>'L1'</code>, &hellip;)
+and non-CDR residues are marked with <code>'-'</code>.</p>
+<p>Note that the sequence information in the PDB files is aligned to the FASTA sequences to identify the missing residues.</p>
+<p>Once your data is ready, you can open the files with <code>pickle</code> directly.</p>
+<pre><code class="language-python">import pickle
+import os
+
+train_folder = &quot;./data/proteinflow_new/training&quot;
+for filename in os.listdir(train_folder):
+with open(os.path.join(train_folder, filename), &quot;rb&quot;) as f:
+data = pickle.load(f)
+crd_bb = data[&quot;crd_bb&quot;]
+seq = data[&quot;seq&quot;]
+...
+</code></pre>
+<p>Alternatively, you can use our <code>ProteinDataset</code> or <code>ProteinLoader</code> classes
+for convenient processing. Among other things, they allow for feature extraction, single chain / homomer / heteromer filtering and randomized sampling from sequence identity clusters.</p>
+<p>For example, here is how we can create a data loader that:
+- samples a different cluster representative at every epoch,
+- extracts dihedral angles, sidechain orientation and secondary structure features,
+- only loads pairs of interacting proteins (larger biounits are broken up into pairs),
+- has batch size 8.</p>
+<pre><code class="language-python">from proteinflow import ProteinLoader
+train_loader = ProteinLoader.from_args(
+&quot;./data/proteinflow_new/training&quot;,
+clustering_dict_path=&quot;./data/proteinflow_new/splits_dict/train.pickle&quot;,
+node_features_type=&quot;dihedral+sidechain_orientation+secondary_structure&quot;,
+entry_type=&quot;pair&quot;,
+batch_size=8,
+)
+for batch in train_loader:
+crd_bb = batch[&quot;X&quot;] #(B, L, 4, 3)
+seq = batch[&quot;S&quot;] #(B, L)
+sse = batch[&quot;secondary_structure&quot;] #(B, L, 3)
+to_predict = batch[&quot;masked_res&quot;] #(B, L), 1 where the residues should be masked, 0 otherwise
+...
+</code></pre>
+<p>See more details on available parameters and the data format in the <a href="https://adaptyvbio.github.io/ProteinFlow/">docs</a> + <a href="https://github.com/adaptyvbio/ProteinFlow-models">this repository</a> for a use case.</p>
+<h2 id="proteinflow-stable-releases">ProteinFlow Stable Releases</h2>
+<p>You can download them with <code>proteinflow download --tag {tag}</code> in the command line or browse in the <a href="https://proteinflow-datasets.s3.eu-west-1.amazonaws.com/index.html">interface</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Tag</th>
+<th>Date</th>
+<th>Snapshot</th>
+<th>Size</th>
+<th>Min res</th>
+<th>Min len</th>
+<th>Max len</th>
+<th>Max chains</th>
+<th>MMseqs thr</th>
+<th>Split (train/val/test)</th>
+<th>Missing thr (ends/middle)</th>
+<th>Source</th>
+<th>Remove redundancies</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>paper</td>
+<td>10.11.22</td>
+<td>20220103</td>
+<td>24G</td>
+<td>3.5</td>
+<td>30</td>
+<td>10'000</td>
+<td>-</td>
+<td>0.3</td>
+<td>90/5/5</td>
+<td>0.3/0.1</td>
+<td>PDB</td>
+<td>yes</td>
+<td>first release, no mmCIF files</td>
+</tr>
+<tr>
+<td>20230102_stable</td>
+<td>27.02.23</td>
+<td>20230102</td>
+<td>28G</td>
+<td>3.5</td>
+<td>30</td>
+<td>10'000</td>
+<td>-</td>
+<td>0.3</td>
+<td>90/5/5</td>
+<td>0.3/0.1</td>
+<td>PDB</td>
+<td>yes</td>
+<td>v1.1.1</td>
+</tr>
+<tr>
+<td>20230623_sabdab</td>
+<td>26.06.23</td>
+<td>live 26.06.23</td>
+<td>1.4G</td>
+<td>3.5</td>
+<td>30</td>
+<td>10'000</td>
+<td>-</td>
+<td>0.3</td>
+<td>96/3/1</td>
+<td>0.5/0.2</td>
+<td>SAbDab</td>
+<td>no</td>
+<td>v1.4.1 (requires &gt;= v1.4.0)</td>
+</tr>
+<tr>
+<td>20230102_v200</td>
+<td>19.07.23</td>
+<td>20230102</td>
+<td>33G</td>
+<td>3.5</td>
+<td>30</td>
+<td>10'000</td>
+<td>10</td>
+<td>0.3</td>
+<td>90/5/5</td>
+<td>0.3/0.1</td>
+<td>PDB</td>
+<td>no</td>
+<td>v2.0.0</td>
+</tr>
+</tbody>
+</table>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">&#34;&#34;&#34;
+ProteinFlow is an open-source Python library that streamlines the pre-processing of protein structure data for deep learning applications. ProteinFlow enables users to efficiently filter, cluster, and generate new datasets from resources like the Protein Data Bank (PDB) and SAbDab (The Structural Antibody Database).
+
+Here are some of the key features we currently support:
+
+- ⛓️ Processing of both single-chain and multi-chain protein structures (Biounit PDB definition)
+- 🏷️ Various featurization options can be computed, including secondary structure features, torsion angles, etc.
+- 💾 A variety of data loading options and conversions to cater to different downstream training frameworks
+- 🧬 Access to up-to-date, pre-computed protein structure datasets
+
+![overview](https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/pf-1.png)
+
+---
+
+## Installation
+conda:
+```bash
+# This should take a few minutes, be patient
+conda install -c conda-forge -c bioconda -c adaptyvbio proteinflow
+```
+
+pip:
+```bash
+pip install proteinflow
+```
+
+docker:
+```bash
+docker pull adaptyvbio/proteinflow
+```
+
+### Troubleshooting
+- If you are using python 3.10 and encountering installation problems, try running `python -m pip install prody==2.4.0` before installing `proteinflow`.
+- If you are planning to generate new datasets and installed `proteinflow` with `pip` (or with `conda` on Mac OS with an M1 processor), you will need to additionally install [`mmseqs`](https://github.com/soedinglab/MMseqs2).
+- Generating new datasets also depends on the `rcsbsearch` package and the latest release [v0.2.3](https://github.com/sbliven/rcsbsearch/releases/tag/v0.2.3) is currently not working correctly. The recommended fix is installing the version from [this pull request](https://github.com/sbliven/rcsbsearch/pull/6).
+```bash
+python -m pip install &#34;rcsbsearch @ git+https://github.com/sbliven/rcsbsearch@dbdfe3880cc88b0ce57163987db613d579400c8e&#34;
+```
+- The docker image can be accessed in interactive mode with this command.
+```bash
+docker run -it -v /path/to/data:/media adaptyvbio/proteinflow bash
+```
+
+## Usage
+### Downloading pre-computed datasets (stable)
+Already precomputed datasets with consensus set of parameters and can be accessed and downloaded using the `proteinflow`. package. Check the output of `proteinflow check_tags` for a list of available tags.
+```bash
+proteinflow download --tag 20230102_stable
+```
+
+### Running the pipeline (PDB)
+You can also run `proteinflow` with your own parameters. Check the output of `proteinflow check_snapshots` for a list of available PDB snapshots (naming rule: `yyyymmdd`).
+
+For instance, let&#39;s generate a dataset with the following description:
+- resolution threshold: 5 angstrom,
+- PDB snapshot: 20190101,
+- structure methods accepted: all (x-ray christolography, NRM, Cryo-EM),
+- sequence identity threshold for clustering: 40% sequence similarity,
+- maximum length per sequence: 1000 residues,
+- minimum length per sequence: 5 residues,
+- maximum fraction of missing values at the ends: 10%,
+- size of validation subset: 10%.
+
+```bash
+proteinflow generate --tag new --resolution_thr 5 --pdb_snapshot 20190101 --not_filter_methods --min_seq_id 0.4 --max_length 1000 --min_length 5 --missing_ends_thr 0.1 --valid_split 0.1
+```
+See the [docs](https://adaptyvbio.github.io/ProteinFlow/) (or `proteinflow generate --help`) for the full list of parameters and more information.
+
+A registry of all the files that are removed during the filtering as well as description with the reason for their removal is created automatically for each `generate` command. The log files are save (at `data/logs` by default) and a summary can be accessed running `proteinflow get_summary {log_path}`.
+
+### Running the pipeline (SAbDab)
+You can also use the `--sabdab` option in `proteinflow generate` to load files from SAbDab and cluster them based on CDRs. By default the `--sabdab` tag will download the latest up-to-date version of the SabDab dataset and cluster the antibodies based on their CDR sequence.
+Alternatively, it can be used together with the tag `--sabdab_data_path` to process a custom SAbDab-like zip file or folder. This allows you to use search and query tools from the [SabDab web interface](https://opig.stats.ox.ac.uk/webapps/newsabdab/sabdab/) to create a custom dataset by downloading the archived zip file of the structures selected. (Under Downloads section of your SabDab query).
+
+SAbDab sequences clustering is done across all 6 Complementary Determining Regions (CDRs) - H1, H2, H3, L1, L2, L3, based on the [Chothia numbering](https://pubmed.ncbi.nlm.nih.gov/9367782/) implemented by SabDab. CDRs from nanobodies and other synthetic constructs are clustered together with other heavy chain CDRs. The resulting CDR clusters are split into training, test and validation in a way that ensures that every PDB file only appears in one subset.
+
+Individual output pickle files represent heavy chain - light chain - antigen complexes (created from SAbDab annotation, sometimes more than one per PDB entry). Each of the elements (heavy chain, light chain, antigen) can be missing in specific entries and there can be multiple antigen chains. In order to filter for at least one antigen chain, use the `--require_antigen` option.
+
+For instance, let&#39;s generate a dataset with the following description:
+- SabDab version: latest (up-to-date),
+- resolution threshold: 5 angstrom,
+- structure methods accepted: all (x-ray christolography, NRM, Cryo-EM),
+- sequence identity threshold for clustering (CDRs): 40%,
+- size of validation subset: 10%.
+
+```bash
+proteinflow generate --sabdab --resolution_thr 5 --not_filter_methods --min_seq_id 0.4 --valid_split 0.1
+```
+
+### Splitting
+By default, both `proteinflow generate` and `proteinflow download` will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a `--skip_splitting` flag and then perform it separately with the `proteinflow split` command.
+
+The following command will perform the splitting with a 10% validation set, a 5% test set and a 50% threshold for sequence identity clusters.
+```bash
+proteinflow split --tag new --valid_split 0.1 --test_split 0.5 --min_seq_id 0.5
+```
+
+Use the `--exclude_chains` and `--exclude_threshold` parameters to move all biounits that contain chains similar to what you specify to a separate folder.
+
+### Using the data
+The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are the following:
+- `&#39;crd_bb&#39;`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),
+- `&#39;crd_sc&#39;`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (check `proteinflow.sidechain_order()` for the order of atoms),
+- `&#39;msk&#39;`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and
+zeros to missing values,
+- `&#39;seq&#39;`: a string of length `L` with residue types.
+
+In a SAbDab datasets, an additional key is added to the dictionary:
+- `&#39;cdr&#39;`: a `numpy` array of shape `(L,)` where CDR residues are marked with the corresponding type (`&#39;H1&#39;`, `&#39;L1&#39;`, ...)
+and non-CDR residues are marked with `&#39;-&#39;`.
+
+Note that the sequence information in the PDB files is aligned to the FASTA sequences to identify the missing residues.
+
+Once your data is ready, you can open the files with `pickle` directly.
+
+```python
+import pickle
+import os
+
+train_folder = &#34;./data/proteinflow_new/training&#34;
+for filename in os.listdir(train_folder):
+with open(os.path.join(train_folder, filename), &#34;rb&#34;) as f:
+data = pickle.load(f)
+crd_bb = data[&#34;crd_bb&#34;]
+seq = data[&#34;seq&#34;]
+...
+```
+
+Alternatively, you can use our `ProteinDataset` or `ProteinLoader` classes
+for convenient processing. Among other things, they allow for feature extraction, single chain / homomer / heteromer filtering and randomized sampling from sequence identity clusters.
+
+For example, here is how we can create a data loader that:
+- samples a different cluster representative at every epoch,
+- extracts dihedral angles, sidechain orientation and secondary structure features,
+- only loads pairs of interacting proteins (larger biounits are broken up into pairs),
+- has batch size 8.
+
+```python
+from proteinflow import ProteinLoader
+train_loader = ProteinLoader.from_args(
+&#34;./data/proteinflow_new/training&#34;,
+clustering_dict_path=&#34;./data/proteinflow_new/splits_dict/train.pickle&#34;,
+node_features_type=&#34;dihedral+sidechain_orientation+secondary_structure&#34;,
+entry_type=&#34;pair&#34;,
+batch_size=8,
+)
+for batch in train_loader:
+crd_bb = batch[&#34;X&#34;] #(B, L, 4, 3)
+seq = batch[&#34;S&#34;] #(B, L)
+sse = batch[&#34;secondary_structure&#34;] #(B, L, 3)
+to_predict = batch[&#34;masked_res&#34;] #(B, L), 1 where the residues should be masked, 0 otherwise
+...
+```
+See more details on available parameters and the data format in the [docs](https://adaptyvbio.github.io/ProteinFlow/) + [this repository](https://github.com/adaptyvbio/ProteinFlow-models) for a use case.
+
+## ProteinFlow Stable Releases
+You can download them with `proteinflow download --tag {tag}` in the command line or browse in the [interface](https://proteinflow-datasets.s3.eu-west-1.amazonaws.com/index.html).
+
+|Tag    |Date    |Snapshot|Size|Min res|Min len|Max len|Max chains|MMseqs thr|Split (train/val/test)|Missing thr (ends/middle)|Source|Remove redundancies|Note|
+|-------|--------|--------|----|-------|-------|-------|----------|----------|----------------------|-------------------------|---|---|----------------|
+|paper|10.11.22|20220103|24G|3.5|30|10&#39;000|-|0.3|90/5/5|0.3/0.1|PDB|yes|first release, no mmCIF files|
+|20230102_stable|27.02.23|20230102|28G|3.5|30|10&#39;000|-|0.3|90/5/5|0.3/0.1|PDB|yes|v1.1.1|
+|20230623_sabdab|26.06.23|live 26.06.23|1.4G|3.5|30|10&#39;000|-|0.3|96/3/1|0.5/0.2|SAbDab|no|v1.4.1 (requires &gt;= v1.4.0)|
+|20230102_v200|19.07.23|20230102|33G|3.5|30|10&#39;000|10|0.3|90/5/5|0.3/0.1|PDB|no|v2.0.0|
+
+&#34;&#34;&#34;
+__pdoc__ = {
+    &#34;data.utils&#34;: False,
+    &#34;download.boto&#34;: False,
+    &#34;constants&#34;: False,
+    &#34;split&#34;: False,
+    &#34;cli&#34;: False,
+    &#34;ligand&#34;: False,
+}
+__docformat__ = &#34;numpy&#34;
+
+import os
+import random
+import shutil
+import string
+import tempfile
+import warnings
+
+import boto3
+import numpy as np
+from botocore import UNSIGNED
+from botocore.config import Config
+
+from proteinflow.constants import SIDECHAIN_ORDER
+from proteinflow.data.torch import ProteinDataset, ProteinLoader
+from proteinflow.download import _download_dataset, _get_chain_pdb_ids
+from proteinflow.download.boto import _s3list
+from proteinflow.processing import run_processing
+from proteinflow.split import (
+    _check_mmseqs,
+    _exclude_files_with_no_ligand,
+    _get_excluded_files,
+    _get_split_dictionaries,
+    _split_data,
+)
+
+
+def download_data(tag, local_datasets_folder=&#34;./data&#34;, skip_splitting=False):
+    &#34;&#34;&#34;Download a pre-computed dataset with train/test/validation splits.
+
+    Parameters
+    ----------
+    tag : str
+        the name of the dataset to load
+    local_datasets_folder : str, default &#34;./data&#34;
+        the path to the folder that will store proteinflow datasets, logs and temporary files
+    skip_splitting : bool, default False
+        if `True`, skip the split dictionary creation and the file moving steps
+
+    &#34;&#34;&#34;
+    sabdab_data_path = _download_dataset(tag, local_datasets_folder)
+    if not skip_splitting:
+        _split_data(sabdab_data_path)
+
+
+def generate_data(
+    tag=None,
+    pdb_id_list_path=None,
+    local_datasets_folder=&#34;./data&#34;,
+    min_length=30,
+    max_length=10000,
+    resolution_thr=3.5,
+    missing_ends_thr=0.3,
+    missing_middle_thr=0.1,
+    not_filter_methods=False,
+    not_remove_redundancies=False,
+    skip_splitting=False,
+    redundancy_thr=0.9,
+    n=None,
+    force=False,
+    split_tolerance=0.2,
+    test_split=0.05,
+    valid_split=0.05,
+    pdb_snapshot=None,
+    load_live=False,
+    min_seq_id=0.3,
+    sabdab=False,
+    sabdab_data_path=None,
+    require_antigen=False,
+    exclude_chains=None,
+    exclude_threshold=0.7,
+    exclude_clusters=False,
+    exclude_based_on_cdr=None,
+    load_ligands=False,
+    exclude_chains_without_ligands=False,
+    tanimoto_clustering=False,
+    random_seed=42,
+    max_chains=10,
+):
+    &#34;&#34;&#34;Download and parse PDB files that meet filtering criteria.
+
+    The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are
+    the following:
+
+    - `&#39;crd_bb&#39;`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),
+    - `&#39;crd_sc&#39;`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (in a fixed order, check `sidechain_order()`),
+    - `&#39;msk&#39;`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and
+        zeros to missing values,
+    - `&#39;seq&#39;`: a string of length `L` with residue types.
+
+    When creating a SAbDab dataset, an additional key is added to the dictionary:
+    - `&#39;cdr&#39;`: a `&#39;numpy&#39;` array of shape `(L,)` where CDR residues are marked with the corresponding type (`&#39;H1&#39;`, `&#39;L1&#39;`, ...)
+        and non-CDR residues are marked with `&#39;-&#39;`.
+
+    PDB datasets are split into clusters according to sequence identity and SAbDab datasets are split according to CDR similarity.
+
+    All errors including reasons for filtering a file out are logged in the log file.
+
+    For more information on the splitting procedure and options, check out the `proteinflow.split_data` documentation.
+
+    Parameters
+    ----------
+    tag : str, optional
+        the name of the dataset to load
+    pdb_id_list_path : str, optional
+        if provided, get pdb_ids from text file where each line contains one chain id (format pdb_id-num example: 1XYZ-1)
+        pdb_ids can also be passed, an automatic retrieval of chain id s will be performed in that case
+    local_datasets_folder : str, default &#34;./data&#34;
+        the path to the folder that will store proteinflow datasets, logs and temporary files
+    min_length : int, default 30
+        The minimum number of non-missing residues per chain
+    max_length : int, default 10000
+        The maximum number of residues per chain (set None for no threshold)
+    resolution_thr : float, default 3.5
+        The maximum resolution
+    missing_ends_thr : float, default 0.3
+        The maximum fraction of missing residues at the ends
+    missing_middle_thr : float, default 0.1
+        The maximum fraction of missing values in the middle (after missing ends are disregarded)
+    not_filter_methods : bool, default False
+        If `False`, only files obtained with X-ray or EM will be processed
+    not_remove_redundancies : bool, default False
+        If &#39;False&#39;, removes biounits that are doubles of others sequence wise
+    skip_splitting : bool, default False
+        if `True`, skip the split dictionary creation and the file moving steps
+    redundancy_thr : float, default 0.9
+        The threshold upon which sequences are considered as one and the same (default: 90%)
+    n : int, default None
+        The number of files to process (for debugging purposes)
+    force : bool, default False
+        When `True`, rewrite the files if they already exist
+    split_tolerance : float, default 0.2
+        The tolerance on the split ratio (default 20%)
+    test_split : float, default 0.05
+        The percentage of chains to put in the test set (default 5%)
+    valid_split : float, default 0.05
+        The percentage of chains to put in the validation set (default 5%)
+    pdb_snapshot : str, optional
+        the PDB snapshot to use, by default the latest is used
+    load_live : bool, default False
+        if `True`, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to `False` if `pdb_snapshot` is not `None`)
+    min_seq_id : float in [0, 1], default 0.3
+        minimum sequence identity for `mmseqs`
+    sabdab : bool, default False
+        if `True`, download the SAbDab database instead of PDB
+    sabdab_data_path : str, optional
+        path to a zip file or a directory containing SAbDab files (only used if `sabdab` is `True`)
+    require_antigen : bool, default False
+        if `True`, only use SAbDab files with an antigen
+    exclude_chains : list of str, optional
+        a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `[&#34;1A2B-A&#34;, &#34;1A2B-B&#34;]`); chain id is the author chain id
+    exclude_threshold : float in [0, 1], default 0.7
+        the sequence similarity threshold for excluding chains
+    exclude_clusters : bool, default False
+        if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
+    exclude_based_on_cdr : {&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;}, optional
+        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
+    load_ligands : bool, default False
+        if `True`, load ligands from the PDB files
+    exclude_chains_without_ligands : bool, default False
+        if `True`, exclude biounits that don&#39;t contain ligands
+    tanimoto_clustering : bool, default False
+        if `True`, cluster the biounits based on ligand Tanimoto similarity
+    random_seed : int, default 42
+        the random seed to use for splitting
+    max_chains : int, default 10
+        the maximum number of chains per biounit
+
+    Returns
+    -------
+    log : dict
+        a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
+
+    &#34;&#34;&#34;
+    tmp_id = &#34;&#34;.join(
+        random.choice(string.ascii_uppercase + string.digits) for _ in range(5)
+    )
+    if tag is None:
+        if pdb_id_list_path is None:
+            raise RuntimeError(
+                &#34;Please input a data source: valid tag or a pdb ids list&#34;
+            )
+        else:
+            tag = pdb_id_list_path.split(&#34;/&#34;)[-1].split(&#34;.&#34;)[0]
+            tmp_folder = os.path.join(tempfile.gettempdir(), tag + tmp_id)
+            os.makedirs(tmp_folder)
+            with open(pdb_id_list_path) as file:
+                # Read lines from the file
+                example_pdb_id = file.readline()
+            if &#34;-&#34; not in example_pdb_id:
+                pdb_id_list_path = _get_chain_pdb_ids(pdb_id_list_path, tmp_folder)
+    else:
+        tmp_folder = os.path.join(tempfile.gettempdir(), tag + tmp_id)
+        os.makedirs(tmp_folder)
+    filter_methods = not not_filter_methods
+    remove_redundancies = not not_remove_redundancies
+
+    output_folder = os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;)
+
+    if force and os.path.exists(output_folder):
+        shutil.rmtree(output_folder)
+
+    log_dict = run_processing(
+        tmp_folder=tmp_folder,
+        output_folder=output_folder,
+        min_length=min_length,
+        max_length=max_length,
+        resolution_thr=resolution_thr,
+        missing_ends_thr=missing_ends_thr,
+        missing_middle_thr=missing_middle_thr,
+        filter_methods=filter_methods,
+        remove_redundancies=remove_redundancies,
+        redundancy_thr=redundancy_thr,
+        n=n,
+        force=force,
+        tag=tag,
+        pdb_snapshot=pdb_snapshot,
+        load_live=load_live,
+        sabdab=sabdab,
+        sabdab_data_path=sabdab_data_path,
+        require_antigen=require_antigen,
+        max_chains=max_chains,
+        pdb_id_list_path=pdb_id_list_path,
+        load_ligands=load_ligands,
+    )
+
+    if not skip_splitting:
+        if tanimoto_clustering and not load_ligands:
+            print(
+                &#34;Can not use Tanimoto Clustering without load_ligands=False. Setting tanimoto_clustering to False&#34;
+            )
+            tanimoto_clustering = False
+        split_data(
+            tag=tag,
+            local_datasets_folder=local_datasets_folder,
+            split_tolerance=split_tolerance,
+            test_split=test_split,
+            valid_split=valid_split,
+            ignore_existing=True,
+            min_seq_id=min_seq_id,
+            exclude_chains=exclude_chains,
+            exclude_threshold=exclude_threshold,
+            exclude_clusters=exclude_clusters,
+            exclude_based_on_cdr=exclude_based_on_cdr,
+            random_seed=random_seed,
+            exclude_chains_without_ligands=exclude_chains_without_ligands,
+            tanimoto_clustering=tanimoto_clustering,
+        )
+    shutil.rmtree(tmp_folder)
+    return log_dict
+
+
+def split_data(
+    tag,
+    local_datasets_folder=&#34;./data&#34;,
+    split_tolerance=0.2,
+    test_split=0.05,
+    valid_split=0.05,
+    ignore_existing=False,
+    min_seq_id=0.3,
+    exclude_chains=None,
+    exclude_threshold=0.7,
+    exclude_clusters=False,
+    exclude_based_on_cdr=None,
+    random_seed=42,
+    exclude_chains_without_ligands=False,
+    tanimoto_clustering=False,
+):
+    &#34;&#34;&#34;Split `proteinflow` entry files into training, test and validation.
+
+    Our splitting algorithm has two objectives: achieving minimal data leakage and balancing the proportion of
+    single chain, homomer and heteromer entries.
+
+    It follows these steps:
+
+    1. cluster chains by sequence identity,
+    2. generate a graph where nodes are the clusters and edges are protein-protein interactions between chains
+    from those clusters,
+    3. split connected components of the graph into training, test and validation subsets while keeping the proportion
+    of single chains, homomers and heteromers close to that in the full dataset (within `split_tolerance`).
+
+    For SAbDab datasets, instead of sequence identity, we use CDR cluster identity to cluster chains. We also connect the clusters
+    in the graph if CDRs from those clusters are seen in the same PDB.
+
+    Biounits that contain chains similar to those in the `exclude_chains` list (with `exclude_threshold` sequence identity)
+    are excluded from the splitting and placed into a separate folder. If you want to exclude clusters containing those chains
+    as well, set `exclude_clusters` to `True`. For SAbDab datasets, you can additionally choose to only exclude based on specific
+    CDR clusters. To do so, set `exclude_based_on_cdr` to the CDR type.
+
+    Parameters
+    ----------
+    tag : str
+        the name of the dataset to load
+    local_datasets_folder : str, default &#34;./data&#34;
+        the path to the folder that will store proteinflow datasets, logs and temporary files
+    split_tolerance : float, default 0.2
+        The tolerance on the split ratio (default 20%)
+    test_split : float, default 0.05
+        The percentage of chains to put in the test set (default 5%)
+    valid_split : float, default 0.05
+        The percentage of chains to put in the validation set (default 5%)
+    ignore_existing : bool, default False
+        If `True`, overwrite existing dictionaries for this tag; otherwise, load the existing dictionary
+    min_seq_id : float in [0, 1], default 0.3
+        minimum sequence identity for `mmseqs`
+    exclude_chains : list of str, optional
+        a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `[&#34;1A2B-A&#34;, &#34;1A2B-B&#34;]`); chain id is the author chain id
+    exclude_threshold : float in [0, 1], default 0.7
+        the sequence similarity threshold for excluding chains
+    exclude_clusters : bool, default False
+        if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
+    exclude_based_on_cdr : {&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;}, optional
+        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
+    random_seed : int, default 42
+        random seed for reproducibility (set to `None` to use a random seed)
+    exclude_chains_without_ligands : bool, default False
+        if `True`, exclude biounits that don&#39;t contain ligands
+    tanimoto_clustering: bool, default False
+        cluster chains based on the tanimoto similarity of their ligands
+
+    Returns
+    -------
+    log : dict
+        a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
+
+    &#34;&#34;&#34;
+    temp_folder = os.path.join(tempfile.gettempdir(), &#34;proteinflow&#34;)
+    if not os.path.exists(temp_folder):
+        os.makedirs(temp_folder)
+    if exclude_chains is None or len(exclude_chains) == 0:
+        excluded_biounits = []
+    else:
+        excluded_biounits = _get_excluded_files(
+            tag,
+            local_datasets_folder,
+            temp_folder,
+            exclude_chains,
+            exclude_threshold,
+        )
+    if exclude_chains_without_ligands:
+        excluded_biounits += _exclude_files_with_no_ligand(
+            tag,
+            local_datasets_folder,
+        )
+
+    output_folder = os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;)
+    out_split_dict_folder = os.path.join(output_folder, &#34;splits_dict&#34;)
+    exists = False
+
+    if os.path.exists(out_split_dict_folder):
+        if not ignore_existing:
+            warnings.warn(
+                f&#34;Found an existing dictionary for tag {tag}. proteinflow will load it and ignore the parameters! Run with --ignore_existing to overwrite.&#34;
+            )
+            exists = True
+    if not exists:
+        _check_mmseqs()
+        random.seed(random_seed)
+        np.random.seed(random_seed)
+        _get_split_dictionaries(
+            tmp_folder=temp_folder,
+            output_folder=output_folder,
+            split_tolerance=split_tolerance,
+            test_split=test_split,
+            valid_split=valid_split,
+            out_split_dict_folder=out_split_dict_folder,
+            min_seq_id=min_seq_id,
+            tanimoto_clustering=tanimoto_clustering,
+        )
+    shutil.rmtree(temp_folder)
+
+    _split_data(
+        output_folder, excluded_biounits, exclude_clusters, exclude_based_on_cdr
+    )
+
+
+def unsplit_data(
+    tag,
+    local_datasets_folder=&#34;./data&#34;,
+):
+    &#34;&#34;&#34;Move files from train, test, validation and excluded folders back into the main folder.
+
+    Parameters
+    ----------
+    tag : str
+        the name of the dataset
+    local_datasets_folder : str, default &#34;./data&#34;
+        the path to the folder that stores proteinflow datasets
+
+    &#34;&#34;&#34;
+    for folder in [&#34;excluded&#34;, &#34;train&#34;, &#34;test&#34;, &#34;valid&#34;]:
+        if not os.path.exists(
+            os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;, folder)
+        ):
+            continue
+        for file in os.listdir(
+            os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;, folder)
+        ):
+            shutil.move(
+                os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;, folder, file),
+                os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;, file),
+            )
+        shutil.rmtree(os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;, folder))
+
+
+def sidechain_order():
+    &#34;&#34;&#34;Get a dictionary of sidechain atom orders.
+
+    Returns
+    -------
+    order_dict : dict
+        a dictionary where keys are 3-letter aminoacid codes and values are lists of atom names (in PDB format) that correspond to
+        coordinates in the `&#39;crd_sc&#39;` array generated by the `run_processing` function
+
+    &#34;&#34;&#34;
+    return SIDECHAIN_ORDER
+
+
+def check_pdb_snapshots():
+    &#34;&#34;&#34;Get a list of PDB snapshots available for downloading.
+
+    Returns
+    -------
+    snapshots : list
+        a list of snapshot names
+
+    &#34;&#34;&#34;
+    folders = _s3list(
+        boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
+            &#34;pdbsnapshots&#34;
+        ),
+        &#34;&#34;,
+        recursive=False,
+        list_objs=False,
+    )
+    return [x.key.strip(&#34;/&#34;) for x in folders]
+
+
+def check_download_tags():
+    &#34;&#34;&#34;Get a list of tags available for downloading.
+
+    Returns
+    -------
+    tags : list
+        a list of tag names
+
+    &#34;&#34;&#34;
+    folders = _s3list(
+        boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
+            &#34;proteinflow-datasets&#34;
+        ),
+        &#34;&#34;,
+        recursive=False,
+        list_objs=False,
+    )
+    return [
+        x.key.strip(&#34;/&#34;) for x in folders if not x.key.strip(&#34;/&#34;).startswith(&#34;test&#34;)
+    ]</code></pre>
+</details>
+</section>
+<section>
+<h2 class="section-title" id="header-submodules">Sub-modules</h2>
+<dl>
+<dt><code class="name"><a title="proteinflow.data" href="data/index.html">proteinflow.data</a></code></dt>
+<dd>
+<div class="desc"><p>Classes for downloading and manipulating protein data …</p></div>
+</dd>
+<dt><code class="name"><a title="proteinflow.download" href="download/index.html">proteinflow.download</a></code></dt>
+<dd>
+<div class="desc"><p>Functions for downloading protein data from various sources.</p></div>
+</dd>
+<dt><code class="name"><a title="proteinflow.logging" href="logging/index.html">proteinflow.logging</a></code></dt>
+<dd>
+<div class="desc"><p>Functions for logging errors and warnings.</p></div>
+</dd>
+<dt><code class="name"><a title="proteinflow.metrics" href="metrics/index.html">proteinflow.metrics</a></code></dt>
+<dd>
+<div class="desc"><p>Metrics for evaluating prediction quality.</p></div>
+</dd>
+<dt><code class="name"><a title="proteinflow.processing" href="processing/index.html">proteinflow.processing</a></code></dt>
+<dd>
+<div class="desc"><p>Functions for processing PDB files and generating new datasets.</p></div>
+</dd>
+<dt><code class="name"><a title="proteinflow.visualize" href="visualize.html">proteinflow.visualize</a></code></dt>
+<dd>
+<div class="desc"><p>Visualization functions for <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code>.</p></div>
+</dd>
+</dl>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="proteinflow.check_download_tags"><code class="name flex">
+<span>def <span class="ident">check_download_tags</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get a list of tags available for downloading.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>tags</code></strong> :&ensp;<code>list</code></dt>
+<dd>a list of tag names</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def check_download_tags():
+    &#34;&#34;&#34;Get a list of tags available for downloading.
+
+    Returns
+    -------
+    tags : list
+        a list of tag names
+
+    &#34;&#34;&#34;
+    folders = _s3list(
+        boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
+            &#34;proteinflow-datasets&#34;
+        ),
+        &#34;&#34;,
+        recursive=False,
+        list_objs=False,
+    )
+    return [
+        x.key.strip(&#34;/&#34;) for x in folders if not x.key.strip(&#34;/&#34;).startswith(&#34;test&#34;)
+    ]</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.check_pdb_snapshots"><code class="name flex">
+<span>def <span class="ident">check_pdb_snapshots</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get a list of PDB snapshots available for downloading.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>snapshots</code></strong> :&ensp;<code>list</code></dt>
+<dd>a list of snapshot names</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def check_pdb_snapshots():
+    &#34;&#34;&#34;Get a list of PDB snapshots available for downloading.
+
+    Returns
+    -------
+    snapshots : list
+        a list of snapshot names
+
+    &#34;&#34;&#34;
+    folders = _s3list(
+        boto3.resource(&#34;s3&#34;, config=Config(signature_version=UNSIGNED)).Bucket(
+            &#34;pdbsnapshots&#34;
+        ),
+        &#34;&#34;,
+        recursive=False,
+        list_objs=False,
+    )
+    return [x.key.strip(&#34;/&#34;) for x in folders]</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.download_data"><code class="name flex">
+<span>def <span class="ident">download_data</span></span>(<span>tag, local_datasets_folder='./data', skip_splitting=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Download a pre-computed dataset with train/test/validation splits.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>tag</code></strong> :&ensp;<code>str</code></dt>
+<dd>the name of the dataset to load</dd>
+<dt><strong><code>local_datasets_folder</code></strong> :&ensp;<code>str</code>, default <code>"./data"</code></dt>
+<dd>the path to the folder that will store proteinflow datasets, logs and temporary files</dd>
+<dt><strong><code>skip_splitting</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, skip the split dictionary creation and the file moving steps</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def download_data(tag, local_datasets_folder=&#34;./data&#34;, skip_splitting=False):
+    &#34;&#34;&#34;Download a pre-computed dataset with train/test/validation splits.
+
+    Parameters
+    ----------
+    tag : str
+        the name of the dataset to load
+    local_datasets_folder : str, default &#34;./data&#34;
+        the path to the folder that will store proteinflow datasets, logs and temporary files
+    skip_splitting : bool, default False
+        if `True`, skip the split dictionary creation and the file moving steps
+
+    &#34;&#34;&#34;
+    sabdab_data_path = _download_dataset(tag, local_datasets_folder)
+    if not skip_splitting:
+        _split_data(sabdab_data_path)</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.generate_data"><code class="name flex">
+<span>def <span class="ident">generate_data</span></span>(<span>tag=None, pdb_id_list_path=None, local_datasets_folder='./data', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, not_filter_methods=False, not_remove_redundancies=False, skip_splitting=False, redundancy_thr=0.9, n=None, force=False, split_tolerance=0.2, test_split=0.05, valid_split=0.05, pdb_snapshot=None, load_live=False, min_seq_id=0.3, sabdab=False, sabdab_data_path=None, require_antigen=False, exclude_chains=None, exclude_threshold=0.7, exclude_clusters=False, exclude_based_on_cdr=None, load_ligands=False, exclude_chains_without_ligands=False, tanimoto_clustering=False, random_seed=42, max_chains=10)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Download and parse PDB files that meet filtering criteria.</p>
+<p>The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are
+the following:</p>
+<ul>
+<li><code>'crd_bb'</code>: a <code>numpy</code> array of shape <code>(L, 4, 3)</code> with backbone atom coordinates (N, C, CA, O),</li>
+<li><code>'crd_sc'</code>: a <code>numpy</code> array of shape <code>(L, 10, 3)</code> with sidechain atom coordinates (in a fixed order, check <code><a title="proteinflow.sidechain_order" href="#proteinflow.sidechain_order">sidechain_order()</a></code>),</li>
+<li><code>'msk'</code>: a <code>numpy</code> array of shape <code>(L,)</code> where ones correspond to residues with known coordinates and
+zeros to missing values,</li>
+<li><code>'seq'</code>: a string of length <code>L</code> with residue types.</li>
+</ul>
+<p>When creating a SAbDab dataset, an additional key is added to the dictionary:
+- <code>'cdr'</code>: a <code>'numpy'</code> array of shape <code>(L,)</code> where CDR residues are marked with the corresponding type (<code>'H1'</code>, <code>'L1'</code>, &hellip;)
+and non-CDR residues are marked with <code>'-'</code>.</p>
+<p>PDB datasets are split into clusters according to sequence identity and SAbDab datasets are split according to CDR similarity.</p>
+<p>All errors including reasons for filtering a file out are logged in the log file.</p>
+<p>For more information on the splitting procedure and options, check out the <code><a title="proteinflow.split_data" href="#proteinflow.split_data">split_data()</a></code> documentation.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>tag</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>the name of the dataset to load</dd>
+<dt><strong><code>pdb_id_list_path</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>if provided, get pdb_ids from text file where each line contains one chain id (format pdb_id-num example: 1XYZ-1)
+pdb_ids can also be passed, an automatic retrieval of chain id s will be performed in that case</dd>
+<dt><strong><code>local_datasets_folder</code></strong> :&ensp;<code>str</code>, default <code>"./data"</code></dt>
+<dd>the path to the folder that will store proteinflow datasets, logs and temporary files</dd>
+<dt><strong><code>min_length</code></strong> :&ensp;<code>int</code>, default <code>30</code></dt>
+<dd>The minimum number of non-missing residues per chain</dd>
+<dt><strong><code>max_length</code></strong> :&ensp;<code>int</code>, default <code>10000</code></dt>
+<dd>The maximum number of residues per chain (set None for no threshold)</dd>
+<dt><strong><code>resolution_thr</code></strong> :&ensp;<code>float</code>, default <code>3.5</code></dt>
+<dd>The maximum resolution</dd>
+<dt><strong><code>missing_ends_thr</code></strong> :&ensp;<code>float</code>, default <code>0.3</code></dt>
+<dd>The maximum fraction of missing residues at the ends</dd>
+<dt><strong><code>missing_middle_thr</code></strong> :&ensp;<code>float</code>, default <code>0.1</code></dt>
+<dd>The maximum fraction of missing values in the middle (after missing ends are disregarded)</dd>
+<dt><strong><code>not_filter_methods</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>If <code>False</code>, only files obtained with X-ray or EM will be processed</dd>
+<dt><strong><code>not_remove_redundancies</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>If 'False', removes biounits that are doubles of others sequence wise</dd>
+<dt><strong><code>skip_splitting</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, skip the split dictionary creation and the file moving steps</dd>
+<dt><strong><code>redundancy_thr</code></strong> :&ensp;<code>float</code>, default <code>0.9</code></dt>
+<dd>The threshold upon which sequences are considered as one and the same (default: 90%)</dd>
+<dt><strong><code>n</code></strong> :&ensp;<code>int</code>, default <code>None</code></dt>
+<dd>The number of files to process (for debugging purposes)</dd>
+<dt><strong><code>force</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>When <code>True</code>, rewrite the files if they already exist</dd>
+<dt><strong><code>split_tolerance</code></strong> :&ensp;<code>float</code>, default <code>0.2</code></dt>
+<dd>The tolerance on the split ratio (default 20%)</dd>
+<dt><strong><code>test_split</code></strong> :&ensp;<code>float</code>, default <code>0.05</code></dt>
+<dd>The percentage of chains to put in the test set (default 5%)</dd>
+<dt><strong><code>valid_split</code></strong> :&ensp;<code>float</code>, default <code>0.05</code></dt>
+<dd>The percentage of chains to put in the validation set (default 5%)</dd>
+<dt><strong><code>pdb_snapshot</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>the PDB snapshot to use, by default the latest is used</dd>
+<dt><strong><code>load_live</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to <code>False</code> if <code>pdb_snapshot</code> is not <code>None</code>)</dd>
+<dt><strong><code>min_seq_id</code></strong> :&ensp;<code>float in [0, 1]</code>, default <code>0.3</code></dt>
+<dd>minimum sequence identity for <code>mmseqs</code></dd>
+<dt><strong><code>sabdab</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, download the SAbDab database instead of PDB</dd>
+<dt><strong><code>sabdab_data_path</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>path to a zip file or a directory containing SAbDab files (only used if <code>sabdab</code> is <code>True</code>)</dd>
+<dt><strong><code>require_antigen</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, only use SAbDab files with an antigen</dd>
+<dt><strong><code>exclude_chains</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
+<dd>a list of chains (<code>{pdb_id}-{chain_id}</code>) to exclude from the splitting (e.g. <code>["1A2B-A", "1A2B-B"]</code>); chain id is the author chain id</dd>
+<dt><strong><code>exclude_threshold</code></strong> :&ensp;<code>float in [0, 1]</code>, default <code>0.7</code></dt>
+<dd>the sequence similarity threshold for excluding chains</dd>
+<dt><strong><code>exclude_clusters</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, exclude clusters that contain chains similar to chains in the <code>exclude_chains</code> list</dd>
+<dt><strong><code>exclude_based_on_cdr</code></strong> :&ensp;<code>{"H1", "H2", "H3", "L1", "L2", "L3"}</code>, optional</dt>
+<dd>if given and <code>exclude_clusters</code> is <code>True</code> + the dataset is SAbDab, exclude files based on only the given CDR clusters</dd>
+<dt><strong><code>load_ligands</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, load ligands from the PDB files</dd>
+<dt><strong><code>exclude_chains_without_ligands</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, exclude biounits that don't contain ligands</dd>
+<dt><strong><code>tanimoto_clustering</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, cluster the biounits based on ligand Tanimoto similarity</dd>
+<dt><strong><code>random_seed</code></strong> :&ensp;<code>int</code>, default <code>42</code></dt>
+<dd>the random seed to use for splitting</dd>
+<dt><strong><code>max_chains</code></strong> :&ensp;<code>int</code>, default <code>10</code></dt>
+<dd>the maximum number of chains per biounit</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>log</code></strong> :&ensp;<code>dict</code></dt>
+<dd>a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def generate_data(
+    tag=None,
+    pdb_id_list_path=None,
+    local_datasets_folder=&#34;./data&#34;,
+    min_length=30,
+    max_length=10000,
+    resolution_thr=3.5,
+    missing_ends_thr=0.3,
+    missing_middle_thr=0.1,
+    not_filter_methods=False,
+    not_remove_redundancies=False,
+    skip_splitting=False,
+    redundancy_thr=0.9,
+    n=None,
+    force=False,
+    split_tolerance=0.2,
+    test_split=0.05,
+    valid_split=0.05,
+    pdb_snapshot=None,
+    load_live=False,
+    min_seq_id=0.3,
+    sabdab=False,
+    sabdab_data_path=None,
+    require_antigen=False,
+    exclude_chains=None,
+    exclude_threshold=0.7,
+    exclude_clusters=False,
+    exclude_based_on_cdr=None,
+    load_ligands=False,
+    exclude_chains_without_ligands=False,
+    tanimoto_clustering=False,
+    random_seed=42,
+    max_chains=10,
+):
+    &#34;&#34;&#34;Download and parse PDB files that meet filtering criteria.
+
+    The output files are pickled nested dictionaries where first-level keys are chain Ids and second-level keys are
+    the following:
+
+    - `&#39;crd_bb&#39;`: a `numpy` array of shape `(L, 4, 3)` with backbone atom coordinates (N, C, CA, O),
+    - `&#39;crd_sc&#39;`: a `numpy` array of shape `(L, 10, 3)` with sidechain atom coordinates (in a fixed order, check `sidechain_order()`),
+    - `&#39;msk&#39;`: a `numpy` array of shape `(L,)` where ones correspond to residues with known coordinates and
+        zeros to missing values,
+    - `&#39;seq&#39;`: a string of length `L` with residue types.
+
+    When creating a SAbDab dataset, an additional key is added to the dictionary:
+    - `&#39;cdr&#39;`: a `&#39;numpy&#39;` array of shape `(L,)` where CDR residues are marked with the corresponding type (`&#39;H1&#39;`, `&#39;L1&#39;`, ...)
+        and non-CDR residues are marked with `&#39;-&#39;`.
+
+    PDB datasets are split into clusters according to sequence identity and SAbDab datasets are split according to CDR similarity.
+
+    All errors including reasons for filtering a file out are logged in the log file.
+
+    For more information on the splitting procedure and options, check out the `proteinflow.split_data` documentation.
+
+    Parameters
+    ----------
+    tag : str, optional
+        the name of the dataset to load
+    pdb_id_list_path : str, optional
+        if provided, get pdb_ids from text file where each line contains one chain id (format pdb_id-num example: 1XYZ-1)
+        pdb_ids can also be passed, an automatic retrieval of chain id s will be performed in that case
+    local_datasets_folder : str, default &#34;./data&#34;
+        the path to the folder that will store proteinflow datasets, logs and temporary files
+    min_length : int, default 30
+        The minimum number of non-missing residues per chain
+    max_length : int, default 10000
+        The maximum number of residues per chain (set None for no threshold)
+    resolution_thr : float, default 3.5
+        The maximum resolution
+    missing_ends_thr : float, default 0.3
+        The maximum fraction of missing residues at the ends
+    missing_middle_thr : float, default 0.1
+        The maximum fraction of missing values in the middle (after missing ends are disregarded)
+    not_filter_methods : bool, default False
+        If `False`, only files obtained with X-ray or EM will be processed
+    not_remove_redundancies : bool, default False
+        If &#39;False&#39;, removes biounits that are doubles of others sequence wise
+    skip_splitting : bool, default False
+        if `True`, skip the split dictionary creation and the file moving steps
+    redundancy_thr : float, default 0.9
+        The threshold upon which sequences are considered as one and the same (default: 90%)
+    n : int, default None
+        The number of files to process (for debugging purposes)
+    force : bool, default False
+        When `True`, rewrite the files if they already exist
+    split_tolerance : float, default 0.2
+        The tolerance on the split ratio (default 20%)
+    test_split : float, default 0.05
+        The percentage of chains to put in the test set (default 5%)
+    valid_split : float, default 0.05
+        The percentage of chains to put in the validation set (default 5%)
+    pdb_snapshot : str, optional
+        the PDB snapshot to use, by default the latest is used
+    load_live : bool, default False
+        if `True`, load the files that are not in the latest PDB snapshot from the PDB FTP server (forced to `False` if `pdb_snapshot` is not `None`)
+    min_seq_id : float in [0, 1], default 0.3
+        minimum sequence identity for `mmseqs`
+    sabdab : bool, default False
+        if `True`, download the SAbDab database instead of PDB
+    sabdab_data_path : str, optional
+        path to a zip file or a directory containing SAbDab files (only used if `sabdab` is `True`)
+    require_antigen : bool, default False
+        if `True`, only use SAbDab files with an antigen
+    exclude_chains : list of str, optional
+        a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `[&#34;1A2B-A&#34;, &#34;1A2B-B&#34;]`); chain id is the author chain id
+    exclude_threshold : float in [0, 1], default 0.7
+        the sequence similarity threshold for excluding chains
+    exclude_clusters : bool, default False
+        if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
+    exclude_based_on_cdr : {&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;}, optional
+        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
+    load_ligands : bool, default False
+        if `True`, load ligands from the PDB files
+    exclude_chains_without_ligands : bool, default False
+        if `True`, exclude biounits that don&#39;t contain ligands
+    tanimoto_clustering : bool, default False
+        if `True`, cluster the biounits based on ligand Tanimoto similarity
+    random_seed : int, default 42
+        the random seed to use for splitting
+    max_chains : int, default 10
+        the maximum number of chains per biounit
+
+    Returns
+    -------
+    log : dict
+        a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
+
+    &#34;&#34;&#34;
+    tmp_id = &#34;&#34;.join(
+        random.choice(string.ascii_uppercase + string.digits) for _ in range(5)
+    )
+    if tag is None:
+        if pdb_id_list_path is None:
+            raise RuntimeError(
+                &#34;Please input a data source: valid tag or a pdb ids list&#34;
+            )
+        else:
+            tag = pdb_id_list_path.split(&#34;/&#34;)[-1].split(&#34;.&#34;)[0]
+            tmp_folder = os.path.join(tempfile.gettempdir(), tag + tmp_id)
+            os.makedirs(tmp_folder)
+            with open(pdb_id_list_path) as file:
+                # Read lines from the file
+                example_pdb_id = file.readline()
+            if &#34;-&#34; not in example_pdb_id:
+                pdb_id_list_path = _get_chain_pdb_ids(pdb_id_list_path, tmp_folder)
+    else:
+        tmp_folder = os.path.join(tempfile.gettempdir(), tag + tmp_id)
+        os.makedirs(tmp_folder)
+    filter_methods = not not_filter_methods
+    remove_redundancies = not not_remove_redundancies
+
+    output_folder = os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;)
+
+    if force and os.path.exists(output_folder):
+        shutil.rmtree(output_folder)
+
+    log_dict = run_processing(
+        tmp_folder=tmp_folder,
+        output_folder=output_folder,
+        min_length=min_length,
+        max_length=max_length,
+        resolution_thr=resolution_thr,
+        missing_ends_thr=missing_ends_thr,
+        missing_middle_thr=missing_middle_thr,
+        filter_methods=filter_methods,
+        remove_redundancies=remove_redundancies,
+        redundancy_thr=redundancy_thr,
+        n=n,
+        force=force,
+        tag=tag,
+        pdb_snapshot=pdb_snapshot,
+        load_live=load_live,
+        sabdab=sabdab,
+        sabdab_data_path=sabdab_data_path,
+        require_antigen=require_antigen,
+        max_chains=max_chains,
+        pdb_id_list_path=pdb_id_list_path,
+        load_ligands=load_ligands,
+    )
+
+    if not skip_splitting:
+        if tanimoto_clustering and not load_ligands:
+            print(
+                &#34;Can not use Tanimoto Clustering without load_ligands=False. Setting tanimoto_clustering to False&#34;
+            )
+            tanimoto_clustering = False
+        split_data(
+            tag=tag,
+            local_datasets_folder=local_datasets_folder,
+            split_tolerance=split_tolerance,
+            test_split=test_split,
+            valid_split=valid_split,
+            ignore_existing=True,
+            min_seq_id=min_seq_id,
+            exclude_chains=exclude_chains,
+            exclude_threshold=exclude_threshold,
+            exclude_clusters=exclude_clusters,
+            exclude_based_on_cdr=exclude_based_on_cdr,
+            random_seed=random_seed,
+            exclude_chains_without_ligands=exclude_chains_without_ligands,
+            tanimoto_clustering=tanimoto_clustering,
+        )
+    shutil.rmtree(tmp_folder)
+    return log_dict</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.sidechain_order"><code class="name flex">
+<span>def <span class="ident">sidechain_order</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get a dictionary of sidechain atom orders.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>order_dict</code></strong> :&ensp;<code>dict</code></dt>
+<dd>a dictionary where keys are 3-letter aminoacid codes and values are lists of atom names (in PDB format) that correspond to
+coordinates in the <code>'crd_sc'</code> array generated by the <code>run_processing</code> function</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def sidechain_order():
+    &#34;&#34;&#34;Get a dictionary of sidechain atom orders.
+
+    Returns
+    -------
+    order_dict : dict
+        a dictionary where keys are 3-letter aminoacid codes and values are lists of atom names (in PDB format) that correspond to
+        coordinates in the `&#39;crd_sc&#39;` array generated by the `run_processing` function
+
+    &#34;&#34;&#34;
+    return SIDECHAIN_ORDER</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.split_data"><code class="name flex">
+<span>def <span class="ident">split_data</span></span>(<span>tag, local_datasets_folder='./data', split_tolerance=0.2, test_split=0.05, valid_split=0.05, ignore_existing=False, min_seq_id=0.3, exclude_chains=None, exclude_threshold=0.7, exclude_clusters=False, exclude_based_on_cdr=None, random_seed=42, exclude_chains_without_ligands=False, tanimoto_clustering=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Split <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> entry files into training, test and validation.</p>
+<p>Our splitting algorithm has two objectives: achieving minimal data leakage and balancing the proportion of
+single chain, homomer and heteromer entries.</p>
+<p>It follows these steps:</p>
+<ol>
+<li>cluster chains by sequence identity,</li>
+<li>generate a graph where nodes are the clusters and edges are protein-protein interactions between chains
+from those clusters,</li>
+<li>split connected components of the graph into training, test and validation subsets while keeping the proportion
+of single chains, homomers and heteromers close to that in the full dataset (within <code>split_tolerance</code>).</li>
+</ol>
+<p>For SAbDab datasets, instead of sequence identity, we use CDR cluster identity to cluster chains. We also connect the clusters
+in the graph if CDRs from those clusters are seen in the same PDB.</p>
+<p>Biounits that contain chains similar to those in the <code>exclude_chains</code> list (with <code>exclude_threshold</code> sequence identity)
+are excluded from the splitting and placed into a separate folder. If you want to exclude clusters containing those chains
+as well, set <code>exclude_clusters</code> to <code>True</code>. For SAbDab datasets, you can additionally choose to only exclude based on specific
+CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>tag</code></strong> :&ensp;<code>str</code></dt>
+<dd>the name of the dataset to load</dd>
+<dt><strong><code>local_datasets_folder</code></strong> :&ensp;<code>str</code>, default <code>"./data"</code></dt>
+<dd>the path to the folder that will store proteinflow datasets, logs and temporary files</dd>
+<dt><strong><code>split_tolerance</code></strong> :&ensp;<code>float</code>, default <code>0.2</code></dt>
+<dd>The tolerance on the split ratio (default 20%)</dd>
+<dt><strong><code>test_split</code></strong> :&ensp;<code>float</code>, default <code>0.05</code></dt>
+<dd>The percentage of chains to put in the test set (default 5%)</dd>
+<dt><strong><code>valid_split</code></strong> :&ensp;<code>float</code>, default <code>0.05</code></dt>
+<dd>The percentage of chains to put in the validation set (default 5%)</dd>
+<dt><strong><code>ignore_existing</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>If <code>True</code>, overwrite existing dictionaries for this tag; otherwise, load the existing dictionary</dd>
+<dt><strong><code>min_seq_id</code></strong> :&ensp;<code>float in [0, 1]</code>, default <code>0.3</code></dt>
+<dd>minimum sequence identity for <code>mmseqs</code></dd>
+<dt><strong><code>exclude_chains</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
+<dd>a list of chains (<code>{pdb_id}-{chain_id}</code>) to exclude from the splitting (e.g. <code>["1A2B-A", "1A2B-B"]</code>); chain id is the author chain id</dd>
+<dt><strong><code>exclude_threshold</code></strong> :&ensp;<code>float in [0, 1]</code>, default <code>0.7</code></dt>
+<dd>the sequence similarity threshold for excluding chains</dd>
+<dt><strong><code>exclude_clusters</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, exclude clusters that contain chains similar to chains in the <code>exclude_chains</code> list</dd>
+<dt><strong><code>exclude_based_on_cdr</code></strong> :&ensp;<code>{"H1", "H2", "H3", "L1", "L2", "L3"}</code>, optional</dt>
+<dd>if given and <code>exclude_clusters</code> is <code>True</code> + the dataset is SAbDab, exclude files based on only the given CDR clusters</dd>
+<dt><strong><code>random_seed</code></strong> :&ensp;<code>int</code>, default <code>42</code></dt>
+<dd>random seed for reproducibility (set to <code>None</code> to use a random seed)</dd>
+<dt><strong><code>exclude_chains_without_ligands</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, exclude biounits that don't contain ligands</dd>
+<dt><strong><code>tanimoto_clustering</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>cluster chains based on the tanimoto similarity of their ligands</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>log</code></strong> :&ensp;<code>dict</code></dt>
+<dd>a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def split_data(
+    tag,
+    local_datasets_folder=&#34;./data&#34;,
+    split_tolerance=0.2,
+    test_split=0.05,
+    valid_split=0.05,
+    ignore_existing=False,
+    min_seq_id=0.3,
+    exclude_chains=None,
+    exclude_threshold=0.7,
+    exclude_clusters=False,
+    exclude_based_on_cdr=None,
+    random_seed=42,
+    exclude_chains_without_ligands=False,
+    tanimoto_clustering=False,
+):
+    &#34;&#34;&#34;Split `proteinflow` entry files into training, test and validation.
+
+    Our splitting algorithm has two objectives: achieving minimal data leakage and balancing the proportion of
+    single chain, homomer and heteromer entries.
+
+    It follows these steps:
+
+    1. cluster chains by sequence identity,
+    2. generate a graph where nodes are the clusters and edges are protein-protein interactions between chains
+    from those clusters,
+    3. split connected components of the graph into training, test and validation subsets while keeping the proportion
+    of single chains, homomers and heteromers close to that in the full dataset (within `split_tolerance`).
+
+    For SAbDab datasets, instead of sequence identity, we use CDR cluster identity to cluster chains. We also connect the clusters
+    in the graph if CDRs from those clusters are seen in the same PDB.
+
+    Biounits that contain chains similar to those in the `exclude_chains` list (with `exclude_threshold` sequence identity)
+    are excluded from the splitting and placed into a separate folder. If you want to exclude clusters containing those chains
+    as well, set `exclude_clusters` to `True`. For SAbDab datasets, you can additionally choose to only exclude based on specific
+    CDR clusters. To do so, set `exclude_based_on_cdr` to the CDR type.
+
+    Parameters
+    ----------
+    tag : str
+        the name of the dataset to load
+    local_datasets_folder : str, default &#34;./data&#34;
+        the path to the folder that will store proteinflow datasets, logs and temporary files
+    split_tolerance : float, default 0.2
+        The tolerance on the split ratio (default 20%)
+    test_split : float, default 0.05
+        The percentage of chains to put in the test set (default 5%)
+    valid_split : float, default 0.05
+        The percentage of chains to put in the validation set (default 5%)
+    ignore_existing : bool, default False
+        If `True`, overwrite existing dictionaries for this tag; otherwise, load the existing dictionary
+    min_seq_id : float in [0, 1], default 0.3
+        minimum sequence identity for `mmseqs`
+    exclude_chains : list of str, optional
+        a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `[&#34;1A2B-A&#34;, &#34;1A2B-B&#34;]`); chain id is the author chain id
+    exclude_threshold : float in [0, 1], default 0.7
+        the sequence similarity threshold for excluding chains
+    exclude_clusters : bool, default False
+        if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
+    exclude_based_on_cdr : {&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;}, optional
+        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
+    random_seed : int, default 42
+        random seed for reproducibility (set to `None` to use a random seed)
+    exclude_chains_without_ligands : bool, default False
+        if `True`, exclude biounits that don&#39;t contain ligands
+    tanimoto_clustering: bool, default False
+        cluster chains based on the tanimoto similarity of their ligands
+
+    Returns
+    -------
+    log : dict
+        a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
+
+    &#34;&#34;&#34;
+    temp_folder = os.path.join(tempfile.gettempdir(), &#34;proteinflow&#34;)
+    if not os.path.exists(temp_folder):
+        os.makedirs(temp_folder)
+    if exclude_chains is None or len(exclude_chains) == 0:
+        excluded_biounits = []
+    else:
+        excluded_biounits = _get_excluded_files(
+            tag,
+            local_datasets_folder,
+            temp_folder,
+            exclude_chains,
+            exclude_threshold,
+        )
+    if exclude_chains_without_ligands:
+        excluded_biounits += _exclude_files_with_no_ligand(
+            tag,
+            local_datasets_folder,
+        )
+
+    output_folder = os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;)
+    out_split_dict_folder = os.path.join(output_folder, &#34;splits_dict&#34;)
+    exists = False
+
+    if os.path.exists(out_split_dict_folder):
+        if not ignore_existing:
+            warnings.warn(
+                f&#34;Found an existing dictionary for tag {tag}. proteinflow will load it and ignore the parameters! Run with --ignore_existing to overwrite.&#34;
+            )
+            exists = True
+    if not exists:
+        _check_mmseqs()
+        random.seed(random_seed)
+        np.random.seed(random_seed)
+        _get_split_dictionaries(
+            tmp_folder=temp_folder,
+            output_folder=output_folder,
+            split_tolerance=split_tolerance,
+            test_split=test_split,
+            valid_split=valid_split,
+            out_split_dict_folder=out_split_dict_folder,
+            min_seq_id=min_seq_id,
+            tanimoto_clustering=tanimoto_clustering,
+        )
+    shutil.rmtree(temp_folder)
+
+    _split_data(
+        output_folder, excluded_biounits, exclude_clusters, exclude_based_on_cdr
+    )</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.unsplit_data"><code class="name flex">
+<span>def <span class="ident">unsplit_data</span></span>(<span>tag, local_datasets_folder='./data')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Move files from train, test, validation and excluded folders back into the main folder.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>tag</code></strong> :&ensp;<code>str</code></dt>
+<dd>the name of the dataset</dd>
+<dt><strong><code>local_datasets_folder</code></strong> :&ensp;<code>str</code>, default <code>"./data"</code></dt>
+<dd>the path to the folder that stores proteinflow datasets</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def unsplit_data(
+    tag,
+    local_datasets_folder=&#34;./data&#34;,
+):
+    &#34;&#34;&#34;Move files from train, test, validation and excluded folders back into the main folder.
+
+    Parameters
+    ----------
+    tag : str
+        the name of the dataset
+    local_datasets_folder : str, default &#34;./data&#34;
+        the path to the folder that stores proteinflow datasets
+
+    &#34;&#34;&#34;
+    for folder in [&#34;excluded&#34;, &#34;train&#34;, &#34;test&#34;, &#34;valid&#34;]:
+        if not os.path.exists(
+            os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;, folder)
+        ):
+            continue
+        for file in os.listdir(
+            os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;, folder)
+        ):
+            shutil.move(
+                os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;, folder, file),
+                os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;, file),
+            )
+        shutil.rmtree(os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;, folder))</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+</section>
+</article>
+<nav id="sidebar">
+<header>
+<a class="homelink" rel="home" title="pdoc Home" href="https://adaptyvbio.github.io/ProteinFlow/">
+<img src="https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/logo.png" alt="">
+</a>
+</header>
+<h1>Index</h1>
+<div class="toc">
+<ul>
+<li><a href="#installation">Installation</a><ul>
+<li><a href="#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+<li><a href="#usage">Usage</a><ul>
+<li><a href="#downloading-pre-computed-datasets-stable">Downloading pre-computed datasets (stable)</a></li>
+<li><a href="#running-the-pipeline-pdb">Running the pipeline (PDB)</a></li>
+<li><a href="#running-the-pipeline-sabdab">Running the pipeline (SAbDab)</a></li>
+<li><a href="#splitting">Splitting</a></li>
+<li><a href="#using-the-data">Using the data</a></li>
+</ul>
+</li>
+<li><a href="#proteinflow-stable-releases">ProteinFlow Stable Releases</a></li>
+</ul>
+</div>
+<ul id="index">
+<li><h3><a href="#header-submodules">Sub-modules</a></h3>
+<ul>
+<li><code><a title="proteinflow.data" href="data/index.html">proteinflow.data</a></code></li>
+<li><code><a title="proteinflow.download" href="download/index.html">proteinflow.download</a></code></li>
+<li><code><a title="proteinflow.logging" href="logging/index.html">proteinflow.logging</a></code></li>
+<li><code><a title="proteinflow.metrics" href="metrics/index.html">proteinflow.metrics</a></code></li>
+<li><code><a title="proteinflow.processing" href="processing/index.html">proteinflow.processing</a></code></li>
+<li><code><a title="proteinflow.visualize" href="visualize.html">proteinflow.visualize</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="two-column">
+<li><code><a title="proteinflow.check_download_tags" href="#proteinflow.check_download_tags">check_download_tags</a></code></li>
+<li><code><a title="proteinflow.check_pdb_snapshots" href="#proteinflow.check_pdb_snapshots">check_pdb_snapshots</a></code></li>
+<li><code><a title="proteinflow.download_data" href="#proteinflow.download_data">download_data</a></code></li>
+<li><code><a title="proteinflow.generate_data" href="#proteinflow.generate_data">generate_data</a></code></li>
+<li><code><a title="proteinflow.sidechain_order" href="#proteinflow.sidechain_order">sidechain_order</a></code></li>
+<li><code><a title="proteinflow.split_data" href="#proteinflow.split_data">split_data</a></code></li>
+<li><code><a title="proteinflow.unsplit_data" href="#proteinflow.unsplit_data">unsplit_data</a></code></li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>
