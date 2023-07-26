@@ -1257,11 +1257,9 @@ class ProteinEntry:
             Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)
 
         """
-        print(f"{highlight_mask=}")
         if highlight_mask is not None:
             highlight_mask_dict = self._get_highlight_mask_dict(highlight_mask)
         elif list(self.predict_mask.values())[0] is not None:
-            print("HERE")
             highlight_mask_dict = {
                 chain: self.predict_mask[chain][self.get_mask([chain]).astype(bool)]
                 for chain in self.get_chains()
