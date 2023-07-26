@@ -530,7 +530,7 @@ class ProteinEntry:
             self.mask_original[chain] = entry.mask_original[chain]
             self.cdr[chain] = entry.cdr[chain]
             self.predict_mask[chain] = entry.predict_mask[chain]
-        if not all([x is None for x in entry.predict_mask.values()]):
+        if not all([x is None for x in self.predict_mask.values()]):
             for k, v in self.predict_mask.items():
                 if v is None:
                     self.predict_mask[k] = np.zeros(len(self.get_sequence(k)))
