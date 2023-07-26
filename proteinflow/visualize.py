@@ -9,7 +9,7 @@ from proteinflow.data import PDBEntry, ProteinEntry
 
 
 def show_animation_from_pdb(
-    pdb_paths, highlight_mask_dict=None, style="cartoon", opacity=1
+    pdb_paths, highlight_mask_dict=None, style="cartoon", opacity=1, direction="forward"
 ):
     """Show an animation of the given PDB files.
 
@@ -24,6 +24,8 @@ def show_animation_from_pdb(
         The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
     opacity : float, default 1
         The opacity of the visualization.
+    direction : {"forward", "backAndForth"}
+        The direction of the animation.
 
     """
     entries = [PDBEntry(path) for path in pdb_paths]
@@ -44,12 +46,16 @@ def show_animation_from_pdb(
         view.setStyle({"model": -1, "serial": i + 1}, at.get("pymol", default))
 
     view.zoomTo()
-    view.animate({"loop": "forward"})
+    view.animate({"loop": direction, "step": 10})
     view.show()
 
 
 def show_animation_from_pickle(
-    pickle_paths, highlight_mask=None, style="cartoon", opacity=1
+    pickle_paths,
+    highlight_mask=None,
+    style="cartoon",
+    opacity=1,
+    direction="forward",
 ):
     """Show an animation of the given pickle files.
 
@@ -64,6 +70,8 @@ def show_animation_from_pickle(
         The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
     opacity : float, default 1
         The opacity of the visualization.
+    direction : {"forward", "backAndForth"}
+        The direction of the animation.
 
     """
     entries = [ProteinEntry.from_pickle(path) for path in pickle_paths]
@@ -86,7 +94,7 @@ def show_animation_from_pickle(
         view.setStyle({"model": -1, "serial": i + 1}, at.get("pymol", default))
 
     view.zoomTo()
-    view.animate({"loop": "forward"})
+    view.animate({"loop": direction})
     view.show()
 
 
@@ -114,7 +122,7 @@ def merge_pickle_files(paths_to_merge, save_path):
         raise ValueError("save_path must end with .pdb or .pickle")
 
 
-def show_merged_pickle(file_paths, highlight_masks=None, style="cartoon", opacity=1):
+def show_merged_pickle(file_paths, highlight_masks=None, style="cartoon", opacity=1.0):
     """Show a merged visualization of the given PDB or pickle files.
 
     Parameters
@@ -154,7 +162,9 @@ def show_merged_pickle(file_paths, highlight_masks=None, style="cartoon", opacit
     )
 
 
-def show_merged_pdb(file_paths, highlight_mask_dicts=None, style="cartoon", opacity=1):
+def show_merged_pdb(
+    file_paths, highlight_mask_dicts=None, style="cartoon", opacity=1.0
+):
     """Show a merged visualization of the given PDB or pickle files.
 
     Parameters

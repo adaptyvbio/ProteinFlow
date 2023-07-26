@@ -573,15 +573,16 @@ class ProteinEntry:
         chain_ids_list = []
         predict_masks_list = None if predict_masks is None else []
         cdrs_list = None if cdrs is None else []
-        if crds.shape[1] != 14:
-            crds_ = np.zeros((crds.shape[0], 14, 3))
-            crds_[:, :4, :] = ProteinEntry._to_numpy(crds)
-            crds = crds_
         for chain_id, ind in chain_id_dict.items():
             chain_ids_list.append(chain_id)
             chain_mask = chain_id_array == ind
             seqs_list.append(ProteinEntry.decode_sequence(seqs[chain_mask]))
-            crds_list.append(ProteinEntry._to_numpy(crds[chain_mask]))
+            if crds.shape[1] != 14:
+                crds_ = np.zeros((crds[chain_mask].shape[0], 14, 3))
+                crds_[:, :4, :] = ProteinEntry._to_numpy(crds[chain_mask])
+            else:
+                crds_ = ProteinEntry._to_numpy(crds[chain_mask])
+            crds_list.append(crds_)
             masks_list.append(ProteinEntry._to_numpy(masks[chain_mask]))
             if predict_masks is not None:
                 predict_masks_list.append(
