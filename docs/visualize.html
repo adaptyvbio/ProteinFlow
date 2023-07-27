@@ -39,7 +39,7 @@ from proteinflow.data import PDBEntry, ProteinEntry
 
 
 def show_animation_from_pdb(
-    pdb_paths, highlight_mask_dict=None, style=&#34;cartoon&#34;, opacity=1
+    pdb_paths, highlight_mask_dict=None, style=&#34;cartoon&#34;, opacity=1, direction=&#34;forward&#34;
 ):
     &#34;&#34;&#34;Show an animation of the given PDB files.
 
@@ -54,6 +54,8 @@ def show_animation_from_pdb(
         The style of the visualization; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
     opacity : float, default 1
         The opacity of the visualization.
+    direction : {&#34;forward&#34;, &#34;backAndForth&#34;}
+        The direction of the animation.
 
     &#34;&#34;&#34;
     entries = [PDBEntry(path) for path in pdb_paths]
@@ -74,12 +76,16 @@ def show_animation_from_pdb(
         view.setStyle({&#34;model&#34;: -1, &#34;serial&#34;: i + 1}, at.get(&#34;pymol&#34;, default))
 
     view.zoomTo()
-    view.animate({&#34;loop&#34;: &#34;forward&#34;})
+    view.animate({&#34;loop&#34;: direction, &#34;step&#34;: 10})
     view.show()
 
 
 def show_animation_from_pickle(
-    pickle_paths, highlight_mask=None, style=&#34;cartoon&#34;, opacity=1
+    pickle_paths,
+    highlight_mask=None,
+    style=&#34;cartoon&#34;,
+    opacity=1,
+    direction=&#34;forward&#34;,
 ):
     &#34;&#34;&#34;Show an animation of the given pickle files.
 
@@ -94,6 +100,8 @@ def show_animation_from_pickle(
         The style of the visualization; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
     opacity : float, default 1
         The opacity of the visualization.
+    direction : {&#34;forward&#34;, &#34;backAndForth&#34;}
+        The direction of the animation.
 
     &#34;&#34;&#34;
     entries = [ProteinEntry.from_pickle(path) for path in pickle_paths]
@@ -116,7 +124,7 @@ def show_animation_from_pickle(
         view.setStyle({&#34;model&#34;: -1, &#34;serial&#34;: i + 1}, at.get(&#34;pymol&#34;, default))
 
     view.zoomTo()
-    view.animate({&#34;loop&#34;: &#34;forward&#34;})
+    view.animate({&#34;loop&#34;: direction})
     view.show()
 
 
@@ -144,7 +152,7 @@ def merge_pickle_files(paths_to_merge, save_path):
         raise ValueError(&#34;save_path must end with .pdb or .pickle&#34;)
 
 
-def show_merged_pickle(file_paths, highlight_masks=None, style=&#34;cartoon&#34;, opacity=1):
+def show_merged_pickle(file_paths, highlight_masks=None, style=&#34;cartoon&#34;, opacity=1.0):
     &#34;&#34;&#34;Show a merged visualization of the given PDB or pickle files.
 
     Parameters
@@ -184,7 +192,9 @@ def show_merged_pickle(file_paths, highlight_masks=None, style=&#34;cartoon&#34;
     )
 
 
-def show_merged_pdb(file_paths, highlight_mask_dicts=None, style=&#34;cartoon&#34;, opacity=1):
+def show_merged_pdb(
+    file_paths, highlight_mask_dicts=None, style=&#34;cartoon&#34;, opacity=1.0
+):
     &#34;&#34;&#34;Show a merged visualization of the given PDB or pickle files.
 
     Parameters
@@ -274,7 +284,7 @@ def show_merged_pdb(file_paths, highlight_mask_dicts=None, style=&#34;cartoon&#3
 </details>
 </dd>
 <dt id="proteinflow.visualize.show_animation_from_pdb"><code class="name flex">
-<span>def <span class="ident">show_animation_from_pdb</span></span>(<span>pdb_paths, highlight_mask_dict=None, style='cartoon', opacity=1)</span>
+<span>def <span class="ident">show_animation_from_pdb</span></span>(<span>pdb_paths, highlight_mask_dict=None, style='cartoon', opacity=1, direction='forward')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Show an animation of the given PDB files.</p>
@@ -289,13 +299,15 @@ def show_merged_pdb(file_paths, highlight_mask_dicts=None, style=&#34;cartoon&#3
 <dd>The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'</dd>
 <dt><strong><code>opacity</code></strong> :&ensp;<code>float</code>, default <code>1</code></dt>
 <dd>The opacity of the visualization.</dd>
+<dt><strong><code>direction</code></strong> :&ensp;<code>{"forward", "backAndForth"}</code></dt>
+<dd>The direction of the animation.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def show_animation_from_pdb(
-    pdb_paths, highlight_mask_dict=None, style=&#34;cartoon&#34;, opacity=1
+    pdb_paths, highlight_mask_dict=None, style=&#34;cartoon&#34;, opacity=1, direction=&#34;forward&#34;
 ):
     &#34;&#34;&#34;Show an animation of the given PDB files.
 
@@ -310,6 +322,8 @@ def show_merged_pdb(file_paths, highlight_mask_dicts=None, style=&#34;cartoon&#3
         The style of the visualization; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
     opacity : float, default 1
         The opacity of the visualization.
+    direction : {&#34;forward&#34;, &#34;backAndForth&#34;}
+        The direction of the animation.
 
     &#34;&#34;&#34;
     entries = [PDBEntry(path) for path in pdb_paths]
@@ -330,12 +344,12 @@ def show_merged_pdb(file_paths, highlight_mask_dicts=None, style=&#34;cartoon&#3
         view.setStyle({&#34;model&#34;: -1, &#34;serial&#34;: i + 1}, at.get(&#34;pymol&#34;, default))
 
     view.zoomTo()
-    view.animate({&#34;loop&#34;: &#34;forward&#34;})
+    view.animate({&#34;loop&#34;: direction, &#34;step&#34;: 10})
     view.show()</code></pre>
 </details>
 </dd>
 <dt id="proteinflow.visualize.show_animation_from_pickle"><code class="name flex">
-<span>def <span class="ident">show_animation_from_pickle</span></span>(<span>pickle_paths, highlight_mask=None, style='cartoon', opacity=1)</span>
+<span>def <span class="ident">show_animation_from_pickle</span></span>(<span>pickle_paths, highlight_mask=None, style='cartoon', opacity=1, direction='forward')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Show an animation of the given pickle files.</p>
@@ -350,13 +364,19 @@ the chains to be concatenated in alphabetical order.</dd>
 <dd>The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'</dd>
 <dt><strong><code>opacity</code></strong> :&ensp;<code>float</code>, default <code>1</code></dt>
 <dd>The opacity of the visualization.</dd>
+<dt><strong><code>direction</code></strong> :&ensp;<code>{"forward", "backAndForth"}</code></dt>
+<dd>The direction of the animation.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def show_animation_from_pickle(
-    pickle_paths, highlight_mask=None, style=&#34;cartoon&#34;, opacity=1
+    pickle_paths,
+    highlight_mask=None,
+    style=&#34;cartoon&#34;,
+    opacity=1,
+    direction=&#34;forward&#34;,
 ):
     &#34;&#34;&#34;Show an animation of the given pickle files.
 
@@ -371,6 +391,8 @@ the chains to be concatenated in alphabetical order.</dd>
         The style of the visualization; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
     opacity : float, default 1
         The opacity of the visualization.
+    direction : {&#34;forward&#34;, &#34;backAndForth&#34;}
+        The direction of the animation.
 
     &#34;&#34;&#34;
     entries = [ProteinEntry.from_pickle(path) for path in pickle_paths]
@@ -393,12 +415,12 @@ the chains to be concatenated in alphabetical order.</dd>
         view.setStyle({&#34;model&#34;: -1, &#34;serial&#34;: i + 1}, at.get(&#34;pymol&#34;, default))
 
     view.zoomTo()
-    view.animate({&#34;loop&#34;: &#34;forward&#34;})
+    view.animate({&#34;loop&#34;: direction})
     view.show()</code></pre>
 </details>
 </dd>
 <dt id="proteinflow.visualize.show_merged_pdb"><code class="name flex">
-<span>def <span class="ident">show_merged_pdb</span></span>(<span>file_paths, highlight_mask_dicts=None, style='cartoon', opacity=1)</span>
+<span>def <span class="ident">show_merged_pdb</span></span>(<span>file_paths, highlight_mask_dicts=None, style='cartoon', opacity=1.0)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Show a merged visualization of the given PDB or pickle files.</p>
@@ -418,7 +440,9 @@ the chains to be concatenated in alphabetical order.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def show_merged_pdb(file_paths, highlight_mask_dicts=None, style=&#34;cartoon&#34;, opacity=1):
+<pre><code class="python">def show_merged_pdb(
+    file_paths, highlight_mask_dicts=None, style=&#34;cartoon&#34;, opacity=1.0
+):
     &#34;&#34;&#34;Show a merged visualization of the given PDB or pickle files.
 
     Parameters
@@ -461,7 +485,7 @@ the chains to be concatenated in alphabetical order.</dd>
 </details>
 </dd>
 <dt id="proteinflow.visualize.show_merged_pickle"><code class="name flex">
-<span>def <span class="ident">show_merged_pickle</span></span>(<span>file_paths, highlight_masks=None, style='cartoon', opacity=1)</span>
+<span>def <span class="ident">show_merged_pickle</span></span>(<span>file_paths, highlight_masks=None, style='cartoon', opacity=1.0)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Show a merged visualization of the given PDB or pickle files.</p>
@@ -481,7 +505,7 @@ the chains to be concatenated in alphabetical order.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def show_merged_pickle(file_paths, highlight_masks=None, style=&#34;cartoon&#34;, opacity=1):
+<pre><code class="python">def show_merged_pickle(file_paths, highlight_masks=None, style=&#34;cartoon&#34;, opacity=1.0):
     &#34;&#34;&#34;Show a merged visualization of the given PDB or pickle files.
 
     Parameters

@@ -710,9 +710,7 @@ class ProteinDataset(Dataset):
                         pass_set = True
 
                 if self.entry_type == &#34;pair&#34;:
-                    # intersect = []
                     if not data_entry.is_valid_pair(*chain_set):
-                        # if not all(intersect):
                         pass_set = True
                         add_name = False
             if pass_set:
@@ -1455,9 +1453,7 @@ from a polymer is sampled, the center of the masked region will be forced to be 
                         pass_set = True
 
                 if self.entry_type == &#34;pair&#34;:
-                    # intersect = []
                     if not data_entry.is_valid_pair(*chain_set):
-                        # if not all(intersect):
                         pass_set = True
                         add_name = False
             if pass_set:
