@@ -680,9 +680,7 @@ class ProteinDataset(Dataset):
                         pass_set = True
 
                 if self.entry_type == "pair":
-                    # intersect = []
                     if not data_entry.is_valid_pair(*chain_set):
-                        # if not all(intersect):
                         pass_set = True
                         add_name = False
             if pass_set:
