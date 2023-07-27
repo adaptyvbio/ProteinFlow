@@ -198,8 +198,9 @@ S3Obj = namedtuple("S3Obj", ["key", "mtime", "size", "ETag"])
 ###################################################################################
 ALPHABET_PDB = "XACDEFGHIKLMNPQRSTVWY"
 
-ALPHABET_REVERSE = {x: i for i, x in enumerate(ALPHABET_PDB)}
-ALPHABET_REVERSE["-"] = 0
+ALPHABET_REVERSE = defaultdict(lambda: 0)
+for i, x in enumerate(ALPHABET_PDB):
+    ALPHABET_REVERSE[x] = i
 
 GLOBAL_PAD_CHAR = 0
 ONE_TO_THREE_LETTER_MAP = {
