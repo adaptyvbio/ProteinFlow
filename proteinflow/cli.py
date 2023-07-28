@@ -188,6 +188,11 @@ def download(**kwargs):
     help="Whether to use Tanimoto Clustering instead of MMSeqs2. Only works if load_ligands is set to True",
 )
 @click.option(
+    "--require_ligand",
+    is_flag=True,
+    help="Use this flag to require that the PDB files contain a ligand",
+)
+@click.option(
     "--random_seed",
     default=42,
     type=int,

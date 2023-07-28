@@ -22,7 +22,7 @@ import py3Dmol
 from Bio import pairwise2
 from biopandas.pdb import PandasPdb
 from methodtools import lru_cache
-from torch import Tensor
+from torch import Tensor, from_numpy
 
 from proteinflow.constants import (
     _PMAP,
@@ -784,7 +784,7 @@ class ProteinEntry:
 
     @staticmethod
     def retrieve_ligands_from_pickle(path):
-        """Load a protein entry from a pickle file.
+        """Retrieve ligands from a pickle file.
 
         Parameters
         ----------
@@ -793,8 +793,8 @@ class ProteinEntry:
 
         Returns
         -------
-        entry : ProteinEntry
-            A `ProteinEntry` object
+        chain2ligand : dict
+            A dictionary where keys are chain IDs and values are ligand names
 
         """
         with open(path, "rb") as f:
@@ -1215,6 +1215,45 @@ class ProteinEntry:
             )
             start_index += chain_length
         return index_array
+
+    def get_ligand_features(self, ligands, chains=None):
+        """Get ligand coordinates, smiles, and chain mapping.
+
+        Parameters
+        ----------
+        ligands : dict
+            A dictionary mapping from chain IDs to a list of ligands, where each ligand is a dictionary
+        chains : list of str, optional
+            If specified, only the ligands of the specified chains are returned (in the same order);
+            otherwise, all ligands are concatenated in alphabetical order of the chain IDs
+
+        Returns
+        -------
+        X_ligands : torch.Tensor
+            A `'torch'` tensor of shape `(N, 3)` with the ligand coordinates
+        ligand_smiles : str
+            A string with the ligand smiles separated by a dot
+        ligand_chains : torch.Tensor
+            A `'torch'` tensor of shape `(N, 1)` with the chain index of each atom
+        """
+        chains = self._get_chains_list(chains)
+        X_ligands = []
+        ligand_smiles = []
+        ligand_chains = []
+        for chain_i, chain in enumerate(chains):
+            all_smiles = ".".join([x["smiles"] for x in ligands[chain]])
+            ligand_smiles.append(all_smiles)
+            x_lig = np.concatenate([x["X"] for x in ligands[chain]])
+            X_ligands.append(x_lig)
+            ligand_chains += [[chain_i]] * len(x_lig)
+        ligand_smiles = ".".join(ligand_smiles)
+        X_ligands = from_numpy(np.concatenate(X_ligands, 0))
+        ligand_chains = Tensor(ligand_chains)
+        return (
+            X_ligands,
+            ligand_smiles,
+            ligand_chains,
+        )
 
     def _get_highlight_mask_dict(self, highlight_mask=None):
         """Turn mask array into a dictionary."""

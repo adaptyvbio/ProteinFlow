@@ -22,31 +22,24 @@ class _PadCollate:
     def pad_collate(self, batch):
         # find longest sequence
         out = {}
-        max_len = max(map(lambda x: x["S"].shape[0], batch))
 
-        # pad according to max_len
-        to_pad = [max_len - b["S"].shape[0] for b in batch]
         for key in batch[0].keys():
+            if key == "X_ligands" or key == "ligand_chains":
+                max_len = max([b[key].shape[0] for b in batch])
+                to_pad = [max_len - b[key].shape[0] for b in batch]
+            else:
+                max_len = max(map(lambda x: x["S"].shape[0], batch))
+                # pad according to max_len
+                to_pad = [max_len - b["S"].shape[0] for b in batch]
             if key in ["chain_id", "chain_dict", "pdb_id", "cdr_id", "ligand_smiles"]:
                 continue
-            if key == "X_ligands" or key == "ligand_chains":
-                max_len_lig = max([b[key].shape[0] for b in batch])
-                to_pad_lig = [max_len_lig - b[key].shape[0] for b in batch]
-                out[key] = torch.stack(
-                    [
-                        torch.cat([b[key], torch.zeros((pad, *b[key].shape[1:]))], 0)
-                        for b, pad in zip(batch, to_pad_lig)
-                    ],
-                    0,
-                )
-            else:
-                out[key] = torch.stack(
-                    [
-                        torch.cat([b[key], torch.zeros((pad, *b[key].shape[1:]))], 0)
-                        for b, pad in zip(batch, to_pad)
-                    ],
-                    0,
-                )
+            out[key] = torch.stack(
+                [
+                    torch.cat([b[key], torch.zeros((pad, *b[key].shape[1:]))], 0)
+                    for b, pad in zip(batch, to_pad)
+                ],
+                0,
+            )
         out["chain_id"] = torch.tensor([b["chain_id"] for b in batch])
         if "cdr_id" in batch[0]:
             out["cdr_id"] = torch.tensor([b["cdr_id"] for b in batch])
@@ -731,25 +724,11 @@ class ProteinDataset(Dataset):
             )
             out["chain_dict"] = data_entry.get_chain_id_dict(chain_set)
             if self.load_ligands and len(ligands) != 0:
-                X_ligands = []
-                ligand_smiles = []
-                ligand_chains = []
-                for chain_i, chain in enumerate(chain_set):
-                    try:
-                        all_smiles = ".".join([x["smiles"] for x in ligands[chain]])
-                        ligand_smiles.append(all_smiles)
-                        x_lig = np.concatenate([x["X"] for x in ligands[chain]])
-                        X_ligands.append(x_lig)
-                        ligand_chains += [[chain_i]] * len(x_lig)
-                    except Exception:
-                        print(f"Error in {no_extension_name} {chain}")
-                        continue
-                ligand_smiles = ".".join(ligand_smiles)
-                out["X_ligands"], out["ligand_smiles"] = (
-                    torch.from_numpy(np.concatenate(X_ligands, 0)),
-                    ligand_smiles,
-                )
-                out["ligand_chains"] = torch.tensor(ligand_chains)
+                (
+                    out["X_ligands"],
+                    out["ligand_smiles"],
+                    out["ligand_chains"],
+                ) = data_entry.get_ligand_features(ligands, chain_set)
             cdr_chain_set = set()
             if data_entry.has_cdr():
                 out["cdr"] = torch.tensor(data_entry.get_cdr(chain_set, encode=True))

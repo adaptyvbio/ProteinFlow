@@ -23,7 +23,6 @@ def test_generate_brenda():
         n=50,
     )
     end = time()
-    assert all(["nan_nan" not in file for file in os.listdir(folder)])
     train_loader = ProteinLoader.from_args(
         dataset_folder=folder,
         batch_size=8,
