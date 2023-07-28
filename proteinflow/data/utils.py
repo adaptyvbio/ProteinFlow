@@ -41,6 +41,11 @@ class PDBBuilder:
         """
         seq = protein_entry.get_sequence()
         coords = protein_entry.get_coordinates()
+        mask = protein_entry.get_mask().astype(bool)
+        seq = "".join(np.array(list(seq))[mask])
+        coords = coords[mask]
+        if (coords[:, 4:] == 0).all():
+            only_backbone = True
         if only_ca:
             coords = coords[:, 2, :].unsqueeze(1)
         elif skip_oxygens:
@@ -66,7 +71,7 @@ class PDBBuilder:
         self.seq = seq
         self.mapping = self._make_mapping_from_seq()
 
-        self.chain_ids = protein_entry.get_chain_id_array(encode=False)
+        self.chain_ids = protein_entry.get_chain_id_array(encode=False)[mask]
         self.chain_ids_unique = protein_entry.get_chains()
 
         # PDB Formatting Information

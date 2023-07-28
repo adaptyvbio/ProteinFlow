@@ -406,11 +406,11 @@ __pdoc__ = {
     &#34;constants&#34;: False,
     &#34;split&#34;: False,
     &#34;cli&#34;: False,
+    &#34;ligand&#34;: False,
 }
 __docformat__ = &#34;numpy&#34;
 
 import os
-import pickle
 import random
 import shutil
 import string
@@ -424,11 +424,12 @@ from botocore.config import Config
 
 from proteinflow.constants import SIDECHAIN_ORDER
 from proteinflow.data.torch import ProteinDataset, ProteinLoader
-from proteinflow.download import _download_dataset
+from proteinflow.download import _download_dataset, _get_chain_pdb_ids
 from proteinflow.download.boto import _s3list
 from proteinflow.processing import run_processing
 from proteinflow.split import (
     _check_mmseqs,
+    _exclude_files_with_no_ligand,
     _get_excluded_files,
     _get_split_dictionaries,
     _split_data,
@@ -454,7 +455,8 @@ def download_data(tag, local_datasets_folder=&#34;./data&#34;, skip_splitting=Fa
 
 
 def generate_data(
-    tag,
+    tag=None,
+    pdb_id_list_path=None,
     local_datasets_folder=&#34;./data&#34;,
     min_length=30,
     max_length=10000,
@@ -480,6 +482,9 @@ def generate_data(
     exclude_threshold=0.7,
     exclude_clusters=False,
     exclude_based_on_cdr=None,
+    load_ligands=False,
+    exclude_chains_without_ligands=False,
+    tanimoto_clustering=False,
     random_seed=42,
     max_chains=10,
 ):
@@ -506,8 +511,11 @@ def generate_data(
 
     Parameters
     ----------
-    tag : str
+    tag : str, optional
         the name of the dataset to load
+    pdb_id_list_path : str, optional
+        if provided, get pdb_ids from text file where each line contains one chain id (format pdb_id-num example: 1XYZ-1)
+        pdb_ids can also be passed, an automatic retrieval of chain id s will be performed in that case
     local_datasets_folder : str, default &#34;./data&#34;
         the path to the folder that will store proteinflow datasets, logs and temporary files
     min_length : int, default 30
@@ -558,6 +566,12 @@ def generate_data(
         if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
     exclude_based_on_cdr : {&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;}, optional
         if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
+    load_ligands : bool, default False
+        if `True`, load ligands from the PDB files
+    exclude_chains_without_ligands : bool, default False
+        if `True`, exclude biounits that don&#39;t contain ligands
+    tanimoto_clustering : bool, default False
+        if `True`, cluster the biounits based on ligand Tanimoto similarity
     random_seed : int, default 42
         the random seed to use for splitting
     max_chains : int, default 10
@@ -569,13 +583,29 @@ def generate_data(
         a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
 
     &#34;&#34;&#34;
-    filter_methods = not not_filter_methods
-    remove_redundancies = not not_remove_redundancies
     tmp_id = &#34;&#34;.join(
         random.choice(string.ascii_uppercase + string.digits) for _ in range(5)
     )
-    tmp_folder = os.path.join(tempfile.gettempdir(), tag + tmp_id)
-    os.makedirs(tmp_folder)
+    if tag is None:
+        if pdb_id_list_path is None:
+            raise RuntimeError(
+                &#34;Please input a data source: valid tag or a pdb ids list&#34;
+            )
+        else:
+            tag = pdb_id_list_path.split(&#34;/&#34;)[-1].split(&#34;.&#34;)[0]
+            tmp_folder = os.path.join(tempfile.gettempdir(), tag + tmp_id)
+            os.makedirs(tmp_folder)
+            with open(pdb_id_list_path) as file:
+                # Read lines from the file
+                example_pdb_id = file.readline()
+            if &#34;-&#34; not in example_pdb_id:
+                pdb_id_list_path = _get_chain_pdb_ids(pdb_id_list_path, tmp_folder)
+    else:
+        tmp_folder = os.path.join(tempfile.gettempdir(), tag + tmp_id)
+        os.makedirs(tmp_folder)
+    filter_methods = not not_filter_methods
+    remove_redundancies = not not_remove_redundancies
+
     output_folder = os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;)
 
     if force and os.path.exists(output_folder):
@@ -601,8 +631,16 @@ def generate_data(
         sabdab_data_path=sabdab_data_path,
         require_antigen=require_antigen,
         max_chains=max_chains,
+        pdb_id_list_path=pdb_id_list_path,
+        load_ligands=load_ligands,
     )
+
     if not skip_splitting:
+        if tanimoto_clustering and not load_ligands:
+            print(
+                &#34;Can not use Tanimoto Clustering without load_ligands=False. Setting tanimoto_clustering to False&#34;
+            )
+            tanimoto_clustering = False
         split_data(
             tag=tag,
             local_datasets_folder=local_datasets_folder,
@@ -616,6 +654,8 @@ def generate_data(
             exclude_clusters=exclude_clusters,
             exclude_based_on_cdr=exclude_based_on_cdr,
             random_seed=random_seed,
+            exclude_chains_without_ligands=exclude_chains_without_ligands,
+            tanimoto_clustering=tanimoto_clustering,
         )
     shutil.rmtree(tmp_folder)
     return log_dict
@@ -634,6 +674,8 @@ def split_data(
     exclude_clusters=False,
     exclude_based_on_cdr=None,
     random_seed=42,
+    exclude_chains_without_ligands=False,
+    tanimoto_clustering=False,
 ):
     &#34;&#34;&#34;Split `proteinflow` entry files into training, test and validation.
 
@@ -682,6 +724,10 @@ def split_data(
         if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
     random_seed : int, default 42
         random seed for reproducibility (set to `None` to use a random seed)
+    exclude_chains_without_ligands : bool, default False
+        if `True`, exclude biounits that don&#39;t contain ligands
+    tanimoto_clustering: bool, default False
+        cluster chains based on the tanimoto similarity of their ligands
 
     Returns
     -------
@@ -701,6 +747,11 @@ def split_data(
             temp_folder,
             exclude_chains,
             exclude_threshold,
+        )
+    if exclude_chains_without_ligands:
+        excluded_biounits += _exclude_files_with_no_ligand(
+            tag,
+            local_datasets_folder,
         )
 
     output_folder = os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;)
@@ -725,6 +776,7 @@ def split_data(
             valid_split=valid_split,
             out_split_dict_folder=out_split_dict_folder,
             min_seq_id=min_seq_id,
+            tanimoto_clustering=tanimoto_clustering,
         )
     shutil.rmtree(temp_folder)
 
@@ -840,6 +892,10 @@ def check_download_tags():
 <dd>
 <div class="desc"><p>Functions for processing PDB files and generating new datasets.</p></div>
 </dd>
+<dt><code class="name"><a title="proteinflow.visualize" href="visualize.html">proteinflow.visualize</a></code></dt>
+<dd>
+<div class="desc"><p>Visualization functions for <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code>.</p></div>
+</dd>
 </dl>
 </section>
 <section>
@@ -954,7 +1010,7 @@ def check_download_tags():
 </details>
 </dd>
 <dt id="proteinflow.generate_data"><code class="name flex">
-<span>def <span class="ident">generate_data</span></span>(<span>tag, local_datasets_folder='./data', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, not_filter_methods=False, not_remove_redundancies=False, skip_splitting=False, redundancy_thr=0.9, n=None, force=False, split_tolerance=0.2, test_split=0.05, valid_split=0.05, pdb_snapshot=None, load_live=False, min_seq_id=0.3, sabdab=False, sabdab_data_path=None, require_antigen=False, exclude_chains=None, exclude_threshold=0.7, exclude_clusters=False, exclude_based_on_cdr=None, random_seed=42, max_chains=10)</span>
+<span>def <span class="ident">generate_data</span></span>(<span>tag=None, pdb_id_list_path=None, local_datasets_folder='./data', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, not_filter_methods=False, not_remove_redundancies=False, skip_splitting=False, redundancy_thr=0.9, n=None, force=False, split_tolerance=0.2, test_split=0.05, valid_split=0.05, pdb_snapshot=None, load_live=False, min_seq_id=0.3, sabdab=False, sabdab_data_path=None, require_antigen=False, exclude_chains=None, exclude_threshold=0.7, exclude_clusters=False, exclude_based_on_cdr=None, load_ligands=False, exclude_chains_without_ligands=False, tanimoto_clustering=False, random_seed=42, max_chains=10)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Download and parse PDB files that meet filtering criteria.</p>
@@ -975,8 +1031,11 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
 <p>For more information on the splitting procedure and options, check out the <code><a title="proteinflow.split_data" href="#proteinflow.split_data">split_data()</a></code> documentation.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>tag</code></strong> :&ensp;<code>str</code></dt>
+<dt><strong><code>tag</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>the name of the dataset to load</dd>
+<dt><strong><code>pdb_id_list_path</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>if provided, get pdb_ids from text file where each line contains one chain id (format pdb_id-num example: 1XYZ-1)
+pdb_ids can also be passed, an automatic retrieval of chain id s will be performed in that case</dd>
 <dt><strong><code>local_datasets_folder</code></strong> :&ensp;<code>str</code>, default <code>"./data"</code></dt>
 <dd>the path to the folder that will store proteinflow datasets, logs and temporary files</dd>
 <dt><strong><code>min_length</code></strong> :&ensp;<code>int</code>, default <code>30</code></dt>
@@ -1027,6 +1086,12 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
 <dd>if <code>True</code>, exclude clusters that contain chains similar to chains in the <code>exclude_chains</code> list</dd>
 <dt><strong><code>exclude_based_on_cdr</code></strong> :&ensp;<code>{"H1", "H2", "H3", "L1", "L2", "L3"}</code>, optional</dt>
 <dd>if given and <code>exclude_clusters</code> is <code>True</code> + the dataset is SAbDab, exclude files based on only the given CDR clusters</dd>
+<dt><strong><code>load_ligands</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, load ligands from the PDB files</dd>
+<dt><strong><code>exclude_chains_without_ligands</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, exclude biounits that don't contain ligands</dd>
+<dt><strong><code>tanimoto_clustering</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, cluster the biounits based on ligand Tanimoto similarity</dd>
 <dt><strong><code>random_seed</code></strong> :&ensp;<code>int</code>, default <code>42</code></dt>
 <dd>the random seed to use for splitting</dd>
 <dt><strong><code>max_chains</code></strong> :&ensp;<code>int</code>, default <code>10</code></dt>
@@ -1042,7 +1107,8 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def generate_data(
-    tag,
+    tag=None,
+    pdb_id_list_path=None,
     local_datasets_folder=&#34;./data&#34;,
     min_length=30,
     max_length=10000,
@@ -1068,6 +1134,9 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
     exclude_threshold=0.7,
     exclude_clusters=False,
     exclude_based_on_cdr=None,
+    load_ligands=False,
+    exclude_chains_without_ligands=False,
+    tanimoto_clustering=False,
     random_seed=42,
     max_chains=10,
 ):
@@ -1094,8 +1163,11 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
 
     Parameters
     ----------
-    tag : str
+    tag : str, optional
         the name of the dataset to load
+    pdb_id_list_path : str, optional
+        if provided, get pdb_ids from text file where each line contains one chain id (format pdb_id-num example: 1XYZ-1)
+        pdb_ids can also be passed, an automatic retrieval of chain id s will be performed in that case
     local_datasets_folder : str, default &#34;./data&#34;
         the path to the folder that will store proteinflow datasets, logs and temporary files
     min_length : int, default 30
@@ -1146,6 +1218,12 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
         if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
     exclude_based_on_cdr : {&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;}, optional
         if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
+    load_ligands : bool, default False
+        if `True`, load ligands from the PDB files
+    exclude_chains_without_ligands : bool, default False
+        if `True`, exclude biounits that don&#39;t contain ligands
+    tanimoto_clustering : bool, default False
+        if `True`, cluster the biounits based on ligand Tanimoto similarity
     random_seed : int, default 42
         the random seed to use for splitting
     max_chains : int, default 10
@@ -1157,13 +1235,29 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
         a dictionary where keys are recognized error names and values are lists of PDB ids that caused the errors
 
     &#34;&#34;&#34;
-    filter_methods = not not_filter_methods
-    remove_redundancies = not not_remove_redundancies
     tmp_id = &#34;&#34;.join(
         random.choice(string.ascii_uppercase + string.digits) for _ in range(5)
     )
-    tmp_folder = os.path.join(tempfile.gettempdir(), tag + tmp_id)
-    os.makedirs(tmp_folder)
+    if tag is None:
+        if pdb_id_list_path is None:
+            raise RuntimeError(
+                &#34;Please input a data source: valid tag or a pdb ids list&#34;
+            )
+        else:
+            tag = pdb_id_list_path.split(&#34;/&#34;)[-1].split(&#34;.&#34;)[0]
+            tmp_folder = os.path.join(tempfile.gettempdir(), tag + tmp_id)
+            os.makedirs(tmp_folder)
+            with open(pdb_id_list_path) as file:
+                # Read lines from the file
+                example_pdb_id = file.readline()
+            if &#34;-&#34; not in example_pdb_id:
+                pdb_id_list_path = _get_chain_pdb_ids(pdb_id_list_path, tmp_folder)
+    else:
+        tmp_folder = os.path.join(tempfile.gettempdir(), tag + tmp_id)
+        os.makedirs(tmp_folder)
+    filter_methods = not not_filter_methods
+    remove_redundancies = not not_remove_redundancies
+
     output_folder = os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;)
 
     if force and os.path.exists(output_folder):
@@ -1189,8 +1283,16 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
         sabdab_data_path=sabdab_data_path,
         require_antigen=require_antigen,
         max_chains=max_chains,
+        pdb_id_list_path=pdb_id_list_path,
+        load_ligands=load_ligands,
     )
+
     if not skip_splitting:
+        if tanimoto_clustering and not load_ligands:
+            print(
+                &#34;Can not use Tanimoto Clustering without load_ligands=False. Setting tanimoto_clustering to False&#34;
+            )
+            tanimoto_clustering = False
         split_data(
             tag=tag,
             local_datasets_folder=local_datasets_folder,
@@ -1204,6 +1306,8 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
             exclude_clusters=exclude_clusters,
             exclude_based_on_cdr=exclude_based_on_cdr,
             random_seed=random_seed,
+            exclude_chains_without_ligands=exclude_chains_without_ligands,
+            tanimoto_clustering=tanimoto_clustering,
         )
     shutil.rmtree(tmp_folder)
     return log_dict</code></pre>
@@ -1238,7 +1342,7 @@ coordinates in the <code>'crd_sc'</code> array generated by the <code>run_proces
 </details>
 </dd>
 <dt id="proteinflow.split_data"><code class="name flex">
-<span>def <span class="ident">split_data</span></span>(<span>tag, local_datasets_folder='./data', split_tolerance=0.2, test_split=0.05, valid_split=0.05, ignore_existing=False, min_seq_id=0.3, exclude_chains=None, exclude_threshold=0.7, exclude_clusters=False, exclude_based_on_cdr=None, random_seed=42)</span>
+<span>def <span class="ident">split_data</span></span>(<span>tag, local_datasets_folder='./data', split_tolerance=0.2, test_split=0.05, valid_split=0.05, ignore_existing=False, min_seq_id=0.3, exclude_chains=None, exclude_threshold=0.7, exclude_clusters=False, exclude_based_on_cdr=None, random_seed=42, exclude_chains_without_ligands=False, tanimoto_clustering=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Split <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> entry files into training, test and validation.</p>
@@ -1284,6 +1388,10 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
 <dd>if given and <code>exclude_clusters</code> is <code>True</code> + the dataset is SAbDab, exclude files based on only the given CDR clusters</dd>
 <dt><strong><code>random_seed</code></strong> :&ensp;<code>int</code>, default <code>42</code></dt>
 <dd>random seed for reproducibility (set to <code>None</code> to use a random seed)</dd>
+<dt><strong><code>exclude_chains_without_ligands</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, exclude biounits that don't contain ligands</dd>
+<dt><strong><code>tanimoto_clustering</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>cluster chains based on the tanimoto similarity of their ligands</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1307,6 +1415,8 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
     exclude_clusters=False,
     exclude_based_on_cdr=None,
     random_seed=42,
+    exclude_chains_without_ligands=False,
+    tanimoto_clustering=False,
 ):
     &#34;&#34;&#34;Split `proteinflow` entry files into training, test and validation.
 
@@ -1355,6 +1465,10 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
         if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
     random_seed : int, default 42
         random seed for reproducibility (set to `None` to use a random seed)
+    exclude_chains_without_ligands : bool, default False
+        if `True`, exclude biounits that don&#39;t contain ligands
+    tanimoto_clustering: bool, default False
+        cluster chains based on the tanimoto similarity of their ligands
 
     Returns
     -------
@@ -1374,6 +1488,11 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
             temp_folder,
             exclude_chains,
             exclude_threshold,
+        )
+    if exclude_chains_without_ligands:
+        excluded_biounits += _exclude_files_with_no_ligand(
+            tag,
+            local_datasets_folder,
         )
 
     output_folder = os.path.join(local_datasets_folder, f&#34;proteinflow_{tag}&#34;)
@@ -1398,6 +1517,7 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
             valid_split=valid_split,
             out_split_dict_folder=out_split_dict_folder,
             min_seq_id=min_seq_id,
+            tanimoto_clustering=tanimoto_clustering,
         )
     shutil.rmtree(temp_folder)
 
@@ -1488,6 +1608,7 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
 <li><code><a title="proteinflow.logging" href="logging/index.html">proteinflow.logging</a></code></li>
 <li><code><a title="proteinflow.metrics" href="metrics/index.html">proteinflow.metrics</a></code></li>
 <li><code><a title="proteinflow.processing" href="processing/index.html">proteinflow.processing</a></code></li>
+<li><code><a title="proteinflow.visualize" href="visualize.html">proteinflow.visualize</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>

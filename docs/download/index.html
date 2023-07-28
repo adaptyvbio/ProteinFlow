@@ -30,6 +30,7 @@
 </summary>
 <pre><code class="python">&#34;&#34;&#34;Functions for downloading protein data from various sources.&#34;&#34;&#34;
 
+import multiprocessing
 import os
 import shutil
 import subprocess
@@ -47,6 +48,7 @@ import requests
 from botocore import UNSIGNED
 from botocore.config import Config
 from bs4 import BeautifulSoup
+from joblib import Parallel, delayed
 from p_tqdm import p_map
 from rcsbsearch import Attr
 from tqdm import tqdm
@@ -86,6 +88,7 @@ def download_pdb(pdb_id, local_folder=&#34;.&#34;, sabdab=False):
         Path to the downloaded file
 
     &#34;&#34;&#34;
+    pdb_id = pdb_id.lower()
     if sabdab:
         try:
             url = f&#34;https://opig.stats.ox.ac.uk/webapps/sabdab-sabpred/sabdab/pdb/{pdb_id}/?scheme=chothia&#34;
@@ -135,6 +138,7 @@ def download_fasta(pdb_id, local_folder=&#34;.&#34;):
         Path to the downloaded file
 
     &#34;&#34;&#34;
+    pdb_id = pdb_id.lower()
     if &#34;-&#34; in pdb_id:
         pdb_id = pdb_id.split(&#34;-&#34;)[0]
     downloadurl = &#34;https://www.rcsb.org/fasta/entry/&#34;
@@ -151,31 +155,51 @@ def get_pdb_ids(
     pdb_snapshot=None,
     filter_methods=True,
     max_chains=5,
+    pdb_id_list_path=None,
 ):
     &#34;&#34;&#34;Get PDB ids from PDB API.&#34;&#34;&#34;
-    # get filtered PDB ids from PDB API
-    pdb_ids = (
-        Attr(&#34;rcsb_entry_info.selected_polymer_entity_types&#34;)
-        .__eq__(&#34;Protein (only)&#34;)
-        .or_(&#34;rcsb_entry_info.polymer_composition&#34;)
-        .__eq__(&#34;protein/oligosaccharide&#34;)
-    )
-    # if include_na:
-    #     pdb_ids = pdb_ids.or_(&#39;rcsb_entry_info.polymer_composition&#39;).in_([&#34;protein/NA&#34;, &#34;protein/NA/oligosaccharide&#34;])
+    if pdb_id_list_path is not None:
+        pdb_ids = []  # List to store the extracted elements
 
-    if max_chains is not None:
-        pdb_ids = pdb_ids.and_(
-            &#34;rcsb_assembly_info.polymer_entity_instance_count_protein&#34;
-        ).__le__(max_chains)
-    if resolution_thr is not None:
-        pdb_ids = pdb_ids.and_(&#34;rcsb_entry_info.resolution_combined&#34;).__le__(
-            resolution_thr
+        try:
+            with open(pdb_id_list_path) as file:
+                # Read lines from the file
+                lines = file.readlines()
+
+                # Process each line
+                for line in lines:
+                    # Extract elements from the line (example: splitting by whitespace)
+                    line_elements = line.split()
+
+                    # Add extracted elements to the list
+                    pdb_ids.extend(line_elements)
+                pdb_ids = np.unique(pdb_ids)
+        except FileNotFoundError:
+            print(f&#34;The file &#39;{pdb_id_list_path}&#39; does not exist.&#34;)
+    else:
+        # get filtered PDB ids from PDB API
+        pdb_ids = (
+            Attr(&#34;rcsb_entry_info.selected_polymer_entity_types&#34;)
+            .__eq__(&#34;Protein (only)&#34;)
+            .or_(&#34;rcsb_entry_info.polymer_composition&#34;)
+            .__eq__(&#34;protein/oligosaccharide&#34;)
         )
-    if filter_methods:
-        pdb_ids = pdb_ids.and_(&#34;exptl.method&#34;).in_(
-            [&#34;X-RAY DIFFRACTION&#34;, &#34;ELECTRON MICROSCOPY&#34;]
-        )
-    pdb_ids = pdb_ids.exec(&#34;assembly&#34;)
+        # if include_na:
+        #     pdb_ids = pdb_ids.or_(&#39;rcsb_entry_info.polymer_composition&#39;).in_([&#34;protein/NA&#34;, &#34;protein/NA/oligosaccharide&#34;])
+
+        if max_chains is not None:
+            pdb_ids = pdb_ids.and_(
+                &#34;rcsb_assembly_info.polymer_entity_instance_count_protein&#34;
+            ).__le__(max_chains)
+        if resolution_thr is not None:
+            pdb_ids = pdb_ids.and_(&#34;rcsb_entry_info.resolution_combined&#34;).__le__(
+                resolution_thr
+            )
+        if filter_methods:
+            pdb_ids = pdb_ids.and_(&#34;exptl.method&#34;).in_(
+                [&#34;X-RAY DIFFRACTION&#34;, &#34;ELECTRON MICROSCOPY&#34;]
+            )
+        pdb_ids = pdb_ids.exec(&#34;assembly&#34;)
 
     ordered_folders = [
         x.key.strip(&#34;/&#34;)
@@ -225,6 +249,7 @@ def download_filtered_pdb_files(
     local_folder=&#34;.&#34;,
     load_live=False,
     max_chains=5,
+    pdb_id_list_path=None,
 ):
     &#34;&#34;&#34;Download filtered PDB files and return a list of local file paths.
 
@@ -245,6 +270,8 @@ def download_filtered_pdb_files(
         instead of downloading them from the PDB snapshots
     max_chains : int, default 5
         Maximum number of chains per biounit
+    pdb_id_list_path : str, default None
+        Path to a file with a list of PDB IDs to download
 
     Returns
     -------
@@ -252,13 +279,13 @@ def download_filtered_pdb_files(
         List of local file paths
     error_ids : list of str
         List of PDB IDs that could not be downloaded
-
     &#34;&#34;&#34;
     ordered_folders, pdb_ids = get_pdb_ids(
         resolution_thr=resolution_thr,
         pdb_snapshot=pdb_snapshot,
         filter_methods=filter_methods,
         max_chains=max_chains,
+        pdb_id_list_path=pdb_id_list_path,
     )
     with ThreadPoolExecutor(max_workers=8) as executor:
         print(&#34;Getting a file list...&#34;)
@@ -572,6 +599,7 @@ def _load_files(
     sabdab_data_path=None,
     require_antigen=False,
     max_chains=5,
+    pdb_id_list_path=None,
 ):
     &#34;&#34;&#34;Download filtered structure files and return a list of local file paths.&#34;&#34;&#34;
     if sabdab:
@@ -593,6 +621,7 @@ def _load_files(
             load_live=load_live,
             n=n,
             max_chains=max_chains,
+            pdb_id_list_path=pdb_id_list_path,
         )
     paths = [(x, _get_fasta_path(x)) for x in paths]
     return paths, error_ids
@@ -639,7 +668,111 @@ def _download_dataset(tag, local_datasets_folder=&#34;./data/&#34;):
     print(&#34;Done!&#34;)
 
     _download_dataset_from_s3(dataset_path=data_folder, s3_path=s3_data_path)
-    return data_folder</code></pre>
+    return data_folder
+
+
+def _create_jobs(file_path, strings, results):
+    &#34;&#34;&#34;Create jobs for parallel processing.&#34;&#34;&#34;
+    # Perform your job creation logic here
+    jobs = []
+    for string in strings:
+        for i in range(results[string]):
+            jobs.append((file_path, string, i))
+    return jobs
+
+
+def _process_strings(strings):
+    &#34;&#34;&#34;Process strings in parallel.&#34;&#34;&#34;
+    results = {}
+    processed_results = Parallel(n_jobs=-1)(
+        delayed(_get_number_of_chains)(string) for string in strings
+    )
+
+    for string, result in zip(strings, processed_results):
+        results[string] = result
+
+    return results
+
+
+def _write_string_to_file(file_path, string, i):
+    &#34;&#34;&#34;Write a string to a file.&#34;&#34;&#34;
+    with open(file_path, &#34;a&#34;) as file:
+        file.write(string.upper() + &#34;-&#34; + str(i + 1) + &#34;\n&#34;)
+
+
+def _parallel_write_to_file(file_path, jobs):
+    &#34;&#34;&#34;Write a list of strings to a file in parallel.&#34;&#34;&#34;
+    # Create a multiprocessing Pool with the desired number of processes
+    pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
+
+    # Map the write_string_to_file function to each string in the list
+    pool.starmap(_write_string_to_file, jobs)
+
+    # Close the pool and wait for all processes to complete
+    pool.close()
+    pool.join()
+
+    print(f&#34;The list has been written to the file &#39;{file_path}&#39; successfully.&#34;)
+
+
+def _write_list_to_file(file_path, string_list):
+    &#34;&#34;&#34;Write a list of strings to a file.&#34;&#34;&#34;
+    try:
+        with open(file_path, &#34;w&#34;) as file:
+            # Write each string in the list to the file
+            for string in string_list:
+                file.write(string + &#34;\n&#34;)  # Add a newline character after each string
+
+        print(f&#34;The list has been written to the file &#39;{file_path}&#39; successfully.&#34;)
+
+    except OSError:
+        print(f&#34;An error occurred while writing to the file &#39;{file_path}&#39;.&#34;)
+
+
+def _get_number_of_chains(pdb_id):
+    &#34;&#34;&#34;Return the number of chains in a PDB file.&#34;&#34;&#34;
+    api_url = f&#34;https://data.rcsb.org/rest/v1/core/entry/{pdb_id}&#34;
+
+    try:
+        response = requests.get(api_url)
+        response.raise_for_status()
+        data = response.json()
+
+        # Extracting chain IDs
+        chains = set()
+        if &#34;rcsb_entry_container_identifiers&#34; in data:
+            entity_container_identifiers = data[&#34;rcsb_entry_container_identifiers&#34;]
+            if &#34;assembly_ids&#34; in entity_container_identifiers:
+                return len(entity_container_identifiers[&#34;assembly_ids&#34;])
+
+        num_chains = len(chains)
+
+        return num_chains
+
+    except requests.exceptions.RequestException as e:
+        print(f&#34;An error occurred: {e}&#34;)
+        return 0
+
+
+def _get_chain_pdb_ids(pdb_id_list_path, tmp_folder):
+    print(&#34;Generating chain pdb ids&#34;)
+    pdb_ids = []
+    with open(pdb_id_list_path) as file:
+        # Read lines from the file
+        lines = file.readlines()
+
+        # Process each line
+        for line in lines:
+            # Extract elements from the line (example: splitting by whitespace)
+            line_elements = line.split()
+
+            # Add extracted elements to the list
+            pdb_ids.extend(line_elements)
+    results = _process_strings(pdb_ids)
+    new_file_path = tmp_folder + &#34;chain_id_&#34; + pdb_id_list_path.split(&#34;/&#34;)[-1]
+    jobs = _create_jobs(new_file_path, pdb_ids, results)
+    _parallel_write_to_file(new_file_path, jobs)
+    return new_file_path</code></pre>
 </details>
 </section>
 <section>
@@ -687,6 +820,7 @@ def _download_dataset(tag, local_datasets_folder=&#34;./data/&#34;):
         Path to the downloaded file
 
     &#34;&#34;&#34;
+    pdb_id = pdb_id.lower()
     if &#34;-&#34; in pdb_id:
         pdb_id = pdb_id.split(&#34;-&#34;)[0]
     downloadurl = &#34;https://www.rcsb.org/fasta/entry/&#34;
@@ -699,7 +833,7 @@ def _download_dataset(tag, local_datasets_folder=&#34;./data/&#34;):
 </details>
 </dd>
 <dt id="proteinflow.download.download_filtered_pdb_files"><code class="name flex">
-<span>def <span class="ident">download_filtered_pdb_files</span></span>(<span>resolution_thr=3.5, pdb_snapshot=None, filter_methods=True, n=None, local_folder='.', load_live=False, max_chains=5)</span>
+<span>def <span class="ident">download_filtered_pdb_files</span></span>(<span>resolution_thr=3.5, pdb_snapshot=None, filter_methods=True, n=None, local_folder='.', load_live=False, max_chains=5, pdb_id_list_path=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Download filtered PDB files and return a list of local file paths.</p>
@@ -720,6 +854,8 @@ def _download_dataset(tag, local_datasets_folder=&#34;./data/&#34;):
 instead of downloading them from the PDB snapshots</dd>
 <dt><strong><code>max_chains</code></strong> :&ensp;<code>int</code>, default <code>5</code></dt>
 <dd>Maximum number of chains per biounit</dd>
+<dt><strong><code>pdb_id_list_path</code></strong> :&ensp;<code>str</code>, default <code>None</code></dt>
+<dd>Path to a file with a list of PDB IDs to download</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -740,6 +876,7 @@ instead of downloading them from the PDB snapshots</dd>
     local_folder=&#34;.&#34;,
     load_live=False,
     max_chains=5,
+    pdb_id_list_path=None,
 ):
     &#34;&#34;&#34;Download filtered PDB files and return a list of local file paths.
 
@@ -760,6 +897,8 @@ instead of downloading them from the PDB snapshots</dd>
         instead of downloading them from the PDB snapshots
     max_chains : int, default 5
         Maximum number of chains per biounit
+    pdb_id_list_path : str, default None
+        Path to a file with a list of PDB IDs to download
 
     Returns
     -------
@@ -767,13 +906,13 @@ instead of downloading them from the PDB snapshots</dd>
         List of local file paths
     error_ids : list of str
         List of PDB IDs that could not be downloaded
-
     &#34;&#34;&#34;
     ordered_folders, pdb_ids = get_pdb_ids(
         resolution_thr=resolution_thr,
         pdb_snapshot=pdb_snapshot,
         filter_methods=filter_methods,
         max_chains=max_chains,
+        pdb_id_list_path=pdb_id_list_path,
     )
     with ThreadPoolExecutor(max_workers=8) as executor:
         print(&#34;Getting a file list...&#34;)
@@ -1040,6 +1179,7 @@ by a dash (e.g. "1a0a", "1a0a-1")</dd>
         Path to the downloaded file
 
     &#34;&#34;&#34;
+    pdb_id = pdb_id.lower()
     if sabdab:
         try:
             url = f&#34;https://opig.stats.ox.ac.uk/webapps/sabdab-sabpred/sabdab/pdb/{pdb_id}/?scheme=chothia&#34;
@@ -1073,7 +1213,7 @@ by a dash (e.g. "1a0a", "1a0a-1")</dd>
 </details>
 </dd>
 <dt id="proteinflow.download.get_pdb_ids"><code class="name flex">
-<span>def <span class="ident">get_pdb_ids</span></span>(<span>resolution_thr=3.5, pdb_snapshot=None, filter_methods=True, max_chains=5)</span>
+<span>def <span class="ident">get_pdb_ids</span></span>(<span>resolution_thr=3.5, pdb_snapshot=None, filter_methods=True, max_chains=5, pdb_id_list_path=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Get PDB ids from PDB API.</p></div>
@@ -1086,31 +1226,51 @@ by a dash (e.g. "1a0a", "1a0a-1")</dd>
     pdb_snapshot=None,
     filter_methods=True,
     max_chains=5,
+    pdb_id_list_path=None,
 ):
     &#34;&#34;&#34;Get PDB ids from PDB API.&#34;&#34;&#34;
-    # get filtered PDB ids from PDB API
-    pdb_ids = (
-        Attr(&#34;rcsb_entry_info.selected_polymer_entity_types&#34;)
-        .__eq__(&#34;Protein (only)&#34;)
-        .or_(&#34;rcsb_entry_info.polymer_composition&#34;)
-        .__eq__(&#34;protein/oligosaccharide&#34;)
-    )
-    # if include_na:
-    #     pdb_ids = pdb_ids.or_(&#39;rcsb_entry_info.polymer_composition&#39;).in_([&#34;protein/NA&#34;, &#34;protein/NA/oligosaccharide&#34;])
+    if pdb_id_list_path is not None:
+        pdb_ids = []  # List to store the extracted elements
 
-    if max_chains is not None:
-        pdb_ids = pdb_ids.and_(
-            &#34;rcsb_assembly_info.polymer_entity_instance_count_protein&#34;
-        ).__le__(max_chains)
-    if resolution_thr is not None:
-        pdb_ids = pdb_ids.and_(&#34;rcsb_entry_info.resolution_combined&#34;).__le__(
-            resolution_thr
+        try:
+            with open(pdb_id_list_path) as file:
+                # Read lines from the file
+                lines = file.readlines()
+
+                # Process each line
+                for line in lines:
+                    # Extract elements from the line (example: splitting by whitespace)
+                    line_elements = line.split()
+
+                    # Add extracted elements to the list
+                    pdb_ids.extend(line_elements)
+                pdb_ids = np.unique(pdb_ids)
+        except FileNotFoundError:
+            print(f&#34;The file &#39;{pdb_id_list_path}&#39; does not exist.&#34;)
+    else:
+        # get filtered PDB ids from PDB API
+        pdb_ids = (
+            Attr(&#34;rcsb_entry_info.selected_polymer_entity_types&#34;)
+            .__eq__(&#34;Protein (only)&#34;)
+            .or_(&#34;rcsb_entry_info.polymer_composition&#34;)
+            .__eq__(&#34;protein/oligosaccharide&#34;)
         )
-    if filter_methods:
-        pdb_ids = pdb_ids.and_(&#34;exptl.method&#34;).in_(
-            [&#34;X-RAY DIFFRACTION&#34;, &#34;ELECTRON MICROSCOPY&#34;]
-        )
-    pdb_ids = pdb_ids.exec(&#34;assembly&#34;)
+        # if include_na:
+        #     pdb_ids = pdb_ids.or_(&#39;rcsb_entry_info.polymer_composition&#39;).in_([&#34;protein/NA&#34;, &#34;protein/NA/oligosaccharide&#34;])
+
+        if max_chains is not None:
+            pdb_ids = pdb_ids.and_(
+                &#34;rcsb_assembly_info.polymer_entity_instance_count_protein&#34;
+            ).__le__(max_chains)
+        if resolution_thr is not None:
+            pdb_ids = pdb_ids.and_(&#34;rcsb_entry_info.resolution_combined&#34;).__le__(
+                resolution_thr
+            )
+        if filter_methods:
+            pdb_ids = pdb_ids.and_(&#34;exptl.method&#34;).in_(
+                [&#34;X-RAY DIFFRACTION&#34;, &#34;ELECTRON MICROSCOPY&#34;]
+            )
+        pdb_ids = pdb_ids.exec(&#34;assembly&#34;)
 
     ordered_folders = [
         x.key.strip(&#34;/&#34;)

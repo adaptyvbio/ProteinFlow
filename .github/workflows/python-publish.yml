@@ -27,6 +27,7 @@ jobs:
         with:
             fetch-depth: 0
             token: ${{ secrets.PAT }}
+            ref: main
       - name: Install dependencies
         run: |
           conda create --name proteinflow -y python=3.9
