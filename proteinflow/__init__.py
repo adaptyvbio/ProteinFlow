@@ -249,6 +249,7 @@ def generate_data(
     load_ligands=False,
     exclude_chains_without_ligands=False,
     tanimoto_clustering=False,
+    require_ligand=False,
     random_seed=42,
     max_chains=10,
 ):
@@ -336,6 +337,8 @@ def generate_data(
         if `True`, exclude biounits that don't contain ligands
     tanimoto_clustering : bool, default False
         if `True`, cluster the biounits based on ligand Tanimoto similarity
+    require_ligand : bool, default False
+        if `True`, only use biounits that contain a ligand
     random_seed : int, default 42
         the random seed to use for splitting
     max_chains : int, default 10
@@ -397,6 +400,7 @@ def generate_data(
         max_chains=max_chains,
         pdb_id_list_path=pdb_id_list_path,
         load_ligands=load_ligands,
+        require_ligand=require_ligand,
     )
 
     if not skip_splitting:

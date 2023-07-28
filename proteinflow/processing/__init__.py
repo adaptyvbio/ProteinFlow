@@ -42,6 +42,7 @@ def run_processing(
     max_chains=5,
     pdb_id_list_path=None,
     load_ligands=False,
+    require_ligand=False,
 ):
     """Download and parse PDB files that meet filtering criteria.
 
@@ -104,6 +105,8 @@ def run_processing(
         if provided, get pdb_ids from list (format pdb_id-num example: 1XYZ-1)
     load_ligands: boool, default False
         Whether or not to load the ligands in the pdbs
+    require_ligand: bool, default False
+        if `True`, only keep files with ligands
 
     Returns
     -------
@@ -207,6 +210,7 @@ def run_processing(
                 max_missing_ends=MISSING_ENDS_THR,
                 max_missing_middle=MISSING_MIDDLE_THR,
                 load_ligands=ligand,
+                require_ligand=require_ligand,
             )
             # save
             with open(target_file, "wb") as f:
@@ -296,6 +300,7 @@ def filter_and_convert(
     max_missing_ends=5,
     max_missing_middle=5,
     load_ligands: bool = False,
+    require_ligand: bool = False,
 ):
     """Filter and convert a PDBEntry to a ProteinEntry.
 
@@ -313,6 +318,8 @@ def filter_and_convert(
         The maximum fraction of missing residues in the middle (after missing ends are disregarded)
     load_ligands: boool, default False
         Whether or not to load the ligands in the pdbs
+    require_ligand: bool, default False
+        Whether or not to require the presence of ligands
 
     Returns
     -------
@@ -325,7 +332,10 @@ def filter_and_convert(
     loaded_ligands = False
     if load_ligands and pdb_entry.get_ligands() is not None:
         ligand_dict = pdb_entry.get_ligands()
-        loaded_ligands = True
+        if len(ligand_dict) > 0:
+            loaded_ligands = True
+    if require_ligand and not loaded_ligands:
+        raise PDBError("No ligands found")
 
     if len(pdb_entry.get_chains()) == 0:
         raise PDBError("No chains found")

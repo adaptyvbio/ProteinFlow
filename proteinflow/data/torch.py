@@ -22,12 +22,16 @@ class _PadCollate:
     def pad_collate(self, batch):
         # find longest sequence
         out = {}
-        max_len = max(map(lambda x: x["S"].shape[0], batch))
 
-        # pad according to max_len
-        to_pad = [max_len - b["S"].shape[0] for b in batch]
         for key in batch[0].keys():
-            if key in ["chain_id", "chain_dict", "pdb_id", "cdr_id"]:
+            if key == "X_ligands" or key == "ligand_chains":
+                max_len = max([b[key].shape[0] for b in batch])
+                to_pad = [max_len - b[key].shape[0] for b in batch]
+            else:
+                max_len = max(map(lambda x: x["S"].shape[0], batch))
+                # pad according to max_len
+                to_pad = [max_len - b["S"].shape[0] for b in batch]
+            if key in ["chain_id", "chain_dict", "pdb_id", "cdr_id", "ligand_smiles"]:
                 continue
             out[key] = torch.stack(
                 [
@@ -41,6 +45,11 @@ class _PadCollate:
             out["cdr_id"] = torch.tensor([b["cdr_id"] for b in batch])
         out["chain_dict"] = [b["chain_dict"] for b in batch]
         out["pdb_id"] = [b["pdb_id"] for b in batch]
+        if "ligand_smiles" in batch[0]:
+            out["ligand_smiles"] = list([b["ligand_smiles"] for b in batch])
+            out["ligand_lengths"] = torch.tensor(
+                [len(b["ligand_chains"]) for b in batch]
+            )
         return out
 
     def __call__(self, batch):
@@ -110,6 +119,7 @@ class ProteinLoader(DataLoader):
         shuffle_batches=True,
         mask_all_cdrs=False,
         classes_dict_path=None,
+        load_ligands=False,
         *args,
         **kwargs,
     ) -> None:
@@ -162,6 +172,8 @@ class ProteinLoader(DataLoader):
             if `True`, all CDRs are masked instead of just the sampled one
         classes_dict_path : str, optional
             path to the pickled classes dictionary
+        load_ligands : bool, default False
+            if `True`, the ligands will be loaded from the PDB files and added to the features
         *args
             additional arguments to `torch.utils.data.DataLoader`
         **kwargs
@@ -190,6 +202,7 @@ class ProteinLoader(DataLoader):
             mask_frac=mask_frac,
             force_binding_sites_frac=force_binding_sites_frac,
             mask_all_cdrs=mask_all_cdrs,
+            load_ligands=load_ligands,
         )
         return ProteinLoader(
             dataset=dataset,
@@ -279,6 +292,8 @@ class ProteinDataset(Dataset):
         mask_whole_chains=False,
         force_binding_sites_frac=0.15,
         mask_all_cdrs=False,
+        load_ligands=False,
+        pyg_graph=False,
     ):
         """Initialize the dataset.
 
@@ -336,7 +351,10 @@ class ProteinDataset(Dataset):
             from a polymer is sampled, the center of the masked region will be forced to be in a binding site (in PDB datasets)
         mask_all_cdrs : bool, default False
             if `True`, all CDRs will be masked (in SAbDab datasets)
-
+        load_ligands : bool, default False
+            if `True`, the ligands will be loaded as well
+        pyg_graph : bool, default False
+            if `True`, the output will be a `torch_geometric.data.Data` object instead of a dictionary
         """
         alphabet = ALPHABET
         self.alphabet_dict = defaultdict(lambda: 0)
@@ -355,6 +373,8 @@ class ProteinDataset(Dataset):
         self.mask_whole_chains = mask_whole_chains
         self.force_binding_sites_frac = force_binding_sites_frac
         self.mask_all_cdrs = mask_all_cdrs
+        self.load_ligands = load_ligands
+        self.pyg_graph = pyg_graph
         self.feature_types = []
         if node_features_type is not None:
             self.feature_types = node_features_type.split("+")
@@ -625,6 +645,8 @@ class ProteinDataset(Dataset):
         input_file = os.path.join(self.dataset_folder, filename)
         no_extension_name = filename.split(".")[0]
         data_entry = ProteinEntry.from_pickle(input_file)
+        if self.load_ligands:
+            ligands = ProteinEntry.retrieve_ligands_from_pickle(input_file)
         chains = data_entry.get_chains()
         if self.entry_type == "biounit":
             chain_sets = [chains]
@@ -701,6 +723,12 @@ class ProteinDataset(Dataset):
                 data_entry.get_chain_id_array(chain_set)
             )
             out["chain_dict"] = data_entry.get_chain_id_dict(chain_set)
+            if self.load_ligands and len(ligands) != 0:
+                (
+                    out["X_ligands"],
+                    out["ligand_smiles"],
+                    out["ligand_chains"],
+                ) = data_entry.get_ligand_features(ligands, chain_set)
             cdr_chain_set = set()
             if data_entry.has_cdr():
                 out["cdr"] = torch.tensor(data_entry.get_cdr(chain_set, encode=True))
@@ -770,6 +798,14 @@ class ProteinDataset(Dataset):
                     if add:
                         self.indices.append(i)
 
+    def _to_pyg_graph(self, data):
+        from torch_geometric.data import Data
+
+        pyg_data = Data(x=data["X"])
+        for key, value in data.items():
+            pyg_data[key] = value.unsqueeze(0)
+        return pyg_data
+
     def __len__(self):
         """Return the number of clusters or data entries in the dataset."""
         return len(self.indices)
@@ -823,4 +859,6 @@ class ProteinDataset(Dataset):
             data["cdr_id"] = CDR_REVERSE[cdr]
         if self.mask_residues:
             data["masked_res"] = self._get_masked_sequence(data)
+        if self.pyg_graph:
+            data = self._to_pyg_graph(data)
         return data
