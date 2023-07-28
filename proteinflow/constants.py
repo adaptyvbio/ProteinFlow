@@ -59,6 +59,7 @@ REVERSE_D3TO1 = {v: k for k, v in D3TO1.items()}
 REVERSE_D3TO1["X"] = "GLY"
 
 ALPHABET = "-ACDEFGHIKLMNPQRSTVWY"
+CDR = {"H1": 1, "H2": 2, "H3": 3, "L1": 4, "L2": 5, "L3": 6}
 
 FEATURES_DICT = defaultdict(lambda: defaultdict(lambda: 0))
 FEATURES_DICT["hydropathy"].update(

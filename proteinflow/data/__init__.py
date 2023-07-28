@@ -284,7 +284,7 @@ class ProteinEntry:
         if cdr is not None:
             assert cdr in CDR_REVERSE, f"CDR must be one of {list(CDR_REVERSE.keys())}"
         chains = self._get_chains_list(chains)
-        seq = "".join([self.seq[c] for c in chains])
+        seq = "".join([self.seq[c] for c in chains]).replace("B", "")
         if encode:
             seq = np.array([ALPHABET_REVERSE[aa] for aa in seq])
         elif cdr is not None or only_known:
@@ -651,6 +651,30 @@ class ProteinEntry:
         with open(path, "rb") as f:
             data = pickle.load(f)
         return ProteinEntry.from_dict(data)
+
+    @staticmethod
+    def retrieve_ligands_from_pickle(path):
+        """Load a protein entry from a pickle file.
+
+        Parameters
+        ----------
+        path : str
+            Path to the pickle file
+
+        Returns
+        -------
+        entry : ProteinEntry
+            A `ProteinEntry` object
+
+        """
+        with open(path, "rb") as f:
+            data = pickle.load(f)
+        chain2ligand = {}
+        for chain in data:
+            if "ligand" not in data[chain]:
+                continue
+            chain2ligand[chain] = data[chain]["ligand"]
+        return chain2ligand
 
     def to_dict(self):
         """Convert a protein entry into a dictionary.
