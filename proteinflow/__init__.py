@@ -378,30 +378,30 @@ def generate_data(
     if force and os.path.exists(output_folder):
         shutil.rmtree(output_folder)
 
-        log_dict = run_processing(
-            tmp_folder=tmp_folder,
-            output_folder=output_folder,
-            min_length=min_length,
-            max_length=max_length,
-            resolution_thr=resolution_thr,
-            missing_ends_thr=missing_ends_thr,
-            missing_middle_thr=missing_middle_thr,
-            filter_methods=filter_methods,
-            remove_redundancies=remove_redundancies,
-            redundancy_thr=redundancy_thr,
-            n=n,
-            force=force,
-            tag=tag,
-            pdb_snapshot=pdb_snapshot,
-            load_live=load_live,
-            sabdab=sabdab,
-            sabdab_data_path=sabdab_data_path,
-            require_antigen=require_antigen,
-            max_chains=max_chains,
-            pdb_id_list_path=pdb_id_list_path,
-            load_ligands=load_ligands,
-            require_ligand=require_ligand,
-        )
+    log_dict = run_processing(
+        tmp_folder=tmp_folder,
+        output_folder=output_folder,
+        min_length=min_length,
+        max_length=max_length,
+        resolution_thr=resolution_thr,
+        missing_ends_thr=missing_ends_thr,
+        missing_middle_thr=missing_middle_thr,
+        filter_methods=filter_methods,
+        remove_redundancies=remove_redundancies,
+        redundancy_thr=redundancy_thr,
+        n=n,
+        force=force,
+        tag=tag,
+        pdb_snapshot=pdb_snapshot,
+        load_live=load_live,
+        sabdab=sabdab,
+        sabdab_data_path=sabdab_data_path,
+        require_antigen=require_antigen,
+        max_chains=max_chains,
+        pdb_id_list_path=pdb_id_list_path,
+        load_ligands=load_ligands,
+        require_ligand=require_ligand,
+    )
 
     if not skip_splitting:
         if tanimoto_clustering and not load_ligands:
