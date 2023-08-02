@@ -358,6 +358,13 @@ class ProteinDataset(Dataset):
             if `True`, the ligands will be loaded as well
         pyg_graph : bool, default False
             if `True`, the output will be a `torch_geometric.data.Data` object instead of a dictionary
+        patch_around_mask : bool, default False
+            if `True`, the data entries will be cut around the masked region
+        initial_patch_size : int, default 128
+            the size of the initial patch (used if `patch_around_mask` is `True`)
+        antigen_patch_size : int, default 128
+            the size of the antigen patch (used if `patch_around_mask` is `True` and the dataset is SAbDab)
+
         """
         alphabet = ALPHABET
         self.alphabet_dict = defaultdict(lambda: 0)
@@ -805,6 +812,7 @@ class ProteinDataset(Dataset):
                         self.indices.append(i)
 
     def _to_pyg_graph(self, data):
+        """Convert a dictionary of data to a PyTorch Geometric graph."""
         from torch_geometric.data import Data
 
         pyg_data = Data(x=data["X"])
@@ -813,6 +821,7 @@ class ProteinDataset(Dataset):
         return pyg_data
 
     def _get_anchor_ind(self, data):
+        """Get the indices of the anchor residues."""
         masked_ind = torch.where(data["masked_res"].bool())[0]
         known_ind = torch.where(data["mask"].bool())[0]
         start, end = masked_ind[0], masked_ind[-1]
@@ -821,6 +830,7 @@ class ProteinDataset(Dataset):
         return start, end
 
     def _get_antibody_mask(self, data):
+        """Get a mask for the antibody residues."""
         mask = torch.zeros_like(data["mask"]).bool()
         cdrs = data["cdr"]
         chain_enc = data["chain_encoding_all"]
@@ -832,6 +842,7 @@ class ProteinDataset(Dataset):
         return mask
 
     def _patch(self, data):
+        """Cut the data around the anchor residues."""
         # adapted from diffab
         pos_alpha = data["X"][:, 2]
         start, end = self._get_anchor_ind(data)
