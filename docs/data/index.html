@@ -60,7 +60,7 @@ import py3Dmol
 from Bio import pairwise2
 from biopandas.pdb import PandasPdb
 from methodtools import lru_cache
-from torch import Tensor
+from torch import Tensor, from_numpy
 
 from proteinflow.constants import (
     _PMAP,
@@ -332,7 +332,7 @@ class ProteinEntry:
         if cdr is not None:
             assert cdr in CDR_REVERSE, f&#34;CDR must be one of {list(CDR_REVERSE.keys())}&#34;
         chains = self._get_chains_list(chains)
-        seq = &#34;&#34;.join([self.seq[c] for c in chains])
+        seq = &#34;&#34;.join([self.seq[c] for c in chains]).replace(&#34;B&#34;, &#34;&#34;)
         if encode:
             seq = np.array([ALPHABET_REVERSE[aa] for aa in seq])
         elif cdr is not None or only_known:
@@ -820,6 +820,30 @@ class ProteinEntry:
             data = pickle.load(f)
         return ProteinEntry.from_dict(data)
 
+    @staticmethod
+    def retrieve_ligands_from_pickle(path):
+        &#34;&#34;&#34;Retrieve ligands from a pickle file.
+
+        Parameters
+        ----------
+        path : str
+            Path to the pickle file
+
+        Returns
+        -------
+        chain2ligand : dict
+            A dictionary where keys are chain IDs and values are ligand names
+
+        &#34;&#34;&#34;
+        with open(path, &#34;rb&#34;) as f:
+            data = pickle.load(f)
+        chain2ligand = {}
+        for chain in data:
+            if &#34;ligand&#34; not in data[chain]:
+                continue
+            chain2ligand[chain] = data[chain][&#34;ligand&#34;]
+        return chain2ligand
+
     def to_dict(self):
         &#34;&#34;&#34;Convert a protein entry into a dictionary.
 
@@ -1229,6 +1253,45 @@ class ProteinEntry:
             )
             start_index += chain_length
         return index_array
+
+    def get_ligand_features(self, ligands, chains=None):
+        &#34;&#34;&#34;Get ligand coordinates, smiles, and chain mapping.
+
+        Parameters
+        ----------
+        ligands : dict
+            A dictionary mapping from chain IDs to a list of ligands, where each ligand is a dictionary
+        chains : list of str, optional
+            If specified, only the ligands of the specified chains are returned (in the same order);
+            otherwise, all ligands are concatenated in alphabetical order of the chain IDs
+
+        Returns
+        -------
+        X_ligands : torch.Tensor
+            A `&#39;torch&#39;` tensor of shape `(N, 3)` with the ligand coordinates
+        ligand_smiles : str
+            A string with the ligand smiles separated by a dot
+        ligand_chains : torch.Tensor
+            A `&#39;torch&#39;` tensor of shape `(N, 1)` with the chain index of each atom
+        &#34;&#34;&#34;
+        chains = self._get_chains_list(chains)
+        X_ligands = []
+        ligand_smiles = []
+        ligand_chains = []
+        for chain_i, chain in enumerate(chains):
+            all_smiles = &#34;.&#34;.join([x[&#34;smiles&#34;] for x in ligands[chain]])
+            ligand_smiles.append(all_smiles)
+            x_lig = np.concatenate([x[&#34;X&#34;] for x in ligands[chain]])
+            X_ligands.append(x_lig)
+            ligand_chains += [[chain_i]] * len(x_lig)
+        ligand_smiles = &#34;.&#34;.join(ligand_smiles)
+        X_ligands = from_numpy(np.concatenate(X_ligands, 0))
+        ligand_chains = Tensor(ligand_chains)
+        return (
+            X_ligands,
+            ligand_smiles,
+            ligand_chains,
+        )
 
     def _get_highlight_mask_dict(self, highlight_mask=None):
         &#34;&#34;&#34;Turn mask array into a dictionary.&#34;&#34;&#34;
@@ -1759,9 +1822,10 @@ class PDBEntry:
         chain_last_res = defaultdict(lambda: None)
         if highlight_mask_dict is not None:
             for chain, mask in highlight_mask_dict.items():
-                assert len(mask) == len(
-                    self._pdb_sequence(chain)
-                ), &#34;Mask length does not match sequence length&#34;
+                if chain in self.get_chains():
+                    assert len(mask) == len(
+                        self._pdb_sequence(chain)
+                    ), &#34;Mask length does not match sequence length&#34;
         for at in outstr:
             if isinstance(opacity, dict):
                 op_ = opacity[at[&#34;chain&#34;]]
@@ -2563,9 +2627,10 @@ from the PDB file.</p>
         chain_last_res = defaultdict(lambda: None)
         if highlight_mask_dict is not None:
             for chain, mask in highlight_mask_dict.items():
-                assert len(mask) == len(
-                    self._pdb_sequence(chain)
-                ), &#34;Mask length does not match sequence length&#34;
+                if chain in self.get_chains():
+                    assert len(mask) == len(
+                        self._pdb_sequence(chain)
+                    ), &#34;Mask length does not match sequence length&#34;
         for at in outstr:
             if isinstance(opacity, dict):
                 op_ = opacity[at[&#34;chain&#34;]]
@@ -3495,7 +3560,7 @@ indicates residues with known coordinates</dd>
         if cdr is not None:
             assert cdr in CDR_REVERSE, f&#34;CDR must be one of {list(CDR_REVERSE.keys())}&#34;
         chains = self._get_chains_list(chains)
-        seq = &#34;&#34;.join([self.seq[c] for c in chains])
+        seq = &#34;&#34;.join([self.seq[c] for c in chains]).replace(&#34;B&#34;, &#34;&#34;)
         if encode:
             seq = np.array([ALPHABET_REVERSE[aa] for aa in seq])
         elif cdr is not None or only_known:
@@ -3983,6 +4048,30 @@ indicates residues with known coordinates</dd>
             data = pickle.load(f)
         return ProteinEntry.from_dict(data)
 
+    @staticmethod
+    def retrieve_ligands_from_pickle(path):
+        &#34;&#34;&#34;Retrieve ligands from a pickle file.
+
+        Parameters
+        ----------
+        path : str
+            Path to the pickle file
+
+        Returns
+        -------
+        chain2ligand : dict
+            A dictionary where keys are chain IDs and values are ligand names
+
+        &#34;&#34;&#34;
+        with open(path, &#34;rb&#34;) as f:
+            data = pickle.load(f)
+        chain2ligand = {}
+        for chain in data:
+            if &#34;ligand&#34; not in data[chain]:
+                continue
+            chain2ligand[chain] = data[chain][&#34;ligand&#34;]
+        return chain2ligand
+
     def to_dict(self):
         &#34;&#34;&#34;Convert a protein entry into a dictionary.
 
@@ -4392,6 +4481,45 @@ indicates residues with known coordinates</dd>
             )
             start_index += chain_length
         return index_array
+
+    def get_ligand_features(self, ligands, chains=None):
+        &#34;&#34;&#34;Get ligand coordinates, smiles, and chain mapping.
+
+        Parameters
+        ----------
+        ligands : dict
+            A dictionary mapping from chain IDs to a list of ligands, where each ligand is a dictionary
+        chains : list of str, optional
+            If specified, only the ligands of the specified chains are returned (in the same order);
+            otherwise, all ligands are concatenated in alphabetical order of the chain IDs
+
+        Returns
+        -------
+        X_ligands : torch.Tensor
+            A `&#39;torch&#39;` tensor of shape `(N, 3)` with the ligand coordinates
+        ligand_smiles : str
+            A string with the ligand smiles separated by a dot
+        ligand_chains : torch.Tensor
+            A `&#39;torch&#39;` tensor of shape `(N, 1)` with the chain index of each atom
+        &#34;&#34;&#34;
+        chains = self._get_chains_list(chains)
+        X_ligands = []
+        ligand_smiles = []
+        ligand_chains = []
+        for chain_i, chain in enumerate(chains):
+            all_smiles = &#34;.&#34;.join([x[&#34;smiles&#34;] for x in ligands[chain]])
+            ligand_smiles.append(all_smiles)
+            x_lig = np.concatenate([x[&#34;X&#34;] for x in ligands[chain]])
+            X_ligands.append(x_lig)
+            ligand_chains += [[chain_i]] * len(x_lig)
+        ligand_smiles = &#34;.&#34;.join(ligand_smiles)
+        X_ligands = from_numpy(np.concatenate(X_ligands, 0))
+        ligand_chains = Tensor(ligand_chains)
+        return (
+            X_ligands,
+            ligand_smiles,
+            ligand_chains,
+        )
 
     def _get_highlight_mask_dict(self, highlight_mask=None):
         &#34;&#34;&#34;Turn mask array into a dictionary.&#34;&#34;&#34;
@@ -4976,6 +5104,50 @@ def from_pickle(path):
     with open(path, &#34;rb&#34;) as f:
         data = pickle.load(f)
     return ProteinEntry.from_dict(data)</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.data.ProteinEntry.retrieve_ligands_from_pickle"><code class="name flex">
+<span>def <span class="ident">retrieve_ligands_from_pickle</span></span>(<span>path)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Retrieve ligands from a pickle file.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>path</code></strong> :&ensp;<code>str</code></dt>
+<dd>Path to the pickle file</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>chain2ligand</code></strong> :&ensp;<code>dict</code></dt>
+<dd>A dictionary where keys are chain IDs and values are ligand names</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def retrieve_ligands_from_pickle(path):
+    &#34;&#34;&#34;Retrieve ligands from a pickle file.
+
+    Parameters
+    ----------
+    path : str
+        Path to the pickle file
+
+    Returns
+    -------
+    chain2ligand : dict
+        A dictionary where keys are chain IDs and values are ligand names
+
+    &#34;&#34;&#34;
+    with open(path, &#34;rb&#34;) as f:
+        data = pickle.load(f)
+    chain2ligand = {}
+    for chain in data:
+        if &#34;ligand&#34; not in data[chain]:
+            continue
+        chain2ligand[chain] = data[chain][&#34;ligand&#34;]
+    return chain2ligand</code></pre>
 </details>
 </dd>
 </dl>
@@ -5628,6 +5800,72 @@ are specified, the index is bumped by <code>index_bump</code> at the beginning o
     return sum([len(self.seq[x]) for x in chains])</code></pre>
 </details>
 </dd>
+<dt id="proteinflow.data.ProteinEntry.get_ligand_features"><code class="name flex">
+<span>def <span class="ident">get_ligand_features</span></span>(<span>self, ligands, chains=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get ligand coordinates, smiles, and chain mapping.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>ligands</code></strong> :&ensp;<code>dict</code></dt>
+<dd>A dictionary mapping from chain IDs to a list of ligands, where each ligand is a dictionary</dd>
+<dt><strong><code>chains</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
+<dd>If specified, only the ligands of the specified chains are returned (in the same order);
+otherwise, all ligands are concatenated in alphabetical order of the chain IDs</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>X_ligands</code></strong> :&ensp;<code>torch.Tensor</code></dt>
+<dd>A <code>'torch'</code> tensor of shape <code>(N, 3)</code> with the ligand coordinates</dd>
+<dt><strong><code>ligand_smiles</code></strong> :&ensp;<code>str</code></dt>
+<dd>A string with the ligand smiles separated by a dot</dd>
+<dt><strong><code>ligand_chains</code></strong> :&ensp;<code>torch.Tensor</code></dt>
+<dd>A <code>'torch'</code> tensor of shape <code>(N, 1)</code> with the chain index of each atom</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_ligand_features(self, ligands, chains=None):
+    &#34;&#34;&#34;Get ligand coordinates, smiles, and chain mapping.
+
+    Parameters
+    ----------
+    ligands : dict
+        A dictionary mapping from chain IDs to a list of ligands, where each ligand is a dictionary
+    chains : list of str, optional
+        If specified, only the ligands of the specified chains are returned (in the same order);
+        otherwise, all ligands are concatenated in alphabetical order of the chain IDs
+
+    Returns
+    -------
+    X_ligands : torch.Tensor
+        A `&#39;torch&#39;` tensor of shape `(N, 3)` with the ligand coordinates
+    ligand_smiles : str
+        A string with the ligand smiles separated by a dot
+    ligand_chains : torch.Tensor
+        A `&#39;torch&#39;` tensor of shape `(N, 1)` with the chain index of each atom
+    &#34;&#34;&#34;
+    chains = self._get_chains_list(chains)
+    X_ligands = []
+    ligand_smiles = []
+    ligand_chains = []
+    for chain_i, chain in enumerate(chains):
+        all_smiles = &#34;.&#34;.join([x[&#34;smiles&#34;] for x in ligands[chain]])
+        ligand_smiles.append(all_smiles)
+        x_lig = np.concatenate([x[&#34;X&#34;] for x in ligands[chain]])
+        X_ligands.append(x_lig)
+        ligand_chains += [[chain_i]] * len(x_lig)
+    ligand_smiles = &#34;.&#34;.join(ligand_smiles)
+    X_ligands = from_numpy(np.concatenate(X_ligands, 0))
+    ligand_chains = Tensor(ligand_chains)
+    return (
+        X_ligands,
+        ligand_smiles,
+        ligand_chains,
+    )</code></pre>
+</details>
+</dd>
 <dt id="proteinflow.data.ProteinEntry.get_mask"><code class="name flex">
 <span>def <span class="ident">get_mask</span></span>(<span>self, chains=None, cdr=None, original=False)</span>
 </code></dt>
@@ -5798,7 +6036,7 @@ sequence as a <code>'numpy'</code> array of integers</dd>
     if cdr is not None:
         assert cdr in CDR_REVERSE, f&#34;CDR must be one of {list(CDR_REVERSE.keys())}&#34;
     chains = self._get_chains_list(chains)
-    seq = &#34;&#34;.join([self.seq[c] for c in chains])
+    seq = &#34;&#34;.join([self.seq[c] for c in chains]).replace(&#34;B&#34;, &#34;&#34;)
     if encode:
         seq = np.array([ALPHABET_REVERSE[aa] for aa in seq])
     elif cdr is not None or only_known:
@@ -7021,6 +7259,7 @@ def from_id(
 <li><code><a title="proteinflow.data.ProteinEntry.get_coordinates" href="#proteinflow.data.ProteinEntry.get_coordinates">get_coordinates</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.get_index_array" href="#proteinflow.data.ProteinEntry.get_index_array">get_index_array</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.get_length" href="#proteinflow.data.ProteinEntry.get_length">get_length</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.get_ligand_features" href="#proteinflow.data.ProteinEntry.get_ligand_features">get_ligand_features</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.get_mask" href="#proteinflow.data.ProteinEntry.get_mask">get_mask</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.get_predict_mask" href="#proteinflow.data.ProteinEntry.get_predict_mask">get_predict_mask</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.get_sequence" href="#proteinflow.data.ProteinEntry.get_sequence">get_sequence</a></code></li>
@@ -7029,6 +7268,7 @@ def from_id(
 <li><code><a title="proteinflow.data.ProteinEntry.is_valid_pair" href="#proteinflow.data.ProteinEntry.is_valid_pair">is_valid_pair</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.merge" href="#proteinflow.data.ProteinEntry.merge">merge</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.rename_chains" href="#proteinflow.data.ProteinEntry.rename_chains">rename_chains</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.retrieve_ligands_from_pickle" href="#proteinflow.data.ProteinEntry.retrieve_ligands_from_pickle">retrieve_ligands_from_pickle</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.secondary_structure" href="#proteinflow.data.ProteinEntry.secondary_structure">secondary_structure</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.sidechain_coordinates" href="#proteinflow.data.ProteinEntry.sidechain_coordinates">sidechain_coordinates</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.sidechain_orientation" href="#proteinflow.data.ProteinEntry.sidechain_orientation">sidechain_orientation</a></code></li>

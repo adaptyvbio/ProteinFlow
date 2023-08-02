@@ -72,6 +72,7 @@ def run_processing(
     max_chains=5,
     pdb_id_list_path=None,
     load_ligands=False,
+    require_ligand=False,
 ):
     &#34;&#34;&#34;Download and parse PDB files that meet filtering criteria.
 
@@ -134,6 +135,8 @@ def run_processing(
         if provided, get pdb_ids from list (format pdb_id-num example: 1XYZ-1)
     load_ligands: boool, default False
         Whether or not to load the ligands in the pdbs
+    require_ligand: bool, default False
+        if `True`, only keep files with ligands
 
     Returns
     -------
@@ -237,6 +240,7 @@ def run_processing(
                 max_missing_ends=MISSING_ENDS_THR,
                 max_missing_middle=MISSING_MIDDLE_THR,
                 load_ligands=ligand,
+                require_ligand=require_ligand,
             )
             # save
             with open(target_file, &#34;wb&#34;) as f:
@@ -326,6 +330,7 @@ def filter_and_convert(
     max_missing_ends=5,
     max_missing_middle=5,
     load_ligands: bool = False,
+    require_ligand: bool = False,
 ):
     &#34;&#34;&#34;Filter and convert a PDBEntry to a ProteinEntry.
 
@@ -343,6 +348,8 @@ def filter_and_convert(
         The maximum fraction of missing residues in the middle (after missing ends are disregarded)
     load_ligands: boool, default False
         Whether or not to load the ligands in the pdbs
+    require_ligand: bool, default False
+        Whether or not to require the presence of ligands
 
     Returns
     -------
@@ -355,7 +362,10 @@ def filter_and_convert(
     loaded_ligands = False
     if load_ligands and pdb_entry.get_ligands() is not None:
         ligand_dict = pdb_entry.get_ligands()
-        loaded_ligands = True
+        if len(ligand_dict) &gt; 0:
+            loaded_ligands = True
+    if require_ligand and not loaded_ligands:
+        raise PDBError(&#34;No ligands found&#34;)
 
     if len(pdb_entry.get_chains()) == 0:
         raise PDBError(&#34;No chains found&#34;)
@@ -533,7 +543,7 @@ def _raise_rcsbsearch(e):
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="proteinflow.processing.filter_and_convert"><code class="name flex">
-<span>def <span class="ident">filter_and_convert</span></span>(<span>pdb_entry, min_length=50, max_length=150, max_missing_ends=5, max_missing_middle=5, load_ligands: bool = False)</span>
+<span>def <span class="ident">filter_and_convert</span></span>(<span>pdb_entry, min_length=50, max_length=150, max_missing_ends=5, max_missing_middle=5, load_ligands: bool = False, require_ligand: bool = False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Filter and convert a PDBEntry to a ProteinEntry.</p>
@@ -551,6 +561,8 @@ def _raise_rcsbsearch(e):
 <dd>The maximum fraction of missing residues in the middle (after missing ends are disregarded)</dd>
 <dt><strong><code>load_ligands</code></strong> :&ensp;<code>boool</code>, default <code>False</code></dt>
 <dd>Whether or not to load the ligands in the pdbs</dd>
+<dt><strong><code>require_ligand</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>Whether or not to require the presence of ligands</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -568,6 +580,7 @@ def _raise_rcsbsearch(e):
     max_missing_ends=5,
     max_missing_middle=5,
     load_ligands: bool = False,
+    require_ligand: bool = False,
 ):
     &#34;&#34;&#34;Filter and convert a PDBEntry to a ProteinEntry.
 
@@ -585,6 +598,8 @@ def _raise_rcsbsearch(e):
         The maximum fraction of missing residues in the middle (after missing ends are disregarded)
     load_ligands: boool, default False
         Whether or not to load the ligands in the pdbs
+    require_ligand: bool, default False
+        Whether or not to require the presence of ligands
 
     Returns
     -------
@@ -597,7 +612,10 @@ def _raise_rcsbsearch(e):
     loaded_ligands = False
     if load_ligands and pdb_entry.get_ligands() is not None:
         ligand_dict = pdb_entry.get_ligands()
-        loaded_ligands = True
+        if len(ligand_dict) &gt; 0:
+            loaded_ligands = True
+    if require_ligand and not loaded_ligands:
+        raise PDBError(&#34;No ligands found&#34;)
 
     if len(pdb_entry.get_chains()) == 0:
         raise PDBError(&#34;No chains found&#34;)
@@ -649,7 +667,7 @@ def _raise_rcsbsearch(e):
 </details>
 </dd>
 <dt id="proteinflow.processing.run_processing"><code class="name flex">
-<span>def <span class="ident">run_processing</span></span>(<span>tmp_folder='./data/tmp_pdb', output_folder='./data/pdb', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, filter_methods=True, remove_redundancies=False, redundancy_thr=0.9, n=None, force=False, tag=None, pdb_snapshot=None, load_live=False, sabdab=False, sabdab_data_path=None, require_antigen=False, max_chains=5, pdb_id_list_path=None, load_ligands=False)</span>
+<span>def <span class="ident">run_processing</span></span>(<span>tmp_folder='./data/tmp_pdb', output_folder='./data/pdb', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, filter_methods=True, remove_redundancies=False, redundancy_thr=0.9, n=None, force=False, tag=None, pdb_snapshot=None, load_live=False, sabdab=False, sabdab_data_path=None, require_antigen=False, max_chains=5, pdb_id_list_path=None, load_ligands=False, require_ligand=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Download and parse PDB files that meet filtering criteria.</p>
@@ -710,6 +728,8 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
 <dd>if provided, get pdb_ids from list (format pdb_id-num example: 1XYZ-1)</dd>
 <dt><strong><code>load_ligands</code></strong> :&ensp;<code>boool</code>, default <code>False</code></dt>
 <dd>Whether or not to load the ligands in the pdbs</dd>
+<dt><strong><code>require_ligand</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, only keep files with ligands</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -742,6 +762,7 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
     max_chains=5,
     pdb_id_list_path=None,
     load_ligands=False,
+    require_ligand=False,
 ):
     &#34;&#34;&#34;Download and parse PDB files that meet filtering criteria.
 
@@ -804,6 +825,8 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
         if provided, get pdb_ids from list (format pdb_id-num example: 1XYZ-1)
     load_ligands: boool, default False
         Whether or not to load the ligands in the pdbs
+    require_ligand: bool, default False
+        if `True`, only keep files with ligands
 
     Returns
     -------
@@ -907,6 +930,7 @@ and non-CDR residues are marked with <code>'-'</code>.</p>
                 max_missing_ends=MISSING_ENDS_THR,
                 max_missing_middle=MISSING_MIDDLE_THR,
                 load_ligands=ligand,
+                require_ligand=require_ligand,
             )
             # save
             with open(target_file, &#34;wb&#34;) as f:

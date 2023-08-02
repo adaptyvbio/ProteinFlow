@@ -485,6 +485,7 @@ def generate_data(
     load_ligands=False,
     exclude_chains_without_ligands=False,
     tanimoto_clustering=False,
+    require_ligand=False,
     random_seed=42,
     max_chains=10,
 ):
@@ -572,6 +573,8 @@ def generate_data(
         if `True`, exclude biounits that don&#39;t contain ligands
     tanimoto_clustering : bool, default False
         if `True`, cluster the biounits based on ligand Tanimoto similarity
+    require_ligand : bool, default False
+        if `True`, only use biounits that contain a ligand
     random_seed : int, default 42
         the random seed to use for splitting
     max_chains : int, default 10
@@ -633,6 +636,7 @@ def generate_data(
         max_chains=max_chains,
         pdb_id_list_path=pdb_id_list_path,
         load_ligands=load_ligands,
+        require_ligand=require_ligand,
     )
 
     if not skip_splitting:
@@ -1010,7 +1014,7 @@ def check_download_tags():
 </details>
 </dd>
 <dt id="proteinflow.generate_data"><code class="name flex">
-<span>def <span class="ident">generate_data</span></span>(<span>tag=None, pdb_id_list_path=None, local_datasets_folder='./data', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, not_filter_methods=False, not_remove_redundancies=False, skip_splitting=False, redundancy_thr=0.9, n=None, force=False, split_tolerance=0.2, test_split=0.05, valid_split=0.05, pdb_snapshot=None, load_live=False, min_seq_id=0.3, sabdab=False, sabdab_data_path=None, require_antigen=False, exclude_chains=None, exclude_threshold=0.7, exclude_clusters=False, exclude_based_on_cdr=None, load_ligands=False, exclude_chains_without_ligands=False, tanimoto_clustering=False, random_seed=42, max_chains=10)</span>
+<span>def <span class="ident">generate_data</span></span>(<span>tag=None, pdb_id_list_path=None, local_datasets_folder='./data', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, not_filter_methods=False, not_remove_redundancies=False, skip_splitting=False, redundancy_thr=0.9, n=None, force=False, split_tolerance=0.2, test_split=0.05, valid_split=0.05, pdb_snapshot=None, load_live=False, min_seq_id=0.3, sabdab=False, sabdab_data_path=None, require_antigen=False, exclude_chains=None, exclude_threshold=0.7, exclude_clusters=False, exclude_based_on_cdr=None, load_ligands=False, exclude_chains_without_ligands=False, tanimoto_clustering=False, require_ligand=False, random_seed=42, max_chains=10)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Download and parse PDB files that meet filtering criteria.</p>
@@ -1092,6 +1096,8 @@ pdb_ids can also be passed, an automatic retrieval of chain id s will be perform
 <dd>if <code>True</code>, exclude biounits that don't contain ligands</dd>
 <dt><strong><code>tanimoto_clustering</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, cluster the biounits based on ligand Tanimoto similarity</dd>
+<dt><strong><code>require_ligand</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, only use biounits that contain a ligand</dd>
 <dt><strong><code>random_seed</code></strong> :&ensp;<code>int</code>, default <code>42</code></dt>
 <dd>the random seed to use for splitting</dd>
 <dt><strong><code>max_chains</code></strong> :&ensp;<code>int</code>, default <code>10</code></dt>
@@ -1137,6 +1143,7 @@ pdb_ids can also be passed, an automatic retrieval of chain id s will be perform
     load_ligands=False,
     exclude_chains_without_ligands=False,
     tanimoto_clustering=False,
+    require_ligand=False,
     random_seed=42,
     max_chains=10,
 ):
@@ -1224,6 +1231,8 @@ pdb_ids can also be passed, an automatic retrieval of chain id s will be perform
         if `True`, exclude biounits that don&#39;t contain ligands
     tanimoto_clustering : bool, default False
         if `True`, cluster the biounits based on ligand Tanimoto similarity
+    require_ligand : bool, default False
+        if `True`, only use biounits that contain a ligand
     random_seed : int, default 42
         the random seed to use for splitting
     max_chains : int, default 10
@@ -1285,6 +1294,7 @@ pdb_ids can also be passed, an automatic retrieval of chain id s will be perform
         max_chains=max_chains,
         pdb_id_list_path=pdb_id_list_path,
         load_ligands=load_ligands,
+        require_ligand=require_ligand,
     )
 
     if not skip_splitting:
