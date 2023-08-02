@@ -1784,9 +1784,10 @@ class PDBEntry:
         chain_last_res = defaultdict(lambda: None)
         if highlight_mask_dict is not None:
             for chain, mask in highlight_mask_dict.items():
-                assert len(mask) == len(
-                    self._pdb_sequence(chain)
-                ), "Mask length does not match sequence length"
+                if chain in self.get_chains():
+                    assert len(mask) == len(
+                        self._pdb_sequence(chain)
+                    ), "Mask length does not match sequence length"
         for at in outstr:
             if isinstance(opacity, dict):
                 op_ = opacity[at["chain"]]

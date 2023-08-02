@@ -294,6 +294,9 @@ class ProteinDataset(Dataset):
         mask_all_cdrs=False,
         load_ligands=False,
         pyg_graph=False,
+        patch_around_mask=False,
+        initial_patch_size=128,
+        antigen_patch_size=128,
     ):
         """Initialize the dataset.
 
@@ -375,6 +378,9 @@ class ProteinDataset(Dataset):
         self.mask_all_cdrs = mask_all_cdrs
         self.load_ligands = load_ligands
         self.pyg_graph = pyg_graph
+        self.patch_around_mask = patch_around_mask
+        self.initial_patch_size = initial_patch_size
+        self.antigen_patch_size = antigen_patch_size
         self.feature_types = []
         if node_features_type is not None:
             self.feature_types = node_features_type.split("+")
@@ -806,6 +812,67 @@ class ProteinDataset(Dataset):
             pyg_data[key] = value.unsqueeze(0)
         return pyg_data
 
+    def _get_anchor_ind(self, data):
+        masked_ind = torch.where(data["masked_res"].bool())[0]
+        known_ind = torch.where(data["mask"].bool())[0]
+        start, end = masked_ind[0], masked_ind[-1]
+        start = known_ind[known_ind < start][-1]
+        end = known_ind[known_ind > end][0]
+        return start, end
+
+    def _get_antibody_mask(self, data):
+        mask = torch.zeros_like(data["mask"]).bool()
+        cdrs = data["cdr"]
+        chain_enc = data["chain_encoding_all"]
+        for chain_ind in data["chain_dict"].values():
+            chain_mask = chain_enc == chain_ind
+            chain_cdrs = cdrs[chain_mask]
+            if len(torch.unique(chain_cdrs)) > 1:
+                mask[chain_mask] = True
+        return mask
+
+    def _patch(self, data):
+        # adapted from diffab
+        pos_alpha = data["X"][:, 2]
+        start, end = self._get_anchor_ind(data)
+        anchor_points = torch.stack([pos_alpha[start], pos_alpha[end]], dim=0)
+        dist_anchor = torch.cdist(pos_alpha, anchor_points[[0]], p=2).min(dim=1)[
+            0
+        ]  # (L, )
+        dist_anchor[~data["mask"].bool()] = float("+inf")
+        initial_patch_idx = torch.topk(
+            dist_anchor,
+            k=min(self.initial_patch_size, dist_anchor.size(0)),
+            largest=False,
+            sorted=True,
+        )[
+            1
+        ]  # (initial_patch_size, )
+        patch_mask = data["masked_res"].clone()
+        patch_mask[start] = True
+        patch_mask[end] = True
+        patch_mask[initial_patch_idx] = True
+
+        if self.sabdab:
+            antibody_mask = self._get_antibody_mask(data)
+            antigen_mask = ~antibody_mask
+            dist_anchor_antigen = dist_anchor.masked_fill(
+                mask=antibody_mask, value=float("+inf")  # Fill antibody with +inf
+            )  # (L, )
+            antigen_patch_idx = torch.topk(
+                dist_anchor_antigen,
+                k=min(self.antigen_patch_size, antigen_mask.sum().item()),
+                largest=False,
+            )[
+                1
+            ]  # (ag_size, )
+            patch_mask[antigen_patch_idx] = True
+
+        for key, value in data.items():
+            if isinstance(value, torch.Tensor):
+                data[key] = value[patch_mask]
+        return data
+
     def __len__(self):
         """Return the number of clusters or data entries in the dataset."""
         return len(self.indices)
@@ -859,6 +926,8 @@ class ProteinDataset(Dataset):
             data["cdr_id"] = CDR_REVERSE[cdr]
         if self.mask_residues:
             data["masked_res"] = self._get_masked_sequence(data)
+        if self.patch_around_mask:
+            data = self._patch(data)
         if self.pyg_graph:
             data = self._to_pyg_graph(data)
         return data
