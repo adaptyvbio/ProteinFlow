@@ -52,12 +52,16 @@ class _PadCollate:
     def pad_collate(self, batch):
         # find longest sequence
         out = {}
-        max_len = max(map(lambda x: x[&#34;S&#34;].shape[0], batch))
 
-        # pad according to max_len
-        to_pad = [max_len - b[&#34;S&#34;].shape[0] for b in batch]
         for key in batch[0].keys():
-            if key in [&#34;chain_id&#34;, &#34;chain_dict&#34;, &#34;pdb_id&#34;, &#34;cdr_id&#34;]:
+            if key == &#34;X_ligands&#34; or key == &#34;ligand_chains&#34;:
+                max_len = max([b[key].shape[0] for b in batch])
+                to_pad = [max_len - b[key].shape[0] for b in batch]
+            else:
+                max_len = max(map(lambda x: x[&#34;S&#34;].shape[0], batch))
+                # pad according to max_len
+                to_pad = [max_len - b[&#34;S&#34;].shape[0] for b in batch]
+            if key in [&#34;chain_id&#34;, &#34;chain_dict&#34;, &#34;pdb_id&#34;, &#34;cdr_id&#34;, &#34;ligand_smiles&#34;]:
                 continue
             out[key] = torch.stack(
                 [
@@ -71,6 +75,11 @@ class _PadCollate:
             out[&#34;cdr_id&#34;] = torch.tensor([b[&#34;cdr_id&#34;] for b in batch])
         out[&#34;chain_dict&#34;] = [b[&#34;chain_dict&#34;] for b in batch]
         out[&#34;pdb_id&#34;] = [b[&#34;pdb_id&#34;] for b in batch]
+        if &#34;ligand_smiles&#34; in batch[0]:
+            out[&#34;ligand_smiles&#34;] = list([b[&#34;ligand_smiles&#34;] for b in batch])
+            out[&#34;ligand_lengths&#34;] = torch.tensor(
+                [len(b[&#34;ligand_chains&#34;]) for b in batch]
+            )
         return out
 
     def __call__(self, batch):
@@ -140,6 +149,7 @@ class ProteinLoader(DataLoader):
         shuffle_batches=True,
         mask_all_cdrs=False,
         classes_dict_path=None,
+        load_ligands=False,
         *args,
         **kwargs,
     ) -&gt; None:
@@ -192,6 +202,8 @@ class ProteinLoader(DataLoader):
             if `True`, all CDRs are masked instead of just the sampled one
         classes_dict_path : str, optional
             path to the pickled classes dictionary
+        load_ligands : bool, default False
+            if `True`, the ligands will be loaded from the PDB files and added to the features
         *args
             additional arguments to `torch.utils.data.DataLoader`
         **kwargs
@@ -220,6 +232,7 @@ class ProteinLoader(DataLoader):
             mask_frac=mask_frac,
             force_binding_sites_frac=force_binding_sites_frac,
             mask_all_cdrs=mask_all_cdrs,
+            load_ligands=load_ligands,
         )
         return ProteinLoader(
             dataset=dataset,
@@ -309,6 +322,11 @@ class ProteinDataset(Dataset):
         mask_whole_chains=False,
         force_binding_sites_frac=0.15,
         mask_all_cdrs=False,
+        load_ligands=False,
+        pyg_graph=False,
+        patch_around_mask=False,
+        initial_patch_size=128,
+        antigen_patch_size=128,
     ):
         &#34;&#34;&#34;Initialize the dataset.
 
@@ -366,7 +384,10 @@ class ProteinDataset(Dataset):
             from a polymer is sampled, the center of the masked region will be forced to be in a binding site (in PDB datasets)
         mask_all_cdrs : bool, default False
             if `True`, all CDRs will be masked (in SAbDab datasets)
-
+        load_ligands : bool, default False
+            if `True`, the ligands will be loaded as well
+        pyg_graph : bool, default False
+            if `True`, the output will be a `torch_geometric.data.Data` object instead of a dictionary
         &#34;&#34;&#34;
         alphabet = ALPHABET
         self.alphabet_dict = defaultdict(lambda: 0)
@@ -385,6 +406,11 @@ class ProteinDataset(Dataset):
         self.mask_whole_chains = mask_whole_chains
         self.force_binding_sites_frac = force_binding_sites_frac
         self.mask_all_cdrs = mask_all_cdrs
+        self.load_ligands = load_ligands
+        self.pyg_graph = pyg_graph
+        self.patch_around_mask = patch_around_mask
+        self.initial_patch_size = initial_patch_size
+        self.antigen_patch_size = antigen_patch_size
         self.feature_types = []
         if node_features_type is not None:
             self.feature_types = node_features_type.split(&#34;+&#34;)
@@ -655,6 +681,8 @@ class ProteinDataset(Dataset):
         input_file = os.path.join(self.dataset_folder, filename)
         no_extension_name = filename.split(&#34;.&#34;)[0]
         data_entry = ProteinEntry.from_pickle(input_file)
+        if self.load_ligands:
+            ligands = ProteinEntry.retrieve_ligands_from_pickle(input_file)
         chains = data_entry.get_chains()
         if self.entry_type == &#34;biounit&#34;:
             chain_sets = [chains]
@@ -731,6 +759,12 @@ class ProteinDataset(Dataset):
                 data_entry.get_chain_id_array(chain_set)
             )
             out[&#34;chain_dict&#34;] = data_entry.get_chain_id_dict(chain_set)
+            if self.load_ligands and len(ligands) != 0:
+                (
+                    out[&#34;X_ligands&#34;],
+                    out[&#34;ligand_smiles&#34;],
+                    out[&#34;ligand_chains&#34;],
+                ) = data_entry.get_ligand_features(ligands, chain_set)
             cdr_chain_set = set()
             if data_entry.has_cdr():
                 out[&#34;cdr&#34;] = torch.tensor(data_entry.get_cdr(chain_set, encode=True))
@@ -800,6 +834,75 @@ class ProteinDataset(Dataset):
                     if add:
                         self.indices.append(i)
 
+    def _to_pyg_graph(self, data):
+        from torch_geometric.data import Data
+
+        pyg_data = Data(x=data[&#34;X&#34;])
+        for key, value in data.items():
+            pyg_data[key] = value.unsqueeze(0)
+        return pyg_data
+
+    def _get_anchor_ind(self, data):
+        masked_ind = torch.where(data[&#34;masked_res&#34;].bool())[0]
+        known_ind = torch.where(data[&#34;mask&#34;].bool())[0]
+        start, end = masked_ind[0], masked_ind[-1]
+        start = known_ind[known_ind &lt; start][-1]
+        end = known_ind[known_ind &gt; end][0]
+        return start, end
+
+    def _get_antibody_mask(self, data):
+        mask = torch.zeros_like(data[&#34;mask&#34;]).bool()
+        cdrs = data[&#34;cdr&#34;]
+        chain_enc = data[&#34;chain_encoding_all&#34;]
+        for chain_ind in data[&#34;chain_dict&#34;].values():
+            chain_mask = chain_enc == chain_ind
+            chain_cdrs = cdrs[chain_mask]
+            if len(torch.unique(chain_cdrs)) &gt; 1:
+                mask[chain_mask] = True
+        return mask
+
+    def _patch(self, data):
+        # adapted from diffab
+        pos_alpha = data[&#34;X&#34;][:, 2]
+        start, end = self._get_anchor_ind(data)
+        anchor_points = torch.stack([pos_alpha[start], pos_alpha[end]], dim=0)
+        dist_anchor = torch.cdist(pos_alpha, anchor_points[[0]], p=2).min(dim=1)[
+            0
+        ]  # (L, )
+        dist_anchor[~data[&#34;mask&#34;].bool()] = float(&#34;+inf&#34;)
+        initial_patch_idx = torch.topk(
+            dist_anchor,
+            k=min(self.initial_patch_size, dist_anchor.size(0)),
+            largest=False,
+            sorted=True,
+        )[
+            1
+        ]  # (initial_patch_size, )
+        patch_mask = data[&#34;masked_res&#34;].clone()
+        patch_mask[start] = True
+        patch_mask[end] = True
+        patch_mask[initial_patch_idx] = True
+
+        if self.sabdab:
+            antibody_mask = self._get_antibody_mask(data)
+            antigen_mask = ~antibody_mask
+            dist_anchor_antigen = dist_anchor.masked_fill(
+                mask=antibody_mask, value=float(&#34;+inf&#34;)  # Fill antibody with +inf
+            )  # (L, )
+            antigen_patch_idx = torch.topk(
+                dist_anchor_antigen,
+                k=min(self.antigen_patch_size, antigen_mask.sum().item()),
+                largest=False,
+            )[
+                1
+            ]  # (ag_size, )
+            patch_mask[antigen_patch_idx] = True
+
+        for key, value in data.items():
+            if isinstance(value, torch.Tensor):
+                data[key] = value[patch_mask]
+        return data
+
     def __len__(self):
         &#34;&#34;&#34;Return the number of clusters or data entries in the dataset.&#34;&#34;&#34;
         return len(self.indices)
@@ -853,6 +956,10 @@ class ProteinDataset(Dataset):
             data[&#34;cdr_id&#34;] = CDR_REVERSE[cdr]
         if self.mask_residues:
             data[&#34;masked_res&#34;] = self._get_masked_sequence(data)
+        if self.patch_around_mask:
+            data = self._patch(data)
+        if self.pyg_graph:
+            data = self._to_pyg_graph(data)
         return data</code></pre>
 </details>
 </section>
@@ -867,7 +974,7 @@ class ProteinDataset(Dataset):
 <dl>
 <dt id="proteinflow.data.torch.ProteinDataset"><code class="flex name class">
 <span>class <span class="ident">ProteinDataset</span></span>
-<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', debug_file_path=None, entry_type='biounit', classes_to_exclude=None, shuffle_clusters=True, min_cdr_length=None, feature_functions=None, classes_dict_path=None, cut_edges=False, mask_residues=True, lower_limit=15, upper_limit=100, mask_frac=None, mask_whole_chains=False, force_binding_sites_frac=0.15, mask_all_cdrs=False)</span>
+<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', debug_file_path=None, entry_type='biounit', classes_to_exclude=None, shuffle_clusters=True, min_cdr_length=None, feature_functions=None, classes_dict_path=None, cut_edges=False, mask_residues=True, lower_limit=15, upper_limit=100, mask_frac=None, mask_whole_chains=False, force_binding_sites_frac=0.15, mask_all_cdrs=False, load_ligands=False, pyg_graph=False, patch_around_mask=False, initial_patch_size=128, antigen_patch_size=128)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Dataset to load proteinflow data.</p>
@@ -967,6 +1074,10 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
 from a polymer is sampled, the center of the masked region will be forced to be in a binding site (in PDB datasets)</dd>
 <dt><strong><code>mask_all_cdrs</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, all CDRs will be masked (in SAbDab datasets)</dd>
+<dt><strong><code>load_ligands</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, the ligands will be loaded as well</dd>
+<dt><strong><code>pyg_graph</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, the output will be a <code>torch_geometric.data.Data</code> object instead of a dictionary</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -1052,6 +1163,11 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         mask_whole_chains=False,
         force_binding_sites_frac=0.15,
         mask_all_cdrs=False,
+        load_ligands=False,
+        pyg_graph=False,
+        patch_around_mask=False,
+        initial_patch_size=128,
+        antigen_patch_size=128,
     ):
         &#34;&#34;&#34;Initialize the dataset.
 
@@ -1109,7 +1225,10 @@ from a polymer is sampled, the center of the masked region will be forced to be 
             from a polymer is sampled, the center of the masked region will be forced to be in a binding site (in PDB datasets)
         mask_all_cdrs : bool, default False
             if `True`, all CDRs will be masked (in SAbDab datasets)
-
+        load_ligands : bool, default False
+            if `True`, the ligands will be loaded as well
+        pyg_graph : bool, default False
+            if `True`, the output will be a `torch_geometric.data.Data` object instead of a dictionary
         &#34;&#34;&#34;
         alphabet = ALPHABET
         self.alphabet_dict = defaultdict(lambda: 0)
@@ -1128,6 +1247,11 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         self.mask_whole_chains = mask_whole_chains
         self.force_binding_sites_frac = force_binding_sites_frac
         self.mask_all_cdrs = mask_all_cdrs
+        self.load_ligands = load_ligands
+        self.pyg_graph = pyg_graph
+        self.patch_around_mask = patch_around_mask
+        self.initial_patch_size = initial_patch_size
+        self.antigen_patch_size = antigen_patch_size
         self.feature_types = []
         if node_features_type is not None:
             self.feature_types = node_features_type.split(&#34;+&#34;)
@@ -1398,6 +1522,8 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         input_file = os.path.join(self.dataset_folder, filename)
         no_extension_name = filename.split(&#34;.&#34;)[0]
         data_entry = ProteinEntry.from_pickle(input_file)
+        if self.load_ligands:
+            ligands = ProteinEntry.retrieve_ligands_from_pickle(input_file)
         chains = data_entry.get_chains()
         if self.entry_type == &#34;biounit&#34;:
             chain_sets = [chains]
@@ -1474,6 +1600,12 @@ from a polymer is sampled, the center of the masked region will be forced to be 
                 data_entry.get_chain_id_array(chain_set)
             )
             out[&#34;chain_dict&#34;] = data_entry.get_chain_id_dict(chain_set)
+            if self.load_ligands and len(ligands) != 0:
+                (
+                    out[&#34;X_ligands&#34;],
+                    out[&#34;ligand_smiles&#34;],
+                    out[&#34;ligand_chains&#34;],
+                ) = data_entry.get_ligand_features(ligands, chain_set)
             cdr_chain_set = set()
             if data_entry.has_cdr():
                 out[&#34;cdr&#34;] = torch.tensor(data_entry.get_cdr(chain_set, encode=True))
@@ -1543,6 +1675,75 @@ from a polymer is sampled, the center of the masked region will be forced to be 
                     if add:
                         self.indices.append(i)
 
+    def _to_pyg_graph(self, data):
+        from torch_geometric.data import Data
+
+        pyg_data = Data(x=data[&#34;X&#34;])
+        for key, value in data.items():
+            pyg_data[key] = value.unsqueeze(0)
+        return pyg_data
+
+    def _get_anchor_ind(self, data):
+        masked_ind = torch.where(data[&#34;masked_res&#34;].bool())[0]
+        known_ind = torch.where(data[&#34;mask&#34;].bool())[0]
+        start, end = masked_ind[0], masked_ind[-1]
+        start = known_ind[known_ind &lt; start][-1]
+        end = known_ind[known_ind &gt; end][0]
+        return start, end
+
+    def _get_antibody_mask(self, data):
+        mask = torch.zeros_like(data[&#34;mask&#34;]).bool()
+        cdrs = data[&#34;cdr&#34;]
+        chain_enc = data[&#34;chain_encoding_all&#34;]
+        for chain_ind in data[&#34;chain_dict&#34;].values():
+            chain_mask = chain_enc == chain_ind
+            chain_cdrs = cdrs[chain_mask]
+            if len(torch.unique(chain_cdrs)) &gt; 1:
+                mask[chain_mask] = True
+        return mask
+
+    def _patch(self, data):
+        # adapted from diffab
+        pos_alpha = data[&#34;X&#34;][:, 2]
+        start, end = self._get_anchor_ind(data)
+        anchor_points = torch.stack([pos_alpha[start], pos_alpha[end]], dim=0)
+        dist_anchor = torch.cdist(pos_alpha, anchor_points[[0]], p=2).min(dim=1)[
+            0
+        ]  # (L, )
+        dist_anchor[~data[&#34;mask&#34;].bool()] = float(&#34;+inf&#34;)
+        initial_patch_idx = torch.topk(
+            dist_anchor,
+            k=min(self.initial_patch_size, dist_anchor.size(0)),
+            largest=False,
+            sorted=True,
+        )[
+            1
+        ]  # (initial_patch_size, )
+        patch_mask = data[&#34;masked_res&#34;].clone()
+        patch_mask[start] = True
+        patch_mask[end] = True
+        patch_mask[initial_patch_idx] = True
+
+        if self.sabdab:
+            antibody_mask = self._get_antibody_mask(data)
+            antigen_mask = ~antibody_mask
+            dist_anchor_antigen = dist_anchor.masked_fill(
+                mask=antibody_mask, value=float(&#34;+inf&#34;)  # Fill antibody with +inf
+            )  # (L, )
+            antigen_patch_idx = torch.topk(
+                dist_anchor_antigen,
+                k=min(self.antigen_patch_size, antigen_mask.sum().item()),
+                largest=False,
+            )[
+                1
+            ]  # (ag_size, )
+            patch_mask[antigen_patch_idx] = True
+
+        for key, value in data.items():
+            if isinstance(value, torch.Tensor):
+                data[key] = value[patch_mask]
+        return data
+
     def __len__(self):
         &#34;&#34;&#34;Return the number of clusters or data entries in the dataset.&#34;&#34;&#34;
         return len(self.indices)
@@ -1596,6 +1797,10 @@ from a polymer is sampled, the center of the masked region will be forced to be 
             data[&#34;cdr_id&#34;] = CDR_REVERSE[cdr]
         if self.mask_residues:
             data[&#34;masked_res&#34;] = self._get_masked_sequence(data)
+        if self.patch_around_mask:
+            data = self._patch(data)
+        if self.pyg_graph:
+            data = self._to_pyg_graph(data)
         return data</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -1741,6 +1946,7 @@ longest protein in the batch.</p>
         shuffle_batches=True,
         mask_all_cdrs=False,
         classes_dict_path=None,
+        load_ligands=False,
         *args,
         **kwargs,
     ) -&gt; None:
@@ -1793,6 +1999,8 @@ longest protein in the batch.</p>
             if `True`, all CDRs are masked instead of just the sampled one
         classes_dict_path : str, optional
             path to the pickled classes dictionary
+        load_ligands : bool, default False
+            if `True`, the ligands will be loaded from the PDB files and added to the features
         *args
             additional arguments to `torch.utils.data.DataLoader`
         **kwargs
@@ -1821,6 +2029,7 @@ longest protein in the batch.</p>
             mask_frac=mask_frac,
             force_binding_sites_frac=force_binding_sites_frac,
             mask_all_cdrs=mask_all_cdrs,
+            load_ligands=load_ligands,
         )
         return ProteinLoader(
             dataset=dataset,
@@ -1876,7 +2085,7 @@ longest protein in the batch.</p>
 <h3>Static methods</h3>
 <dl>
 <dt id="proteinflow.data.torch.ProteinLoader.from_args"><code class="name flex">
-<span>def <span class="ident">from_args</span></span>(<span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type=None, entry_type='biounit', classes_to_exclude=None, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, force_binding_sites_frac=0, shuffle_clusters=True, shuffle_batches=True, mask_all_cdrs=False, classes_dict_path=None, *args, **kwargs) ‑> None</span>
+<span>def <span class="ident">from_args</span></span>(<span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type=None, entry_type='biounit', classes_to_exclude=None, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, force_binding_sites_frac=0, shuffle_clusters=True, shuffle_batches=True, mask_all_cdrs=False, classes_dict_path=None, load_ligands=False, *args, **kwargs) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a <code><a title="proteinflow.data.torch.ProteinLoader" href="#proteinflow.data.torch.ProteinLoader">ProteinLoader</a></code> instance with a <code><a title="proteinflow.data.torch.ProteinDataset" href="#proteinflow.data.torch.ProteinDataset">ProteinDataset</a></code> from the given arguments.</p>
@@ -1927,6 +2136,8 @@ forced to be in a binding site</dd>
 <dd>if <code>True</code>, all CDRs are masked instead of just the sampled one</dd>
 <dt><strong><code>classes_dict_path</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>path to the pickled classes dictionary</dd>
+<dt><strong><code>load_ligands</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, the ligands will be loaded from the PDB files and added to the features</dd>
 <dt><strong><code>*args</code></strong></dt>
 <dd>additional arguments to <code>torch.utils.data.DataLoader</code></dd>
 <dt><strong><code>**kwargs</code></strong></dt>
@@ -1960,6 +2171,7 @@ def from_args(
     shuffle_batches=True,
     mask_all_cdrs=False,
     classes_dict_path=None,
+    load_ligands=False,
     *args,
     **kwargs,
 ) -&gt; None:
@@ -2012,6 +2224,8 @@ def from_args(
         if `True`, all CDRs are masked instead of just the sampled one
     classes_dict_path : str, optional
         path to the pickled classes dictionary
+    load_ligands : bool, default False
+        if `True`, the ligands will be loaded from the PDB files and added to the features
     *args
         additional arguments to `torch.utils.data.DataLoader`
     **kwargs
@@ -2040,6 +2254,7 @@ def from_args(
         mask_frac=mask_frac,
         force_binding_sites_frac=force_binding_sites_frac,
         mask_all_cdrs=mask_all_cdrs,
+        load_ligands=load_ligands,
     )
     return ProteinLoader(
         dataset=dataset,
