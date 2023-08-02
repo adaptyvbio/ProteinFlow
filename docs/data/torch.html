@@ -14,7 +14,7 @@
 <style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
 <script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
-<link rel="shortcut icon" type="image/x-icon" href="favicon.png?">
+<link rel="shortcut icon" type="image/x-icon" href="logo.png?">
 </head>
 <body>
 <main>
@@ -388,6 +388,13 @@ class ProteinDataset(Dataset):
             if `True`, the ligands will be loaded as well
         pyg_graph : bool, default False
             if `True`, the output will be a `torch_geometric.data.Data` object instead of a dictionary
+        patch_around_mask : bool, default False
+            if `True`, the data entries will be cut around the masked region
+        initial_patch_size : int, default 128
+            the size of the initial patch (used if `patch_around_mask` is `True`)
+        antigen_patch_size : int, default 128
+            the size of the antigen patch (used if `patch_around_mask` is `True` and the dataset is SAbDab)
+
         &#34;&#34;&#34;
         alphabet = ALPHABET
         self.alphabet_dict = defaultdict(lambda: 0)
@@ -835,6 +842,7 @@ class ProteinDataset(Dataset):
                         self.indices.append(i)
 
     def _to_pyg_graph(self, data):
+        &#34;&#34;&#34;Convert a dictionary of data to a PyTorch Geometric graph.&#34;&#34;&#34;
         from torch_geometric.data import Data
 
         pyg_data = Data(x=data[&#34;X&#34;])
@@ -843,14 +851,16 @@ class ProteinDataset(Dataset):
         return pyg_data
 
     def _get_anchor_ind(self, data):
+        &#34;&#34;&#34;Get the indices of the anchor residues.&#34;&#34;&#34;
         masked_ind = torch.where(data[&#34;masked_res&#34;].bool())[0]
         known_ind = torch.where(data[&#34;mask&#34;].bool())[0]
         start, end = masked_ind[0], masked_ind[-1]
-        start = known_ind[known_ind &lt; start][-1]
-        end = known_ind[known_ind &gt; end][0]
+        start = known_ind[known_ind &lt; start][-1] if (known_ind &lt; start).sum() &gt; 0 else known_ind[0]
+        end = known_ind[known_ind &gt; end][0] if (known_ind &gt; end).sum() &gt; 0 else known_ind[-1]
         return start, end
 
     def _get_antibody_mask(self, data):
+        &#34;&#34;&#34;Get a mask for the antibody residues.&#34;&#34;&#34;
         mask = torch.zeros_like(data[&#34;mask&#34;]).bool()
         cdrs = data[&#34;cdr&#34;]
         chain_enc = data[&#34;chain_encoding_all&#34;]
@@ -862,6 +872,7 @@ class ProteinDataset(Dataset):
         return mask
 
     def _patch(self, data):
+        &#34;&#34;&#34;Cut the data around the anchor residues.&#34;&#34;&#34;
         # adapted from diffab
         pos_alpha = data[&#34;X&#34;][:, 2]
         start, end = self._get_anchor_ind(data)
@@ -1078,6 +1089,12 @@ from a polymer is sampled, the center of the masked region will be forced to be 
 <dd>if <code>True</code>, the ligands will be loaded as well</dd>
 <dt><strong><code>pyg_graph</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, the output will be a <code>torch_geometric.data.Data</code> object instead of a dictionary</dd>
+<dt><strong><code>patch_around_mask</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, the data entries will be cut around the masked region</dd>
+<dt><strong><code>initial_patch_size</code></strong> :&ensp;<code>int</code>, default <code>128</code></dt>
+<dd>the size of the initial patch (used if <code>patch_around_mask</code> is <code>True</code>)</dd>
+<dt><strong><code>antigen_patch_size</code></strong> :&ensp;<code>int</code>, default <code>128</code></dt>
+<dd>the size of the antigen patch (used if <code>patch_around_mask</code> is <code>True</code> and the dataset is SAbDab)</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -1229,6 +1246,13 @@ from a polymer is sampled, the center of the masked region will be forced to be 
             if `True`, the ligands will be loaded as well
         pyg_graph : bool, default False
             if `True`, the output will be a `torch_geometric.data.Data` object instead of a dictionary
+        patch_around_mask : bool, default False
+            if `True`, the data entries will be cut around the masked region
+        initial_patch_size : int, default 128
+            the size of the initial patch (used if `patch_around_mask` is `True`)
+        antigen_patch_size : int, default 128
+            the size of the antigen patch (used if `patch_around_mask` is `True` and the dataset is SAbDab)
+
         &#34;&#34;&#34;
         alphabet = ALPHABET
         self.alphabet_dict = defaultdict(lambda: 0)
@@ -1676,6 +1700,7 @@ from a polymer is sampled, the center of the masked region will be forced to be 
                         self.indices.append(i)
 
     def _to_pyg_graph(self, data):
+        &#34;&#34;&#34;Convert a dictionary of data to a PyTorch Geometric graph.&#34;&#34;&#34;
         from torch_geometric.data import Data
 
         pyg_data = Data(x=data[&#34;X&#34;])
@@ -1684,14 +1709,16 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         return pyg_data
 
     def _get_anchor_ind(self, data):
+        &#34;&#34;&#34;Get the indices of the anchor residues.&#34;&#34;&#34;
         masked_ind = torch.where(data[&#34;masked_res&#34;].bool())[0]
         known_ind = torch.where(data[&#34;mask&#34;].bool())[0]
         start, end = masked_ind[0], masked_ind[-1]
-        start = known_ind[known_ind &lt; start][-1]
-        end = known_ind[known_ind &gt; end][0]
+        start = known_ind[known_ind &lt; start][-1] if (known_ind &lt; start).sum() &gt; 0 else known_ind[0]
+        end = known_ind[known_ind &gt; end][0] if (known_ind &gt; end).sum() &gt; 0 else known_ind[-1]
         return start, end
 
     def _get_antibody_mask(self, data):
+        &#34;&#34;&#34;Get a mask for the antibody residues.&#34;&#34;&#34;
         mask = torch.zeros_like(data[&#34;mask&#34;]).bool()
         cdrs = data[&#34;cdr&#34;]
         chain_enc = data[&#34;chain_encoding_all&#34;]
@@ -1703,6 +1730,7 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         return mask
 
     def _patch(self, data):
+        &#34;&#34;&#34;Cut the data around the anchor residues.&#34;&#34;&#34;
         # adapted from diffab
         pos_alpha = data[&#34;X&#34;][:, 2]
         start, end = self._get_anchor_ind(data)

@@ -825,8 +825,16 @@ class ProteinDataset(Dataset):
         masked_ind = torch.where(data["masked_res"].bool())[0]
         known_ind = torch.where(data["mask"].bool())[0]
         start, end = masked_ind[0], masked_ind[-1]
-        start = known_ind[known_ind < start][-1]
-        end = known_ind[known_ind > end][0]
+        start = (
+            known_ind[known_ind < start][-1]
+            if (known_ind < start).sum() > 0
+            else known_ind[0]
+        )
+        end = (
+            known_ind[known_ind > end][0]
+            if (known_ind > end).sum() > 0
+            else known_ind[-1]
+        )
         return start, end
 
     def _get_antibody_mask(self, data):
