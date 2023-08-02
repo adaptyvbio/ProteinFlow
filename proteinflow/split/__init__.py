@@ -157,7 +157,7 @@ def _divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
 
     for pdb in tqdm(pdb_seqs_dict.keys()):
         file_names = all_files[all_pdb_files == pdb]
-        if type(file_names) == str:
+        if isinstance(file_names, str):
             file_names = [file_names]
         seqs = pdb_seqs_dict[pdb]
         if len(seqs) == 1 and len(seqs[0].split("-")) == 1:
