@@ -14,7 +14,7 @@
 <style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
 <script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
-<link rel="shortcut icon" type="image/x-icon" href="logo.png?">
+<link rel="shortcut icon" type="image/x-icon" href="adaptyv_logo.png?">
 </head>
 <body>
 <main>
@@ -34,7 +34,8 @@ import pickle
 import random
 from collections import defaultdict
 from copy import deepcopy
-from itertools import combinations
+from itertools import combinations, groupby
+from operator import itemgetter
 
 import numpy as np
 import torch
@@ -647,7 +648,6 @@ class ProteinDataset(Dataset):
                 if self.mask_frac is not None:
                     assert self.mask_frac &gt; 0 and self.mask_frac &lt; 1
                     k = int(len(neighbor_indices) * self.mask_frac)
-                    k = max(k, 10)
                 else:
                     up = min(
                         self.upper_limit, int(len(neighbor_indices) * 0.5)
@@ -850,14 +850,45 @@ class ProteinDataset(Dataset):
             pyg_data[key] = value.unsqueeze(0)
         return pyg_data
 
-    def _get_anchor_ind(self, data):
-        &#34;&#34;&#34;Get the indices of the anchor residues.&#34;&#34;&#34;
-        masked_ind = torch.where(data[&#34;masked_res&#34;].bool())[0]
-        known_ind = torch.where(data[&#34;mask&#34;].bool())[0]
-        start, end = masked_ind[0], masked_ind[-1]
-        start = known_ind[known_ind &lt; start][-1] if (known_ind &lt; start).sum() &gt; 0 else known_ind[0]
-        end = known_ind[known_ind &gt; end][0] if (known_ind &gt; end).sum() &gt; 0 else known_ind[-1]
-        return start, end
+    @staticmethod
+    def get_anchor_ind(masked_res, mask):
+        &#34;&#34;&#34;Get the indices of the anchor residues.
+
+        Anchor residues are defined as the first and last known residues before and
+        after each continuous masked region.
+
+        Parameters
+        ----------
+        masked_res : torch.Tensor
+            A boolean tensor indicating which residues should be predicted
+        mask : torch.Tensor
+            A boolean tensor indicating which residues are known
+
+        Returns
+        -------
+        list
+            A list of indices of the anchor residues
+
+        &#34;&#34;&#34;
+        anchor_ind = []
+        masked_ind = torch.where(masked_res.bool())[0]
+        known_ind = torch.where(mask.bool())[0]
+        for _, g in groupby(enumerate(masked_ind), lambda x: x[0] - x[1]):
+            group = map(itemgetter(1), g)
+            group = list(map(int, group))
+            start, end = group[0], group[-1]
+            start = (
+                known_ind[known_ind &lt; start][-1]
+                if (known_ind &lt; start).sum() &gt; 0
+                else known_ind[0]
+            )
+            end = (
+                known_ind[known_ind &gt; end][0]
+                if (known_ind &gt; end).sum() &gt; 0
+                else known_ind[-1]
+            )
+            anchor_ind += [start, end]
+        return anchor_ind
 
     def _get_antibody_mask(self, data):
         &#34;&#34;&#34;Get a mask for the antibody residues.&#34;&#34;&#34;
@@ -875,11 +906,9 @@ class ProteinDataset(Dataset):
         &#34;&#34;&#34;Cut the data around the anchor residues.&#34;&#34;&#34;
         # adapted from diffab
         pos_alpha = data[&#34;X&#34;][:, 2]
-        start, end = self._get_anchor_ind(data)
-        anchor_points = torch.stack([pos_alpha[start], pos_alpha[end]], dim=0)
-        dist_anchor = torch.cdist(pos_alpha, anchor_points[[0]], p=2).min(dim=1)[
-            0
-        ]  # (L, )
+        anchor_ind = self.get_anchor_ind(data[&#34;masked_res&#34;], data[&#34;mask&#34;])
+        anchor_points = torch.stack([pos_alpha[ind] for ind in anchor_ind], dim=0)
+        dist_anchor = torch.cdist(pos_alpha, anchor_points, p=2).min(dim=1)[0]  # (L, )
         dist_anchor[~data[&#34;mask&#34;].bool()] = float(&#34;+inf&#34;)
         initial_patch_idx = torch.topk(
             dist_anchor,
@@ -889,9 +918,8 @@ class ProteinDataset(Dataset):
         )[
             1
         ]  # (initial_patch_size, )
-        patch_mask = data[&#34;masked_res&#34;].clone()
-        patch_mask[start] = True
-        patch_mask[end] = True
+        patch_mask = data[&#34;masked_res&#34;].bool().clone()
+        patch_mask[[int(x) for x in anchor_ind]] = True
         patch_mask[initial_patch_idx] = True
 
         if self.sabdab:
@@ -1505,7 +1533,6 @@ from a polymer is sampled, the center of the masked region will be forced to be 
                 if self.mask_frac is not None:
                     assert self.mask_frac &gt; 0 and self.mask_frac &lt; 1
                     k = int(len(neighbor_indices) * self.mask_frac)
-                    k = max(k, 10)
                 else:
                     up = min(
                         self.upper_limit, int(len(neighbor_indices) * 0.5)
@@ -1708,14 +1735,45 @@ from a polymer is sampled, the center of the masked region will be forced to be 
             pyg_data[key] = value.unsqueeze(0)
         return pyg_data
 
-    def _get_anchor_ind(self, data):
-        &#34;&#34;&#34;Get the indices of the anchor residues.&#34;&#34;&#34;
-        masked_ind = torch.where(data[&#34;masked_res&#34;].bool())[0]
-        known_ind = torch.where(data[&#34;mask&#34;].bool())[0]
-        start, end = masked_ind[0], masked_ind[-1]
-        start = known_ind[known_ind &lt; start][-1] if (known_ind &lt; start).sum() &gt; 0 else known_ind[0]
-        end = known_ind[known_ind &gt; end][0] if (known_ind &gt; end).sum() &gt; 0 else known_ind[-1]
-        return start, end
+    @staticmethod
+    def get_anchor_ind(masked_res, mask):
+        &#34;&#34;&#34;Get the indices of the anchor residues.
+
+        Anchor residues are defined as the first and last known residues before and
+        after each continuous masked region.
+
+        Parameters
+        ----------
+        masked_res : torch.Tensor
+            A boolean tensor indicating which residues should be predicted
+        mask : torch.Tensor
+            A boolean tensor indicating which residues are known
+
+        Returns
+        -------
+        list
+            A list of indices of the anchor residues
+
+        &#34;&#34;&#34;
+        anchor_ind = []
+        masked_ind = torch.where(masked_res.bool())[0]
+        known_ind = torch.where(mask.bool())[0]
+        for _, g in groupby(enumerate(masked_ind), lambda x: x[0] - x[1]):
+            group = map(itemgetter(1), g)
+            group = list(map(int, group))
+            start, end = group[0], group[-1]
+            start = (
+                known_ind[known_ind &lt; start][-1]
+                if (known_ind &lt; start).sum() &gt; 0
+                else known_ind[0]
+            )
+            end = (
+                known_ind[known_ind &gt; end][0]
+                if (known_ind &gt; end).sum() &gt; 0
+                else known_ind[-1]
+            )
+            anchor_ind += [start, end]
+        return anchor_ind
 
     def _get_antibody_mask(self, data):
         &#34;&#34;&#34;Get a mask for the antibody residues.&#34;&#34;&#34;
@@ -1733,11 +1791,9 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         &#34;&#34;&#34;Cut the data around the anchor residues.&#34;&#34;&#34;
         # adapted from diffab
         pos_alpha = data[&#34;X&#34;][:, 2]
-        start, end = self._get_anchor_ind(data)
-        anchor_points = torch.stack([pos_alpha[start], pos_alpha[end]], dim=0)
-        dist_anchor = torch.cdist(pos_alpha, anchor_points[[0]], p=2).min(dim=1)[
-            0
-        ]  # (L, )
+        anchor_ind = self.get_anchor_ind(data[&#34;masked_res&#34;], data[&#34;mask&#34;])
+        anchor_points = torch.stack([pos_alpha[ind] for ind in anchor_ind], dim=0)
+        dist_anchor = torch.cdist(pos_alpha, anchor_points, p=2).min(dim=1)[0]  # (L, )
         dist_anchor[~data[&#34;mask&#34;].bool()] = float(&#34;+inf&#34;)
         initial_patch_idx = torch.topk(
             dist_anchor,
@@ -1747,9 +1803,8 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         )[
             1
         ]  # (initial_patch_size, )
-        patch_mask = data[&#34;masked_res&#34;].clone()
-        patch_mask[start] = True
-        patch_mask[end] = True
+        patch_mask = data[&#34;masked_res&#34;].bool().clone()
+        patch_mask[[int(x) for x in anchor_ind]] = True
         patch_mask[initial_patch_idx] = True
 
         if self.sabdab:
@@ -1836,6 +1891,73 @@ from a polymer is sampled, the center of the masked region will be forced to be 
 <li>torch.utils.data.dataset.Dataset</li>
 <li>typing.Generic</li>
 </ul>
+<h3>Static methods</h3>
+<dl>
+<dt id="proteinflow.data.torch.ProteinDataset.get_anchor_ind"><code class="name flex">
+<span>def <span class="ident">get_anchor_ind</span></span>(<span>masked_res, mask)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the indices of the anchor residues.</p>
+<p>Anchor residues are defined as the first and last known residues before and
+after each continuous masked region.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>masked_res</code></strong> :&ensp;<code>torch.Tensor</code></dt>
+<dd>A boolean tensor indicating which residues should be predicted</dd>
+<dt><strong><code>mask</code></strong> :&ensp;<code>torch.Tensor</code></dt>
+<dd>A boolean tensor indicating which residues are known</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>list</code></dt>
+<dd>A list of indices of the anchor residues</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def get_anchor_ind(masked_res, mask):
+    &#34;&#34;&#34;Get the indices of the anchor residues.
+
+    Anchor residues are defined as the first and last known residues before and
+    after each continuous masked region.
+
+    Parameters
+    ----------
+    masked_res : torch.Tensor
+        A boolean tensor indicating which residues should be predicted
+    mask : torch.Tensor
+        A boolean tensor indicating which residues are known
+
+    Returns
+    -------
+    list
+        A list of indices of the anchor residues
+
+    &#34;&#34;&#34;
+    anchor_ind = []
+    masked_ind = torch.where(masked_res.bool())[0]
+    known_ind = torch.where(mask.bool())[0]
+    for _, g in groupby(enumerate(masked_ind), lambda x: x[0] - x[1]):
+        group = map(itemgetter(1), g)
+        group = list(map(int, group))
+        start, end = group[0], group[-1]
+        start = (
+            known_ind[known_ind &lt; start][-1]
+            if (known_ind &lt; start).sum() &gt; 0
+            else known_ind[0]
+        )
+        end = (
+            known_ind[known_ind &gt; end][0]
+            if (known_ind &gt; end).sum() &gt; 0
+            else known_ind[-1]
+        )
+        anchor_ind += [start, end]
+    return anchor_ind</code></pre>
+</details>
+</dd>
+</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="proteinflow.data.torch.ProteinDataset.set_cdr"><code class="name flex">
@@ -2300,7 +2422,7 @@ def from_args(
 <nav id="sidebar">
 <header>
 <a class="homelink" rel="home" title="pdoc Home" href="https://adaptyvbio.github.io/ProteinFlow/">
-<img src="https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/logo.png" alt="">
+<img src="https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/proteinflow_logo.png" alt="">
 </a>
 </header>
 <h1>Index</h1>
@@ -2318,6 +2440,7 @@ def from_args(
 <li>
 <h4><code><a title="proteinflow.data.torch.ProteinDataset" href="#proteinflow.data.torch.ProteinDataset">ProteinDataset</a></code></h4>
 <ul class="">
+<li><code><a title="proteinflow.data.torch.ProteinDataset.get_anchor_ind" href="#proteinflow.data.torch.ProteinDataset.get_anchor_ind">get_anchor_ind</a></code></li>
 <li><code><a title="proteinflow.data.torch.ProteinDataset.set_cdr" href="#proteinflow.data.torch.ProteinDataset.set_cdr">set_cdr</a></code></li>
 </ul>
 </li>
