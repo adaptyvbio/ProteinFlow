@@ -321,6 +321,7 @@ class ProteinDataset(Dataset):
         upper_limit=100,
         mask_frac=None,
         mask_whole_chains=False,
+        mask_sequential=False,
         force_binding_sites_frac=0.15,
         mask_all_cdrs=False,
         load_ligands=False,
@@ -380,6 +381,9 @@ class ProteinDataset(Dataset):
             if given, the number of residues to mask is `mask_frac` times the length of the chain
         mask_whole_chains : bool, default False
             if `True`, the whole chain is masked
+        mask_sequential : bool, default False
+            if `True`, the masked residues will be neighbors in the sequence; otherwise a geometric
+            mask is applied based on the coordinates
         force_binding_sites_frac : float, default 0.15
             if `force_binding_sites_frac` &gt; 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
             from a polymer is sampled, the center of the masked region will be forced to be in a binding site (in PDB datasets)
@@ -419,6 +423,7 @@ class ProteinDataset(Dataset):
         self.patch_around_mask = patch_around_mask
         self.initial_patch_size = initial_patch_size
         self.antigen_patch_size = antigen_patch_size
+        self.mask_sequential = mask_sequential
         self.feature_types = []
         if node_features_type is not None:
             self.feature_types = node_features_type.split(&#34;+&#34;)
@@ -570,6 +575,9 @@ class ProteinDataset(Dataset):
         - if `mask_frac` is given, the number of residues to mask is `mask_frac` times the length of the chain,
         - otherwise, the number of residues to mask is sampled uniformly from the range [`lower_limit`, `upper_limit`].
 
+        If `mask_sequential` is `True`, the residues are masked based on the order in the sequence, otherwise a
+        spherical mask is applied based on the coordinates.
+
         If `force_binding_sites_frac` &gt; 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
         from a polymer is sampled, the center of the masked region will be forced to be in a binding site.
 
@@ -654,13 +662,18 @@ class ProteinDataset(Dataset):
                     )  # do not mask more than half of the sequence
                     low = min(up - 1, self.lower_limit)
                     k = random.choice(range(low, up))
-                dist = torch.norm(
-                    chain[neighbor_indices, 2, :] - res_coords.unsqueeze(0), dim=-1
-                )
-                closest_indices = neighbor_indices[
-                    torch.topk(dist, k, largest=False)[1]
-                ]
-                chain_M[closest_indices + chain_start] = 1
+                if self.mask_sequential:
+                    start = max(0, res_i - k // 2)
+                    end = min(len(chain), res_i + k // 2)
+                    chain_M[chain_start + start : chain_start + end] = 1
+                else:
+                    dist = torch.norm(
+                        chain[neighbor_indices, 2, :] - res_coords.unsqueeze(0), dim=-1
+                    )
+                    closest_indices = neighbor_indices[
+                        torch.topk(dist, k, largest=False)[1]
+                    ]
+                    chain_M[closest_indices + chain_start] = 1
         return chain_M
 
     def _dihedral(self, data_entry, chains):
@@ -906,8 +919,12 @@ class ProteinDataset(Dataset):
         &#34;&#34;&#34;Cut the data around the anchor residues.&#34;&#34;&#34;
         # adapted from diffab
         pos_alpha = data[&#34;X&#34;][:, 2]
-        anchor_ind = self.get_anchor_ind(data[&#34;masked_res&#34;], data[&#34;mask&#34;])
-        anchor_points = torch.stack([pos_alpha[ind] for ind in anchor_ind], dim=0)
+        if self.mask_whole_chains:
+            mask_ = (data[&#34;mask&#34;] * data[&#34;masked_res&#34;]).bool()
+            anchor_points = pos_alpha[mask_].mean(0).unsqueeze(0)
+        else:
+            anchor_ind = self.get_anchor_ind(data[&#34;masked_res&#34;], data[&#34;mask&#34;])
+            anchor_points = torch.stack([pos_alpha[ind] for ind in anchor_ind], dim=0)
         dist_anchor = torch.cdist(pos_alpha, anchor_points, p=2).min(dim=1)[0]  # (L, )
         dist_anchor[~data[&#34;mask&#34;].bool()] = float(&#34;+inf&#34;)
         initial_patch_idx = torch.topk(
@@ -1013,7 +1030,7 @@ class ProteinDataset(Dataset):
 <dl>
 <dt id="proteinflow.data.torch.ProteinDataset"><code class="flex name class">
 <span>class <span class="ident">ProteinDataset</span></span>
-<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', debug_file_path=None, entry_type='biounit', classes_to_exclude=None, shuffle_clusters=True, min_cdr_length=None, feature_functions=None, classes_dict_path=None, cut_edges=False, mask_residues=True, lower_limit=15, upper_limit=100, mask_frac=None, mask_whole_chains=False, force_binding_sites_frac=0.15, mask_all_cdrs=False, load_ligands=False, pyg_graph=False, patch_around_mask=False, initial_patch_size=128, antigen_patch_size=128)</span>
+<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', debug_file_path=None, entry_type='biounit', classes_to_exclude=None, shuffle_clusters=True, min_cdr_length=None, feature_functions=None, classes_dict_path=None, cut_edges=False, mask_residues=True, lower_limit=15, upper_limit=100, mask_frac=None, mask_whole_chains=False, mask_sequential=False, force_binding_sites_frac=0.15, mask_all_cdrs=False, load_ligands=False, pyg_graph=False, patch_around_mask=False, initial_patch_size=128, antigen_patch_size=128)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Dataset to load proteinflow data.</p>
@@ -1108,6 +1125,9 @@ for chain-chain pairs (all pairs that are seen in the same biounit and have inte
 <dd>if given, the number of residues to mask is <code>mask_frac</code> times the length of the chain</dd>
 <dt><strong><code>mask_whole_chains</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, the whole chain is masked</dd>
+<dt><strong><code>mask_sequential</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, the masked residues will be neighbors in the sequence; otherwise a geometric
+mask is applied based on the coordinates</dd>
 <dt><strong><code>force_binding_sites_frac</code></strong> :&ensp;<code>float</code>, default <code>0.15</code></dt>
 <dd>if <code>force_binding_sites_frac</code> &gt; 0 and <code>mask_whole_chains</code> is <code>False</code>, in the fraction of cases where a chain
 from a polymer is sampled, the center of the masked region will be forced to be in a binding site (in PDB datasets)</dd>
@@ -1206,6 +1226,7 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         upper_limit=100,
         mask_frac=None,
         mask_whole_chains=False,
+        mask_sequential=False,
         force_binding_sites_frac=0.15,
         mask_all_cdrs=False,
         load_ligands=False,
@@ -1265,6 +1286,9 @@ from a polymer is sampled, the center of the masked region will be forced to be 
             if given, the number of residues to mask is `mask_frac` times the length of the chain
         mask_whole_chains : bool, default False
             if `True`, the whole chain is masked
+        mask_sequential : bool, default False
+            if `True`, the masked residues will be neighbors in the sequence; otherwise a geometric
+            mask is applied based on the coordinates
         force_binding_sites_frac : float, default 0.15
             if `force_binding_sites_frac` &gt; 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
             from a polymer is sampled, the center of the masked region will be forced to be in a binding site (in PDB datasets)
@@ -1304,6 +1328,7 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         self.patch_around_mask = patch_around_mask
         self.initial_patch_size = initial_patch_size
         self.antigen_patch_size = antigen_patch_size
+        self.mask_sequential = mask_sequential
         self.feature_types = []
         if node_features_type is not None:
             self.feature_types = node_features_type.split(&#34;+&#34;)
@@ -1455,6 +1480,9 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         - if `mask_frac` is given, the number of residues to mask is `mask_frac` times the length of the chain,
         - otherwise, the number of residues to mask is sampled uniformly from the range [`lower_limit`, `upper_limit`].
 
+        If `mask_sequential` is `True`, the residues are masked based on the order in the sequence, otherwise a
+        spherical mask is applied based on the coordinates.
+
         If `force_binding_sites_frac` &gt; 0 and `mask_whole_chains` is `False`, in the fraction of cases where a chain
         from a polymer is sampled, the center of the masked region will be forced to be in a binding site.
 
@@ -1539,13 +1567,18 @@ from a polymer is sampled, the center of the masked region will be forced to be 
                     )  # do not mask more than half of the sequence
                     low = min(up - 1, self.lower_limit)
                     k = random.choice(range(low, up))
-                dist = torch.norm(
-                    chain[neighbor_indices, 2, :] - res_coords.unsqueeze(0), dim=-1
-                )
-                closest_indices = neighbor_indices[
-                    torch.topk(dist, k, largest=False)[1]
-                ]
-                chain_M[closest_indices + chain_start] = 1
+                if self.mask_sequential:
+                    start = max(0, res_i - k // 2)
+                    end = min(len(chain), res_i + k // 2)
+                    chain_M[chain_start + start : chain_start + end] = 1
+                else:
+                    dist = torch.norm(
+                        chain[neighbor_indices, 2, :] - res_coords.unsqueeze(0), dim=-1
+                    )
+                    closest_indices = neighbor_indices[
+                        torch.topk(dist, k, largest=False)[1]
+                    ]
+                    chain_M[closest_indices + chain_start] = 1
         return chain_M
 
     def _dihedral(self, data_entry, chains):
@@ -1791,8 +1824,12 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         &#34;&#34;&#34;Cut the data around the anchor residues.&#34;&#34;&#34;
         # adapted from diffab
         pos_alpha = data[&#34;X&#34;][:, 2]
-        anchor_ind = self.get_anchor_ind(data[&#34;masked_res&#34;], data[&#34;mask&#34;])
-        anchor_points = torch.stack([pos_alpha[ind] for ind in anchor_ind], dim=0)
+        if self.mask_whole_chains:
+            mask_ = (data[&#34;mask&#34;] * data[&#34;masked_res&#34;]).bool()
+            anchor_points = pos_alpha[mask_].mean(0).unsqueeze(0)
+        else:
+            anchor_ind = self.get_anchor_ind(data[&#34;masked_res&#34;], data[&#34;mask&#34;])
+            anchor_points = torch.stack([pos_alpha[ind] for ind in anchor_ind], dim=0)
         dist_anchor = torch.cdist(pos_alpha, anchor_points, p=2).min(dim=1)[0]  # (L, )
         dist_anchor[~data[&#34;mask&#34;].bool()] = float(&#34;+inf&#34;)
         initial_patch_idx = torch.topk(
