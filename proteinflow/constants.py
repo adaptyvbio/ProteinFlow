@@ -56,6 +56,7 @@ D3TO1 = {
 }
 
 REVERSE_D3TO1 = {v: k for k, v in D3TO1.items()}
+REVERSE_D3TO1["-"] = "GLY"
 REVERSE_D3TO1["X"] = "GLY"
 
 ALPHABET = "-ACDEFGHIKLMNPQRSTVWY"
