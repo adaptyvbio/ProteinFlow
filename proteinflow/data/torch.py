@@ -876,6 +876,9 @@ class ProteinDataset(Dataset):
         """Cut the data around the anchor residues."""
         # adapted from diffab
         pos_alpha = data["X"][:, 2]
+        if self.mask_whole_chains:
+            mask_ = (data["mask"] * data["masked_res"]).bool()
+            anchor_points = pos_alpha[mask_].mean(0).unsqueeze(0)
         anchor_ind = self.get_anchor_ind(data["masked_res"], data["mask"])
         anchor_points = torch.stack([pos_alpha[ind] for ind in anchor_ind], dim=0)
         dist_anchor = torch.cdist(pos_alpha, anchor_points, p=2).min(dim=1)[0]  # (L, )
