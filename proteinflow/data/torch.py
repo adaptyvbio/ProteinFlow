@@ -583,14 +583,13 @@ class ProteinDataset(Dataset):
                 res_i = None
                 interface = []
                 non_masked_interface = []
-                interface = False
+                interface_ = False
                 if len(chains) > 1 and self.force_binding_sites_frac > 0:
                     if random.uniform(0, 1) <= self.force_binding_sites_frac:
-                        interface = True
                         X_copy = data["X"]
 
-                        i_indices = (chain_bool == 0).nonzero().flatten()
-                        j_indices = chain_bool.nonzero().flatten()
+                        i_indices = (chain_bool == 0).nonzero().flatten() # global
+                        j_indices = chain_bool.nonzero().flatten() # global
 
                         distances = torch.norm(
                             X_copy[i_indices, 2, :]
@@ -600,23 +599,25 @@ class ProteinDataset(Dataset):
                         close_idx = (
                             np.where(torch.min(distances, dim=1)[0] <= 10)[0]
                             + chain_start.item()
-                        )
+                        ) # global
 
-                        no_mask_idx = np.where(data["mask"][chain_bool])[0]
-                        interface = np.intersect1d(close_idx, j_indices)
+                        no_mask_idx = np.where(data["mask"][chain_bool])[0] + chain_start.item() # global
+                        interface = np.intersect1d(close_idx, j_indices) # global
 
                         not_end_mask = np.where(
                             (X_copy[:, 2, :].cpu() == 0).sum(-1) != 3
                         )[0]
-                        interface = np.intersect1d(interface, not_end_mask)
+                        interface = np.intersect1d(interface, not_end_mask) # global
 
                         non_masked_interface = np.intersect1d(interface, no_mask_idx)
                         interpolate = True
                         if len(non_masked_interface) > 0:
+                            interface_ = True
                             res_i = non_masked_interface[
                                 random.randint(0, len(non_masked_interface) - 1)
                             ]
                         elif len(interface) > 0 and interpolate:
+                            interface_ = True
                             res_i = interface[random.randint(0, len(interface) - 1)]
                         else:
                             res_i = no_mask_idx[random.randint(0, len(no_mask_idx) - 1)]
