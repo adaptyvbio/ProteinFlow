@@ -583,8 +583,10 @@ class ProteinDataset(Dataset):
                 res_i = None
                 interface = []
                 non_masked_interface = []
+                interface = False
                 if len(chains) > 1 and self.force_binding_sites_frac > 0:
                     if random.uniform(0, 1) <= self.force_binding_sites_frac:
+                        interface = True
                         X_copy = data["X"]
 
                         i_indices = (chain_bool == 0).nonzero().flatten()
@@ -619,7 +621,7 @@ class ProteinDataset(Dataset):
                         else:
                             res_i = no_mask_idx[random.randint(0, len(no_mask_idx) - 1)]
                 if res_i is None:
-                    non_zero = torch.where(data["mask"][chain_bool])[0]
+                    non_zero = torch.where(data["mask"] * chain_bool)[0]
                     res_i = non_zero[random.randint(0, len(non_zero) - 1)]
                 res_coords = data["X"][res_i, 2, :]
                 neighbor_indices = torch.where(data["mask"][chain_bool])[0]
@@ -633,8 +635,8 @@ class ProteinDataset(Dataset):
                     low = min(up - 1, self.lower_limit)
                     k = random.choice(range(low, up))
                 if self.mask_sequential:
-                    start = max(0, res_i - k // 2)
-                    end = min(len(chain), res_i + k // 2)
+                    start = max(1, res_i - chain_start - k // 2)
+                    end = min(len(chain) - 1, res_i - chain_start + k // 2)
                     chain_M[chain_start + start : chain_start + end] = 1
                 else:
                     dist = torch.norm(
