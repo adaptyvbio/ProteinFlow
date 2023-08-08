@@ -894,6 +894,7 @@ class ProteinDataset(Dataset):
         if self.mask_whole_chains:
             mask_ = (data["mask"] * data["masked_res"]).bool()
             anchor_points = pos_alpha[mask_].mean(0).unsqueeze(0)
+            anchor_ind = []
         else:
             anchor_ind = self.get_anchor_ind(data["masked_res"], data["mask"])
             anchor_points = torch.stack([pos_alpha[ind] for ind in anchor_ind], dim=0)
