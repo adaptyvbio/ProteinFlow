@@ -583,14 +583,12 @@ class ProteinDataset(Dataset):
                 res_i = None
                 interface = []
                 non_masked_interface = []
-                interface = False
                 if len(chains) > 1 and self.force_binding_sites_frac > 0:
                     if random.uniform(0, 1) <= self.force_binding_sites_frac:
-                        interface = True
                         X_copy = data["X"]
 
-                        i_indices = (chain_bool == 0).nonzero().flatten()
-                        j_indices = chain_bool.nonzero().flatten()
+                        i_indices = (chain_bool == 0).nonzero().flatten()  # global
+                        j_indices = chain_bool.nonzero().flatten()  # global
 
                         distances = torch.norm(
                             X_copy[i_indices, 2, :]
@@ -600,15 +598,17 @@ class ProteinDataset(Dataset):
                         close_idx = (
                             np.where(torch.min(distances, dim=1)[0] <= 10)[0]
                             + chain_start.item()
-                        )
+                        )  # global
 
-                        no_mask_idx = np.where(data["mask"][chain_bool])[0]
-                        interface = np.intersect1d(close_idx, j_indices)
+                        no_mask_idx = (
+                            np.where(data["mask"][chain_bool])[0] + chain_start.item()
+                        )  # global
+                        interface = np.intersect1d(close_idx, j_indices)  # global
 
                         not_end_mask = np.where(
                             (X_copy[:, 2, :].cpu() == 0).sum(-1) != 3
                         )[0]
-                        interface = np.intersect1d(interface, not_end_mask)
+                        interface = np.intersect1d(interface, not_end_mask)  # global
 
                         non_masked_interface = np.intersect1d(interface, no_mask_idx)
                         interpolate = True
@@ -894,6 +894,7 @@ class ProteinDataset(Dataset):
         if self.mask_whole_chains:
             mask_ = (data["mask"] * data["masked_res"]).bool()
             anchor_points = pos_alpha[mask_].mean(0).unsqueeze(0)
+            anchor_ind = []
         else:
             anchor_ind = self.get_anchor_ind(data["masked_res"], data["mask"])
             anchor_points = torch.stack([pos_alpha[ind] for ind in anchor_ind], dim=0)
