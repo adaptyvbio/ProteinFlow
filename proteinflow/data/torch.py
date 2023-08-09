@@ -65,7 +65,6 @@ class ProteinLoader(DataLoader):
 
     If batch size is larger than one, all objects are padded with zeros at the ends to reach the length of the
     longest protein in the batch.
-
     """
 
     def __init__(
