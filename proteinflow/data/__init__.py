@@ -651,7 +651,7 @@ class ProteinEntry:
             A `ProteinEntry` object
 
         """
-        chains = sorted(dictionary.keys())
+        chains = sorted([x for x in dictionary.keys() if x != "protein_id"])
         seq = [dictionary[k]["seq"] for k in chains]
         crd = [
             np.concatenate([dictionary[k]["crd_bb"], dictionary[k]["crd_sc"]], axis=1)
