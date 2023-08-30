@@ -32,7 +32,14 @@ class _PadCollate:
                 max_len = max(map(lambda x: x["S"].shape[0], batch))
                 # pad according to max_len
                 to_pad = [max_len - b["S"].shape[0] for b in batch]
-            if key in ["chain_id", "chain_dict", "pdb_id", "cdr_id", "ligand_smiles"]:
+            if key in [
+                "chain_id",
+                "chain_dict",
+                "pdb_id",
+                "cdr_id",
+                "ligand_smiles",
+                "chain_type_dict",
+            ]:
                 continue
             out[key] = torch.stack(
                 [
@@ -760,6 +767,7 @@ class ProteinDataset(Dataset):
             if data_entry.has_cdr():
                 out["cdr"] = torch.tensor(data_entry.get_cdr(chain_set, encode=True))
                 chain_type_dict = data_entry.get_chain_type_dict(chain_set)
+                out["chain_type_dict"] = chain_type_dict
                 if "heavy" in chain_type_dict:
                     cdr_chain_set.update(
                         [
