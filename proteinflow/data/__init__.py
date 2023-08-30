@@ -528,6 +528,28 @@ class ProteinEntry:
             self.cdr[new_chain] = self.cdr.pop(old_chain)
             self.predict_mask[new_chain] = self.predict_mask.pop(old_chain)
 
+    def get_predicted_entry(self):
+        """Return a `ProteinEntry` object that only contains predicted residues."""
+        if self.predict_mask is None:
+            raise ValueError("Predicted mask not available")
+        entry_dict = self.to_dict()
+        for chain in self.get_chains():
+            mask_ = self.predict_mask[chain].astype(bool)
+            if mask_.sum() == 0:
+                entry_dict.pop(chain)
+                continue
+            if mask_.sum() == len(mask_):
+                continue
+            seq_arr = np.array(list(entry_dict[chain]["seq"]))
+            entry_dict[chain]["seq"] = "".join(seq_arr[mask_])
+            entry_dict[chain]["crd_bb"] = entry_dict[chain]["crd_bb"][mask_]
+            entry_dict[chain]["crd_sc"] = entry_dict[chain]["crd_sc"][mask_]
+            entry_dict[chain]["msk"] = entry_dict[chain]["msk"][mask_]
+            entry_dict[chain]["predict_msk"] = entry_dict[chain]["predict_msk"][mask_]
+            if "cdr" in entry_dict[chain]:
+                entry_dict[chain]["cdr"] = entry_dict[chain]["cdr"][mask_]
+        return ProteinEntry.from_dict(entry_dict)
+
     def merge(self, entry):
         """Merge another `ProteinEntry` object into this one.
 
