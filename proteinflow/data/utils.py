@@ -20,7 +20,11 @@ from proteinflow.constants import (
 
 
 class PDBBuilder:
-    """Creates a PDB file from a `ProteinEntry` object."""
+    """
+    Creates a PDB file from a `ProteinEntry` object.
+
+    Adapted from [sidechainnet](https://github.com/jonathanking/sidechainnet) by Jonathan King.
+    """
 
     def __init__(
         self, protein_entry, only_ca=False, skip_oxygens=False, only_backbone=False
@@ -271,7 +275,12 @@ class PDBError(ValueError):
 
 
 def _annotate_sse(X):
-    """Annotation of secondary structure elements (SSEs) in a chain."""
+    """
+    Annotation of secondary structure elements (SSEs) in a chain.
+
+    Adapted from [biotite](https://github.com/biotite-dev/biotite).
+
+    """
     ca_coord = X[:, 2, :]
     length = ca_coord.shape[0]
 
@@ -529,6 +538,12 @@ def _retrieve_chain_names(entry):
 
 
 class _Atom(dict):
+    """
+    A class representing an atom in a PDB file (for visualization).
+
+    Adapted from https://william-dawson.github.io/using-py3dmol.html
+    """
+
     def __init__(self, row):
         self["type"] = row["record_name"]
         self["idx"] = row["atom_number"]
