@@ -122,7 +122,14 @@ def merge_pickle_files(paths_to_merge, save_path):
         raise ValueError("save_path must end with .pdb or .pickle")
 
 
-def show_merged_pickle(file_paths, highlight_masks=None, style="cartoon", opacity=1.0):
+def show_merged_pickle(
+    file_paths,
+    highlight_masks=None,
+    style="cartoon",
+    highlight_style=None,
+    opacity=1.0,
+    only_predicted=False,
+):
     """Show a merged visualization of the given PDB or pickle files.
 
     Parameters
@@ -134,8 +141,13 @@ def show_merged_pickle(file_paths, highlight_masks=None, style="cartoon", opacit
         the chains to be concatenated in alphabetical order.
     style : str, optional
         The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
+    highlight_style : str, optional
+        The style of the highlighted atoms; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
+        (defaults to the same as `style`)
     opacity : float or list, default 1
         The opacity of the visualization.
+    only_predicted : bool, default False
+        Whether to only overlay the predicted atoms.
 
     """
     create_fn = ProteinEntry.from_pickle
@@ -152,18 +164,26 @@ def show_merged_pickle(file_paths, highlight_masks=None, style="cartoon", opacit
             highlight_masks[i] = np.zeros(entry.get_mask().sum())
     merged_entry = entries[0]
     for entry in entries[1:]:
+        if only_predicted:
+            entry = entry.get_predicted_entry()
         merged_entry.merge(entry)
     if highlight_masks is not None:
         highlight_mask = np.concatenate(highlight_masks, axis=0)
     else:
         highlight_mask = None
     merged_entry.visualize(
-        style=style, highlight_mask=highlight_mask, opacity=opacity_dict
+        style=style,
+        highlight_style=highlight_style,
+        highlight_mask=highlight_mask,
+        opacity=opacity_dict,
     )
 
 
 def show_merged_pdb(
-    file_paths, highlight_mask_dicts=None, style="cartoon", opacity=1.0
+    file_paths,
+    highlight_mask_dicts=None,
+    style="cartoon",
+    opacity=1.0,
 ):
     """Show a merged visualization of the given PDB or pickle files.
 
