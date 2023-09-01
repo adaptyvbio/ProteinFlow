@@ -123,7 +123,12 @@ def merge_pickle_files(paths_to_merge, save_path):
 
 
 def show_merged_pickle(
-    file_paths, highlight_masks=None, style="cartoon", opacity=1.0, only_predicted=False
+    file_paths,
+    highlight_masks=None,
+    style="cartoon",
+    highlight_style=None,
+    opacity=1.0,
+    only_predicted=False,
 ):
     """Show a merged visualization of the given PDB or pickle files.
 
@@ -136,6 +141,9 @@ def show_merged_pickle(
         the chains to be concatenated in alphabetical order.
     style : str, optional
         The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
+    highlight_style : str, optional
+        The style of the highlighted atoms; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
+        (defaults to the same as `style`)
     opacity : float or list, default 1
         The opacity of the visualization.
     only_predicted : bool, default False
@@ -164,7 +172,10 @@ def show_merged_pickle(
     else:
         highlight_mask = None
     merged_entry.visualize(
-        style=style, highlight_mask=highlight_mask, opacity=opacity_dict
+        style=style,
+        highlight_style=highlight_style,
+        highlight_mask=highlight_mask,
+        opacity=opacity_dict,
     )
 
 
