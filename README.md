@@ -103,7 +103,7 @@ For instance, let's generate a dataset with the following description:
 - size of validation subset: 10%.
 
 ```bash
-proteinflow generate --sabdab --resolution_thr 5 --not_filter_methods --min_seq_id 0.4 --valid_split 0.1
+proteinflow generate --sabdab --tag new --resolution_thr 5 --not_filter_methods --min_seq_id 0.4 --valid_split 0.1
 ```
 
 ### Splitting
