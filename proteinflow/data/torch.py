@@ -127,6 +127,7 @@ class ProteinLoader(DataLoader):
         mask_all_cdrs=False,
         classes_dict_path=None,
         load_ligands=False,
+        cut_edges=False,
         *args,
         **kwargs,
     ) -> None:
@@ -181,6 +182,8 @@ class ProteinLoader(DataLoader):
             path to the pickled classes dictionary
         load_ligands : bool, default False
             if `True`, the ligands will be loaded from the PDB files and added to the features
+        cut_edges : bool, default False
+            if `True`, missing values at the edges of the sequence will be cut off
         *args
             additional arguments to `torch.utils.data.DataLoader`
         **kwargs
@@ -210,6 +213,7 @@ class ProteinLoader(DataLoader):
             force_binding_sites_frac=force_binding_sites_frac,
             mask_all_cdrs=mask_all_cdrs,
             load_ligands=load_ligands,
+            cut_edges=cut_edges,
         )
         return ProteinLoader(
             dataset=dataset,
