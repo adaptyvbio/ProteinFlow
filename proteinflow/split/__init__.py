@@ -72,10 +72,10 @@ def _run_mmseqs2(fasta_file, tmp_folder, min_seq_id, cdr=None):
 
 
 def _run_foldseek(data_folder, tmp_folder, min_seq_id):
-    """
-    Run the FoldSeek command with the parameters we want.
+    """Run the FoldSeek command with the parameters we want.
 
     Results are stored in the tmp_folder/MMSeqs2 directory.
+
     """
     folder = "MMSeqs2_results"
     os.makedirs(os.path.join(tmp_folder, folder), exist_ok=True)
@@ -97,8 +97,7 @@ def _run_foldseek(data_folder, tmp_folder, min_seq_id):
 
 
 def _read_clusters(tmp_folder, cdr=None):
-    """
-    Read the output from MMSeqs2 and produces 2 dictionaries that store the clusters information.
+    """Read the output from MMSeqs2 and produces 2 dictionaries that store the clusters information.
 
     In cluster_dict, values are the full names (pdb + chains) whereas in cluster_pdb_dict, values are just the PDB ids (so less clusters but bigger).
     """
@@ -149,10 +148,10 @@ def _read_clusters(tmp_folder, cdr=None):
 
 
 def _make_graph(cluster_pdb_dict):
-    """
-    Produce a graph that relates clusters together.
+    """Produce a graph that relates clusters together.
 
     Connections represent a PDB shared by 2 clusters. The more shared PDBs, the stronger the connection.
+
     """
     keys = list(cluster_pdb_dict.keys())
     keys_mapping = {length: k for length, k in enumerate(keys)}
@@ -230,10 +229,10 @@ def _divide_according_to_chains_interactions(pdb_seqs_dict, dataset_dir):
 def _find_chains_in_graph(
     graph, clusters_dict, biounit_chains_array, pdbs_array, chains_array
 ):
-    """
-    Find all the biounit chains present in a given graph or subgraph.
+    """Find all the biounit chains present in a given graph or subgraph.
 
     Return a dictionary for which each key is a cluster name (merged chains name) and the values are all the biounit chains contained in this cluster.
+
     """
     res_dict = {}
     for k, node in enumerate(graph):
@@ -259,11 +258,11 @@ def _find_chains_in_graph(
 
 
 def _find_repartition(chains_dict, homomers, heteromers):
-    """
-    Return a dictionary similar to the one created by find_chains_in_graph, with an additional level of classification for single chains, homomers and heteromers.
+    """Return a dictionary similar to the one created by find_chains_in_graph, with an additional level of classification for single chains, homomers and heteromers.
 
     Dictionary structure : `{'single_chains' : {cluster_name : [biounit chains]}, 'homomers' : {cluster_name : [biounit chains]}, 'heteromers' : {cluster_name : [biounit chains]}}`.
     Additionally return the number of chains in each class (single chains, ...).
+
     """
     classes_dict = {
         "single_chains": defaultdict(lambda: []),
@@ -307,12 +306,12 @@ def _find_subgraphs_infos(
     homomers,
     heteromers,
 ):
-    """
-    Given a list of subgraphs, return a list of dictionaries and an array of sizes of the same length.
+    """Given a list of subgraphs, return a list of dictionaries and an array of sizes of the same length.
 
     Dictionaries are the `chains_dict` and `classes_dict` corresponding to each subgraph, returned by the `find_chains_in_graph`.
     and `find_repartition` functions respectively. The array of sizes is of shape (len(subgraph), 3).
     It gives the number of single chains, homomers and heteromers present in each subgraph.
+
     """
     size_array = np.zeros((len(subgraphs), 3))
     dict_list = []
@@ -336,12 +335,12 @@ def _find_subgraphs_infos(
 
 
 def _construct_dataset(dict_list, size_array, indices):
-    """
-    Get a supergraph containing all subgraphs indicated by `indices`.
+    """Get a supergraph containing all subgraphs indicated by `indices`.
 
     Given the `dict_list` and `size_array` returned by `find_subgraphs_info`, return the 2 dictionaries (`chains_dict` and `classes_dict`).
     corresponding to the graph encompassing all the subgraphs indicated by indices.
     Additionally return the number of single chains, homomers and heteromers in this supergraph.
+
     """
     dataset_clusters_dict = {}
     dataset_classes_dict = {"single_chains": {}, "homomers": {}, "heteromers": {}}
@@ -375,10 +374,10 @@ def _remove_elements_from_dataset(
     size_array,
     tolerance=0.2,
 ):
-    """
-    Remove values from indices until we get the required (`size_obj`) number of chains in the class of interest (`chain_class`).
+    """Remove values from indices until we get the required (`size_obj`) number of chains in the class of interest (`chain_class`).
 
     Parameter `chain_class` corresponds to the single chain (0), homomer (1) or heteromer (2) class.
+
     """
     sizes = [s[chain_class] for s in size_array[indices]]
     sorted_sizes_indices = np.argsort(sizes)[::-1]
@@ -431,10 +430,10 @@ def _add_elements_to_dataset(
     size_array,
     tolerance=0.2,
 ):
-    """
-    Add values to indices until we get the required (`size_obj`) number of chains in the class of interest (`chain_class`).
+    """Add values to indices until we get the required (`size_obj`) number of chains in the class of interest (`chain_class`).
 
     Parameter `chain_class` corresponds to the single chain (0), homomer (1) or heteromer (2) class.
+
     """
     sizes = [s[chain_class] for s in size_array[remaining_indices]]
     sorted_sizes_indices = np.argsort(sizes)[::-1]
@@ -481,11 +480,11 @@ def _adjust_dataset(
     ht_available,
     tolerance=0.2,
 ):
-    """
-    If required, remove and add values in indices so that the number of chains in each class correspond to the required numbers within a tolerance.
+    """If required, remove and add values in indices so that the number of chains in each class correspond to the required numbers within a tolerance.
 
     First remove and then add (if necessary, for each class separately).
     In the end, we might end up with more chains than desired in the first 2 classes but for a reasonable tolerance (~10-20 %), this should not happen.
+
     """
     if single_chains_size > (1 + tolerance) * n_single_chains and sc_available:
         (
@@ -617,12 +616,12 @@ def _fill_dataset(
     n_max_iter=100,
     tolerance=0.2,
 ):
-    """
-    Construct a dataset from subgraphs indicated by `indices`.
+    """Construct a dataset from subgraphs indicated by `indices`.
 
     Given a list of indices to choose from (`remaining_indices`), choose a list of subgraphs to construct a dataset containing the required number of.
     biounits for each class (single chains, ...) within a tolerance.
     Return the same outputs as the construct_dataset function, as long as the list of remaining indices after selection.
+
     """
     single_chains_size, homomers_size, heteromers_size = 0, 0, 0
     sc_available, hm_available, ht_available = _test_availability(
@@ -756,10 +755,10 @@ def _get_subgraph_files(
     chain_arr,
     files_arr,
 ):
-    """
-    Given a list of subgraphs, return a dictionary.
+    """Given a list of subgraphs, return a dictionary.
 
-    Of the form {cluster: [(filename, chain__cdr)]}.
+    Of the form `{cluster: [(filename, chain__cdr)]}`.
+
     """
     out = {}  # cluster: [(file, chain__cdr)]
     for subgraph in subgraphs:
@@ -781,10 +780,10 @@ def _split_subgraphs(
     num_clusters_test,
     tolerance,
 ):
-    """
-    Split the list of subgraphs into three sets (train, valid, test).
+    """Split the list of subgraphs into three sets (train, valid, test).
 
     According to the number of biounits in each subgraph.
+
     """
     for _ in range(50):
         indices = np.random.permutation(np.arange(1, len(lengths)))
@@ -879,6 +878,7 @@ def _split_dataset_with_graphs(
         the list of all biounit chains (string names) that are in a homomeric state (in their biounit)
     heteromers : list
         the list of all biounit chains (string names) that are in a heteromeric state (in their biounit)
+
     """
     sample_cluster = list(clusters_dict.keys())[0]
     sabdab = "__" in sample_cluster
@@ -1081,8 +1081,7 @@ def _build_dataset_partition(
     tanimoto_clustering=False,
     foldseek=False,
 ):
-    """
-    Build training, validation and test sets from a curated dataset of biounit, using MMSeqs2 for clustering.
+    """Build training, validation and test sets from a curated dataset of biounit, using MMSeqs2 for clustering.
 
     Parameters
     ----------
