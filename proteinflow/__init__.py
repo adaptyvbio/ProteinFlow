@@ -438,6 +438,7 @@ def split_data(
     ignore_existing=False,
     min_seq_id=0.3,
     exclude_chains=None,
+    exclude_chains_file=None,
     exclude_threshold=0.7,
     exclude_clusters=False,
     exclude_based_on_cdr=None,
@@ -485,6 +486,8 @@ def split_data(
         minimum sequence identity for `mmseqs`
     exclude_chains : list of str, optional
         a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `["1A2B-A", "1A2B-B"]`); chain id is the author chain id
+    exclude_chains_file : str, optional
+        path to a file containing the sequences to exclude, one sequence per line
     exclude_threshold : float in [0, 1], default 0.7
         the sequence similarity threshold for excluding chains
     exclude_clusters : bool, default False
@@ -509,16 +512,17 @@ def split_data(
     temp_folder = os.path.join(tempfile.gettempdir(), "proteinflow")
     if not os.path.exists(temp_folder):
         os.makedirs(temp_folder)
-    if exclude_chains is None or len(exclude_chains) == 0:
-        excluded_biounits = []
-    else:
+    if exclude_chains_file is not None or exclude_chains is not None:
         excluded_biounits = _get_excluded_files(
             tag,
             local_datasets_folder,
             temp_folder,
             exclude_chains,
+            exclude_chains_file,
             exclude_threshold,
         )
+    else:
+        excluded_biounits = []
     if exclude_chains_without_ligands:
         excluded_biounits += _exclude_files_with_no_ligand(
             tag,
