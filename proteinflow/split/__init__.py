@@ -97,7 +97,7 @@ def _run_foldseek(data_folder, tmp_folder, min_seq_id):
     subprocess.run(["rm", "-r", os.path.join(tmp_folder, folder, "tmp")])
 
 
-def _read_clusters(tmp_folder, cdr=None):
+def _read_clusters(tmp_folder, cdr=None, foldseek=False):
     """Read the output from MMSeqs2 and produces 2 dictionaries that store the clusters information.
 
     In cluster_dict, values are the full names (pdb + chains) whereas in cluster_pdb_dict, values are just the PDB ids (so less clusters but bigger).
@@ -122,7 +122,7 @@ def _read_clusters(tmp_folder, cdr=None):
                 sequence_name = line[1:-1]
                 cluster_name = "".join(cluster_name.split(".pdb"))
                 sequence_name = "".join(sequence_name.split(".pdb"))
-                if "-" in cluster_name:
+                if foldseek:
                     cluster_name = cluster_name[:4] + cluster_name[6:]
                     sequence_name = sequence_name[:4] + sequence_name[6:]
                 if cdr is not None:
@@ -977,6 +977,9 @@ def _split_dataset_with_graphs(
             n_homomers_train,
             n_heteromers_train,
         ) = _construct_dataset(dict_list, size_array, remaining_indices)
+        print(f"{train_clusters_dict=}")
+        print(f"{valid_clusters_dict=}")
+        print(f"{test_clusters_dict=}")
 
         print("Classes distribution (single chain / homomer / heteromer):")
         print(
@@ -1157,12 +1160,20 @@ def _build_dataset_partition(
                 merged_seqs_dict = _load_pdbs(
                     dataset_dir, cdr=cdr
                 )  # keys: pdb_id, values: list of chains and sequences
+
+                print(f'{"1a7l" in merged_seqs_dict=}')
+                print(f'{merged_seqs_dict["1a7l"]=}')
+
                 lengths = []
                 for k, v in merged_seqs_dict.items():
                     lengths += [len(x[1]) for x in v]
                 merged_seqs_dict = _merge_chains(
                     merged_seqs_dict
                 )  # remove redundant chains
+
+                print(f'{"1a7l" in merged_seqs_dict=}')
+                print(f'{merged_seqs_dict["1a7l"]=}')
+
                 # write sequences to a fasta file for clustering with MMSeqs2, run MMSeqs2 and delete the fasta file
                 fasta_file = os.path.join(tmp_folder, "all_seqs.fasta")
                 _write_fasta(
@@ -1180,10 +1191,13 @@ def _build_dataset_partition(
             c_dict, c_pdb_dict = _read_clusters(
                 tmp_folder=tmp_folder,
                 cdr=cdr,
+                foldseek=foldseek,
             )
             clusters_dict.update(c_dict)
             clusters_pdb_dict.update(c_pdb_dict)
         subprocess.run(["rm", "-r", os.path.join(tmp_folder, "MMSeqs2_results")])
+    print(f"{clusters_pdb_dict=}")
+    print(f"{clusters_dict=}")
     graph = _make_graph(clusters_pdb_dict)
 
     # import pickle
