@@ -94,6 +94,7 @@ def _run_foldseek(data_folder, tmp_folder, min_seq_id):
         "1",
     ]
     subprocess.run(args)
+    subprocess.run(["rm", "-r", os.path.join(tmp_folder, folder, "tmp")])
 
 
 def _read_clusters(tmp_folder, cdr=None):
