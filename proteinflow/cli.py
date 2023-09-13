@@ -282,6 +282,11 @@ def generate(**kwargs):
     help="Whether to use Tanimoto Clustering instead of MMSeqs2. Only works if the dataset contains ligands",
 )
 @click.option(
+    "--foldseek",
+    is_flag=True,
+    help="Whether to use FoldSeek to cluster the dataset",
+)
+@click.option(
     "--random_seed",
     default=42,
     type=int,
