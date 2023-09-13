@@ -444,6 +444,7 @@ def split_data(
     random_seed=42,
     exclude_chains_without_ligands=False,
     tanimoto_clustering=False,
+    foldseek=False,
 ):
     """Split `proteinflow` entry files into training, test and validation.
 
@@ -496,6 +497,8 @@ def split_data(
         if `True`, exclude biounits that don't contain ligands
     tanimoto_clustering: bool, default False
         cluster chains based on the tanimoto similarity of their ligands
+    foldseek: bool, default False
+        if `True`, use FoldSeek to cluster chains based on their structure similarity
 
     Returns
     -------
@@ -545,6 +548,7 @@ def split_data(
             out_split_dict_folder=out_split_dict_folder,
             min_seq_id=min_seq_id,
             tanimoto_clustering=tanimoto_clustering,
+            foldseek=foldseek,
         )
     shutil.rmtree(temp_folder)
 

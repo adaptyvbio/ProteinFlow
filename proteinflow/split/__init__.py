@@ -18,7 +18,7 @@ import networkx as nx
 import numpy as np
 from tqdm import tqdm
 
-from proteinflow.data import PDBEntry
+from proteinflow.data import PDBEntry, ProteinEntry
 from proteinflow.ligand import (
     _load_smiles,
     _merge_chains_ligands,
@@ -71,6 +71,31 @@ def _run_mmseqs2(fasta_file, tmp_folder, min_seq_id, cdr=None):
     subprocess.run(args)
 
 
+def _run_foldseek(data_folder, tmp_folder, min_seq_id):
+    """
+    Run the FoldSeek command with the parameters we want.
+
+    Results are stored in the tmp_folder/MMSeqs2 directory.
+    """
+    folder = "MMSeqs2_results"
+    os.makedirs(os.path.join(tmp_folder, folder), exist_ok=True)
+    method = "easy-cluster"
+    args = [
+        "foldseek",
+        method,
+        data_folder,
+        os.path.join(tmp_folder, folder, "clusterRes"),
+        os.path.join(tmp_folder, folder, "tmp"),
+        "--min-seq-id",
+        str(min_seq_id),
+        "--chain-name-mode",
+        "1",
+        "-v",
+        "1",
+    ]
+    subprocess.run(args)
+
+
 def _read_clusters(tmp_folder, cdr=None):
     """
     Read the output from MMSeqs2 and produces 2 dictionaries that store the clusters information.
@@ -95,11 +120,19 @@ def _read_clusters(tmp_folder, cdr=None):
             if line[0] == ">" and found_header:
                 cluster_name = line[1:-1]
                 sequence_name = line[1:-1]
+                cluster_name = "".join(cluster_name.split(".pdb"))
+                sequence_name = "".join(sequence_name.split(".pdb"))
+                if "-" in cluster_name:
+                    cluster_name = cluster_name[:4] + cluster_name[6:]
+                    sequence_name = sequence_name[:4] + sequence_name[6:]
                 if cdr is not None:
                     cluster_name += "__" + cdr
 
             elif line[0] == ">":
                 sequence_name = line[1:-1]
+                sequence_name = "".join(sequence_name.split(".pdb"))
+                if "-" in sequence_name:
+                    sequence_name = sequence_name[:4] + sequence_name[6:]
                 found_header = True
 
             else:
@@ -109,6 +142,8 @@ def _read_clusters(tmp_folder, cdr=None):
 
         for k in cluster_pdb_dict.keys():
             cluster_pdb_dict[k] = np.unique(cluster_pdb_dict[k])
+    print(f"{cluster_dict=}")
+    print(f"{cluster_pdb_dict=}")
 
     return cluster_dict, cluster_pdb_dict
 
@@ -1044,6 +1079,7 @@ def _build_dataset_partition(
     min_seq_id=0.3,
     sabdab=False,
     tanimoto_clustering=False,
+    foldseek=False,
 ):
     """
     Build training, validation and test sets from a curated dataset of biounit, using MMSeqs2 for clustering.
@@ -1052,6 +1088,8 @@ def _build_dataset_partition(
     ----------
     dataset_dir : str
         the path to the dataset
+    tmp_folder : str
+        the path to a temporary folder to store temporary files
     valid_split : float in [0, 1], default 0.05
         the validation split ratio
     test_split : float in [0, 1], default 0.05
@@ -1062,6 +1100,8 @@ def _build_dataset_partition(
         whether the dataset is the SAbDab dataset or not
     tanimoto_clustering: bool, default False
         whether to cluster chains based on Tanimoto Clustering
+    foldseek: bool, default False
+        whether to cluster chains based on FoldSeek
 
     Output
     ------
@@ -1092,31 +1132,48 @@ def _build_dataset_partition(
             merged_seqs_dict, min_seq_id, tmp_folder
         )
     else:
-        cdrs = ["L1", "L2", "L3", "H1", "H2", "H3"] if sabdab else [None]
-        for cdr in cdrs:
-            if cdr is not None:
-                print(f"Clustering with MMSeqs2 for CDR {cdr}...")
-            else:
-                print("Clustering with MMSeqs2...")
-            # retrieve all sequences and create a merged_seqs_dict
-            merged_seqs_dict = _load_pdbs(
-                dataset_dir, cdr=cdr
-            )  # keys: pdb_id, values: list of chains and sequences
-            lengths = []
-            for k, v in merged_seqs_dict.items():
-                lengths += [len(x[1]) for x in v]
-            merged_seqs_dict = _merge_chains(
-                merged_seqs_dict
-            )  # remove redundant chains
-            # write sequences to a fasta file for clustering with MMSeqs2, run MMSeqs2 and delete the fasta file
-            fasta_file = os.path.join(tmp_folder, "all_seqs.fasta")
-            _write_fasta(
-                fasta_file, merged_seqs_dict
-            )  # write all sequences from merged_seqs_dict to fasta file
-            _run_mmseqs2(
-                fasta_file, tmp_folder, min_seq_id, cdr=cdr
-            )  # run MMSeqs2 on fasta file
-            subprocess.run(["rm", fasta_file])
+        if foldseek:
+            print("Clustering with FoldSeek...")
+            if os.path.exists(os.path.join(tmp_folder, "pdbs")):
+                subprocess.run(["rm", "-r", os.path.join(tmp_folder, "pdbs")])
+            os.mkdir(os.path.join(tmp_folder, "pdbs"))
+            for file in tqdm(os.listdir(dataset_dir)):
+                if not file.endswith(".pickle"):
+                    continue
+                ProteinEntry.from_pickle(os.path.join(dataset_dir, file)).to_pdb(
+                    os.path.join(tmp_folder, "pdbs", file.split(".")[0] + ".pdb")
+                )
+            _run_foldseek(
+                os.path.join(tmp_folder, "pdbs"), tmp_folder, min_seq_id=min_seq_id
+            )
+            cdrs = [None]
+            merged_seqs_dict = _load_pdbs(dataset_dir, cdr=None)
+        else:
+            cdrs = ["L1", "L2", "L3", "H1", "H2", "H3"] if sabdab else [None]
+            for cdr in cdrs:
+                if cdr is not None:
+                    print(f"Clustering with MMSeqs2 for CDR {cdr}...")
+                else:
+                    print("Clustering with MMSeqs2...")
+                # retrieve all sequences and create a merged_seqs_dict
+                merged_seqs_dict = _load_pdbs(
+                    dataset_dir, cdr=cdr
+                )  # keys: pdb_id, values: list of chains and sequences
+                lengths = []
+                for k, v in merged_seqs_dict.items():
+                    lengths += [len(x[1]) for x in v]
+                merged_seqs_dict = _merge_chains(
+                    merged_seqs_dict
+                )  # remove redundant chains
+                # write sequences to a fasta file for clustering with MMSeqs2, run MMSeqs2 and delete the fasta file
+                fasta_file = os.path.join(tmp_folder, "all_seqs.fasta")
+                _write_fasta(
+                    fasta_file, merged_seqs_dict
+                )  # write all sequences from merged_seqs_dict to fasta file
+                _run_mmseqs2(
+                    fasta_file, tmp_folder, min_seq_id, cdr=cdr
+                )  # run MMSeqs2 on fasta file
+                subprocess.run(["rm", fasta_file])
 
         # retrieve MMSeqs2 clusters and build a graph with these clusters
         clusters_dict = {}
@@ -1174,6 +1231,7 @@ def _get_split_dictionaries(
     out_split_dict_folder="./data/dataset_splits_dict",
     min_seq_id=0.3,
     tanimoto_clustering=False,
+    foldseek=False,
 ):
     """Split preprocessed data into training, validation and test.
 
@@ -1193,6 +1251,10 @@ def _get_split_dictionaries(
         The folder where the dictionaries containing the train/validation/test splits information will be saved"
     min_seq_id : float in [0, 1], default 0.3
         minimum sequence identity for `mmseqs`
+    tanimoto_clustering: bool, default False
+        whether to cluster chains based on Tanimoto Clustering
+    foldseek: bool, default False
+        whether to cluster chains based on FoldSeek
 
     """
     if len([x for x in os.listdir(output_folder) if x.endswith(".pickle")]) == 0:
@@ -1200,6 +1262,11 @@ def _get_split_dictionaries(
     sample_file = [x for x in os.listdir(output_folder) if x.endswith(".pickle")][0]
     ind = sample_file.split(".")[0].split("-")[1]
     sabdab = not ind.isnumeric()
+
+    if sabdab and tanimoto_clustering:
+        raise RuntimeError("Tanimoto Clustering cannot be used with SAbDab data")
+    if sabdab and foldseek:
+        raise RuntimeError("FoldSeek cannot be used with SAbDab data")
 
     os.makedirs(out_split_dict_folder, exist_ok=True)
     (
@@ -1218,6 +1285,7 @@ def _get_split_dictionaries(
         min_seq_id=min_seq_id,
         sabdab=sabdab,
         tanimoto_clustering=tanimoto_clustering,
+        foldseek=foldseek,
     )
 
     classes_dict = train_classes_dict
