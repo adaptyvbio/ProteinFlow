@@ -1,4 +1,8 @@
 <p align="center">
+    <img src="https://raw.githubusercontent.com/adaptyvbio/ProteinFlow/main/media/proteinflow_logo_small.png" width="60">
+</p>
+
+<p align="center">
     <b> ProteinFlow - A data processing pipeline for all your protein design needs </b> <br />
 </p>
 
