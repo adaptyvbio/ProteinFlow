@@ -131,7 +131,7 @@ def _read_clusters(tmp_folder, cdr=None, foldseek=False):
             elif line[0] == ">":
                 sequence_name = line[1:-1]
                 sequence_name = "".join(sequence_name.split(".pdb"))
-                if "-" in sequence_name:
+                if foldseek:
                     sequence_name = sequence_name[:4] + sequence_name[6:]
                 found_header = True
 
@@ -977,9 +977,6 @@ def _split_dataset_with_graphs(
             n_homomers_train,
             n_heteromers_train,
         ) = _construct_dataset(dict_list, size_array, remaining_indices)
-        print(f"{train_clusters_dict=}")
-        print(f"{valid_clusters_dict=}")
-        print(f"{test_clusters_dict=}")
 
         print("Classes distribution (single chain / homomer / heteromer):")
         print(
@@ -1161,18 +1158,12 @@ def _build_dataset_partition(
                     dataset_dir, cdr=cdr
                 )  # keys: pdb_id, values: list of chains and sequences
 
-                print(f'{"1a7l" in merged_seqs_dict=}')
-                print(f'{merged_seqs_dict["1a7l"]=}')
-
                 lengths = []
                 for k, v in merged_seqs_dict.items():
                     lengths += [len(x[1]) for x in v]
                 merged_seqs_dict = _merge_chains(
                     merged_seqs_dict
                 )  # remove redundant chains
-
-                print(f'{"1a7l" in merged_seqs_dict=}')
-                print(f'{merged_seqs_dict["1a7l"]=}')
 
                 # write sequences to a fasta file for clustering with MMSeqs2, run MMSeqs2 and delete the fasta file
                 fasta_file = os.path.join(tmp_folder, "all_seqs.fasta")
@@ -1196,8 +1187,6 @@ def _build_dataset_partition(
             clusters_dict.update(c_dict)
             clusters_pdb_dict.update(c_pdb_dict)
         subprocess.run(["rm", "-r", os.path.join(tmp_folder, "MMSeqs2_results")])
-    print(f"{clusters_pdb_dict=}")
-    print(f"{clusters_dict=}")
     graph = _make_graph(clusters_pdb_dict)
 
     # import pickle
@@ -1387,7 +1376,6 @@ def _get_excluded_files(
                 break
 
     # return list of biounits to exclude
-    print(f"{exclude_biounits=}")
     return exclude_biounits
 
 
