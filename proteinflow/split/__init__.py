@@ -142,8 +142,6 @@ def _read_clusters(tmp_folder, cdr=None):
 
         for k in cluster_pdb_dict.keys():
             cluster_pdb_dict[k] = np.unique(cluster_pdb_dict[k])
-    print(f"{cluster_dict=}")
-    print(f"{cluster_pdb_dict=}")
 
     return cluster_dict, cluster_pdb_dict
 
@@ -1304,7 +1302,12 @@ def _get_split_dictionaries(
 
 
 def _get_excluded_files(
-    tag, local_datasets_folder, tmp_folder, exclude_chains, exclude_threshold
+    tag,
+    local_datasets_folder,
+    tmp_folder,
+    exclude_chains,
+    exclude_chains_file,
+    exclude_threshold,
 ):
     """Get a list of files to exclude from the dataset.
 
@@ -1321,6 +1324,8 @@ def _get_excluded_files(
         the path to the folder that stores temporary files
     exclude_chains : list of str, optional
         a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `["1A2B-A", "1A2B-B"]`); chain id is the author chain id
+    exclude_chains_file : str, optional
+        path to a file containing the sequences to exclude, one sequence per line
     exclude_threshold : float in [0, 1], default 0.7
         the sequence similarity threshold for excluding chains
 
@@ -1339,6 +1344,9 @@ def _get_excluded_files(
         chains = PDBEntry.parse_fasta(outfnm)
         sequences.append(chains[chain_id])
         os.remove(outfnm)
+    if exclude_chains_file is not None:
+        with open(exclude_chains_file) as f:
+            sequences += [line.strip() for line in f.readlines()]
 
     # iterate over files in the dataset to check similarity
     print("Checking excluded chains similarity...")
@@ -1365,6 +1373,7 @@ def _get_excluded_files(
                 break
 
     # return list of biounits to exclude
+    print(f"{exclude_biounits=}")
     return exclude_biounits
 
 

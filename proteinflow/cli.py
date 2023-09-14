@@ -256,6 +256,11 @@ def generate(**kwargs):
     help="Exclude specific chains from the dataset ({pdb_id}-{chain_id}, e.g. -e 1a2b-A)",
 )
 @click.option(
+    "--exclude_chains_file",
+    type=str,
+    help="Exclude specific chains from the dataset (path to a file containing the sequences to exclude, one sequence per line)",
+)
+@click.option(
     "--exclude_threshold",
     default=0.7,
     type=float,
