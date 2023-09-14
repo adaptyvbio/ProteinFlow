@@ -88,7 +88,7 @@ Alternatively, it can be used together with the tag <code>--sabdab_data_path</co
 - structure methods accepted: all (x-ray christolography, NRM, Cryo-EM),
 - sequence identity threshold for clustering (CDRs): 40%,
 - size of validation subset: 10%.</p>
-<pre><code class="language-bash">proteinflow generate --sabdab --resolution_thr 5 --not_filter_methods --min_seq_id 0.4 --valid_split 0.1
+<pre><code class="language-bash">proteinflow generate --sabdab --tag new --resolution_thr 5 --not_filter_methods --min_seq_id 0.4 --valid_split 0.1
 </code></pre>
 <h3 id="splitting">Splitting</h3>
 <p>By default, both <code><a title="proteinflow" href="#proteinflow">proteinflow</a> generate</code> and <code><a title="proteinflow" href="#proteinflow">proteinflow</a> <a title="proteinflow.download" href="download/index.html">proteinflow.download</a></code> will also split your data into training, test and validation according to MMseqs2 clustering and homomer/heteromer/single chain proportions. However, you can skip this step with a <code>--skip_splitting</code> flag and then perform it separately with the <code><a title="proteinflow" href="#proteinflow">proteinflow</a> split</code> command.</p>
@@ -320,7 +320,7 @@ For instance, let&#39;s generate a dataset with the following description:
 - size of validation subset: 10%.
 
 ```bash
-proteinflow generate --sabdab --resolution_thr 5 --not_filter_methods --min_seq_id 0.4 --valid_split 0.1
+proteinflow generate --sabdab --tag new --resolution_thr 5 --not_filter_methods --min_seq_id 0.4 --valid_split 0.1
 ```
 
 ### Splitting
@@ -479,12 +479,14 @@ def generate_data(
     sabdab_data_path=None,
     require_antigen=False,
     exclude_chains=None,
+    exclude_chains_file=None,
     exclude_threshold=0.7,
     exclude_clusters=False,
     exclude_based_on_cdr=None,
     load_ligands=False,
     exclude_chains_without_ligands=False,
     tanimoto_clustering=False,
+    foldseek=False,
     require_ligand=False,
     random_seed=42,
     max_chains=10,
@@ -561,6 +563,8 @@ def generate_data(
         if `True`, only use SAbDab files with an antigen
     exclude_chains : list of str, optional
         a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `[&#34;1A2B-A&#34;, &#34;1A2B-B&#34;]`); chain id is the author chain id
+    exclude_chains_file : str, optional
+        path to a file containing the sequences to exclude, one sequence per line
     exclude_threshold : float in [0, 1], default 0.7
         the sequence similarity threshold for excluding chains
     exclude_clusters : bool, default False
@@ -573,6 +577,8 @@ def generate_data(
         if `True`, exclude biounits that don&#39;t contain ligands
     tanimoto_clustering : bool, default False
         if `True`, cluster the biounits based on ligand Tanimoto similarity
+    foldseek : bool, default False
+        if `True`, cluster the biounits based on structure similarity
     require_ligand : bool, default False
         if `True`, only use biounits that contain a ligand
     random_seed : int, default 42
@@ -654,12 +660,14 @@ def generate_data(
             ignore_existing=True,
             min_seq_id=min_seq_id,
             exclude_chains=exclude_chains,
+            exclude_chains_file=exclude_chains_file,
             exclude_threshold=exclude_threshold,
             exclude_clusters=exclude_clusters,
             exclude_based_on_cdr=exclude_based_on_cdr,
             random_seed=random_seed,
             exclude_chains_without_ligands=exclude_chains_without_ligands,
             tanimoto_clustering=tanimoto_clustering,
+            foldseek=foldseek,
         )
     shutil.rmtree(tmp_folder)
     return log_dict
@@ -674,12 +682,14 @@ def split_data(
     ignore_existing=False,
     min_seq_id=0.3,
     exclude_chains=None,
+    exclude_chains_file=None,
     exclude_threshold=0.7,
     exclude_clusters=False,
     exclude_based_on_cdr=None,
     random_seed=42,
     exclude_chains_without_ligands=False,
     tanimoto_clustering=False,
+    foldseek=False,
 ):
     &#34;&#34;&#34;Split `proteinflow` entry files into training, test and validation.
 
@@ -720,6 +730,8 @@ def split_data(
         minimum sequence identity for `mmseqs`
     exclude_chains : list of str, optional
         a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `[&#34;1A2B-A&#34;, &#34;1A2B-B&#34;]`); chain id is the author chain id
+    exclude_chains_file : str, optional
+        path to a file containing the sequences to exclude, one sequence per line
     exclude_threshold : float in [0, 1], default 0.7
         the sequence similarity threshold for excluding chains
     exclude_clusters : bool, default False
@@ -732,6 +744,8 @@ def split_data(
         if `True`, exclude biounits that don&#39;t contain ligands
     tanimoto_clustering: bool, default False
         cluster chains based on the tanimoto similarity of their ligands
+    foldseek: bool, default False
+        if `True`, use FoldSeek to cluster chains based on their structure similarity
 
     Returns
     -------
@@ -742,16 +756,17 @@ def split_data(
     temp_folder = os.path.join(tempfile.gettempdir(), &#34;proteinflow&#34;)
     if not os.path.exists(temp_folder):
         os.makedirs(temp_folder)
-    if exclude_chains is None or len(exclude_chains) == 0:
-        excluded_biounits = []
-    else:
+    if exclude_chains_file is not None or exclude_chains is not None:
         excluded_biounits = _get_excluded_files(
             tag,
             local_datasets_folder,
             temp_folder,
             exclude_chains,
+            exclude_chains_file,
             exclude_threshold,
         )
+    else:
+        excluded_biounits = []
     if exclude_chains_without_ligands:
         excluded_biounits += _exclude_files_with_no_ligand(
             tag,
@@ -781,6 +796,7 @@ def split_data(
             out_split_dict_folder=out_split_dict_folder,
             min_seq_id=min_seq_id,
             tanimoto_clustering=tanimoto_clustering,
+            foldseek=foldseek,
         )
     shutil.rmtree(temp_folder)
 
@@ -1014,7 +1030,7 @@ def check_download_tags():
 </details>
 </dd>
 <dt id="proteinflow.generate_data"><code class="name flex">
-<span>def <span class="ident">generate_data</span></span>(<span>tag=None, pdb_id_list_path=None, local_datasets_folder='./data', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, not_filter_methods=False, not_remove_redundancies=False, skip_splitting=False, redundancy_thr=0.9, n=None, force=False, split_tolerance=0.2, test_split=0.05, valid_split=0.05, pdb_snapshot=None, load_live=False, min_seq_id=0.3, sabdab=False, sabdab_data_path=None, require_antigen=False, exclude_chains=None, exclude_threshold=0.7, exclude_clusters=False, exclude_based_on_cdr=None, load_ligands=False, exclude_chains_without_ligands=False, tanimoto_clustering=False, require_ligand=False, random_seed=42, max_chains=10)</span>
+<span>def <span class="ident">generate_data</span></span>(<span>tag=None, pdb_id_list_path=None, local_datasets_folder='./data', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, not_filter_methods=False, not_remove_redundancies=False, skip_splitting=False, redundancy_thr=0.9, n=None, force=False, split_tolerance=0.2, test_split=0.05, valid_split=0.05, pdb_snapshot=None, load_live=False, min_seq_id=0.3, sabdab=False, sabdab_data_path=None, require_antigen=False, exclude_chains=None, exclude_chains_file=None, exclude_threshold=0.7, exclude_clusters=False, exclude_based_on_cdr=None, load_ligands=False, exclude_chains_without_ligands=False, tanimoto_clustering=False, foldseek=False, require_ligand=False, random_seed=42, max_chains=10)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Download and parse PDB files that meet filtering criteria.</p>
@@ -1084,6 +1100,8 @@ pdb_ids can also be passed, an automatic retrieval of chain id s will be perform
 <dd>if <code>True</code>, only use SAbDab files with an antigen</dd>
 <dt><strong><code>exclude_chains</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
 <dd>a list of chains (<code>{pdb_id}-{chain_id}</code>) to exclude from the splitting (e.g. <code>["1A2B-A", "1A2B-B"]</code>); chain id is the author chain id</dd>
+<dt><strong><code>exclude_chains_file</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>path to a file containing the sequences to exclude, one sequence per line</dd>
 <dt><strong><code>exclude_threshold</code></strong> :&ensp;<code>float in [0, 1]</code>, default <code>0.7</code></dt>
 <dd>the sequence similarity threshold for excluding chains</dd>
 <dt><strong><code>exclude_clusters</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
@@ -1096,6 +1114,8 @@ pdb_ids can also be passed, an automatic retrieval of chain id s will be perform
 <dd>if <code>True</code>, exclude biounits that don't contain ligands</dd>
 <dt><strong><code>tanimoto_clustering</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, cluster the biounits based on ligand Tanimoto similarity</dd>
+<dt><strong><code>foldseek</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, cluster the biounits based on structure similarity</dd>
 <dt><strong><code>require_ligand</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, only use biounits that contain a ligand</dd>
 <dt><strong><code>random_seed</code></strong> :&ensp;<code>int</code>, default <code>42</code></dt>
@@ -1137,12 +1157,14 @@ pdb_ids can also be passed, an automatic retrieval of chain id s will be perform
     sabdab_data_path=None,
     require_antigen=False,
     exclude_chains=None,
+    exclude_chains_file=None,
     exclude_threshold=0.7,
     exclude_clusters=False,
     exclude_based_on_cdr=None,
     load_ligands=False,
     exclude_chains_without_ligands=False,
     tanimoto_clustering=False,
+    foldseek=False,
     require_ligand=False,
     random_seed=42,
     max_chains=10,
@@ -1219,6 +1241,8 @@ pdb_ids can also be passed, an automatic retrieval of chain id s will be perform
         if `True`, only use SAbDab files with an antigen
     exclude_chains : list of str, optional
         a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `[&#34;1A2B-A&#34;, &#34;1A2B-B&#34;]`); chain id is the author chain id
+    exclude_chains_file : str, optional
+        path to a file containing the sequences to exclude, one sequence per line
     exclude_threshold : float in [0, 1], default 0.7
         the sequence similarity threshold for excluding chains
     exclude_clusters : bool, default False
@@ -1231,6 +1255,8 @@ pdb_ids can also be passed, an automatic retrieval of chain id s will be perform
         if `True`, exclude biounits that don&#39;t contain ligands
     tanimoto_clustering : bool, default False
         if `True`, cluster the biounits based on ligand Tanimoto similarity
+    foldseek : bool, default False
+        if `True`, cluster the biounits based on structure similarity
     require_ligand : bool, default False
         if `True`, only use biounits that contain a ligand
     random_seed : int, default 42
@@ -1312,12 +1338,14 @@ pdb_ids can also be passed, an automatic retrieval of chain id s will be perform
             ignore_existing=True,
             min_seq_id=min_seq_id,
             exclude_chains=exclude_chains,
+            exclude_chains_file=exclude_chains_file,
             exclude_threshold=exclude_threshold,
             exclude_clusters=exclude_clusters,
             exclude_based_on_cdr=exclude_based_on_cdr,
             random_seed=random_seed,
             exclude_chains_without_ligands=exclude_chains_without_ligands,
             tanimoto_clustering=tanimoto_clustering,
+            foldseek=foldseek,
         )
     shutil.rmtree(tmp_folder)
     return log_dict</code></pre>
@@ -1352,7 +1380,7 @@ coordinates in the <code>'crd_sc'</code> array generated by the <code>run_proces
 </details>
 </dd>
 <dt id="proteinflow.split_data"><code class="name flex">
-<span>def <span class="ident">split_data</span></span>(<span>tag, local_datasets_folder='./data', split_tolerance=0.2, test_split=0.05, valid_split=0.05, ignore_existing=False, min_seq_id=0.3, exclude_chains=None, exclude_threshold=0.7, exclude_clusters=False, exclude_based_on_cdr=None, random_seed=42, exclude_chains_without_ligands=False, tanimoto_clustering=False)</span>
+<span>def <span class="ident">split_data</span></span>(<span>tag, local_datasets_folder='./data', split_tolerance=0.2, test_split=0.05, valid_split=0.05, ignore_existing=False, min_seq_id=0.3, exclude_chains=None, exclude_chains_file=None, exclude_threshold=0.7, exclude_clusters=False, exclude_based_on_cdr=None, random_seed=42, exclude_chains_without_ligands=False, tanimoto_clustering=False, foldseek=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Split <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> entry files into training, test and validation.</p>
@@ -1390,6 +1418,8 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
 <dd>minimum sequence identity for <code>mmseqs</code></dd>
 <dt><strong><code>exclude_chains</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
 <dd>a list of chains (<code>{pdb_id}-{chain_id}</code>) to exclude from the splitting (e.g. <code>["1A2B-A", "1A2B-B"]</code>); chain id is the author chain id</dd>
+<dt><strong><code>exclude_chains_file</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>path to a file containing the sequences to exclude, one sequence per line</dd>
 <dt><strong><code>exclude_threshold</code></strong> :&ensp;<code>float in [0, 1]</code>, default <code>0.7</code></dt>
 <dd>the sequence similarity threshold for excluding chains</dd>
 <dt><strong><code>exclude_clusters</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
@@ -1402,6 +1432,8 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
 <dd>if <code>True</code>, exclude biounits that don't contain ligands</dd>
 <dt><strong><code>tanimoto_clustering</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>cluster chains based on the tanimoto similarity of their ligands</dd>
+<dt><strong><code>foldseek</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, use FoldSeek to cluster chains based on their structure similarity</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -1421,12 +1453,14 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
     ignore_existing=False,
     min_seq_id=0.3,
     exclude_chains=None,
+    exclude_chains_file=None,
     exclude_threshold=0.7,
     exclude_clusters=False,
     exclude_based_on_cdr=None,
     random_seed=42,
     exclude_chains_without_ligands=False,
     tanimoto_clustering=False,
+    foldseek=False,
 ):
     &#34;&#34;&#34;Split `proteinflow` entry files into training, test and validation.
 
@@ -1467,6 +1501,8 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
         minimum sequence identity for `mmseqs`
     exclude_chains : list of str, optional
         a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `[&#34;1A2B-A&#34;, &#34;1A2B-B&#34;]`); chain id is the author chain id
+    exclude_chains_file : str, optional
+        path to a file containing the sequences to exclude, one sequence per line
     exclude_threshold : float in [0, 1], default 0.7
         the sequence similarity threshold for excluding chains
     exclude_clusters : bool, default False
@@ -1479,6 +1515,8 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
         if `True`, exclude biounits that don&#39;t contain ligands
     tanimoto_clustering: bool, default False
         cluster chains based on the tanimoto similarity of their ligands
+    foldseek: bool, default False
+        if `True`, use FoldSeek to cluster chains based on their structure similarity
 
     Returns
     -------
@@ -1489,16 +1527,17 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
     temp_folder = os.path.join(tempfile.gettempdir(), &#34;proteinflow&#34;)
     if not os.path.exists(temp_folder):
         os.makedirs(temp_folder)
-    if exclude_chains is None or len(exclude_chains) == 0:
-        excluded_biounits = []
-    else:
+    if exclude_chains_file is not None or exclude_chains is not None:
         excluded_biounits = _get_excluded_files(
             tag,
             local_datasets_folder,
             temp_folder,
             exclude_chains,
+            exclude_chains_file,
             exclude_threshold,
         )
+    else:
+        excluded_biounits = []
     if exclude_chains_without_ligands:
         excluded_biounits += _exclude_files_with_no_ligand(
             tag,
@@ -1528,6 +1567,7 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
             out_split_dict_folder=out_split_dict_folder,
             min_seq_id=min_seq_id,
             tanimoto_clustering=tanimoto_clustering,
+            foldseek=foldseek,
         )
     shutil.rmtree(temp_folder)
 

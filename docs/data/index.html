@@ -566,6 +566,28 @@ class ProteinEntry:
             self.cdr[new_chain] = self.cdr.pop(old_chain)
             self.predict_mask[new_chain] = self.predict_mask.pop(old_chain)
 
+    def get_predicted_entry(self):
+        &#34;&#34;&#34;Return a `ProteinEntry` object that only contains predicted residues.&#34;&#34;&#34;
+        if self.predict_mask is None:
+            raise ValueError(&#34;Predicted mask not available&#34;)
+        entry_dict = self.to_dict()
+        for chain in self.get_chains():
+            mask_ = self.predict_mask[chain].astype(bool)
+            if mask_.sum() == 0:
+                entry_dict.pop(chain)
+                continue
+            if mask_.sum() == len(mask_):
+                continue
+            seq_arr = np.array(list(entry_dict[chain][&#34;seq&#34;]))
+            entry_dict[chain][&#34;seq&#34;] = &#34;&#34;.join(seq_arr[mask_])
+            entry_dict[chain][&#34;crd_bb&#34;] = entry_dict[chain][&#34;crd_bb&#34;][mask_]
+            entry_dict[chain][&#34;crd_sc&#34;] = entry_dict[chain][&#34;crd_sc&#34;][mask_]
+            entry_dict[chain][&#34;msk&#34;] = entry_dict[chain][&#34;msk&#34;][mask_]
+            entry_dict[chain][&#34;predict_msk&#34;] = entry_dict[chain][&#34;predict_msk&#34;][mask_]
+            if &#34;cdr&#34; in entry_dict[chain]:
+                entry_dict[chain][&#34;cdr&#34;] = entry_dict[chain][&#34;cdr&#34;][mask_]
+        return ProteinEntry.from_dict(entry_dict)
+
     def merge(self, entry):
         &#34;&#34;&#34;Merge another `ProteinEntry` object into this one.
 
@@ -1380,7 +1402,9 @@ class ProteinEntry:
         predict_mask = np.concatenate([self.predict_mask[chain] for chain in chains])
         return predict_mask
 
-    def visualize(self, highlight_mask=None, style=&#34;cartoon&#34;, opacity=1):
+    def visualize(
+        self, highlight_mask=None, style=&#34;cartoon&#34;, highlight_style=None, opacity=1
+    ):
         &#34;&#34;&#34;Visualize the protein in a notebook.
 
         Parameters
@@ -1391,6 +1415,9 @@ class ProteinEntry:
             `self.predict_mask` is not `None`, the predicted residues are highlighted
         style : str, default &#39;cartoon&#39;
             The style of the visualization; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
+        highlight_style : str, optional
+            The style of the highlighted atoms; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
+            (defaults to the same as `style`)
         opacity : float or dict, default 1
             Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)
 
@@ -1408,7 +1435,10 @@ class ProteinEntry:
             self.to_pdb(tmp.name)
             pdb_entry = PDBEntry(tmp.name)
         pdb_entry.visualize(
-            highlight_mask_dict=highlight_mask_dict, style=style, opacity=opacity
+            highlight_mask_dict=highlight_mask_dict,
+            style=style,
+            highlight_style=highlight_style,
+            opacity=opacity,
         )
 
 
@@ -1846,9 +1876,14 @@ class PDBEntry:
         &#34;&#34;&#34;
         return self.get_pdb_df(chain)[&#34;unique_residue_number&#34;].unique().tolist()
 
-    def _get_atom_dicts(self, highlight_mask_dict=None, style=&#34;cartoon&#34;, opacity=1):
+    def _get_atom_dicts(
+        self, highlight_mask_dict=None, style=&#34;cartoon&#34;, highlight_style=None, opacity=1
+    ):
         &#34;&#34;&#34;Get the atom dictionaries for visualization.&#34;&#34;&#34;
         assert style in [&#34;cartoon&#34;, &#34;sphere&#34;, &#34;stick&#34;, &#34;line&#34;, &#34;cross&#34;]
+        if highlight_style is None:
+            highlight_style = style
+        assert highlight_style in [&#34;cartoon&#34;, &#34;sphere&#34;, &#34;stick&#34;, &#34;line&#34;, &#34;cross&#34;]
         outstr = []
         df_ = self.crd_df.sort_values([&#34;chain_id&#34;, &#34;residue_number&#34;], inplace=False)
         for _, row in df_.iterrows():
@@ -1875,10 +1910,12 @@ class PDBEntry:
             if highlight_mask_dict is not None and at[&#34;chain&#34;] in highlight_mask_dict:
                 num = chain_counters[at[&#34;chain&#34;]]
                 if highlight_mask_dict[at[&#34;chain&#34;]][num - 1] == 1:
-                    at[&#34;pymol&#34;] = {style: {&#34;color&#34;: &#34;red&#34;, &#34;opacity&#34;: op_}}
+                    at[&#34;pymol&#34;] = {highlight_style: {&#34;color&#34;: &#34;red&#34;, &#34;opacity&#34;: op_}}
         return outstr
 
-    def visualize(self, highlight_mask_dict=None, style=&#34;cartoon&#34;, opacity=1):
+    def visualize(
+        self, highlight_mask_dict=None, style=&#34;cartoon&#34;, highlight_style=None, opacity=1
+    ):
         &#34;&#34;&#34;Visualize the protein in a notebook.
 
         Parameters
@@ -1888,11 +1925,19 @@ class PDBEntry:
             the atoms corresponding to 1s will be highlighted in red
         style : str, default &#39;cartoon&#39;
             The style of the visualization; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
+        highlight_style : str, optional
+            The style of the highlighted atoms; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
+            (defaults to the same as `style`)
         opacity : float or dict, default 1
             Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)
 
         &#34;&#34;&#34;
-        outstr = self._get_atom_dicts(highlight_mask_dict, style=style, opacity=opacity)
+        outstr = self._get_atom_dicts(
+            highlight_mask_dict,
+            style=style,
+            highlight_style=highlight_style,
+            opacity=opacity,
+        )
         vis_string = &#34;&#34;.join([str(x) for x in outstr])
         view = py3Dmol.view(width=400, height=300)
         view.addModelsAsFrames(vis_string)
@@ -2651,9 +2696,14 @@ from the PDB file.</p>
         &#34;&#34;&#34;
         return self.get_pdb_df(chain)[&#34;unique_residue_number&#34;].unique().tolist()
 
-    def _get_atom_dicts(self, highlight_mask_dict=None, style=&#34;cartoon&#34;, opacity=1):
+    def _get_atom_dicts(
+        self, highlight_mask_dict=None, style=&#34;cartoon&#34;, highlight_style=None, opacity=1
+    ):
         &#34;&#34;&#34;Get the atom dictionaries for visualization.&#34;&#34;&#34;
         assert style in [&#34;cartoon&#34;, &#34;sphere&#34;, &#34;stick&#34;, &#34;line&#34;, &#34;cross&#34;]
+        if highlight_style is None:
+            highlight_style = style
+        assert highlight_style in [&#34;cartoon&#34;, &#34;sphere&#34;, &#34;stick&#34;, &#34;line&#34;, &#34;cross&#34;]
         outstr = []
         df_ = self.crd_df.sort_values([&#34;chain_id&#34;, &#34;residue_number&#34;], inplace=False)
         for _, row in df_.iterrows():
@@ -2680,10 +2730,12 @@ from the PDB file.</p>
             if highlight_mask_dict is not None and at[&#34;chain&#34;] in highlight_mask_dict:
                 num = chain_counters[at[&#34;chain&#34;]]
                 if highlight_mask_dict[at[&#34;chain&#34;]][num - 1] == 1:
-                    at[&#34;pymol&#34;] = {style: {&#34;color&#34;: &#34;red&#34;, &#34;opacity&#34;: op_}}
+                    at[&#34;pymol&#34;] = {highlight_style: {&#34;color&#34;: &#34;red&#34;, &#34;opacity&#34;: op_}}
         return outstr
 
-    def visualize(self, highlight_mask_dict=None, style=&#34;cartoon&#34;, opacity=1):
+    def visualize(
+        self, highlight_mask_dict=None, style=&#34;cartoon&#34;, highlight_style=None, opacity=1
+    ):
         &#34;&#34;&#34;Visualize the protein in a notebook.
 
         Parameters
@@ -2693,11 +2745,19 @@ from the PDB file.</p>
             the atoms corresponding to 1s will be highlighted in red
         style : str, default &#39;cartoon&#39;
             The style of the visualization; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
+        highlight_style : str, optional
+            The style of the highlighted atoms; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
+            (defaults to the same as `style`)
         opacity : float or dict, default 1
             Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)
 
         &#34;&#34;&#34;
-        outstr = self._get_atom_dicts(highlight_mask_dict, style=style, opacity=opacity)
+        outstr = self._get_atom_dicts(
+            highlight_mask_dict,
+            style=style,
+            highlight_style=highlight_style,
+            opacity=opacity,
+        )
         vis_string = &#34;&#34;.join([str(x) for x in outstr])
         view = py3Dmol.view(width=400, height=300)
         view.addModelsAsFrames(vis_string)
@@ -3313,7 +3373,7 @@ aligned sequence has gaps and 1 where it does not)</dd>
 </details>
 </dd>
 <dt id="proteinflow.data.PDBEntry.visualize"><code class="name flex">
-<span>def <span class="ident">visualize</span></span>(<span>self, highlight_mask_dict=None, style='cartoon', opacity=1)</span>
+<span>def <span class="ident">visualize</span></span>(<span>self, highlight_mask_dict=None, style='cartoon', highlight_style=None, opacity=1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Visualize the protein in a notebook.</p>
@@ -3324,6 +3384,9 @@ aligned sequence has gaps and 1 where it does not)</dd>
 the atoms corresponding to 1s will be highlighted in red</dd>
 <dt><strong><code>style</code></strong> :&ensp;<code>str</code>, default <code>'cartoon'</code></dt>
 <dd>The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'</dd>
+<dt><strong><code>highlight_style</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>The style of the highlighted atoms; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
+(defaults to the same as <code>style</code>)</dd>
 <dt><strong><code>opacity</code></strong> :&ensp;<code>float</code> or <code>dict</code>, default <code>1</code></dt>
 <dd>Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)</dd>
 </dl></div>
@@ -3331,7 +3394,9 @@ the atoms corresponding to 1s will be highlighted in red</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def visualize(self, highlight_mask_dict=None, style=&#34;cartoon&#34;, opacity=1):
+<pre><code class="python">def visualize(
+    self, highlight_mask_dict=None, style=&#34;cartoon&#34;, highlight_style=None, opacity=1
+):
     &#34;&#34;&#34;Visualize the protein in a notebook.
 
     Parameters
@@ -3341,11 +3406,19 @@ the atoms corresponding to 1s will be highlighted in red</dd>
         the atoms corresponding to 1s will be highlighted in red
     style : str, default &#39;cartoon&#39;
         The style of the visualization; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
+    highlight_style : str, optional
+        The style of the highlighted atoms; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
+        (defaults to the same as `style`)
     opacity : float or dict, default 1
         Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)
 
     &#34;&#34;&#34;
-    outstr = self._get_atom_dicts(highlight_mask_dict, style=style, opacity=opacity)
+    outstr = self._get_atom_dicts(
+        highlight_mask_dict,
+        style=style,
+        highlight_style=highlight_style,
+        opacity=opacity,
+    )
     vis_string = &#34;&#34;.join([str(x) for x in outstr])
     view = py3Dmol.view(width=400, height=300)
     view.addModelsAsFrames(vis_string)
@@ -3832,6 +3905,28 @@ indicates residues with known coordinates</dd>
             self.mask_original[new_chain] = self.mask_original.pop(old_chain)
             self.cdr[new_chain] = self.cdr.pop(old_chain)
             self.predict_mask[new_chain] = self.predict_mask.pop(old_chain)
+
+    def get_predicted_entry(self):
+        &#34;&#34;&#34;Return a `ProteinEntry` object that only contains predicted residues.&#34;&#34;&#34;
+        if self.predict_mask is None:
+            raise ValueError(&#34;Predicted mask not available&#34;)
+        entry_dict = self.to_dict()
+        for chain in self.get_chains():
+            mask_ = self.predict_mask[chain].astype(bool)
+            if mask_.sum() == 0:
+                entry_dict.pop(chain)
+                continue
+            if mask_.sum() == len(mask_):
+                continue
+            seq_arr = np.array(list(entry_dict[chain][&#34;seq&#34;]))
+            entry_dict[chain][&#34;seq&#34;] = &#34;&#34;.join(seq_arr[mask_])
+            entry_dict[chain][&#34;crd_bb&#34;] = entry_dict[chain][&#34;crd_bb&#34;][mask_]
+            entry_dict[chain][&#34;crd_sc&#34;] = entry_dict[chain][&#34;crd_sc&#34;][mask_]
+            entry_dict[chain][&#34;msk&#34;] = entry_dict[chain][&#34;msk&#34;][mask_]
+            entry_dict[chain][&#34;predict_msk&#34;] = entry_dict[chain][&#34;predict_msk&#34;][mask_]
+            if &#34;cdr&#34; in entry_dict[chain]:
+                entry_dict[chain][&#34;cdr&#34;] = entry_dict[chain][&#34;cdr&#34;][mask_]
+        return ProteinEntry.from_dict(entry_dict)
 
     def merge(self, entry):
         &#34;&#34;&#34;Merge another `ProteinEntry` object into this one.
@@ -4647,7 +4742,9 @@ indicates residues with known coordinates</dd>
         predict_mask = np.concatenate([self.predict_mask[chain] for chain in chains])
         return predict_mask
 
-    def visualize(self, highlight_mask=None, style=&#34;cartoon&#34;, opacity=1):
+    def visualize(
+        self, highlight_mask=None, style=&#34;cartoon&#34;, highlight_style=None, opacity=1
+    ):
         &#34;&#34;&#34;Visualize the protein in a notebook.
 
         Parameters
@@ -4658,6 +4755,9 @@ indicates residues with known coordinates</dd>
             `self.predict_mask` is not `None`, the predicted residues are highlighted
         style : str, default &#39;cartoon&#39;
             The style of the visualization; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
+        highlight_style : str, optional
+            The style of the highlighted atoms; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
+            (defaults to the same as `style`)
         opacity : float or dict, default 1
             Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)
 
@@ -4675,7 +4775,10 @@ indicates residues with known coordinates</dd>
             self.to_pdb(tmp.name)
             pdb_entry = PDBEntry(tmp.name)
         pdb_entry.visualize(
-            highlight_mask_dict=highlight_mask_dict, style=style, opacity=opacity
+            highlight_mask_dict=highlight_mask_dict,
+            style=style,
+            highlight_style=highlight_style,
+            opacity=opacity,
         )</code></pre>
 </details>
 <h3>Class variables</h3>
@@ -6084,6 +6187,38 @@ zeros to residues with known coordinates</dd>
     return predict_mask</code></pre>
 </details>
 </dd>
+<dt id="proteinflow.data.ProteinEntry.get_predicted_entry"><code class="name flex">
+<span>def <span class="ident">get_predicted_entry</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Return a <code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code> object that only contains predicted residues.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_predicted_entry(self):
+    &#34;&#34;&#34;Return a `ProteinEntry` object that only contains predicted residues.&#34;&#34;&#34;
+    if self.predict_mask is None:
+        raise ValueError(&#34;Predicted mask not available&#34;)
+    entry_dict = self.to_dict()
+    for chain in self.get_chains():
+        mask_ = self.predict_mask[chain].astype(bool)
+        if mask_.sum() == 0:
+            entry_dict.pop(chain)
+            continue
+        if mask_.sum() == len(mask_):
+            continue
+        seq_arr = np.array(list(entry_dict[chain][&#34;seq&#34;]))
+        entry_dict[chain][&#34;seq&#34;] = &#34;&#34;.join(seq_arr[mask_])
+        entry_dict[chain][&#34;crd_bb&#34;] = entry_dict[chain][&#34;crd_bb&#34;][mask_]
+        entry_dict[chain][&#34;crd_sc&#34;] = entry_dict[chain][&#34;crd_sc&#34;][mask_]
+        entry_dict[chain][&#34;msk&#34;] = entry_dict[chain][&#34;msk&#34;][mask_]
+        entry_dict[chain][&#34;predict_msk&#34;] = entry_dict[chain][&#34;predict_msk&#34;][mask_]
+        if &#34;cdr&#34; in entry_dict[chain]:
+            entry_dict[chain][&#34;cdr&#34;] = entry_dict[chain][&#34;cdr&#34;][mask_]
+    return ProteinEntry.from_dict(entry_dict)</code></pre>
+</details>
+</dd>
 <dt id="proteinflow.data.ProteinEntry.get_sequence"><code class="name flex">
 <span>def <span class="ident">get_sequence</span></span>(<span>self, chains=None, encode=False, cdr=None, only_known=False)</span>
 </code></dt>
@@ -6733,7 +6868,7 @@ zeros to residues with known coordinates.</p>
 </details>
 </dd>
 <dt id="proteinflow.data.ProteinEntry.visualize"><code class="name flex">
-<span>def <span class="ident">visualize</span></span>(<span>self, highlight_mask=None, style='cartoon', opacity=1)</span>
+<span>def <span class="ident">visualize</span></span>(<span>self, highlight_mask=None, style='cartoon', highlight_style=None, opacity=1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Visualize the protein in a notebook.</p>
@@ -6745,6 +6880,9 @@ marked with 1 and the rest marked with 0; if not given and
 <code>self.predict_mask</code> is not <code>None</code>, the predicted residues are highlighted</dd>
 <dt><strong><code>style</code></strong> :&ensp;<code>str</code>, default <code>'cartoon'</code></dt>
 <dd>The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'</dd>
+<dt><strong><code>highlight_style</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>The style of the highlighted atoms; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
+(defaults to the same as <code>style</code>)</dd>
 <dt><strong><code>opacity</code></strong> :&ensp;<code>float</code> or <code>dict</code>, default <code>1</code></dt>
 <dd>Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)</dd>
 </dl></div>
@@ -6752,7 +6890,9 @@ marked with 1 and the rest marked with 0; if not given and
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def visualize(self, highlight_mask=None, style=&#34;cartoon&#34;, opacity=1):
+<pre><code class="python">def visualize(
+    self, highlight_mask=None, style=&#34;cartoon&#34;, highlight_style=None, opacity=1
+):
     &#34;&#34;&#34;Visualize the protein in a notebook.
 
     Parameters
@@ -6763,6 +6903,9 @@ marked with 1 and the rest marked with 0; if not given and
         `self.predict_mask` is not `None`, the predicted residues are highlighted
     style : str, default &#39;cartoon&#39;
         The style of the visualization; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
+    highlight_style : str, optional
+        The style of the highlighted atoms; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
+        (defaults to the same as `style`)
     opacity : float or dict, default 1
         Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)
 
@@ -6780,7 +6923,10 @@ marked with 1 and the rest marked with 0; if not given and
         self.to_pdb(tmp.name)
         pdb_entry = PDBEntry(tmp.name)
     pdb_entry.visualize(
-        highlight_mask_dict=highlight_mask_dict, style=style, opacity=opacity
+        highlight_mask_dict=highlight_mask_dict,
+        style=style,
+        highlight_style=highlight_style,
+        opacity=opacity,
     )</code></pre>
 </details>
 </dd>
@@ -7378,6 +7524,7 @@ def from_id(
 <li><code><a title="proteinflow.data.ProteinEntry.get_ligand_features" href="#proteinflow.data.ProteinEntry.get_ligand_features">get_ligand_features</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.get_mask" href="#proteinflow.data.ProteinEntry.get_mask">get_mask</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.get_predict_mask" href="#proteinflow.data.ProteinEntry.get_predict_mask">get_predict_mask</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.get_predicted_entry" href="#proteinflow.data.ProteinEntry.get_predicted_entry">get_predicted_entry</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.get_sequence" href="#proteinflow.data.ProteinEntry.get_sequence">get_sequence</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.has_cdr" href="#proteinflow.data.ProteinEntry.has_cdr">has_cdr</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.interpolate_coords" href="#proteinflow.data.ProteinEntry.interpolate_coords">interpolate_coords</a></code></li>

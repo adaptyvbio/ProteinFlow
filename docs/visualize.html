@@ -152,7 +152,14 @@ def merge_pickle_files(paths_to_merge, save_path):
         raise ValueError(&#34;save_path must end with .pdb or .pickle&#34;)
 
 
-def show_merged_pickle(file_paths, highlight_masks=None, style=&#34;cartoon&#34;, opacity=1.0):
+def show_merged_pickle(
+    file_paths,
+    highlight_masks=None,
+    style=&#34;cartoon&#34;,
+    highlight_style=None,
+    opacity=1.0,
+    only_predicted=False,
+):
     &#34;&#34;&#34;Show a merged visualization of the given PDB or pickle files.
 
     Parameters
@@ -164,8 +171,13 @@ def show_merged_pickle(file_paths, highlight_masks=None, style=&#34;cartoon&#34;
         the chains to be concatenated in alphabetical order.
     style : str, optional
         The style of the visualization; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
+    highlight_style : str, optional
+        The style of the highlighted atoms; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
+        (defaults to the same as `style`)
     opacity : float or list, default 1
         The opacity of the visualization.
+    only_predicted : bool, default False
+        Whether to only overlay the predicted atoms.
 
     &#34;&#34;&#34;
     create_fn = ProteinEntry.from_pickle
@@ -182,18 +194,26 @@ def show_merged_pickle(file_paths, highlight_masks=None, style=&#34;cartoon&#34;
             highlight_masks[i] = np.zeros(entry.get_mask().sum())
     merged_entry = entries[0]
     for entry in entries[1:]:
+        if only_predicted:
+            entry = entry.get_predicted_entry()
         merged_entry.merge(entry)
     if highlight_masks is not None:
         highlight_mask = np.concatenate(highlight_masks, axis=0)
     else:
         highlight_mask = None
     merged_entry.visualize(
-        style=style, highlight_mask=highlight_mask, opacity=opacity_dict
+        style=style,
+        highlight_style=highlight_style,
+        highlight_mask=highlight_mask,
+        opacity=opacity_dict,
     )
 
 
 def show_merged_pdb(
-    file_paths, highlight_mask_dicts=None, style=&#34;cartoon&#34;, opacity=1.0
+    file_paths,
+    highlight_mask_dicts=None,
+    style=&#34;cartoon&#34;,
+    opacity=1.0,
 ):
     &#34;&#34;&#34;Show a merged visualization of the given PDB or pickle files.
 
@@ -441,7 +461,10 @@ the chains to be concatenated in alphabetical order.</dd>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def show_merged_pdb(
-    file_paths, highlight_mask_dicts=None, style=&#34;cartoon&#34;, opacity=1.0
+    file_paths,
+    highlight_mask_dicts=None,
+    style=&#34;cartoon&#34;,
+    opacity=1.0,
 ):
     &#34;&#34;&#34;Show a merged visualization of the given PDB or pickle files.
 
@@ -485,7 +508,7 @@ the chains to be concatenated in alphabetical order.</dd>
 </details>
 </dd>
 <dt id="proteinflow.visualize.show_merged_pickle"><code class="name flex">
-<span>def <span class="ident">show_merged_pickle</span></span>(<span>file_paths, highlight_masks=None, style='cartoon', opacity=1.0)</span>
+<span>def <span class="ident">show_merged_pickle</span></span>(<span>file_paths, highlight_masks=None, style='cartoon', highlight_style=None, opacity=1.0, only_predicted=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Show a merged visualization of the given PDB or pickle files.</p>
@@ -498,14 +521,26 @@ the chains to be concatenated in alphabetical order.</dd>
 the chains to be concatenated in alphabetical order.</dd>
 <dt><strong><code>style</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'</dd>
+<dt><strong><code>highlight_style</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>The style of the highlighted atoms; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
+(defaults to the same as <code>style</code>)</dd>
 <dt><strong><code>opacity</code></strong> :&ensp;<code>float</code> or <code>list</code>, default <code>1</code></dt>
 <dd>The opacity of the visualization.</dd>
+<dt><strong><code>only_predicted</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>Whether to only overlay the predicted atoms.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def show_merged_pickle(file_paths, highlight_masks=None, style=&#34;cartoon&#34;, opacity=1.0):
+<pre><code class="python">def show_merged_pickle(
+    file_paths,
+    highlight_masks=None,
+    style=&#34;cartoon&#34;,
+    highlight_style=None,
+    opacity=1.0,
+    only_predicted=False,
+):
     &#34;&#34;&#34;Show a merged visualization of the given PDB or pickle files.
 
     Parameters
@@ -517,8 +552,13 @@ the chains to be concatenated in alphabetical order.</dd>
         the chains to be concatenated in alphabetical order.
     style : str, optional
         The style of the visualization; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
+    highlight_style : str, optional
+        The style of the highlighted atoms; one of &#39;cartoon&#39;, &#39;sphere&#39;, &#39;stick&#39;, &#39;line&#39;, &#39;cross&#39;
+        (defaults to the same as `style`)
     opacity : float or list, default 1
         The opacity of the visualization.
+    only_predicted : bool, default False
+        Whether to only overlay the predicted atoms.
 
     &#34;&#34;&#34;
     create_fn = ProteinEntry.from_pickle
@@ -535,13 +575,18 @@ the chains to be concatenated in alphabetical order.</dd>
             highlight_masks[i] = np.zeros(entry.get_mask().sum())
     merged_entry = entries[0]
     for entry in entries[1:]:
+        if only_predicted:
+            entry = entry.get_predicted_entry()
         merged_entry.merge(entry)
     if highlight_masks is not None:
         highlight_mask = np.concatenate(highlight_masks, axis=0)
     else:
         highlight_mask = None
     merged_entry.visualize(
-        style=style, highlight_mask=highlight_mask, opacity=opacity_dict
+        style=style,
+        highlight_style=highlight_style,
+        highlight_mask=highlight_mask,
+        opacity=opacity_dict,
     )</code></pre>
 </details>
 </dd>

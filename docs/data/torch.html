@@ -62,7 +62,14 @@ class _PadCollate:
                 max_len = max(map(lambda x: x[&#34;S&#34;].shape[0], batch))
                 # pad according to max_len
                 to_pad = [max_len - b[&#34;S&#34;].shape[0] for b in batch]
-            if key in [&#34;chain_id&#34;, &#34;chain_dict&#34;, &#34;pdb_id&#34;, &#34;cdr_id&#34;, &#34;ligand_smiles&#34;]:
+            if key in [
+                &#34;chain_id&#34;,
+                &#34;chain_dict&#34;,
+                &#34;pdb_id&#34;,
+                &#34;cdr_id&#34;,
+                &#34;ligand_smiles&#34;,
+                &#34;chain_type_dict&#34;,
+            ]:
                 continue
             out[key] = torch.stack(
                 [
@@ -150,6 +157,7 @@ class ProteinLoader(DataLoader):
         mask_all_cdrs=False,
         classes_dict_path=None,
         load_ligands=False,
+        cut_edges=False,
         *args,
         **kwargs,
     ) -&gt; None:
@@ -204,6 +212,8 @@ class ProteinLoader(DataLoader):
             path to the pickled classes dictionary
         load_ligands : bool, default False
             if `True`, the ligands will be loaded from the PDB files and added to the features
+        cut_edges : bool, default False
+            if `True`, missing values at the edges of the sequence will be cut off
         *args
             additional arguments to `torch.utils.data.DataLoader`
         **kwargs
@@ -233,6 +243,7 @@ class ProteinLoader(DataLoader):
             force_binding_sites_frac=force_binding_sites_frac,
             mask_all_cdrs=mask_all_cdrs,
             load_ligands=load_ligands,
+            cut_edges=cut_edges,
         )
         return ProteinLoader(
             dataset=dataset,
@@ -790,6 +801,7 @@ class ProteinDataset(Dataset):
             if data_entry.has_cdr():
                 out[&#34;cdr&#34;] = torch.tensor(data_entry.get_cdr(chain_set, encode=True))
                 chain_type_dict = data_entry.get_chain_type_dict(chain_set)
+                out[&#34;chain_type_dict&#34;] = chain_type_dict
                 if &#34;heavy&#34; in chain_type_dict:
                     cdr_chain_set.update(
                         [
@@ -1698,6 +1710,7 @@ from a polymer is sampled, the center of the masked region will be forced to be 
             if data_entry.has_cdr():
                 out[&#34;cdr&#34;] = torch.tensor(data_entry.get_cdr(chain_set, encode=True))
                 chain_type_dict = data_entry.get_chain_type_dict(chain_set)
+                out[&#34;chain_type_dict&#34;] = chain_type_dict
                 if &#34;heavy&#34; in chain_type_dict:
                     cdr_chain_set.update(
                         [
@@ -2138,6 +2151,7 @@ longest protein in the batch.</p>
         mask_all_cdrs=False,
         classes_dict_path=None,
         load_ligands=False,
+        cut_edges=False,
         *args,
         **kwargs,
     ) -&gt; None:
@@ -2192,6 +2206,8 @@ longest protein in the batch.</p>
             path to the pickled classes dictionary
         load_ligands : bool, default False
             if `True`, the ligands will be loaded from the PDB files and added to the features
+        cut_edges : bool, default False
+            if `True`, missing values at the edges of the sequence will be cut off
         *args
             additional arguments to `torch.utils.data.DataLoader`
         **kwargs
@@ -2221,6 +2237,7 @@ longest protein in the batch.</p>
             force_binding_sites_frac=force_binding_sites_frac,
             mask_all_cdrs=mask_all_cdrs,
             load_ligands=load_ligands,
+            cut_edges=cut_edges,
         )
         return ProteinLoader(
             dataset=dataset,
@@ -2276,7 +2293,7 @@ longest protein in the batch.</p>
 <h3>Static methods</h3>
 <dl>
 <dt id="proteinflow.data.torch.ProteinLoader.from_args"><code class="name flex">
-<span>def <span class="ident">from_args</span></span>(<span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type=None, entry_type='biounit', classes_to_exclude=None, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, force_binding_sites_frac=0, shuffle_clusters=True, shuffle_batches=True, mask_all_cdrs=False, classes_dict_path=None, load_ligands=False, *args, **kwargs) ‑> None</span>
+<span>def <span class="ident">from_args</span></span>(<span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type=None, entry_type='biounit', classes_to_exclude=None, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, force_binding_sites_frac=0, shuffle_clusters=True, shuffle_batches=True, mask_all_cdrs=False, classes_dict_path=None, load_ligands=False, cut_edges=False, *args, **kwargs) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a <code><a title="proteinflow.data.torch.ProteinLoader" href="#proteinflow.data.torch.ProteinLoader">ProteinLoader</a></code> instance with a <code><a title="proteinflow.data.torch.ProteinDataset" href="#proteinflow.data.torch.ProteinDataset">ProteinDataset</a></code> from the given arguments.</p>
@@ -2329,6 +2346,8 @@ forced to be in a binding site</dd>
 <dd>path to the pickled classes dictionary</dd>
 <dt><strong><code>load_ligands</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, the ligands will be loaded from the PDB files and added to the features</dd>
+<dt><strong><code>cut_edges</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, missing values at the edges of the sequence will be cut off</dd>
 <dt><strong><code>*args</code></strong></dt>
 <dd>additional arguments to <code>torch.utils.data.DataLoader</code></dd>
 <dt><strong><code>**kwargs</code></strong></dt>
@@ -2363,6 +2382,7 @@ def from_args(
     mask_all_cdrs=False,
     classes_dict_path=None,
     load_ligands=False,
+    cut_edges=False,
     *args,
     **kwargs,
 ) -&gt; None:
@@ -2417,6 +2437,8 @@ def from_args(
         path to the pickled classes dictionary
     load_ligands : bool, default False
         if `True`, the ligands will be loaded from the PDB files and added to the features
+    cut_edges : bool, default False
+        if `True`, missing values at the edges of the sequence will be cut off
     *args
         additional arguments to `torch.utils.data.DataLoader`
     **kwargs
@@ -2446,6 +2468,7 @@ def from_args(
         force_binding_sites_frac=force_binding_sites_frac,
         mask_all_cdrs=mask_all_cdrs,
         load_ligands=load_ligands,
+        cut_edges=cut_edges,
     )
     return ProteinLoader(
         dataset=dataset,
