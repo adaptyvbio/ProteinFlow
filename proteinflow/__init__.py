@@ -249,6 +249,7 @@ def generate_data(
     load_ligands=False,
     exclude_chains_without_ligands=False,
     tanimoto_clustering=False,
+    foldseek=False,
     require_ligand=False,
     random_seed=42,
     max_chains=10,
@@ -337,6 +338,8 @@ def generate_data(
         if `True`, exclude biounits that don't contain ligands
     tanimoto_clustering : bool, default False
         if `True`, cluster the biounits based on ligand Tanimoto similarity
+    foldseek : bool, default False
+        if `True`, cluster the biounits based on structure similarity
     require_ligand : bool, default False
         if `True`, only use biounits that contain a ligand
     random_seed : int, default 42
@@ -424,6 +427,7 @@ def generate_data(
             random_seed=random_seed,
             exclude_chains_without_ligands=exclude_chains_without_ligands,
             tanimoto_clustering=tanimoto_clustering,
+            foldseek=foldseek,
         )
     shutil.rmtree(tmp_folder)
     return log_dict

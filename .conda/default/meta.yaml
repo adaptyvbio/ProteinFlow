@@ -42,6 +42,7 @@ requirements:
     - bs4
     - rcsbsearch
     - mmseqs2
+    - foldseek
 
 about:
   home: https://github.com/adaptyvbio/ProteinFlow
