@@ -178,6 +178,34 @@ def download(**kwargs):
     help="Whether or not to load ligands found in the pdbs example: data['A']['ligand'][0]['X']",
 )
 @click.option(
+    "--exclude_chains",
+    "-e",
+    multiple=True,
+    type=str,
+    help="Exclude specific chains from the dataset ({pdb_id}-{chain_id}, e.g. -e 1a2b-A)",
+)
+@click.option(
+    "--exclude_chains_file",
+    type=str,
+    help="Exclude specific chains from the dataset (path to a file containing the sequences to exclude, one sequence per line)",
+)
+@click.option(
+    "--exclude_threshold",
+    default=0.7,
+    type=float,
+    help="Exclude chains with sequence identity to exclude_chains above this threshold",
+)
+@click.option(
+    "--exclude_clusters",
+    is_flag=True,
+    help="Exclude clusters that contain chains similar to chains to exclude",
+)
+@click.option(
+    "--exclude_based_on_cdr",
+    type=click.Choice(["L1", "L2", "L3", "H1", "H2", "H3"]),
+    help="if given and exclude_clusters is true + the dataset is SAbDab, exclude files based on only the given CDR clusters",
+)
+@click.option(
     "--exclude_chains_without_ligands",
     is_flag=True,
     help="Exclude chains without ligands from the generated dataset",

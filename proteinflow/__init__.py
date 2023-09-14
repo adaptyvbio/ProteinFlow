@@ -243,6 +243,7 @@ def generate_data(
     sabdab_data_path=None,
     require_antigen=False,
     exclude_chains=None,
+    exclude_chains_file=None,
     exclude_threshold=0.7,
     exclude_clusters=False,
     exclude_based_on_cdr=None,
@@ -326,6 +327,8 @@ def generate_data(
         if `True`, only use SAbDab files with an antigen
     exclude_chains : list of str, optional
         a list of chains (`{pdb_id}-{chain_id}`) to exclude from the splitting (e.g. `["1A2B-A", "1A2B-B"]`); chain id is the author chain id
+    exclude_chains_file : str, optional
+        path to a file containing the sequences to exclude, one sequence per line
     exclude_threshold : float in [0, 1], default 0.7
         the sequence similarity threshold for excluding chains
     exclude_clusters : bool, default False
@@ -421,6 +424,7 @@ def generate_data(
             ignore_existing=True,
             min_seq_id=min_seq_id,
             exclude_chains=exclude_chains,
+            exclude_chains_file=exclude_chains_file,
             exclude_threshold=exclude_threshold,
             exclude_clusters=exclude_clusters,
             exclude_based_on_cdr=exclude_based_on_cdr,
