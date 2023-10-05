@@ -49,6 +49,7 @@ from proteinflow.data.utils import (
 )
 from proteinflow.download import download_fasta, download_pdb
 from proteinflow.ligand import _get_ligands
+from proteinflow.metrics import blosum62_score, esm_pll, long_repeat_num
 
 
 def interpolate_coords(crd, mask, fill_ends=True):
@@ -1402,6 +1403,86 @@ class ProteinEntry:
             highlight_style=highlight_style,
             opacity=opacity,
         )
+
+    def blosum62_score(self, seq_before):
+        """Calculate the BLOSUM62 score of the protein.
+
+        Parameters
+        ----------
+        seq_before : str
+            A string with the sequence before the mutation
+
+        Returns
+        -------
+        score : float
+            The BLOSUM62 score of the protein
+
+        """
+        seq_after = self.get_sequence(encode=False)
+        if self.predict_mask is not None:
+            predict_mask = self.get_predict_mask()
+            seq_before = np.array(list(seq_before))[predict_mask.astype(bool)]
+            seq_after = np.array(list(seq_after))[predict_mask.astype(bool)]
+        return blosum62_score(seq_before, seq_after)
+
+    def long_repeat_num(self):
+        """Calculate the number of long repeats in the protein.
+
+        Returns
+        -------
+        num : int
+            The number of long repeats in the protein
+
+        """
+        seq = self.get_sequence(encode=False)
+        if self.predict_mask is not None:
+            predict_mask = self.get_predict_mask()
+            seq = np.array(list(seq))[predict_mask.astype(bool)]
+        return long_repeat_num(seq)
+
+    def esm_pll(self):
+        """Calculate the ESM PLL score of the protein.
+
+        Returns
+        -------
+        score : float
+            The ESM PLL score of the protein
+
+        """
+        chains = self.get_chains()
+        chain_sequences = [self.get_sequence(chains=[chain]) for chain in chains]
+        if self.predict_mask is not None:
+            predict_masks = [
+                (self.get_predict_mask(chains=[chain])).astype(float)
+                for chain in chains
+            ]
+        else:
+            predict_masks = [np.ones(len(x)) for x in chain_sequences]
+        return esm_pll(chain_sequences, predict_masks)
+
+    def accuracy(self, seq_before):
+        """Calculate the accuracy of the protein.
+
+        Parameters
+        ----------
+        seq_before : str
+            A string with the sequence before the mutation
+
+        Returns
+        -------
+        score : float
+            The accuracy of the protein
+
+        """
+        seq_after = self.get_sequence(encode=False)
+        seq_before = np.array(list(seq_before))
+        seq_after = np.array(list(seq_after))
+        if self.predict_mask is not None:
+            predict_mask = self.get_predict_mask()
+            seq_before = seq_before[predict_mask.astype(bool)]
+            seq_after = seq_before[predict_mask.astype(bool)]
+        true_false = seq_before == seq_after
+        return np.mean(true_false)
 
 
 class PDBEntry:

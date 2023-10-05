@@ -78,24 +78,18 @@ def _get_esm_model(esm_model_name):
 
 
 def esm_pll(
-    entry=None,
-    chain_sequences=None,
-    predict_masks=None,
+    chain_sequences,
+    predict_masks,
     esm_model_name="esm2_t30_150M_UR50D",
 ):
     """Compute pseudo log likelihood.
 
-    The input is either a `ProteinEntry` object or lists of chain sequences and predict masks.
-    If both are provided, the `ProteinEntry` object is used.
-
     Parameters
     ----------
-    entry : ProteinEntry, optional
-        ProteinEntry object (with `predict_mask` not `None`)
-    chain_sequences : list of str, optional
+    chain_sequences : list of str
         List of chain sequences (strings of amino acid codes)
-    predict_masks : list of np.ndarray, optional
-        List of predict masks (arrays of 0 and 1 where 1 indicates a masked residue)
+    predict_masks : list of np.ndarray
+        List of predict masks corresponding to the sequences (arrays of 0 and 1 where 1 indicates a predicted residue)
     esm_model_name : str, default "esm2_t30_150M_UR50D"
         Name of the ESM-2 model to use
 
@@ -105,15 +99,6 @@ def esm_pll(
         Pseudo log likelihood
 
     """
-    assert entry is not None or (
-        chain_sequences is not None and predict_masks is not None
-    )
-    if entry is not None:
-        chains = entry.get_chains()
-        chain_sequences = [entry.get_sequence(chains=[chain]) for chain in chains]
-        predict_masks = [
-            (entry.get_predict_mask(chains=[chain])).astype(float) for chain in chains
-        ]
     predict_mask = []
     for mask in predict_masks:
         predict_mask.append(mask)
