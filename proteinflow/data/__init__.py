@@ -49,7 +49,14 @@ from proteinflow.data.utils import (
 )
 from proteinflow.download import download_fasta, download_pdb
 from proteinflow.ligand import _get_ligands
-from proteinflow.metrics import blosum62_score, esm_pll, long_repeat_num
+from proteinflow.metrics import (
+    aligned_ca_rmsd,
+    blosum62_score,
+    esm_pll,
+    esmfold_generate,
+    esmfold_plddt,
+    long_repeat_num,
+)
 
 
 def interpolate_coords(crd, mask, fill_ends=True):
@@ -1483,6 +1490,72 @@ class ProteinEntry:
             seq_after = seq_before[predict_mask.astype(bool)]
         true_false = seq_before == seq_after
         return np.mean(true_false)
+
+    def aligned_ca_rmsd(self, entry, only_predicted=True):
+        """Calculate aligned CA RMSD between two proteins.
+
+        Parameters
+        ----------
+        entry : ProteinEntry
+            A `ProteinEntry` object
+        only_predicted : bool, default True
+            If `True` and prediction masks are available, only predicted residues are considered
+
+        Returns
+        -------
+        rmsd : float
+            The aligned CA RMSD between the two proteins
+
+        """
+        structure1 = self.get_coordinates()[:, 2]
+        structure2 = entry.get_coordinates()[:, 2]
+        if only_predicted:
+            mask1 = self.get_predict_mask().astype(bool)
+            mask2 = entry.get_predict_mask().astype(bool)
+            structure1 = structure1[mask1]
+            structure2 = structure2[mask2]
+        return aligned_ca_rmsd(structure1, structure2)
+
+    @staticmethod
+    def esmfold_metrics(entries):
+        """Calculate ESMFold metrics for a list of entries.
+
+        Parameters
+        ----------
+        entries : list of ProteinEntry
+            A list of `ProteinEntry` objects
+
+        Returns
+        -------
+        plddts_full : list of float
+            A list of PLDDT scores averaged over all residues
+        plddts_predicted : list of float
+            A list of PLDDT scores averaged over predicted residues
+        rmsds : list of float
+            A list of CA RMSD scores (self-consistency)
+
+        """
+        sequences = [
+            ":".join(
+                [entry.get_sequence(chains=[chain]) for chain in entry.get_chains()]
+            )
+            for entry in entries
+        ]
+        esmfold_generate(sequences)
+        filepaths = [
+            os.path.join("esmfold_output", f"seq_{i}.pdb")
+            for i in range(len(sequences))
+        ]
+        plddts_full = [esmfold_plddt(path) for path in filepaths]
+        plddts_predicted = [
+            esmfold_plddt(path, entry.get_predict_mask())
+            for path, entry in zip(filepaths, entries)
+        ]
+        rmsds = [
+            entry.aligned_ca_rmsd(ProteinEntry.from_pdb(path))
+            for entry, path in zip(entries, filepaths)
+        ]
+        return plddts_full, plddts_predicted, rmsds
 
 
 class PDBEntry:
