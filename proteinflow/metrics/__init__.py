@@ -87,6 +87,7 @@ def esm_pll(
     predict_masks,
     esm_model_name="esm2_t30_150M_UR50D",
     esm_model_objects=None,
+    average=False,
 ):
     """Compute pseudo log likelihood.
 
@@ -100,6 +101,8 @@ def esm_pll(
         Name of the ESM-2 model to use
     esm_model_objects : tuple, optional
         Tuple of ESM-2 model, batch converter and tok_to_idx dictionary (if not None, `esm_model_name` will be ignored)
+    average : bool, default False
+        Whether to average the pseudo log likelihood over the residues
 
     Returns
     -------
@@ -113,7 +116,11 @@ def esm_pll(
         predict_mask.append(np.zeros(2))
     predict_mask = np.concatenate(predict_mask, axis=0)
     predict_idx = np.where(predict_mask)[0]
-    sequence = "<eos><cls>".join(chain_sequences)
+    sequence = []
+    for i, seq in enumerate(chain_sequences):
+        sequence += list(seq)
+        if i != len(chain_sequences) - 1:
+            sequence += ["<eos>", "<cls>"]
 
     if esm_model_objects is None:
         esm_model, batch_converter, tok_to_idx = _get_esm_model(esm_model_name)
@@ -121,16 +128,18 @@ def esm_pll(
         esm_model, batch_converter, tok_to_idx = esm_model_objects
     pll = 0
     for i in predict_idx:
-        sequence_ = sequence[:i] + "<mask>" + sequence[i + 1 :]
+        sequence_ = "".join(sequence[:i]) + "<mask>" + "".join(sequence[i + 1 :])
         _, _, batch_tokens = batch_converter([(0, sequence_)])
         if torch.cuda.is_available():
             batch_tokens = batch_tokens.to("cuda")
         with torch.no_grad():
             results = esm_model(batch_tokens, repr_layers=[6], return_contacts=False)
-        logits = results["logits"][0, i].detach().cpu()
+        logits = results["logits"][0, i + 1].detach().cpu()
         tok_idx = tok_to_idx[sequence[i]]
         prob = F.softmax(logits[4:24], dim=-1)[tok_idx - 4]
         pll += torch.log(prob).item()
+    if average:
+        pll /= len(predict_idx)
     return pll
 
 

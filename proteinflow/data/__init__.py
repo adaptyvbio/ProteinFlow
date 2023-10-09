@@ -12,10 +12,12 @@ proteinflow pickle file or a PDB file.
 """
 import os
 import pickle
+import string
 import tempfile
 import warnings
 from collections import defaultdict
 
+import Bio.PDB
 import numpy as np
 import pandas as pd
 import py3Dmol
@@ -519,6 +521,16 @@ class ProteinEntry:
         seq = ProteinEntry._to_numpy(seq)
         return "".join([ALPHABET[x] for x in seq.astype(int)])
 
+    def _rename_chains(self, chain_dict):
+        """Rename the chains of the protein (with no safeguards)."""
+        for old_chain, new_chain in chain_dict.items():
+            self.seq[new_chain] = self.seq.pop(old_chain)
+            self.crd[new_chain] = self.crd.pop(old_chain)
+            self.mask[new_chain] = self.mask.pop(old_chain)
+            self.mask_original[new_chain] = self.mask_original.pop(old_chain)
+            self.cdr[new_chain] = self.cdr.pop(old_chain)
+            self.predict_mask[new_chain] = self.predict_mask.pop(old_chain)
+
     def rename_chains(self, chain_dict):
         """Rename the chains of the protein.
 
@@ -528,16 +540,18 @@ class ProteinEntry:
             A dictionary mapping old chain IDs to new chain IDs
 
         """
-        for old_chain, new_chain in chain_dict.items():
-            self.seq[new_chain] = self.seq.pop(old_chain)
-            self.crd[new_chain] = self.crd.pop(old_chain)
-            self.mask[new_chain] = self.mask.pop(old_chain)
-            self.mask_original[new_chain] = self.mask_original.pop(old_chain)
-            self.cdr[new_chain] = self.cdr.pop(old_chain)
-            self.predict_mask[new_chain] = self.predict_mask.pop(old_chain)
+        self._rename_chains({k: k * 5 for k in self.get_chains()})
+        self._rename_chains({k * 5: v for k, v in chain_dict.items()})
 
     def get_predicted_entry(self):
-        """Return a `ProteinEntry` object that only contains predicted residues."""
+        """Return a `ProteinEntry` object that only contains predicted residues.
+
+        Returns
+        -------
+        entry : ProteinEntry
+            The truncated `ProteinEntry` object
+
+        """
         if self.predict_mask is None:
             raise ValueError("Predicted mask not available")
         entry_dict = self.to_dict()
@@ -558,13 +572,26 @@ class ProteinEntry:
                 entry_dict[chain]["cdr"] = entry_dict[chain]["cdr"][mask_]
         return ProteinEntry.from_dict(entry_dict)
 
+    def get_predicted_chains(self):
+        """Return a list of chain IDs that contain predicted residues.
+
+        Returns
+        -------
+        chains : list of str
+            Chain IDs
+
+        """
+        if self.predict_mask is None:
+            raise ValueError("Predicted mask not available")
+        return [k for k, v in self.predict_mask.items() if v.sum() != 0]
+
     def merge(self, entry):
         """Merge another `ProteinEntry` object into this one.
 
         Parameters
         ----------
         entry : ProteinEntry
-            A `ProteinEntry` object
+            The merged `ProteinEntry` object
 
         """
         for chain in entry.get_chains():
@@ -916,11 +943,11 @@ class ProteinEntry:
         ----------
         path : str
             Path to the output PDB file
-        only_ca : bool, default `False`
+        only_ca : bool, default False
             If `True`, only backbone atoms are saved
-        skip_oxygens : bool, default `False`
+        skip_oxygens : bool, default False
             If `True`, oxygen atoms are not saved
-        only_backbone : bool, default `False`
+        only_backbone : bool, default False
             If `True`, only backbone atoms are saved
         title : str, optional
             Title of the PDB file (by default either the protein id or "Untitled")
@@ -1338,14 +1365,12 @@ class ProteinEntry:
     def _get_atom_dicts(self, highlight_mask=None, style="cartoon", opacity=1):
         """Get the atom dictionaries of the protein."""
         highlight_mask_dict = self._get_highlight_mask_dict(highlight_mask)
-        with tempfile.NamedTemporaryFile(suffix=".pdb") as tmp:
-            self.to_pdb(tmp.name)
-            pdb_entry = PDBEntry(tmp.name)
+        pdb_entry = PDBEntry(self._temp_pdb_file())
         return pdb_entry._get_atom_dicts(
             highlight_mask_dict=highlight_mask_dict, style=style, opacity=opacity
         )
 
-    def get_predict_mask(self, chains=None):
+    def get_predict_mask(self, chains=None, only_known=False):
         """Get the prediction mask of the protein.
 
         The prediction mask is a `'numpy'` array of shape `(L,)` with ones
@@ -1358,6 +1383,8 @@ class ProteinEntry:
         chains : list of str, optional
             If specified, only the prediction mask of the specified chains is returned (in the same order);
             otherwise, all features are concatenated in alphabetical order of the chain IDs
+        only_known : bool, default False
+            If `True`, only residues with known coordinates are returned
 
         Returns
         -------
@@ -1370,6 +1397,9 @@ class ProteinEntry:
             return None
         chains = self._get_chains_list(chains)
         predict_mask = np.concatenate([self.predict_mask[chain] for chain in chains])
+        if only_known:
+            mask = self.get_mask(chains=chains)
+            predict_mask = predict_mask[mask.astype(bool)]
         return predict_mask
 
     def visualize(
@@ -1439,8 +1469,13 @@ class ProteinEntry:
             score /= len(seq_before)
         return score
 
-    def long_repeat_num(self):
+    def long_repeat_num(self, thr=5):
         """Calculate the number of long repeats in the protein.
+
+        Parameters
+        ----------
+        thr : int, default 5
+            The threshold for the minimum length of the repeat
 
         Returns
         -------
@@ -1452,9 +1487,14 @@ class ProteinEntry:
         if self.predict_mask is not None:
             predict_mask = self.get_predict_mask()
             seq = np.array(list(seq))[predict_mask.astype(bool)]
-        return long_repeat_num(seq)
+        return long_repeat_num(seq, thr=thr)
 
-    def esm_pll(self, esm_model_name="esm2_t30_150M_UR50D", esm_model_objects=None):
+    def esm_pll(
+        self,
+        esm_model_name="esm2_t30_150M_UR50D",
+        esm_model_objects=None,
+        average=False,
+    ):
         """Calculate the ESM PLL score of the protein.
 
         Parameters
@@ -1463,6 +1503,8 @@ class ProteinEntry:
             Name of the ESM-2 model to use
         esm_model_objects : tuple, optional
             Tuple of ESM-2 model, batch converter and tok_to_idx dictionary (if not None, `esm_model_name` will be ignored)
+        average : bool, default False
+            If `True`, the score is averaged over the residues; otherwise, the score is summed
 
         Returns
         -------
@@ -1484,6 +1526,7 @@ class ProteinEntry:
             predict_masks,
             esm_model_name=esm_model_name,
             esm_model_objects=esm_model_objects,
+            average=average,
         )
 
     def accuracy(self, seq_before):
@@ -1528,13 +1571,18 @@ class ProteinEntry:
             The CA RMSD between the two proteins
 
         """
-        structure1 = self.get_coordinates()[:, 2]
-        structure2 = entry.get_coordinates()[:, 2]
+        structure1 = self.get_coordinates(only_known=True)[:, 2]
+        structure2 = entry.get_coordinates(only_known=True)[:, 2]
         if only_predicted:
-            mask = self.get_predict_mask().astype(bool)
+            mask = self.get_predict_mask(only_known=True).astype(bool)
             structure1 = structure1[mask]
             structure2 = structure2[mask]
         return ca_rmsd(structure1, structure2, align=align)
+
+    def _temp_pdb_file(self):
+        with tempfile.NamedTemporaryFile(suffix=".pdb", delete=False) as tmp:
+            self.to_pdb(tmp.name)
+        return tmp.name
 
     @staticmethod
     def esmfold_metrics(entries):
@@ -1557,25 +1605,101 @@ class ProteinEntry:
         """
         sequences = [
             ":".join(
-                [entry.get_sequence(chains=[chain]) for chain in entry.get_chains()]
+                [
+                    entry.get_sequence(chains=[chain], only_known=True)
+                    for chain in entry.get_chains()
+                ]
             )
             for entry in entries
         ]
         esmfold_generate(sequences)
-        filepaths = [
+        esmfold_paths = [
             os.path.join("esmfold_output", f"seq_{i}.pdb")
             for i in range(len(sequences))
         ]
-        plddts_full = [esmfold_plddt(path) for path in filepaths]
         plddts_predicted = [
-            esmfold_plddt(path, entry.get_predict_mask())
-            for path, entry in zip(filepaths, entries)
+            esmfold_plddt(path, entry.get_predict_mask(only_known=True))
+            for path, entry in zip(esmfold_paths, entries)
         ]
+        plddts_full = [esmfold_plddt(path) for path in esmfold_paths]
+        for entry, path in zip(entries, esmfold_paths):
+            temp_file = entry._temp_pdb_file()
+            esm_entry = ProteinEntry.from_pdb(path)
+            chain_rename_dict = {
+                k: v for k, v in zip(string.ascii_uppercase, entry.get_chains())
+            }
+            esm_entry.rename_chains(chain_rename_dict)
+            esm_entry.align_structure(
+                temp_file,
+                path.rsplit(".", 1)[0] + "_aligned.pdb",
+                chain_ids=entry.get_predicted_chains(),
+            )
         rmsds = [
-            entry.ca_rmsd(ProteinEntry.from_pdb(path), only_predicted=True)
-            for entry, path in zip(entries, filepaths)
+            entry.ca_rmsd(
+                ProteinEntry.from_pdb(filepath.rsplit(".", 1)[0] + "_aligned.pdb"),
+                only_predicted=True,
+                align=False,
+            )
+            for entry, filepath in zip(entries, esmfold_paths)
         ]
         return plddts_full, plddts_predicted, rmsds
+
+    def align_structure(self, reference_pdb_path, save_pdb_path, chain_ids=None):
+        """Aligns the structure to a reference structure using the CA atoms.
+
+        Parameters
+        ----------
+        reference_pdb_path : str
+            Path to the reference structure (in .pdb format)
+        save_pdb_path : str
+            Path where the aligned structure should be saved (in .pdb format)
+        chain_ids : list of str, optional
+            If specified, only the chains with the specified IDs are aligned
+
+        """
+        # Start the parser
+        pdb_parser = Bio.PDB.PDBParser(QUIET=True)
+
+        # Get the structures
+        temp_file = self._temp_pdb_file()
+        ref_structure = pdb_parser.get_structure("reference", reference_pdb_path)
+        sample_structure = pdb_parser.get_structure("sample", temp_file)
+
+        # Use the first model in the pdb-files for alignment
+        # Change the number 0 if you want to align to another structure
+        ref_model = ref_structure[0]
+        sample_model = sample_structure[0]
+
+        # Make a list of the atoms (in the structures) you wish to align.
+        # In this case we use CA atoms whose index is in the specified range
+        ref_atoms = []
+        sample_atoms = []
+
+        # Iterate of all chains in the model in order to find all residues
+        for ref_chain in ref_model:
+            if chain_ids is not None and ref_chain.id not in chain_ids:
+                continue
+            for ref_res in ref_chain:
+                if "CA" in ref_res:
+                    ref_atoms.append(ref_res["CA"])
+
+        # Do the same for the sample structure
+        for sample_chain in sample_model:
+            if chain_ids is not None and sample_chain.id not in chain_ids:
+                continue
+            for sample_res in sample_chain:
+                if "CA" in sample_res:
+                    sample_atoms.append(sample_res["CA"])
+
+        # Now we initiate the superimposer:
+        super_imposer = Bio.PDB.Superimposer()
+        super_imposer.set_atoms(ref_atoms, sample_atoms)
+        super_imposer.apply(sample_model.get_atoms())
+
+        # Save the aligned version of 1UBQ.pdb
+        io = Bio.PDB.PDBIO()
+        io.set_structure(sample_structure)
+        io.save(save_pdb_path)
 
 
 class PDBEntry:
@@ -1642,6 +1766,10 @@ class PDBEntry:
             A `PDBEntry` object
 
         """
+        _chain_dict = {chain: chain * 5 for chain in self.get_chains()}
+        self.crd_df["chain_id"] = self.crd_df["chain_id"].replace(_chain_dict)
+        self.seq_df["chain_id"] = self.seq_df["chain_id"].replace(_chain_dict)
+        chain_dict = {k * 5: v for k, v in chain_dict.items()}
         self.crd_df["chain_id"] = self.crd_df["chain_id"].replace(chain_dict)
         self.seq_df["chain_id"] = self.seq_df["chain_id"].replace(chain_dict)
         return self
