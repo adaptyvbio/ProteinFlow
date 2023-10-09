@@ -86,6 +86,7 @@ def esm_pll(
     chain_sequences,
     predict_masks,
     esm_model_name="esm2_t30_150M_UR50D",
+    esm_model_objects=None,
 ):
     """Compute pseudo log likelihood.
 
@@ -97,6 +98,8 @@ def esm_pll(
         List of predict masks corresponding to the sequences (arrays of 0 and 1 where 1 indicates a predicted residue)
     esm_model_name : str, default "esm2_t30_150M_UR50D"
         Name of the ESM-2 model to use
+    esm_model_objects : tuple, optional
+        Tuple of ESM-2 model, batch converter and tok_to_idx dictionary (if not None, `esm_model_name` will be ignored)
 
     Returns
     -------
@@ -112,7 +115,10 @@ def esm_pll(
     predict_idx = np.where(predict_mask)[0]
     sequence = "<eos><cls>".join(chain_sequences)
 
-    esm_model, batch_converter, tok_to_idx = _get_esm_model(esm_model_name)
+    if esm_model_objects is None:
+        esm_model, batch_converter, tok_to_idx = _get_esm_model(esm_model_name)
+    else:
+        esm_model, batch_converter, tok_to_idx = esm_model_objects
     pll = 0
     for i in predict_idx:
         sequence_ = sequence[:i] + "<mask>" + sequence[i + 1 :]
@@ -194,15 +200,17 @@ def esmfold_generate(sequences, filepaths=None):
 
     """
     assert filepaths is None or len(filepaths) == len(sequences)
+    print("Loading the ESMFold model...")
     model = esm.pretrained.esmfold_v1()
     model = model.eval().cuda()
+    print("Model loaded.")
     if filepaths is None:
         filepaths = [
             os.path.join("esmfold_output", f"seq_{i}.pdb")
             for i in range(len(sequences))
         ]
     with torch.no_grad():
-        for sequence, path in tqdm(zip(sequences, filepaths)):
+        for sequence, path in tqdm(zip(sequences, filepaths), total=len(sequences)):
             output = model.infer_pdb(sequence)
             with open(path, "w") as f:
                 f.write(output)
@@ -226,6 +234,17 @@ def esmfold_plddt(filepath, predict_mask=None):
     """
     struct = bsio.load_structure(filepath, extra_fields=["b_factor"])
     if predict_mask is not None:
-        return np.array(struct.b_factor)[predict_mask.astype(bool)].mean()
+        order = -1
+        order_array = []
+        for i in range(len(struct)):
+            if struct[i].atom_name == "N":
+                order += 1
+            order_array.append(order)
+        b_factor = [
+            atom.b_factor
+            for order, atom in zip(order_array, struct)
+            if predict_mask[order] == 1
+        ]
+        return np.array(b_factor).mean()
     else:
         return struct.b_factor.mean()

@@ -11,5 +11,6 @@ rcsbsearch/
 ./*zip
 pulchra304
 tmp/
+esmfold_output/
 all_structures/
 all_structures.zip

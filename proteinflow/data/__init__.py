@@ -1447,8 +1447,15 @@ class ProteinEntry:
             seq = np.array(list(seq))[predict_mask.astype(bool)]
         return long_repeat_num(seq)
 
-    def esm_pll(self):
+    def esm_pll(self, esm_model_name="esm2_t30_150M_UR50D", esm_model_objects=None):
         """Calculate the ESM PLL score of the protein.
+
+        Parameters
+        ----------
+        esm_model_name : str, default "esm2_t30_150M_UR50D"
+            Name of the ESM-2 model to use
+        esm_model_objects : tuple, optional
+            Tuple of ESM-2 model, batch converter and tok_to_idx dictionary (if not None, `esm_model_name` will be ignored)
 
         Returns
         -------
@@ -1465,7 +1472,12 @@ class ProteinEntry:
             ]
         else:
             predict_masks = [np.ones(len(x)) for x in chain_sequences]
-        return esm_pll(chain_sequences, predict_masks)
+        return esm_pll(
+            chain_sequences,
+            predict_masks,
+            esm_model_name=esm_model_name,
+            esm_model_objects=esm_model_objects,
+        )
 
     def accuracy(self, seq_before):
         """Calculate the accuracy of the protein.
@@ -1487,7 +1499,7 @@ class ProteinEntry:
         if self.predict_mask is not None:
             predict_mask = self.get_predict_mask()
             seq_before = seq_before[predict_mask.astype(bool)]
-            seq_after = seq_before[predict_mask.astype(bool)]
+            seq_after = seq_after[predict_mask.astype(bool)]
         true_false = seq_before == seq_after
         return np.mean(true_false)
 
@@ -1510,10 +1522,9 @@ class ProteinEntry:
         structure1 = self.get_coordinates()[:, 2]
         structure2 = entry.get_coordinates()[:, 2]
         if only_predicted:
-            mask1 = self.get_predict_mask().astype(bool)
-            mask2 = entry.get_predict_mask().astype(bool)
-            structure1 = structure1[mask1]
-            structure2 = structure2[mask2]
+            mask = self.get_predict_mask().astype(bool)
+            structure1 = structure1[mask]
+            structure2 = structure2[mask]
         return aligned_ca_rmsd(structure1, structure2)
 
     @staticmethod
@@ -1552,7 +1563,7 @@ class ProteinEntry:
             for path, entry in zip(filepaths, entries)
         ]
         rmsds = [
-            entry.aligned_ca_rmsd(ProteinEntry.from_pdb(path))
+            entry.aligned_ca_rmsd(ProteinEntry.from_pdb(path, only_predicted=True))
             for entry, path in zip(entries, filepaths)
         ]
         return plddts_full, plddts_predicted, rmsds
