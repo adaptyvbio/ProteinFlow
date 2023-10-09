@@ -18,14 +18,14 @@ def blosum62_score(seq_before, seq_after):
     Parameters
     ----------
     seq_before : str
-        The sequence before the mutation.
+        The sequence before the mutation
     seq_after : str
-        The sequence after the mutation.
+        The sequence after the mutation
 
     Returns
     -------
     score : int
-        The BLOSUM62 score between the two sequences.
+        The BLOSUM62 score between the two sequences
 
     """
     assert len(seq_before) == len(seq_after)
@@ -130,11 +130,11 @@ def esm_pll(
         logits = results["logits"][0, i].detach().cpu()
         tok_idx = tok_to_idx[sequence[i]]
         prob = F.softmax(logits[4:24], dim=-1)[tok_idx - 4]
-        pll += torch.log(prob)
+        pll += torch.log(prob).item()
     return pll
 
 
-def aligned_ca_rmsd(coordinates1, coordinates2):
+def ca_rmsd(coordinates1, coordinates2, align=True):
     """Calculate CA RMSD between two structures.
 
     Parameters
@@ -143,6 +143,8 @@ def aligned_ca_rmsd(coordinates1, coordinates2):
         The CA coordinates array of the first structure, shaped `(L, 3)`
     coordinates2 : ProteinEntry
         The CA coordinates array of the second structure, shaped `(L, 3)`
+    align : bool, default True
+        Whether to align the two structures before calculating RMSD
 
     Returns
     -------
@@ -150,39 +152,44 @@ def aligned_ca_rmsd(coordinates1, coordinates2):
         The RMSD between the two structures
 
     """
-    ref_atoms = []
-    sample_atoms = []
+    if align:
+        ref_atoms = []
+        sample_atoms = []
 
-    for coord in coordinates1:
-        # Append CA atom to list
-        atom = Bio.PDB.Atom.Atom(
-            "CA",
-            coord[2],
-            bfactor=None,
-            occupancy=1.0,
-            altloc=None,
-            fullname="CA",
-            serial_number=None,
-        )
-        ref_atoms.append(atom)
+        for coord in coordinates1:
+            # Append CA atom to list
+            atom = Bio.PDB.Atom.Atom(
+                "CA",
+                coord[2],
+                bfactor=None,
+                occupancy=1.0,
+                altloc=None,
+                fullname="CA",
+                serial_number=None,
+                element="CA",
+            )
+            ref_atoms.append(atom)
 
-    for coord in coordinates2:
-        # Append CA atom to list
-        atom = Bio.PDB.Atom.Atom(
-            "CA",
-            coord[2],
-            bfactor=None,
-            occupancy=1.0,
-            altloc=None,
-            fullname="CA",
-            serial_number=None,
-        )
-        sample_atoms.append(atom)
+        for coord in coordinates2:
+            # Append CA atom to list
+            atom = Bio.PDB.Atom.Atom(
+                "CA",
+                coord[2],
+                bfactor=None,
+                occupancy=1.0,
+                altloc=None,
+                fullname="CA",
+                serial_number=None,
+                element="CA",
+            )
+            sample_atoms.append(atom)
 
-    # Now we initiate the superimposer:
-    super_imposer = Bio.PDB.Superimposer()
-    super_imposer.set_atoms(ref_atoms, sample_atoms)
-    return super_imposer.rms
+        # Now we initiate the superimposer:
+        super_imposer = Bio.PDB.Superimposer()
+        super_imposer.set_atoms(ref_atoms, sample_atoms)
+        return super_imposer.rms
+    else:
+        return np.sqrt(((coordinates1 - coordinates2) ** 2).sum(axis=-1).mean())
 
 
 def esmfold_generate(sequences, filepaths=None):

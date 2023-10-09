@@ -50,8 +50,8 @@ from proteinflow.data.utils import (
 from proteinflow.download import download_fasta, download_pdb
 from proteinflow.ligand import _get_ligands
 from proteinflow.metrics import (
-    aligned_ca_rmsd,
     blosum62_score,
+    ca_rmsd,
     esm_pll,
     esmfold_generate,
     esmfold_plddt,
@@ -1411,13 +1411,17 @@ class ProteinEntry:
             opacity=opacity,
         )
 
-    def blosum62_score(self, seq_before):
+    def blosum62_score(self, seq_before, average=True, only_predicted=True):
         """Calculate the BLOSUM62 score of the protein.
 
         Parameters
         ----------
         seq_before : str
             A string with the sequence before the mutation
+        average : bool, default True
+            If `True`, the score is averaged over the residues; otherwise, the score is summed
+        only_predicted : bool, default True
+            If `True` and prediction masks are available, only predicted residues are considered
 
         Returns
         -------
@@ -1426,11 +1430,14 @@ class ProteinEntry:
 
         """
         seq_after = self.get_sequence(encode=False)
-        if self.predict_mask is not None:
+        if self.predict_mask is not None and only_predicted:
             predict_mask = self.get_predict_mask()
             seq_before = np.array(list(seq_before))[predict_mask.astype(bool)]
             seq_after = np.array(list(seq_after))[predict_mask.astype(bool)]
-        return blosum62_score(seq_before, seq_after)
+        score = blosum62_score(seq_before, seq_after)
+        if average:
+            score /= len(seq_before)
+        return score
 
     def long_repeat_num(self):
         """Calculate the number of long repeats in the protein.
@@ -1503,8 +1510,8 @@ class ProteinEntry:
         true_false = seq_before == seq_after
         return np.mean(true_false)
 
-    def aligned_ca_rmsd(self, entry, only_predicted=True):
-        """Calculate aligned CA RMSD between two proteins.
+    def ca_rmsd(self, entry, only_predicted=True, align=True):
+        """Calculate CA RMSD between two proteins.
 
         Parameters
         ----------
@@ -1512,11 +1519,13 @@ class ProteinEntry:
             A `ProteinEntry` object
         only_predicted : bool, default True
             If `True` and prediction masks are available, only predicted residues are considered
+        align : bool, default True
+            If `True`, the two proteins are aligned before calculating the RMSD
 
         Returns
         -------
         rmsd : float
-            The aligned CA RMSD between the two proteins
+            The CA RMSD between the two proteins
 
         """
         structure1 = self.get_coordinates()[:, 2]
@@ -1525,7 +1534,7 @@ class ProteinEntry:
             mask = self.get_predict_mask().astype(bool)
             structure1 = structure1[mask]
             structure2 = structure2[mask]
-        return aligned_ca_rmsd(structure1, structure2)
+        return ca_rmsd(structure1, structure2, align=align)
 
     @staticmethod
     def esmfold_metrics(entries):
@@ -1563,7 +1572,7 @@ class ProteinEntry:
             for path, entry in zip(filepaths, entries)
         ]
         rmsds = [
-            entry.aligned_ca_rmsd(ProteinEntry.from_pdb(path, only_predicted=True))
+            entry.ca_rmsd(ProteinEntry.from_pdb(path), only_predicted=True)
             for entry, path in zip(entries, filepaths)
         ]
         return plddts_full, plddts_predicted, rmsds
