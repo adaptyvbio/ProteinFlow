@@ -1550,8 +1550,7 @@ class ProteinEntry:
             predict_mask = self.get_predict_mask()
             seq_before = seq_before[predict_mask.astype(bool)]
             seq_after = seq_after[predict_mask.astype(bool)]
-        true_false = seq_before == seq_after
-        return np.mean(true_false)
+        return np.mean(seq_before == seq_after)
 
     def ca_rmsd(self, entry, only_predicted=True):
         """Calculate CA RMSD between two proteins.
