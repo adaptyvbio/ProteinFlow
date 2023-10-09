@@ -1553,7 +1553,7 @@ class ProteinEntry:
         true_false = seq_before == seq_after
         return np.mean(true_false)
 
-    def ca_rmsd(self, entry, only_predicted=True, align=True):
+    def ca_rmsd(self, entry, only_predicted=True):
         """Calculate CA RMSD between two proteins.
 
         Parameters
@@ -1562,8 +1562,6 @@ class ProteinEntry:
             A `ProteinEntry` object
         only_predicted : bool, default True
             If `True` and prediction masks are available, only predicted residues are considered
-        align : bool, default True
-            If `True`, the two proteins are aligned before calculating the RMSD
 
         Returns
         -------
@@ -1577,7 +1575,7 @@ class ProteinEntry:
             mask = self.get_predict_mask(only_known=True).astype(bool)
             structure1 = structure1[mask]
             structure2 = structure2[mask]
-        return ca_rmsd(structure1, structure2, align=align)
+        return ca_rmsd(structure1, structure2)
 
     def _temp_pdb_file(self):
         with tempfile.NamedTemporaryFile(suffix=".pdb", delete=False) as tmp:

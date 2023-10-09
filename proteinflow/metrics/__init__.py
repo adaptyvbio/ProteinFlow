@@ -143,7 +143,7 @@ def esm_pll(
     return pll
 
 
-def ca_rmsd(coordinates1, coordinates2, align=True):
+def ca_rmsd(coordinates1, coordinates2):
     """Calculate CA RMSD between two structures.
 
     Parameters
@@ -152,8 +152,6 @@ def ca_rmsd(coordinates1, coordinates2, align=True):
         The CA coordinates array of the first structure, shaped `(L, 3)`
     coordinates2 : ProteinEntry
         The CA coordinates array of the second structure, shaped `(L, 3)`
-    align : bool, default True
-        Whether to align the two structures before calculating RMSD
 
     Returns
     -------
@@ -161,44 +159,7 @@ def ca_rmsd(coordinates1, coordinates2, align=True):
         The RMSD between the two structures
 
     """
-    if align:
-        ref_atoms = []
-        sample_atoms = []
-
-        for coord in coordinates1:
-            # Append CA atom to list
-            atom = Bio.PDB.Atom.Atom(
-                "CA",
-                coord[2],
-                bfactor=None,
-                occupancy=1.0,
-                altloc=None,
-                fullname="CA",
-                serial_number=None,
-                element="CA",
-            )
-            ref_atoms.append(atom)
-
-        for coord in coordinates2:
-            # Append CA atom to list
-            atom = Bio.PDB.Atom.Atom(
-                "CA",
-                coord[2],
-                bfactor=None,
-                occupancy=1.0,
-                altloc=None,
-                fullname="CA",
-                serial_number=None,
-                element="CA",
-            )
-            sample_atoms.append(atom)
-
-        # Now we initiate the superimposer:
-        super_imposer = Bio.PDB.Superimposer()
-        super_imposer.set_atoms(ref_atoms, sample_atoms)
-        return super_imposer.rms
-    else:
-        return np.sqrt(((coordinates1 - coordinates2) ** 2).sum(axis=-1).mean())
+    return np.sqrt(((coordinates1 - coordinates2) ** 2).sum(axis=-1).mean())
 
 
 def esmfold_generate(sequences, filepaths=None):
