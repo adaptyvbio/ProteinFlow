@@ -8,6 +8,7 @@ import blosum as bl
 import esm
 import numpy as np
 import torch
+from tmtools import tm_align
 from torch.nn import functional as F
 from tqdm import tqdm
 
@@ -160,6 +161,30 @@ def ca_rmsd(coordinates1, coordinates2):
 
     """
     return np.sqrt(((coordinates1 - coordinates2) ** 2).sum(axis=-1).mean())
+
+
+def tm_score(coordinates1, coordinates2, sequence1, sequence2):
+    """Calculate TM-score between two structures.
+
+    Parameters
+    ----------
+    coordinates1 : np.ndarray
+        The CA coordinates array of the first structure, shaped `(L, 3)`
+    coordinates2 : ProteinEntry
+        The CA coordinates array of the second structure, shaped `(L, 3)`
+    sequence1 : str
+        The sequence of the first structure
+    sequence2 : str
+        The sequence of the second structure
+
+    Returns
+    -------
+    tm_score : float
+        The TM-score between the two structures
+
+    """
+    res = tm_align(coordinates1, coordinates2, sequence1, sequence2)
+    return (res.tm_norm_chain1 + res.tm_norm_chain2) / 2
 
 
 def esmfold_generate(sequences, filepaths=None):

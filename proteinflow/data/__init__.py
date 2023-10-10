@@ -58,6 +58,7 @@ from proteinflow.metrics import (
     esmfold_generate,
     esmfold_plddt,
     long_repeat_num,
+    tm_score,
 )
 
 
@@ -1576,19 +1577,50 @@ class ProteinEntry:
             structure2 = structure2[mask]
         return ca_rmsd(structure1, structure2)
 
+    def tm_score(self, entry, only_predicted=True):
+        """Calculate TM score between two proteins.
+
+        Parameters
+        ----------
+        entry : ProteinEntry
+            A `ProteinEntry` object
+        only_predicted : bool, default True
+            If `True` and prediction masks are available, only predicted residues are considered
+
+        Returns
+        -------
+        tm_score : float
+            The TM score between the two proteins
+
+        """
+        structure1 = self.get_coordinates(only_known=True)[:, 2]
+        structure2 = entry.get_coordinates(only_known=True)[:, 2]
+        sequence1 = self.get_sequence(only_known=True)
+        sequence2 = entry.get_sequence(only_known=True)
+        if only_predicted:
+            mask = self.get_predict_mask(only_known=True).astype(bool)
+            structure1 = structure1[mask]
+            structure2 = structure2[mask]
+            sequence1 = "".join(np.array(list(sequence1))[mask])
+            sequence2 = "".join(np.array(list(sequence2))[mask])
+        return tm_score(structure1, structure2, sequence1, sequence2)
+
     def _temp_pdb_file(self):
+        """Save a protein entry to a temporary PDB file."""
         with tempfile.NamedTemporaryFile(suffix=".pdb", delete=False) as tmp:
             self.to_pdb(tmp.name)
         return tmp.name
 
     @staticmethod
-    def esmfold_metrics(entries):
+    def esmfold_metrics(entries, interaction=False):
         """Calculate ESMFold metrics for a list of entries.
 
         Parameters
         ----------
         entries : list of ProteinEntry
             A list of `ProteinEntry` objects
+        interaction : bool, default False
+            If `True`, interaction metrics are calculated as well
 
         Returns
         -------
@@ -1596,8 +1628,10 @@ class ProteinEntry:
             A list of PLDDT scores averaged over all residues
         plddts_predicted : list of float
             A list of PLDDT scores averaged over predicted residues
-        rmsds : list of float
-            A list of CA RMSD scores (self-consistency)
+        tm_score : list of float
+            A list of TM scores of individual chains (self-consistency)
+        tm_score_inter : list of float, optional
+            A list of interaction TM scores (self-consistency); only returned if `interaction` is `True`
 
         """
         sequences = [
@@ -1631,14 +1665,32 @@ class ProteinEntry:
                 path.rsplit(".", 1)[0] + "_aligned.pdb",
                 chain_ids=entry.get_predicted_chains(),
             )
-        rmsds = [
-            entry.ca_rmsd(
+            if interaction:
+                esm_entry.align_structure(
+                    temp_file,
+                    path.rsplit(".", 1)[0] + "_aligned_inter.pdb",
+                    chain_ids=entry.get_chains(),
+                )
+        tm_scores = [
+            entry.tm_score(
                 ProteinEntry.from_pdb(filepath.rsplit(".", 1)[0] + "_aligned.pdb"),
                 only_predicted=True,
             )
             for entry, filepath in zip(entries, esmfold_paths)
         ]
-        return plddts_full, plddts_predicted, rmsds
+        if interaction:
+            tm_scores_inter = [
+                entry.tm_score(
+                    ProteinEntry.from_pdb(
+                        filepath.rsplit(".", 1)[0] + "_aligned_inter.pdb"
+                    ),
+                    only_predicted=False,
+                )
+                for entry, filepath in zip(entries, esmfold_paths)
+            ]
+            return plddts_full, plddts_predicted, tm_scores, tm_scores_inter
+        else:
+            return plddts_full, plddts_predicted, tm_scores
 
     def align_structure(self, reference_pdb_path, save_pdb_path, chain_ids=None):
         """Aligns the structure to a reference structure using the CA atoms.

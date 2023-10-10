@@ -39,6 +39,7 @@ dependencies = [
     "joblib",
     "methodtools",
     "py3Dmol",
+    "tmtools",
 ]
 keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning"]
 
