@@ -761,7 +761,7 @@ class ProteinEntry:
             pdb_dict[chain]["crd_bb"] = crd_arr[:, :4, :]
             pdb_dict[chain]["crd_sc"] = crd_arr[:, 4:, :]
             pdb_dict[chain]["msk"][
-                (pdb_dict[chain]["crd_bb"] == 0).sum(-1).sum(-1) > 0
+                (pdb_dict[chain]["crd_bb"] == 0).sum(-1).sum(-1) == 4
             ] = 0
         pdb_dict["protein_id"] = pdb_entry.pdb_id
         return ProteinEntry.from_dict(pdb_dict)
@@ -1635,7 +1635,6 @@ class ProteinEntry:
             entry.ca_rmsd(
                 ProteinEntry.from_pdb(filepath.rsplit(".", 1)[0] + "_aligned.pdb"),
                 only_predicted=True,
-                align=False,
             )
             for entry, filepath in zip(entries, esmfold_paths)
         ]
@@ -1853,10 +1852,9 @@ class PDBEntry:
         fasta_dict = {k: seqs_dict[k.split("-")[0].upper()] for k in chains}
         return fasta_dict
 
-    def _parse_structure(self, chains=None):
+    def _parse_structure(self):
         """Parse the structure of the protein."""
         cif = self.pdb_path.endswith("cif.gz")
-
         # load coordinates in a nice format
         try:
             with warnings.catch_warnings():
