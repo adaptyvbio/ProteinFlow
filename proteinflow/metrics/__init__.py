@@ -12,6 +12,11 @@ from tmtools import tm_align
 from torch.nn import functional as F
 from tqdm import tqdm
 
+try:
+    import ablang
+except ImportError:
+    print("ablang not found, some metrics will not be available")
+
 
 def blosum62_score(seq_before, seq_after):
     """Calculate the BLOSUM62 score between two sequences.
@@ -81,6 +86,58 @@ def _get_esm_model(esm_model_name):
     batch_converter = alphabet.get_batch_converter()
     tok_to_idx = alphabet.tok_to_idx
     return esm_model, batch_converter, tok_to_idx
+
+
+def ablang_pll(
+    sequence,
+    predict_mask,
+    ablang_model_name="heavy",
+    average=False,
+):
+    """Compute pseudo log likelihood.
+
+    Note that you need to install `ablang` (see https://github.com/oxpig/AbLang/tree/main).
+
+    Parameters
+    ----------
+    sequence : str
+        Chain sequence (string of amino acid codes)
+    predict_mask : np.ndarray
+        Predict mask corresponding to the sequence (array of 0 and 1 where 1 indicates a predicted residue)
+    ablang_model_name : {"heavy", "light"}, default "heavy"
+        Name of the AbLang model to use
+    average : bool, default False
+        Whether to average the pseudo log likelihood over the residues
+
+    Returns
+    -------
+    pll: float
+        Pseudo log likelihood
+
+    """
+    ablang_model = ablang.pretrained(
+        ablang_model_name
+    )  # Use "light" if you are working with light chains
+    ablang_model.freeze()
+
+    sequences = []
+    sequence = list(sequence)
+    predict_idx = np.where(predict_mask)[0]
+    for i in predict_idx:
+        sequences.append("".join(sequence[:i]) + "*" + "".join(sequence[i + 1 :]))
+
+    logits = ablang_model(sequences, mode="likelihood")[:, 1:]
+    prob = np.exp(logits) / np.exp(logits).sum(axis=-1, keepdims=True)
+    true_idx = [
+        ablang_model.tokenizer.vocab_to_token[x] - 1
+        for x in np.array(sequence)[predict_idx]
+    ]
+
+    prob = prob[range(prob.shape[0]), predict_idx, true_idx]
+    pll = np.log(prob).sum()
+    if average:
+        pll /= len(predict_idx)
+    return pll
 
 
 def esm_pll(
