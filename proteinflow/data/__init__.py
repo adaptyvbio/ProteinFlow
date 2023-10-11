@@ -1577,15 +1577,15 @@ class ProteinEntry:
             structure2 = structure2[mask]
         return ca_rmsd(structure1, structure2)
 
-    def tm_score(self, entry, only_predicted=True):
+    def tm_score(self, entry, chains=None):
         """Calculate TM score between two proteins.
 
         Parameters
         ----------
         entry : ProteinEntry
             A `ProteinEntry` object
-        only_predicted : bool, default True
-            If `True` and prediction masks are available, only predicted residues are considered
+        chains : list of str, optional
+            A list of chain IDs to consider
 
         Returns
         -------
@@ -1593,16 +1593,10 @@ class ProteinEntry:
             The TM score between the two proteins
 
         """
-        structure1 = self.get_coordinates(only_known=True)[:, 2]
-        structure2 = entry.get_coordinates(only_known=True)[:, 2]
-        sequence1 = self.get_sequence(only_known=True)
-        sequence2 = entry.get_sequence(only_known=True)
-        if only_predicted:
-            mask = self.get_predict_mask(only_known=True).astype(bool)
-            structure1 = structure1[mask]
-            structure2 = structure2[mask]
-            sequence1 = "".join(np.array(list(sequence1))[mask])
-            sequence2 = "".join(np.array(list(sequence2))[mask])
+        structure1 = self.get_coordinates(only_known=True, chains=chains)[:, 2]
+        structure2 = entry.get_coordinates(only_known=True, chains=chains)[:, 2]
+        sequence1 = self.get_sequence(only_known=True, chains=chains)
+        sequence2 = entry.get_sequence(only_known=True, chains=chains)
         return tm_score(structure1, structure2, sequence1, sequence2)
 
     def _temp_pdb_file(self):
@@ -1653,44 +1647,35 @@ class ProteinEntry:
             for path, entry in zip(esmfold_paths, entries)
         ]
         plddts_full = [esmfold_plddt(path) for path in esmfold_paths]
+        rmsds = []
+        tm_scores_inter = []
         for entry, path in zip(entries, esmfold_paths):
-            temp_file = entry._temp_pdb_file()
             esm_entry = ProteinEntry.from_pdb(path)
             chain_rename_dict = {
                 k: v for k, v in zip(string.ascii_uppercase, entry.get_chains())
             }
             esm_entry.rename_chains(chain_rename_dict)
+            temp_file = entry._temp_pdb_file()
             esm_entry.align_structure(
-                temp_file,
-                path.rsplit(".", 1)[0] + "_aligned.pdb",
+                reference_pdb_path=temp_file,
+                save_pdb_path=path.rsplit(".", 1)[0] + "_aligned.pdb",
                 chain_ids=entry.get_predicted_chains(),
             )
-            if interaction:
-                esm_entry.align_structure(
-                    temp_file,
-                    path.rsplit(".", 1)[0] + "_aligned_inter.pdb",
-                    chain_ids=entry.get_chains(),
+            rmsds.append(
+                entry.ca_rmsd(
+                    ProteinEntry.from_pdb(path.rsplit(".", 1)[0] + "_aligned.pdb")
                 )
-        tm_scores = [
-            entry.tm_score(
-                ProteinEntry.from_pdb(filepath.rsplit(".", 1)[0] + "_aligned.pdb"),
-                only_predicted=True,
             )
-            for entry, filepath in zip(entries, esmfold_paths)
-        ]
-        if interaction:
-            tm_scores_inter = [
-                entry.tm_score(
-                    ProteinEntry.from_pdb(
-                        filepath.rsplit(".", 1)[0] + "_aligned_inter.pdb"
-                    ),
-                    only_predicted=False,
+            if interaction:
+                tm_scores_inter.append(
+                    entry.tm_score(
+                        esm_entry,
+                    )
                 )
-                for entry, filepath in zip(entries, esmfold_paths)
-            ]
-            return plddts_full, plddts_predicted, tm_scores, tm_scores_inter
+        if interaction:
+            return plddts_full, plddts_predicted, rmsds, tm_scores_inter
         else:
-            return plddts_full, plddts_predicted, tm_scores
+            return plddts_full, plddts_predicted, rmsds
 
     def align_structure(self, reference_pdb_path, save_pdb_path, chain_ids=None):
         """Aligns the structure to a reference structure using the CA atoms.
