@@ -56,8 +56,8 @@ from proteinflow.metrics import (
     ca_rmsd,
     esm_pll,
     esmfold_generate,
-    esmfold_plddt,
     long_repeat_num,
+    plddt_from_file,
     tm_score,
 )
 
@@ -1643,10 +1643,10 @@ class ProteinEntry:
             for i in range(len(sequences))
         ]
         plddts_predicted = [
-            esmfold_plddt(path, entry.get_predict_mask(only_known=True))
+            plddt_from_file(path, entry.get_predict_mask(only_known=True))
             for path, entry in zip(esmfold_paths, entries)
         ]
-        plddts_full = [esmfold_plddt(path) for path in esmfold_paths]
+        plddts_full = [plddt_from_file(path) for path in esmfold_paths]
         rmsds = []
         tm_scores_inter = []
         for entry, path in zip(entries, esmfold_paths):
