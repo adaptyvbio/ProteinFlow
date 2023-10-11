@@ -41,6 +41,7 @@ requirements:
     - awscli==1.25.60
     - bs4
     - rcsbsearch
+    - tmtools
     - mmseqs2
     - foldseek
 
