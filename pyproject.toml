@@ -40,6 +40,7 @@ dependencies = [
     "methodtools",
     "py3Dmol",
     "tmtools",
+    "fair-esm",
 ]
 keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning"]
 

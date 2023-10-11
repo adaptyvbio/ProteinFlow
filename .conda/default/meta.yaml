@@ -42,6 +42,7 @@ requirements:
     - bs4
     - rcsbsearch
     - tmtools
+    - fair-esm
     - mmseqs2
     - foldseek
 
