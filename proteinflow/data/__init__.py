@@ -52,12 +52,13 @@ from proteinflow.data.utils import (
 from proteinflow.download import download_fasta, download_pdb
 from proteinflow.ligand import _get_ligands
 from proteinflow.metrics import (
+    ablang_pll,
     blosum62_score,
     ca_rmsd,
+    confidence_from_file,
     esm_pll,
     esmfold_generate,
     long_repeat_num,
-    plddt_from_file,
     tm_score,
 )
 
@@ -1530,6 +1531,38 @@ class ProteinEntry:
             average=average,
         )
 
+    def ablang_pll(self, ablang_model_name="heavy", average=False):
+        """Calculate the AbLang PLL score of the protein.
+
+        Parameters
+        ----------
+        ablang_model_name : str, default "heavy"
+            Name of the AbLang model to use
+        average : bool, default False
+            If `True`, the score is averaged over the residues; otherwise, the score is summed
+
+        Returns
+        -------
+        score : float
+            The AbLang PLL score of the protein
+
+        """
+        chains = self.get_chains()
+        chain_sequences = [self.get_sequence(chains=[chain]) for chain in chains]
+        if self.predict_mask is not None:
+            predict_masks = [
+                (self.get_predict_mask(chains=[chain])).astype(float)
+                for chain in chains
+            ]
+        else:
+            predict_masks = [np.ones(len(x)) for x in chain_sequences]
+        return ablang_pll(
+            chain_sequences,
+            predict_masks,
+            ablang_model_name=ablang_model_name,
+            average=average,
+        )
+
     def accuracy(self, seq_before):
         """Calculate the accuracy of the protein.
 
@@ -1643,10 +1676,10 @@ class ProteinEntry:
             for i in range(len(sequences))
         ]
         plddts_predicted = [
-            plddt_from_file(path, entry.get_predict_mask(only_known=True))
+            confidence_from_file(path, entry.get_predict_mask(only_known=True))
             for path, entry in zip(esmfold_paths, entries)
         ]
-        plddts_full = [plddt_from_file(path) for path in esmfold_paths]
+        plddts_full = [confidence_from_file(path) for path in esmfold_paths]
         rmsds = []
         tm_scores_inter = []
         for entry, path in zip(entries, esmfold_paths):
