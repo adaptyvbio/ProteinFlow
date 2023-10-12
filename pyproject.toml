@@ -14,7 +14,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "BSD-3-Clause"}
 dependencies = [
-    "numpy>=1.17",
+    "numpy>=1.21,<1.25",
     "editdistance>=0.6.0",
     "Biopython==1.79",
     "click>=8.1.3",

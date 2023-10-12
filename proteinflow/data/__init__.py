@@ -58,6 +58,7 @@ from proteinflow.metrics import (
     confidence_from_file,
     esm_pll,
     esmfold_generate,
+    igfold_generate,
     long_repeat_num,
     tm_score,
 )
@@ -1547,7 +1548,7 @@ class ProteinEntry:
             The AbLang PLL score of the protein
 
         """
-        chains = self.get_chains()
+        chains = self.get_predicted_chains()
         chain_sequences = [self.get_sequence(chains=[chain]) for chain in chains]
         if self.predict_mask is not None:
             predict_masks = [
@@ -1556,12 +1557,20 @@ class ProteinEntry:
             ]
         else:
             predict_masks = [np.ones(len(x)) for x in chain_sequences]
-        return ablang_pll(
-            chain_sequences,
-            predict_masks,
-            ablang_model_name=ablang_model_name,
-            average=average,
+        out = sum(
+            [
+                ablang_pll(
+                    sequence,
+                    predict_mask,
+                    ablang_model_name=ablang_model_name,
+                    average=False,
+                )
+                for sequence, predict_mask in zip(chain_sequences, predict_masks)
+            ]
         )
+        if average:
+            out /= self.get_predict_mask(chains=chains).sum()
+        return out
 
     def accuracy(self, seq_before):
         """Calculate the accuracy of the protein.
@@ -1709,6 +1718,71 @@ class ProteinEntry:
             return plddts_full, plddts_predicted, rmsds, tm_scores_inter
         else:
             return plddts_full, plddts_predicted, rmsds
+
+    @staticmethod
+    def igfold_metrics(entries, interaction=False):
+        """Calculate ESMFold metrics for a list of entries.
+
+        Parameters
+        ----------
+        entries : list of ProteinEntry
+            A list of `ProteinEntry` objects
+        interaction : bool, default False
+            If `True`, interaction metrics are calculated as well
+
+        Returns
+        -------
+        plddts_full : list of float
+            A list of PLDDT scores averaged over all residues
+        plddts_predicted : list of float
+            A list of PLDDT scores averaged over predicted residues
+        tm_score : list of float
+            A list of TM scores of individual chains (self-consistency)
+        tm_score_inter : list of float, optional
+            A list of interaction TM scores (self-consistency); only returned if `interaction` is `True`
+
+        """
+        sequences = [
+            {
+                chain: entry.get_sequence(chains=[chain], only_known=True)
+                for chain in entry.get_chains()
+            }
+            for entry in entries
+        ]
+        igfold_generate(sequences)
+        igfold_paths = [
+            os.path.join("igfold_output", f"seq_{i}.pdb") for i in range(len(sequences))
+        ]
+        prmsds_predicted = [
+            confidence_from_file(path, entry.get_predict_mask(only_known=True))
+            for path, entry in zip(igfold_paths, entries)
+        ]
+        prmsds_full = [confidence_from_file(path) for path in igfold_paths]
+        rmsds = []
+        tm_scores_inter = []
+        for entry, path in zip(entries, igfold_paths):
+            igfold_entry = ProteinEntry.from_pdb(path)
+            temp_file = entry._temp_pdb_file()
+            igfold_entry.align_structure(
+                reference_pdb_path=temp_file,
+                save_pdb_path=path.rsplit(".", 1)[0] + "_aligned.pdb",
+                chain_ids=entry.get_predicted_chains(),
+            )
+            rmsds.append(
+                entry.ca_rmsd(
+                    ProteinEntry.from_pdb(path.rsplit(".", 1)[0] + "_aligned.pdb")
+                )
+            )
+            if interaction:
+                tm_scores_inter.append(
+                    entry.tm_score(
+                        igfold_entry,
+                    )
+                )
+        if interaction:
+            return prmsds_full, prmsds_predicted, rmsds, tm_scores_inter
+        else:
+            return prmsds_full, prmsds_predicted, rmsds
 
     def align_structure(self, reference_pdb_path, save_pdb_path, chain_ids=None):
         """Aligns the structure to a reference structure using the CA atoms.
