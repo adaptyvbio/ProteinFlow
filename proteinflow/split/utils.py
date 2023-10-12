@@ -184,7 +184,7 @@ def _exclude(clusters_dict, set_to_exclude, exclude_based_on_cdr=None):
         files = clusters_dict[cluster]
         exclude = False
         for biounit in files:
-            if biounit in set_to_exclude:
+            if biounit[0] in set_to_exclude:
                 exclude = True
                 break
         if exclude:
