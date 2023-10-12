@@ -13,3 +13,7 @@ pulchra304
 tmp/
 all_structures/
 all_structures.zip
+esmfold_output/
+igfold_output/
+*.csv
+run_metrics.py
