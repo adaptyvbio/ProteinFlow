@@ -1720,7 +1720,7 @@ class ProteinEntry:
             return plddts_full, plddts_predicted, rmsds
 
     @staticmethod
-    def igfold_metrics(entries, interaction=False):
+    def igfold_metrics(entries, interaction=False, use_openmm=False):
         """Calculate ESMFold metrics for a list of entries.
 
         Parameters
@@ -1729,6 +1729,8 @@ class ProteinEntry:
             A list of `ProteinEntry` objects
         interaction : bool, default False
             If `True`, interaction metrics are calculated as well
+        use_openmm : bool, default False
+            Whether to use refinement with OpenMM
 
         Returns
         -------
@@ -1749,7 +1751,7 @@ class ProteinEntry:
             }
             for entry in entries
         ]
-        igfold_generate(sequences)
+        igfold_generate(sequences, use_openmm=use_openmm)
         igfold_paths = [
             os.path.join("igfold_output", f"seq_{i}.pdb") for i in range(len(sequences))
         ]

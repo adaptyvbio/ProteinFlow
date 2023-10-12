@@ -282,7 +282,7 @@ def esmfold_generate(sequences, filepaths=None):
                 f.write(output)
 
 
-def igfold_generate(sequence_dicts, filepaths=None):
+def igfold_generate(sequence_dicts, filepaths=None, use_openmm=False):
     """Generate PDB structures using IgFold.
 
     Note that you need to install `igfold` (see https://github.com/Graylab/IgFold).
@@ -293,6 +293,8 @@ def igfold_generate(sequence_dicts, filepaths=None):
         List of sequence dictionaries (keys: "H", "L" for heavy and light chains)
     filepaths : list of str, optional
         List of filepaths for the generated structures
+    use_openmm : bool, default False
+        Whether to use refinement with OpenMM
 
     """
     assert filepaths is None or len(filepaths) == len(sequence_dicts)
@@ -308,7 +310,8 @@ def igfold_generate(sequence_dicts, filepaths=None):
         igfold.fold(
             path,  # Output PDB file
             sequences=seqs,  # Antibody sequences
-            do_refine=False,  # Refine the antibody structure with PyRosetta
+            do_refine=use_openmm,  # Refine the antibody structure
+            use_openmm=use_openmm,  # Use OpenMM for refinement
             do_renum=False,  # Renumber predicted antibody structure (Chothia)
         )
 

@@ -1,3 +1,4 @@
+conda install -y -c conda-forge openmm==7.7.0 pdbfixer
 python -m pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu117
 # choose the CUDA version that matches your system (check with `nvcc --version` and get the right command at https://pytorch.org/get-started/previous-versions/)
 
