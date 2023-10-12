@@ -1430,40 +1430,38 @@ def _split_data(
     if len(excluded_files) > 0:
         set_to_exclude = set(excluded_files)
         excluded_files = set()
-        if exclude_clusters:
-            excluded_clusters_dict = defaultdict(set)
-            for clusters_dict in [
-                train_clusters_dict,
-                valid_clusters_dict,
-                test_clusters_dict,
-            ]:
-                subset_excluded_set, subset_excluded_dict = _exclude(
-                    clusters_dict, set_to_exclude, exclude_based_on_cdr
-                )
-                excluded_files.update(subset_excluded_set)
-                excluded_clusters_dict.update(subset_excluded_dict)
-        else:
-            excluded_clusters_dict = defaultdict(list)
-            for clusters_dict in [
-                train_clusters_dict,
-                valid_clusters_dict,
-                test_clusters_dict,
-            ]:
-                for cluster in list(clusters_dict.keys()):
-                    idx_to_include = []
-                    for i, chain in enumerate(clusters_dict[cluster]):
-                        if chain[0] in set_to_exclude:
-                            excluded_clusters_dict[cluster].append(chain)
-                        else:
-                            idx_to_include.append(i)
-                    if len(idx_to_include) == 0:
+        excluded_clusters_dict = defaultdict(list)
+        for clusters_dict in [
+            train_clusters_dict,
+            valid_clusters_dict,
+            test_clusters_dict,
+        ]:
+            for cluster in list(clusters_dict.keys()):
+                idx_to_exclude = []
+                exclude_whole_cluster = False
+                for i, chain in enumerate(clusters_dict[cluster]):
+                    if chain[0] in set_to_exclude:
+                        if exclude_clusters:
+                            if exclude_based_on_cdr is not None and cluster.endswith(
+                                exclude_based_on_cdr
+                            ):
+                                exclude_whole_cluster = True
+                            elif exclude_based_on_cdr is None:
+                                exclude_whole_cluster = True
+                        if exclude_whole_cluster:
+                            break
+                        excluded_clusters_dict[cluster].append(chain)
+                        idx_to_exclude.append(i)
+                if exclude_whole_cluster:
+                    excluded_clusters_dict[cluster] = clusters_dict.pop(cluster)
+                else:
+                    clusters_dict[cluster] = [
+                        x
+                        for i, x in enumerate(clusters_dict[cluster])
+                        if i not in idx_to_exclude
+                    ]
+                    if len(clusters_dict[cluster]) == 0:
                         clusters_dict.pop(cluster)
-                    else:
-                        clusters_dict[cluster] = clusters_dict[cluster][idx_to_include]
-                    if cluster in excluded_clusters_dict:
-                        excluded_clusters_dict[cluster] = np.array(
-                            excluded_clusters_dict[cluster]
-                        )
         excluded_files.update(set_to_exclude)
         excluded_clusters_dict = {k: list(v) for k, v in excluded_clusters_dict.items()}
         excluded_path = os.path.join(dataset_path, "excluded")
@@ -1472,6 +1470,10 @@ def _split_data(
         print("Updating the split dictionaries...")
         with open(os.path.join(dict_folder, "train.pickle"), "wb") as f:
             pickle.dump(train_clusters_dict, f)
+        with open(os.path.join(dict_folder, "valid.pickle"), "wb") as f:
+            pickle.dump(valid_clusters_dict, f)
+        with open(os.path.join(dict_folder, "test.pickle"), "wb") as f:
+            pickle.dump(test_clusters_dict, f)
         with open(os.path.join(dict_folder, "excluded.pickle"), "wb") as f:
             pickle.dump(excluded_clusters_dict, f)
         print("Moving excluded files...")
