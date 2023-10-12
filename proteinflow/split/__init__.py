@@ -1430,8 +1430,8 @@ def _split_data(
     if len(excluded_files) > 0:
         set_to_exclude = set(excluded_files)
         excluded_files = set()
-        excluded_clusters_dict = defaultdict(set)
         if exclude_clusters:
+            excluded_clusters_dict = defaultdict(set)
             for clusters_dict in [
                 train_clusters_dict,
                 valid_clusters_dict,
@@ -1442,6 +1442,28 @@ def _split_data(
                 )
                 excluded_files.update(subset_excluded_set)
                 excluded_clusters_dict.update(subset_excluded_dict)
+        else:
+            excluded_clusters_dict = defaultdict(list)
+            for clusters_dict in [
+                train_clusters_dict,
+                valid_clusters_dict,
+                test_clusters_dict,
+            ]:
+                for cluster in list(clusters_dict.keys()):
+                    idx_to_include = []
+                    for i, chain in enumerate(clusters_dict[cluster]):
+                        if chain[0] in set_to_exclude:
+                            excluded_clusters_dict[cluster].append(chain)
+                        else:
+                            idx_to_include.append(i)
+                    if len(idx_to_include) == 0:
+                        clusters_dict.pop(cluster)
+                    else:
+                        clusters_dict[cluster] = clusters_dict[cluster][idx_to_include]
+                    if cluster in excluded_clusters_dict:
+                        excluded_clusters_dict[cluster] = np.array(
+                            excluded_clusters_dict[cluster]
+                        )
         excluded_files.update(set_to_exclude)
         excluded_clusters_dict = {k: list(v) for k, v in excluded_clusters_dict.items()}
         excluded_path = os.path.join(dataset_path, "excluded")
