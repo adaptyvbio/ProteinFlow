@@ -1752,8 +1752,9 @@ class ProteinEntry:
             for entry in entries
         ]
         igfold_generate(sequences, use_openmm=use_openmm)
+        folder = "igfold_refine_output" if use_openmm else "igfold_output"
         igfold_paths = [
-            os.path.join("igfold_output", f"seq_{i}.pdb") for i in range(len(sequences))
+            os.path.join(folder, f"seq_{i}.pdb") for i in range(len(sequences))
         ]
         prmsds_predicted = [
             confidence_from_file(path, entry.get_predict_mask(only_known=True))
