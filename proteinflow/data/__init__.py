@@ -1611,10 +1611,11 @@ class ProteinEntry:
             The CA RMSD between the two proteins
 
         """
-        structure1 = self.get_coordinates(only_known=True)[:, 2]
-        structure2 = entry.get_coordinates(only_known=True)[:, 2]
+        chains = [x for x in self.get_chains() if x in entry.get_chains()]
+        structure1 = self.get_coordinates(only_known=True, chains=chains)[:, 2]
+        structure2 = entry.get_coordinates(only_known=True, chains=chains)[:, 2]
         if only_predicted:
-            mask = self.get_predict_mask(only_known=True).astype(bool)
+            mask = self.get_predict_mask(only_known=True, chains=chains).astype(bool)
             structure1 = structure1[mask]
             structure2 = structure2[mask]
         return ca_rmsd(structure1, structure2)
@@ -1748,6 +1749,7 @@ class ProteinEntry:
             {
                 chain: entry.get_sequence(chains=[chain], only_known=True)
                 for chain in entry.get_chains()
+                if chain not in entry.get_chain_type_dict()["antigen"]
             }
             for entry in entries
         ]
