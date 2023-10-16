@@ -1786,25 +1786,25 @@ class ProteinEntry:
         for entry, path in zip(entries, igfold_paths):
             igfold_entry = ProteinEntry.from_pdb(path)
             temp_file = entry._temp_pdb_file()
-            try:
-                igfold_entry.align_structure(
-                    reference_pdb_path=temp_file,
-                    save_pdb_path=path.rsplit(".", 1)[0] + "_aligned.pdb",
-                    chain_ids=entry.get_predicted_chains(),
+            # try:
+            igfold_entry.align_structure(
+                reference_pdb_path=temp_file,
+                save_pdb_path=path.rsplit(".", 1)[0] + "_aligned.pdb",
+                chain_ids=entry.get_predicted_chains(),
+            )
+            rmsds.append(
+                entry.ca_rmsd(
+                    ProteinEntry.from_pdb(path.rsplit(".", 1)[0] + "_aligned.pdb")
                 )
-                rmsds.append(
-                    entry.ca_rmsd(
-                        ProteinEntry.from_pdb(path.rsplit(".", 1)[0] + "_aligned.pdb")
-                    )
+            )
+            tm_scores.append(
+                entry.tm_score(
+                    igfold_entry,
                 )
-                tm_scores.append(
-                    entry.tm_score(
-                        igfold_entry,
-                    )
-                )
-            except Exception:
-                rmsds.append(np.nan)
-                tm_scores.append(np.nan)
+            )
+            # except Exception:
+            #     rmsds.append(np.nan)
+            #     tm_scores.append(np.nan)
         return prmsds_full, prmsds_predicted, rmsds, tm_scores
 
     def align_structure(self, reference_pdb_path, save_pdb_path, chain_ids=None):
@@ -1845,6 +1845,11 @@ class ProteinEntry:
             for ref_res in ref_chain:
                 if "CA" in ref_res:
                     ref_atoms.append(ref_res["CA"])
+                elif "C" in ref_res:
+                    ref_atoms.append(ref_res["C"])
+                    warnings.warn(
+                        "Using a C atom instead of CA for alignment in the reference structure"
+                    )
 
         # Do the same for the sample structure
         for sample_chain in sample_model:
@@ -1853,8 +1858,11 @@ class ProteinEntry:
             for sample_res in sample_chain:
                 if "CA" in sample_res:
                     sample_atoms.append(sample_res["CA"])
-
-        print(f"{len(sample_atoms)=}, {len(ref_atoms)=}")
+                elif "C" in sample_res:
+                    sample_atoms.append(sample_res["C"])
+                    warnings.warn(
+                        "Using a C atom instead of CA for alignment in the sample structure"
+                    )
 
         # Now we initiate the superimposer:
         super_imposer = Bio.PDB.Superimposer()
