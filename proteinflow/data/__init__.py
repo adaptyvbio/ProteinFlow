@@ -1623,10 +1623,11 @@ class ProteinEntry:
             The CA RMSD between the two proteins
 
         """
-        structure1 = self.get_coordinates(only_known=True)[:, 2]
-        structure2 = entry.get_coordinates(only_known=True)[:, 2]
+        chains = [x for x in self.get_chains() if x in entry.get_chains()]
+        structure1 = self.get_coordinates(only_known=True, chains=chains)[:, 2]
+        structure2 = entry.get_coordinates(only_known=True, chains=chains)[:, 2]
         if only_predicted:
-            mask = self.get_predict_mask(only_known=True).astype(bool)
+            mask = self.get_predict_mask(only_known=True, chains=chains).astype(bool)
             structure1 = structure1[mask]
             structure2 = structure2[mask]
         return ca_rmsd(structure1, structure2)
@@ -1660,15 +1661,15 @@ class ProteinEntry:
         return tmp.name
 
     @staticmethod
-    def esmfold_metrics(entries, interaction=False):
+    def esmfold_metrics(entries, only_antibody=False):
         """Calculate ESMFold metrics for a list of entries.
 
         Parameters
         ----------
         entries : list of ProteinEntry
             A list of `ProteinEntry` objects
-        interaction : bool, default False
-            If `True`, interaction metrics are calculated as well
+        only_antibody : bool, default False
+            If `True`, only antibody chains are considered
 
         Returns
         -------
@@ -1676,38 +1677,52 @@ class ProteinEntry:
             A list of PLDDT scores averaged over all residues
         plddts_predicted : list of float
             A list of PLDDT scores averaged over predicted residues
-        tm_score : list of float
-            A list of TM scores of individual chains (self-consistency)
-        tm_score_inter : list of float, optional
-            A list of interaction TM scores (self-consistency); only returned if `interaction` is `True`
+        rmsd : list of float
+            A list of RMSD values of aligned structures (predicted residues only)
+        tm_score : list of float, optional
+            A list of TM scores of aligned structures
 
         """
-        sequences = [
-            ":".join(
-                [
-                    entry.get_sequence(chains=[chain], only_known=True)
-                    for chain in entry.get_chains()
-                ]
-            )
+        sequences = []
+        chains_list = [
+            [
+                x
+                for x in entry.get_chains()
+                if x not in entry.get_chain_type_dict()["antigen"] or not only_antibody
+            ]
             for entry in entries
         ]
+        for chains, entry in zip(chains_list, entries):
+            sequences.append(
+                ":".join(
+                    [
+                        entry.get_sequence(chains=[chain], only_known=True)
+                        for chain in chains
+                    ]
+                )
+            )
         esmfold_generate(sequences)
         esmfold_paths = [
             os.path.join("esmfold_output", f"seq_{i}.pdb")
             for i in range(len(sequences))
         ]
         plddts_predicted = [
-            confidence_from_file(path, entry.get_predict_mask(only_known=True))
-            for path, entry in zip(esmfold_paths, entries)
+            confidence_from_file(
+                path, entry.get_predict_mask(only_known=True, chains=chains)
+            )
+            for path, entry, chains in zip(esmfold_paths, entries, chains_list)
         ]
         plddts_full = [confidence_from_file(path) for path in esmfold_paths]
         rmsds = []
-        tm_scores_inter = []
+        tm_scores = []
         for entry, path in zip(entries, esmfold_paths):
+            chains = [
+                x
+                for x in entry.get_chains()
+                if x not in entry.get_chain_type_dict()["antigen"] or not only_antibody
+            ]
             esm_entry = ProteinEntry.from_pdb(path)
-            chain_rename_dict = {
-                k: v for k, v in zip(string.ascii_uppercase, entry.get_chains())
-            }
+            chain_rename_dict = {k: v for k, v in zip(string.ascii_uppercase, chains)}
             esm_entry.rename_chains(chain_rename_dict)
             temp_file = entry._temp_pdb_file()
             esm_entry.align_structure(
@@ -1720,27 +1735,22 @@ class ProteinEntry:
                     ProteinEntry.from_pdb(path.rsplit(".", 1)[0] + "_aligned.pdb")
                 )
             )
-            if interaction:
-                tm_scores_inter.append(
-                    entry.tm_score(
-                        esm_entry,
-                    )
+            tm_scores.append(
+                entry.tm_score(
+                    esm_entry,
+                    chains=chains,
                 )
-        if interaction:
-            return plddts_full, plddts_predicted, rmsds, tm_scores_inter
-        else:
-            return plddts_full, plddts_predicted, rmsds
+            )
+        return plddts_full, plddts_predicted, rmsds, tm_scores
 
     @staticmethod
-    def igfold_metrics(entries, interaction=False, use_openmm=False):
+    def igfold_metrics(entries, use_openmm=False):
         """Calculate ESMFold metrics for a list of entries.
 
         Parameters
         ----------
         entries : list of ProteinEntry
             A list of `ProteinEntry` objects
-        interaction : bool, default False
-            If `True`, interaction metrics are calculated as well
         use_openmm : bool, default False
             Whether to use refinement with OpenMM
 
@@ -1756,27 +1766,39 @@ class ProteinEntry:
             A list of interaction TM scores (self-consistency); only returned if `interaction` is `True`
 
         """
+        chains_list = [
+            [
+                x
+                for x in entry.get_chains()
+                if x not in entry.get_chain_type_dict()["antigen"]
+            ]
+            for entry in entries
+        ]
         sequences = [
             {
                 chain: entry.get_sequence(chains=[chain], only_known=True)
-                for chain in entry.get_chains()
+                for chain in chains
             }
-            for entry in entries
+            for entry, chains in zip(entries, chains_list)
         ]
         igfold_generate(sequences, use_openmm=use_openmm)
+        folder = "igfold_refine_output" if use_openmm else "igfold_output"
         igfold_paths = [
-            os.path.join("igfold_output", f"seq_{i}.pdb") for i in range(len(sequences))
+            os.path.join(folder, f"seq_{i}.pdb") for i in range(len(sequences))
         ]
         prmsds_predicted = [
-            confidence_from_file(path, entry.get_predict_mask(only_known=True))
-            for path, entry in zip(igfold_paths, entries)
+            confidence_from_file(
+                path, entry.get_predict_mask(only_known=True, chains=chains)
+            )
+            for path, entry, chains in zip(igfold_paths, entries, chains_list)
         ]
         prmsds_full = [confidence_from_file(path) for path in igfold_paths]
         rmsds = []
-        tm_scores_inter = []
+        tm_scores = []
         for entry, path in zip(entries, igfold_paths):
             igfold_entry = ProteinEntry.from_pdb(path)
             temp_file = entry._temp_pdb_file()
+            # try:
             igfold_entry.align_structure(
                 reference_pdb_path=temp_file,
                 save_pdb_path=path.rsplit(".", 1)[0] + "_aligned.pdb",
@@ -1787,16 +1809,15 @@ class ProteinEntry:
                     ProteinEntry.from_pdb(path.rsplit(".", 1)[0] + "_aligned.pdb")
                 )
             )
-            if interaction:
-                tm_scores_inter.append(
-                    entry.tm_score(
-                        igfold_entry,
-                    )
+            tm_scores.append(
+                entry.tm_score(
+                    igfold_entry,
                 )
-        if interaction:
-            return prmsds_full, prmsds_predicted, rmsds, tm_scores_inter
-        else:
-            return prmsds_full, prmsds_predicted, rmsds
+            )
+            # except Exception:
+            #     rmsds.append(np.nan)
+            #     tm_scores.append(np.nan)
+        return prmsds_full, prmsds_predicted, rmsds, tm_scores
 
     def align_structure(self, reference_pdb_path, save_pdb_path, chain_ids=None):
         """Aligns the structure to a reference structure using the CA atoms.
@@ -1836,6 +1857,11 @@ class ProteinEntry:
             for ref_res in ref_chain:
                 if "CA" in ref_res:
                     ref_atoms.append(ref_res["CA"])
+                elif "C" in ref_res:
+                    ref_atoms.append(ref_res["C"])
+                    warnings.warn(
+                        "Using a C atom instead of CA for alignment in the reference structure"
+                    )
 
         # Do the same for the sample structure
         for sample_chain in sample_model:
@@ -1844,6 +1870,11 @@ class ProteinEntry:
             for sample_res in sample_chain:
                 if "CA" in sample_res:
                     sample_atoms.append(sample_res["CA"])
+                elif "C" in sample_res:
+                    sample_atoms.append(sample_res["C"])
+                    warnings.warn(
+                        "Using a C atom instead of CA for alignment in the sample structure"
+                    )
 
         # Now we initiate the superimposer:
         super_imposer = Bio.PDB.Superimposer()

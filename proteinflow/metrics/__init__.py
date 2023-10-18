@@ -299,12 +299,12 @@ def igfold_generate(sequence_dicts, filepaths=None, use_openmm=False):
     """
     assert filepaths is None or len(filepaths) == len(sequence_dicts)
     igfold = IgFoldRunner()
+    folder = "igfold_refine_output" if use_openmm else "igfold_output"
     if filepaths is None:
-        if not os.path.exists("igfold_output"):
-            os.mkdir("igfold_output")
+        if not os.path.exists(folder):
+            os.mkdir(folder)
         filepaths = [
-            os.path.join("igfold_output", f"seq_{i}.pdb")
-            for i in range(len(sequence_dicts))
+            os.path.join(folder, f"seq_{i}.pdb") for i in range(len(sequence_dicts))
         ]
     for seqs, path in tqdm(zip(sequence_dicts, filepaths), total=len(sequence_dicts)):
         igfold.fold(
