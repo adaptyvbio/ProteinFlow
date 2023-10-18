@@ -28,6 +28,7 @@ from torch import Tensor, from_numpy
 
 from proteinflow.constants import (
     _PMAP,
+    ACCENT_COLOR,
     ALPHABET,
     ALPHABET_REVERSE,
     ATOM_MASKS,
@@ -1365,12 +1366,23 @@ class ProteinEntry:
                 highlight_mask_dict[chain] = pdb_highlight
         return highlight_mask_dict
 
-    def _get_atom_dicts(self, highlight_mask=None, style="cartoon", opacity=1):
+    def _get_atom_dicts(
+        self,
+        highlight_mask=None,
+        style="cartoon",
+        opacity=1,
+        colors=None,
+        accent_color="#D96181",
+    ):
         """Get the atom dictionaries of the protein."""
         highlight_mask_dict = self._get_highlight_mask_dict(highlight_mask)
         pdb_entry = PDBEntry(self._temp_pdb_file())
         return pdb_entry._get_atom_dicts(
-            highlight_mask_dict=highlight_mask_dict, style=style, opacity=opacity
+            highlight_mask_dict=highlight_mask_dict,
+            style=style,
+            opacity=opacity,
+            colors=colors,
+            accent_color=accent_color,
         )
 
     def get_predict_mask(self, chains=None, only_known=False):
@@ -2282,7 +2294,13 @@ class PDBEntry:
         return self.get_pdb_df(chain)["unique_residue_number"].unique().tolist()
 
     def _get_atom_dicts(
-        self, highlight_mask_dict=None, style="cartoon", highlight_style=None, opacity=1
+        self,
+        highlight_mask_dict=None,
+        style="cartoon",
+        highlight_style=None,
+        opacity=1,
+        colors=None,
+        accent_color="#D96181",
     ):
         """Get the atom dictionaries for visualization."""
         assert style in ["cartoon", "sphere", "stick", "line", "cross"]
@@ -2294,7 +2312,9 @@ class PDBEntry:
         for _, row in df_.iterrows():
             outstr.append(_Atom(row))
         chains = self.get_chains()
-        colors = {ch: COLORS[i % len(COLORS)] for i, ch in enumerate(chains)}
+        if colors is None:
+            colors = COLORS
+        colors = {ch: colors[i % len(colors)] for i, ch in enumerate(chains)}
         chain_counters = defaultdict(int)
         chain_last_res = defaultdict(lambda: None)
         if highlight_mask_dict is not None:
@@ -2314,12 +2334,23 @@ class PDBEntry:
             at["pymol"] = {style: {"color": colors[at["chain"]], "opacity": op_}}
             if highlight_mask_dict is not None and at["chain"] in highlight_mask_dict:
                 num = chain_counters[at["chain"]]
-                if highlight_mask_dict[at["chain"]][num - 1] == 1:
-                    at["pymol"] = {highlight_style: {"color": "red", "opacity": op_}}
+                if (
+                    highlight_mask_dict[at["chain"]][num - 1] == 1
+                    and accent_color is not None
+                ):
+                    at["pymol"] = {
+                        highlight_style: {"color": accent_color, "opacity": op_}
+                    }
         return outstr
 
     def visualize(
-        self, highlight_mask_dict=None, style="cartoon", highlight_style=None, opacity=1
+        self,
+        highlight_mask_dict=None,
+        style="cartoon",
+        highlight_style=None,
+        opacity=1,
+        colors=None,
+        accent_color="#D96181",
     ):
         """Visualize the protein in a notebook.
 
@@ -2335,6 +2366,10 @@ class PDBEntry:
             (defaults to the same as `style`)
         opacity : float or dict, default 1
             Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)
+        colors : list, optional
+            A list of colors to use for different chains
+        accent_color : str, optional
+            The color of the highlighted atoms (use `None` to disable highlighting)
 
         """
         outstr = self._get_atom_dicts(
@@ -2342,6 +2377,8 @@ class PDBEntry:
             style=style,
             highlight_style=highlight_style,
             opacity=opacity,
+            colors=colors,
+            accent_color=accent_color,
         )
         vis_string = "".join([str(x) for x in outstr])
         view = py3Dmol.view(width=400, height=300)

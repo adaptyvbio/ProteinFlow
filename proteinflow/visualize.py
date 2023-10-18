@@ -9,7 +9,13 @@ from proteinflow.data import PDBEntry, ProteinEntry
 
 
 def show_animation_from_pdb(
-    pdb_paths, highlight_mask_dict=None, style="cartoon", opacity=1, direction="forward"
+    pdb_paths,
+    highlight_mask_dict=None,
+    style="cartoon",
+    opacity=1,
+    direction="forward",
+    colors=None,
+    accent_color="#D96181",
 ):
     """Show an animation of the given PDB files.
 
@@ -26,6 +32,10 @@ def show_animation_from_pdb(
         The opacity of the visualization.
     direction : {"forward", "backAndForth"}
         The direction of the animation.
+    colors : list of str, optional
+        List of colors to use for each chain
+    accent_color : str, optional
+        Color to use for the highlighted atoms (use `None` to disable)
 
     """
     entries = [PDBEntry(path) for path in pdb_paths]
@@ -33,7 +43,11 @@ def show_animation_from_pdb(
     for i, mol in enumerate(entries):
         models += "MODEL " + str(i) + "\n"
         atoms = mol._get_atom_dicts(
-            highlight_mask_dict=highlight_mask_dict, style=style, opacity=opacity
+            highlight_mask_dict=highlight_mask_dict,
+            style=style,
+            opacity=opacity,
+            colors=colors,
+            accent_color=accent_color,
         )
         models += "".join([str(x) for x in atoms])
         models += "ENDMDL\n"
@@ -56,6 +70,8 @@ def show_animation_from_pickle(
     style="cartoon",
     opacity=1,
     direction="forward",
+    colors=None,
+    accent_color="#D96181",
 ):
     """Show an animation of the given pickle files.
 
@@ -72,6 +88,10 @@ def show_animation_from_pickle(
         The opacity of the visualization.
     direction : {"forward", "backAndForth"}
         The direction of the animation.
+    colors : list of str, optional
+        List of colors to use for each chain
+    accent_color : str, optional
+        Color to use for the highlighted atoms (use `None` to disable)
 
     """
     entries = [ProteinEntry.from_pickle(path) for path in pickle_paths]
@@ -81,7 +101,11 @@ def show_animation_from_pickle(
         if highlight_mask is None:
             highlight_mask = mol.get_predict_mask()
         atoms = mol._get_atom_dicts(
-            highlight_mask=highlight_mask, style=style, opacity=opacity
+            highlight_mask=highlight_mask,
+            style=style,
+            opacity=opacity,
+            colors=colors,
+            accent_color=accent_color,
         )
         models += "".join([str(x) for x in atoms])
         models += "ENDMDL\n"
