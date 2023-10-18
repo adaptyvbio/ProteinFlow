@@ -20,6 +20,10 @@ try:
     from igfold import IgFoldRunner
 except ImportError:
     print("igfold not found, some metrics will not be available")
+try:
+    from immunebuilder import AntibodyBuilder2, NanoBodyBuilder2, TCRBuilder2
+except ImportError:
+    print("immunebuilder not found, some metrics will not be available")
 
 
 def blosum62_score(seq_before, seq_after):
@@ -316,11 +320,44 @@ def igfold_generate(sequence_dicts, filepaths=None, use_openmm=False):
         )
 
 
+def immunebuilder_generate(sequence_dicts, filepaths=None, protein_type="antibody"):
+    """Generate PDB structures using ImmuneBuilder.
+
+    Note that you need to install `immunebuilder` (see https://github.com/oxpig/ImmuneBuilder)
+
+    Parameters
+    ----------
+    sequence_dicts : list of dict
+        List of sequence dictionaries (keys: "H", "L" for heavy and light chains)
+    filepaths : list of str, optional
+        List of filepaths for the generated structures
+    protein_type: {"antibody", "nanobody", "tcr"}
+        Type of the structure to generate
+
+    """
+    predictor_classes = {
+        "antibody": AntibodyBuilder2,
+        "nanobody": NanoBodyBuilder2,
+        "tcr": TCRBuilder2,
+    }
+    predictor = predictor_classes[protein_type]()
+    folder = "immunebuilder_output"
+    if filepaths is None:
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+        filepaths = [
+            os.path.join(folder, f"seq_{i}.pdb") for i in range(len(sequence_dicts))
+        ]
+    for seqs, path in tqdm(zip(sequence_dicts, filepaths), total=len(sequence_dicts)):
+        out = predictor.predict(seqs)
+        out.save(path)
+
+
 def confidence_from_file(filepath, predict_mask=None):
     """Get the average pLDDT or pRMSD score of a structure generated with ESMFold or IgFold.
 
     This function loads the metric that is stored in the B-factor column of the PDB file.
-    For files generated with ESMFold, the metric is pLDDT; for IgFold, the metric is pRMSD.
+    For files generated with ESMFold, the metric is pLDDT; for IgFold and ImmuneBuilder, the metric is pRMSD.
 
     Parameters
     ----------
@@ -331,8 +368,8 @@ def confidence_from_file(filepath, predict_mask=None):
 
     Returns
     -------
-    plddt : float
-        Average PLDDT score of the structure
+    confidence : float
+        Average PLDDT / pRMSD score of the structure
 
     """
     struct = bsio.load_structure(filepath, extra_fields=["b_factor"])
