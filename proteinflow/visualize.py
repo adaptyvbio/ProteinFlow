@@ -16,6 +16,7 @@ def show_animation_from_pdb(
     direction="forward",
     colors=None,
     accent_color="#D96181",
+    canvas_size=(400, 300),
 ):
     """Show an animation of the given PDB files.
 
@@ -36,6 +37,8 @@ def show_animation_from_pdb(
         List of colors to use for each chain
     accent_color : str, optional
         Color to use for the highlighted atoms (use `None` to disable)
+    canvas_size : tuple of int, optional
+        The size of the canvas to display the animation on
 
     """
     entries = [PDBEntry(path) for path in pdb_paths]
@@ -52,7 +55,7 @@ def show_animation_from_pdb(
         models += "".join([str(x) for x in atoms])
         models += "ENDMDL\n"
 
-    view = py3Dmol.view(width=400, height=300)
+    view = py3Dmol.view(width=canvas_size[0], height=canvas_size[1])
     view.addModelsAsFrames(models)
 
     for i, at in enumerate(atoms):
@@ -72,6 +75,7 @@ def show_animation_from_pickle(
     direction="forward",
     colors=None,
     accent_color="#D96181",
+    canvas_size=(400, 300),
 ):
     """Show an animation of the given pickle files.
 
@@ -92,6 +96,8 @@ def show_animation_from_pickle(
         List of colors to use for each chain
     accent_color : str, optional
         Color to use for the highlighted atoms (use `None` to disable)
+    canvas_size : tuple of int, optional
+        The size of the canvas to display the animation on
 
     """
     entries = [ProteinEntry.from_pickle(path) for path in pickle_paths]
@@ -110,7 +116,7 @@ def show_animation_from_pickle(
         models += "".join([str(x) for x in atoms])
         models += "ENDMDL\n"
 
-    view = py3Dmol.view(width=400, height=300)
+    view = py3Dmol.view(width=canvas_size[0], height=canvas_size[1])
     view.addModelsAsFrames(models)
 
     for i, at in enumerate(atoms):
@@ -120,6 +126,8 @@ def show_animation_from_pickle(
     view.zoomTo()
     view.animate({"loop": direction})
     view.show()
+
+    return view
 
 
 def merge_pickle_files(paths_to_merge, save_path):
@@ -153,6 +161,7 @@ def show_merged_pickle(
     highlight_style=None,
     opacity=1.0,
     only_predicted=False,
+    canvas_size=(400, 300),
 ):
     """Show a merged visualization of the given PDB or pickle files.
 
@@ -172,6 +181,8 @@ def show_merged_pickle(
         The opacity of the visualization.
     only_predicted : bool, default False
         Whether to only overlay the predicted atoms.
+    canvas_size : tuple of int, optional
+        The size of the canvas to display the visualization on
 
     """
     create_fn = ProteinEntry.from_pickle
@@ -200,6 +211,7 @@ def show_merged_pickle(
         highlight_style=highlight_style,
         highlight_mask=highlight_mask,
         opacity=opacity_dict,
+        canvas_size=canvas_size,
     )
 
 
@@ -208,6 +220,7 @@ def show_merged_pdb(
     highlight_mask_dicts=None,
     style="cartoon",
     opacity=1.0,
+    canvas_size=(400, 300),
 ):
     """Show a merged visualization of the given PDB or pickle files.
 
@@ -222,6 +235,8 @@ def show_merged_pdb(
         The style of the visualization; one of 'cartoon', 'sphere', 'stick', 'line', 'cross'
     opacity : float or list, default 1
         The opacity of the visualization.
+    canvas_size : tuple of int, optional
+        The size of the canvas to display the visualization on
 
     """
     create_fn = PDBEntry
@@ -246,5 +261,8 @@ def show_merged_pdb(
     for entry in entries[1:]:
         merged_entry.merge(entry)
     merged_entry.visualize(
-        style=style, highlight_mask_dict=highlight_mask_dict, opacity=opacity_dict
+        style=style,
+        highlight_mask_dict=highlight_mask_dict,
+        opacity=opacity_dict,
+        canvas_size=canvas_size,
     )

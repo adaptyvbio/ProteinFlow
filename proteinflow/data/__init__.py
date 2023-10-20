@@ -1419,7 +1419,12 @@ class ProteinEntry:
         return predict_mask
 
     def visualize(
-        self, highlight_mask=None, style="cartoon", highlight_style=None, opacity=1
+        self,
+        highlight_mask=None,
+        style="cartoon",
+        highlight_style=None,
+        opacity=1,
+        canvas_size=(400, 300),
     ):
         """Visualize the protein in a notebook.
 
@@ -1436,6 +1441,8 @@ class ProteinEntry:
             (defaults to the same as `style`)
         opacity : float or dict, default 1
             Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)
+        canvas_size : tuple, default (400, 300)
+            Shape of the canvas
 
         """
         if highlight_mask is not None:
@@ -1455,6 +1462,7 @@ class ProteinEntry:
             style=style,
             highlight_style=highlight_style,
             opacity=opacity,
+            canvas_size=canvas_size,
         )
 
     def blosum62_score(self, seq_before, average=True, only_predicted=True):
@@ -1820,27 +1828,6 @@ class ProteinEntry:
             #     tm_scores.append(np.nan)
         return prmsds_full, prmsds_predicted, rmsds, tm_scores
 
-    @staticmethod
-    def combine_multiple_frames(files, output_path="combined.pdb"):
-        """Combine multiple PDB files into a single multiframe PDB file.
-
-        Parameters
-        ----------
-        files : list of str
-            A list of PDB or proteinflow pickle files
-        output_path : str, default 'combined.pdb'
-            Path to the .pdb output file
-
-        """
-        with mda.Writer(output_path, multiframe=True) as writer:
-            for file in files:
-                if file.endswith(".pickle"):
-                    file_ = ProteinEntry.from_pickle(file)._temp_pdb_file()
-                else:
-                    file_ = file
-                u = mda.Universe(file_)
-                writer.write(u)
-
     def align_structure(self, reference_pdb_path, save_pdb_path, chain_ids=None):
         """Aligns the structure to a reference structure using the CA atoms.
 
@@ -1907,6 +1894,27 @@ class ProteinEntry:
         io = Bio.PDB.PDBIO()
         io.set_structure(sample_structure)
         io.save(save_pdb_path)
+
+    @staticmethod
+    def combine_multiple_frames(files, output_path="combined.pdb"):
+        """Combine multiple PDB files into a single multiframe PDB file.
+
+        Parameters
+        ----------
+        files : list of str
+            A list of PDB or proteinflow pickle files
+        output_path : str, default 'combined.pdb'
+            Path to the .pdb output file
+
+        """
+        with mda.Writer(output_path, multiframe=True) as writer:
+            for file in files:
+                if file.endswith(".pickle"):
+                    file_ = ProteinEntry.from_pickle(file)._temp_pdb_file()
+                else:
+                    file_ = file
+                u = mda.Universe(file_)
+                writer.write(u)
 
 
 class PDBEntry:
@@ -2404,6 +2412,7 @@ class PDBEntry:
         opacity=1,
         colors=None,
         accent_color="#D96181",
+        canvas_size=(400, 300),
     ):
         """Visualize the protein in a notebook.
 
@@ -2423,6 +2432,8 @@ class PDBEntry:
             A list of colors to use for different chains
         accent_color : str, optional
             The color of the highlighted atoms (use `None` to disable highlighting)
+        canvas_size : tuple, default (400, 300)
+            The shape of the canvas
 
         """
         outstr = self._get_atom_dicts(
@@ -2434,7 +2445,7 @@ class PDBEntry:
             accent_color=accent_color,
         )
         vis_string = "".join([str(x) for x in outstr])
-        view = py3Dmol.view(width=400, height=300)
+        view = py3Dmol.view(width=canvas_size[0], height=canvas_size[1])
         view.addModelsAsFrames(vis_string)
         for i, at in enumerate(outstr):
             view.setStyle(
