@@ -18,6 +18,7 @@ import warnings
 from collections import defaultdict
 
 import Bio.PDB
+import mdanalysis as mda
 import numpy as np
 import pandas as pd
 import py3Dmol
@@ -1818,6 +1819,27 @@ class ProteinEntry:
             #     rmsds.append(np.nan)
             #     tm_scores.append(np.nan)
         return prmsds_full, prmsds_predicted, rmsds, tm_scores
+
+    @staticmethod
+    def combine_multiple_frames(files, output_path="combined.pdb"):
+        """Combine multiple PDB files into a single multiframe PDB file.
+
+        Parameters
+        ----------
+        files : list of str
+            A list of PDB or proteinflow pickle files
+        output_path : str, default 'combined.pdb'
+            Path to the .pdb output file
+
+        """
+        with mda.Writer(output_path, multiframe=True) as writer:
+            for file in files:
+                if file.endswith(".pickle"):
+                    file_ = ProteinEntry.from_pickle(file)._temp_pdb_file()
+                else:
+                    file_ = file
+                u = mda.Universe(file_)
+                writer.write(u)
 
     def align_structure(self, reference_pdb_path, save_pdb_path, chain_ids=None):
         """Aligns the structure to a reference structure using the CA atoms.
