@@ -18,7 +18,7 @@ import warnings
 from collections import defaultdict
 
 import Bio.PDB
-import mdanalysis as mda
+import MDAnalysis as mda
 import numpy as np
 import pandas as pd
 import py3Dmol
