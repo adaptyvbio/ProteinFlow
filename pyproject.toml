@@ -41,6 +41,7 @@ dependencies = [
     "py3Dmol",
     "tmtools",
     "fair-esm",
+    "MDAnalysis",
 ]
 keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning"]
 
