@@ -7,7 +7,6 @@ name = "proteinflow"
 version = "2.3.0"
 authors = [
     {name = "Liza Kozlova", email = "liza@adaptyvbio.com"},
-    {name = "Arthur Valentin", email = "arthur@adaptyvbio.com"}
 ]
 description = "Versatile pipeline for processing protein structure data for deep learning applications."
 readme = "README.md"
