@@ -2107,9 +2107,11 @@ class PDBEntry:
         _chain_dict = {chain: chain * 5 for chain in self.get_chains()}
         self.crd_df["chain_id"] = self.crd_df["chain_id"].replace(_chain_dict)
         self.seq_df["chain_id"] = self.seq_df["chain_id"].replace(_chain_dict)
+        self.fasta_dict = {_chain_dict[k]: v for k, v in self.fasta_dict.items()}
         chain_dict = {k * 5: v for k, v in chain_dict.items()}
         self.crd_df["chain_id"] = self.crd_df["chain_id"].replace(chain_dict)
         self.seq_df["chain_id"] = self.seq_df["chain_id"].replace(chain_dict)
+        self.fasta_dict = {chain_dict[k]: v for k, v in self.fasta_dict.items()}
         return self
 
     def merge(self, entry):
