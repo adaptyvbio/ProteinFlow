@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "proteinflow"
-version = "2.3.0"
+version = "2.3.1"
 authors = [
     {name = "Liza Kozlova", email = "liza@adaptyvbio.com"},
 ]
@@ -42,7 +42,7 @@ dependencies = [
     "fair-esm",
     "MDAnalysis",
 ]
-keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning"]
+keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning", "antibody"]
 
 [project.scripts]
 proteinflow = "proteinflow.cli:cli"
