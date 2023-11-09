@@ -9,8 +9,6 @@ rcsbsearch/
 .pytest_cache/
 *ipynb
 ./*zip
-*.csv
-pulchra304
 tmp/
 esmfold_output/
 igfold_output/
@@ -20,3 +18,5 @@ all_structures/
 all_structures.zip
 run_metrics.py
 *.csv
+esmfold_output/
+igfold_output/
