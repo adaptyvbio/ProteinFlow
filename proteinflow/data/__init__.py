@@ -1819,7 +1819,6 @@ class ProteinEntry:
         for entry, path in zip(entries, igfold_paths):
             igfold_entry = ProteinEntry.from_pdb(path)
             temp_file = entry._temp_pdb_file()
-            # try:
             igfold_entry.align_structure(
                 reference_pdb_path=temp_file,
                 save_pdb_path=path.rsplit(".", 1)[0] + "_aligned.pdb",
@@ -1835,9 +1834,6 @@ class ProteinEntry:
                     igfold_entry,
                 )
             )
-            # except Exception:
-            #     rmsds.append(np.nan)
-            #     tm_scores.append(np.nan)
         return prmsds_full, prmsds_predicted, rmsds, tm_scores
 
     @staticmethod
@@ -1938,25 +1934,18 @@ class ProteinEntry:
             If specified, only the chains with the specified IDs are aligned
 
         """
-        # Start the parser
         pdb_parser = Bio.PDB.PDBParser(QUIET=True)
 
-        # Get the structures
         temp_file = self._temp_pdb_file()
         ref_structure = pdb_parser.get_structure("reference", reference_pdb_path)
         sample_structure = pdb_parser.get_structure("sample", temp_file)
 
-        # Use the first model in the pdb-files for alignment
-        # Change the number 0 if you want to align to another structure
         ref_model = ref_structure[0]
         sample_model = sample_structure[0]
 
-        # Make a list of the atoms (in the structures) you wish to align.
-        # In this case we use CA atoms whose index is in the specified range
         ref_atoms = []
         sample_atoms = []
 
-        # Iterate of all chains in the model in order to find all residues
         for ref_chain in ref_model:
             if chain_ids is not None and ref_chain.id not in chain_ids:
                 continue
@@ -1969,7 +1958,6 @@ class ProteinEntry:
                         "Using a C atom instead of CA for alignment in the reference structure"
                     )
 
-        # Do the same for the sample structure
         for sample_chain in sample_model:
             if chain_ids is not None and sample_chain.id not in chain_ids:
                 continue
@@ -1982,12 +1970,10 @@ class ProteinEntry:
                         "Using a C atom instead of CA for alignment in the sample structure"
                     )
 
-        # Now we initiate the superimposer:
         super_imposer = Bio.PDB.Superimposer()
         super_imposer.set_atoms(ref_atoms, sample_atoms)
         super_imposer.apply(sample_model.get_atoms())
 
-        # Save the aligned version of 1UBQ.pdb
         io = Bio.PDB.PDBIO()
         io.set_structure(sample_structure)
         io.save(save_pdb_path)
