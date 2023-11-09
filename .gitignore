@@ -10,9 +10,13 @@ rcsbsearch/
 *ipynb
 ./*zip
 tmp/
-all_structures/
-all_structures.zip
 esmfold_output/
 igfold_output/
-*.csv
+igfold_refine_output/
+immunebuilder_output/
+all_structures/
+all_structures.zip
 run_metrics.py
+*.csv
+esmfold_output/
+igfold_output/
