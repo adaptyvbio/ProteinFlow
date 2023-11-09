@@ -15,15 +15,15 @@ from tqdm import tqdm
 try:
     import ablang
 except ImportError:
-    print("ablang not found, some metrics will not be available")
+    pass
 try:
     from igfold import IgFoldRunner
 except ImportError:
-    print("igfold not found, some metrics will not be available")
+    pass
 try:
-    from immunebuilder import AntibodyBuilder2, NanoBodyBuilder2, TCRBuilder2
+    from ImmuneBuilder import ABodyBuilder2, NanoBodyBuilder2, TCRBuilder2
 except ImportError:
-    print("immunebuilder not found, some metrics will not be available")
+    pass
 
 
 def blosum62_score(seq_before, seq_after):
@@ -336,7 +336,7 @@ def immunebuilder_generate(sequence_dicts, filepaths=None, protein_type="antibod
 
     """
     predictor_classes = {
-        "antibody": AntibodyBuilder2,
+        "antibody": ABodyBuilder2,
         "nanobody": NanoBodyBuilder2,
         "tcr": TCRBuilder2,
     }

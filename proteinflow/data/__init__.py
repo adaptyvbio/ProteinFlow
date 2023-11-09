@@ -61,6 +61,7 @@ from proteinflow.metrics import (
     esm_pll,
     esmfold_generate,
     igfold_generate,
+    immunebuilder_generate,
     long_repeat_num,
     tm_score,
 )
@@ -291,6 +292,17 @@ class ProteinEntry:
 
         """
         return list(self.cdr.values())[0] is not None
+
+    def has_predict_mask(self):
+        """Check if the protein has a predicted mask.
+
+        Returns
+        -------
+        has_predict_mask : bool
+            True if the protein has a predicted mask
+
+        """
+        return list(self.predict_mask.values())[0] is not None
 
     def __len__(self):
         """Get the total length of the protein chains."""
@@ -1754,7 +1766,7 @@ class ProteinEntry:
 
     @staticmethod
     def igfold_metrics(entries, use_openmm=False):
-        """Calculate ESMFold metrics for a list of entries.
+        """Calculate IgFold metrics for a list of entries.
 
         Parameters
         ----------
@@ -1769,10 +1781,10 @@ class ProteinEntry:
             A list of PLDDT scores averaged over all residues
         plddts_predicted : list of float
             A list of PLDDT scores averaged over predicted residues
-        tm_score : list of float
+        rmsds : list of float
+            A list of RMSD values of aligned structures (predicted residues only)
+        tm_scores : list of float
             A list of TM scores of individual chains (self-consistency)
-        tm_score_inter : list of float, optional
-            A list of interaction TM scores (self-consistency); only returned if `interaction` is `True`
 
         """
         chains_list = [
@@ -1826,6 +1838,91 @@ class ProteinEntry:
             # except Exception:
             #     rmsds.append(np.nan)
             #     tm_scores.append(np.nan)
+        return prmsds_full, prmsds_predicted, rmsds, tm_scores
+
+    @staticmethod
+    def immunebuilder_metrics(entries, protein_type="antibody"):
+        """Calculate ImmuneBuilder metrics for a list of entries.
+
+        Parameters
+        ----------
+        entries : list of ProteinEntry
+            A list of `ProteinEntry` objects
+        protein_type : {"antibody", "nanobody", "tcr"}, default "antibody"
+            The type of the protein
+
+        Returns
+        -------
+        prmsds_full : list of float
+            A list of PRMSD scores averaged over all residues
+        prmsds_predicted : list of float
+            A list of PRMSD scores averaged over predicted residues
+        rmsds : list of float
+            A list of RMSD values of aligned structures (predicted residues only)
+        tm_scores : list of float
+            A list of TM scores of aligned structures
+
+        """
+        sequences = []
+        chains_list = [
+            [
+                x
+                for x in entry.get_chains()
+                if x not in entry.get_chain_type_dict()["antigen"]
+            ]
+            for entry in entries
+        ]
+        for chains, entry in zip(chains_list, entries):
+            chain_type_dict = entry.get_chain_type_dict()
+            sequences.append(
+                {
+                    key[0].upper(): entry.get_sequence(
+                        chains=[chain_type_dict[key]], only_known=True
+                    )
+                    for key in ["heavy", "light"]
+                    if key in chain_type_dict
+                }
+            )
+        immunebuilder_generate(sequences, protein_type=protein_type)
+        generated_paths = [
+            os.path.join("immunebuilder_output", f"seq_{i}.pdb")
+            for i in range(len(sequences))
+        ]
+        prmsds_predicted = [
+            confidence_from_file(
+                path, entry.get_predict_mask(only_known=True, chains=chains)
+            )
+            for path, entry, chains in zip(generated_paths, entries, chains_list)
+        ]
+        prmsds_full = [confidence_from_file(path) for path in generated_paths]
+        rmsds = []
+        tm_scores = []
+        for entry, path, chains in zip(entries, generated_paths, chains_list):
+            generated_entry = ProteinEntry.from_pdb(path)
+            chain_type_dict = entry.get_chain_type_dict()
+            chain_rename_dict = {}
+            if "light" in chain_type_dict:
+                chain_rename_dict["L"] = chain_type_dict["light"]
+            if "heavy" in chain_type_dict:
+                chain_rename_dict["H"] = chain_type_dict["heavy"]
+            generated_entry.rename_chains(chain_rename_dict)
+            temp_file = entry._temp_pdb_file()
+            generated_entry.align_structure(
+                reference_pdb_path=temp_file,
+                save_pdb_path=path.rsplit(".", 1)[0] + "_aligned.pdb",
+                chain_ids=entry.get_predicted_chains(),
+            )
+            rmsds.append(
+                entry.ca_rmsd(
+                    ProteinEntry.from_pdb(path.rsplit(".", 1)[0] + "_aligned.pdb")
+                )
+            )
+            tm_scores.append(
+                entry.tm_score(
+                    generated_entry,
+                    chains=chains,
+                )
+            )
         return prmsds_full, prmsds_predicted, rmsds, tm_scores
 
     def align_structure(self, reference_pdb_path, save_pdb_path, chain_ids=None):
@@ -1915,6 +2012,46 @@ class ProteinEntry:
                     file_ = file
                 u = mda.Universe(file_)
                 writer.write(u)
+
+    def apply_mask(self, mask):
+        """Apply a mask to the protein.
+
+        Parameters
+        ----------
+        mask : np.ndarray
+            A boolean mask of shape `(L,)` where `L` is the length of the protein (the chains are concatenated in alphabetical order)
+
+        Returns
+        -------
+        entry : ProteinEntry
+            A new `ProteinEntry` object
+
+        """
+        start = 0
+        out_dict = {}
+        for chain in self.get_chains():
+            out_dict[chain] = {}
+            chain_mask = mask[start : start + self.get_length([chain])]
+            start += self.get_length([chain])
+            out_dict[chain]["seq"] = self.decode_sequence(
+                self.get_sequence(chains=[chain], encode=True)[chain_mask]
+            )
+            out_dict[chain]["crd_bb"] = self.get_coordinates(
+                chains=[chain], bb_only=True
+            )[chain_mask]
+            out_dict[chain]["crd_sc"] = self.get_coordinates(chains=[chain])[:, 4:][
+                chain_mask
+            ]
+            out_dict[chain]["msk"] = self.get_mask(chains=[chain])[chain_mask]
+            if self.has_cdr():
+                out_dict[chain]["cdr"] = self.decode_cdr(
+                    self.get_cdr([chain], encode=True)[chain_mask]
+                )
+            if self.has_predict_mask():
+                out_dict[chain]["predict_msk"] = self.predict_mask[chain][chain_mask]
+        if self.id is not None:
+            out_dict["protein_id"] = self.id
+        return ProteinEntry.from_dict(out_dict)
 
 
 class PDBEntry:

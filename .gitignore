@@ -15,6 +15,7 @@ tmp/
 esmfold_output/
 igfold_output/
 igfold_refine_output/
+immunebuilder_output/
 all_structures/
 all_structures.zip
 run_metrics.py
