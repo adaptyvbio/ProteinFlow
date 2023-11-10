@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "proteinflow"
-version = "2.3.1"
+version = "2.4.0"
 authors = [
     {name = "Liza Kozlova", email = "liza@adaptyvbio.com"},
 ]
