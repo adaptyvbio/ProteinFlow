@@ -136,6 +136,7 @@ def _download_dataset_from_s3(
         shutil.move(s3_path, dataset_path)
     with zipfile.ZipFile(local_zip_path, "r") as zip_ref:
         zip_ref.extractall(os.path.dirname(dataset_path))
+    os.remove(local_zip_path)
 
 
 def _get_s3_paths_from_tag(tag):
@@ -143,21 +144,6 @@ def _get_s3_paths_from_tag(tag):
     dict_path = f"s3://proteinflow-datasets/{tag}/proteinflow_{tag}_splits_dict/"
     data_path = f"s3://proteinflow-datasets/{tag}/proteinflow_{tag}.zip"
     return data_path, dict_path
-
-
-def _download_zip_dataset_from_s3(
-    dataset_path="./data/proteinflow_20221110/",
-    s3_path="s3://ml4-main-storage/proteinflow_20221110/",
-):
-    """Download the pre-processed files."""
-    if s3_path.startswith("s3"):
-        print("Downloading the dataset from s3...")
-        subprocess.run(
-            ["aws", "s3", "sync", "--no-sign-request", s3_path, dataset_path]
-        )
-        print("Done!")
-    else:
-        shutil.move(s3_path, dataset_path)
 
 
 async def _getobj(client, key):
