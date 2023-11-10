@@ -530,7 +530,7 @@ def split_data(
         warnings.warn(
             "Found an existing dictionary for excluded chains. proteinflow will load it and ignore the exclusion parameters! Run with --ignore_existing to overwrite the splitting."
         )
-        excluded_biounits = []
+        excluded_biounits = None
     else:
         if exclude_chains_file is not None or exclude_chains is not None:
             excluded_biounits = _get_excluded_files(
