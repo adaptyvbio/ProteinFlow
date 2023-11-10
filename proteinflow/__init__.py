@@ -520,34 +520,40 @@ def split_data(
     temp_folder = os.path.join(tempfile.gettempdir(), "proteinflow")
     if not os.path.exists(temp_folder):
         os.makedirs(temp_folder)
-    if exclude_chains_file is not None or exclude_chains is not None:
-        excluded_biounits = _get_excluded_files(
-            tag,
-            local_datasets_folder,
-            temp_folder,
-            exclude_chains,
-            exclude_chains_file,
-            exclude_threshold,
-        )
-    else:
-        excluded_biounits = []
-    if exclude_chains_without_ligands:
-        excluded_biounits += _exclude_files_with_no_ligand(
-            tag,
-            local_datasets_folder,
-        )
 
     output_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
     out_split_dict_folder = os.path.join(output_folder, "splits_dict")
-    exists = False
+    if ignore_existing and os.path.exists(out_split_dict_folder):
+        shutil.rmtree(out_split_dict_folder)
+
+    if os.path.exists(os.path.join(output_folder, "splits_dict", "excluded.pickle")):
+        warnings.warn(
+            "Found an existing dictionary for excluded chains. proteinflow will load it and ignore the exclusion parameters! Run with --ignore_existing to overwrite the splitting."
+        )
+        excluded_biounits = None
+    else:
+        if exclude_chains_file is not None or exclude_chains is not None:
+            excluded_biounits = _get_excluded_files(
+                tag,
+                local_datasets_folder,
+                temp_folder,
+                exclude_chains,
+                exclude_chains_file,
+                exclude_threshold,
+            )
+        else:
+            excluded_biounits = []
+        if exclude_chains_without_ligands:
+            excluded_biounits += _exclude_files_with_no_ligand(
+                tag,
+                local_datasets_folder,
+            )
 
     if os.path.exists(out_split_dict_folder):
-        if not ignore_existing:
-            warnings.warn(
-                f"Found an existing dictionary for tag {tag}. proteinflow will load it and ignore the parameters! Run with --ignore_existing to overwrite."
-            )
-            exists = True
-    if not exists:
+        warnings.warn(
+            f"Found an existing dictionary for tag {tag}. proteinflow will load it and ignore the parameters! Run with --ignore_existing to overwrite."
+        )
+    else:
         _check_mmseqs()
         random.seed(random_seed)
         np.random.seed(random_seed)
