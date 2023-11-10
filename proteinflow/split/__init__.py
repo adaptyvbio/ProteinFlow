@@ -1381,7 +1381,7 @@ def _get_excluded_files(
 
 def _split_data(
     dataset_path="./data/proteinflow_20221110/",
-    excluded_files=None,
+    excluded_biounits=None,
     exclude_clusters=False,
     exclude_based_on_cdr=None,
 ):
@@ -1399,8 +1399,8 @@ def _split_data(
         If not `None`, exclude all files in a cluster if the cluster name does not end with `exclude_based_on_cdr`
 
     """
-    if excluded_files is None:
-        excluded_files = []
+    if excluded_biounits is None:
+        excluded_biounits = []
 
     dict_folder = os.path.join(dataset_path, "splits_dict")
     with open(os.path.join(dict_folder, "train.pickle"), "rb") as f:
@@ -1410,9 +1410,9 @@ def _split_data(
     with open(os.path.join(dict_folder, "test.pickle"), "rb") as f:
         test_clusters_dict = pickle.load(f)
 
-    train_biounits = _biounits_in_clusters_dict(train_clusters_dict, excluded_files)
-    valid_biounits = _biounits_in_clusters_dict(valid_clusters_dict, excluded_files)
-    test_biounits = _biounits_in_clusters_dict(test_clusters_dict, excluded_files)
+    train_biounits = _biounits_in_clusters_dict(train_clusters_dict, excluded_biounits)
+    valid_biounits = _biounits_in_clusters_dict(valid_clusters_dict, excluded_biounits)
+    test_biounits = _biounits_in_clusters_dict(test_clusters_dict, excluded_biounits)
     train_path = os.path.join(dataset_path, "train")
     valid_path = os.path.join(dataset_path, "valid")
     test_path = os.path.join(dataset_path, "test")
@@ -1427,9 +1427,9 @@ def _split_data(
     if not os.path.exists(test_path):
         os.makedirs(test_path)
 
-    if len(excluded_files) > 0:
-        set_to_exclude = set(excluded_files)
-        excluded_files = set()
+    if len(excluded_biounits) > 0:
+        set_to_exclude = set(excluded_biounits)
+        excluded_biounits = set()
         excluded_clusters_dict = defaultdict(list)
         for clusters_dict in [
             train_clusters_dict,
@@ -1462,7 +1462,7 @@ def _split_data(
                     ]
                     if len(clusters_dict[cluster]) == 0:
                         clusters_dict.pop(cluster)
-        excluded_files.update(set_to_exclude)
+        excluded_biounits.update(set_to_exclude)
         excluded_clusters_dict = {k: list(v) for k, v in excluded_clusters_dict.items()}
         excluded_path = os.path.join(dataset_path, "excluded")
         if not os.path.exists(excluded_path):
@@ -1477,7 +1477,17 @@ def _split_data(
         with open(os.path.join(dict_folder, "excluded.pickle"), "wb") as f:
             pickle.dump(excluded_clusters_dict, f)
         print("Moving excluded files...")
-        for biounit in tqdm(excluded_files):
+        for biounit in tqdm(excluded_biounits):
+            shutil.move(os.path.join(dataset_path, biounit), excluded_path)
+    elif os.path.exists(os.path.join(dict_folder, "excluded.pickle")):
+        with open(os.path.join(dict_folder, "excluded.pickle"), "rb") as f:
+            excluded_clusters_dict = pickle.load(f)
+        excluded_biounits = _biounits_in_clusters_dict(excluded_clusters_dict, [])
+        excluded_path = os.path.join(dataset_path, "excluded")
+        if not os.path.exists(excluded_path):
+            os.makedirs(excluded_path)
+        print("Moving excluded files...")
+        for biounit in tqdm(excluded_biounits):
             shutil.move(os.path.join(dataset_path, biounit), excluded_path)
     print("Moving files in the train set...")
     for biounit in tqdm(train_biounits):
