@@ -523,10 +523,10 @@ def split_data(
 
     output_folder = os.path.join(local_datasets_folder, f"proteinflow_{tag}")
     out_split_dict_folder = os.path.join(output_folder, "splits_dict")
-    if ignore_existing:
+    if ignore_existing and os.path.exists(out_split_dict_folder):
         shutil.rmtree(out_split_dict_folder)
 
-    if os.path.join(output_folder, "splits_dict", "excluded.pickle"):
+    if os.path.exists(os.path.join(output_folder, "splits_dict", "excluded.pickle")):
         warnings.warn(
             "Found an existing dictionary for excluded chains. proteinflow will load it and ignore the exclusion parameters! Run with --ignore_existing to overwrite the splitting."
         )
