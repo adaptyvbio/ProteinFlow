@@ -50,10 +50,13 @@ proteinflow pickle file or a PDB file.
 &#34;&#34;&#34;
 import os
 import pickle
+import string
 import tempfile
 import warnings
 from collections import defaultdict
 
+import Bio.PDB
+import MDAnalysis as mda
 import numpy as np
 import pandas as pd
 import py3Dmol
@@ -64,6 +67,7 @@ from torch import Tensor, from_numpy
 
 from proteinflow.constants import (
     _PMAP,
+    ACCENT_COLOR,
     ALPHABET,
     ALPHABET_REVERSE,
     ATOM_MASKS,
@@ -87,6 +91,18 @@ from proteinflow.data.utils import (
 )
 from proteinflow.download import download_fasta, download_pdb
 from proteinflow.ligand import _get_ligands
+from proteinflow.metrics import (
+    ablang_pll,
+    blosum62_score,
+    ca_rmsd,
+    confidence_from_file,
+    esm_pll,
+    esmfold_generate,
+    igfold_generate,
+    immunebuilder_generate,
+    long_repeat_num,
+    tm_score,
+)
 
 
 def interpolate_coords(crd, mask, fill_ends=True):
@@ -314,6 +330,17 @@ class ProteinEntry:
 
         &#34;&#34;&#34;
         return list(self.cdr.values())[0] is not None
+
+    def has_predict_mask(self):
+        &#34;&#34;&#34;Check if the protein has a predicted mask.
+
+        Returns
+        -------
+        has_predict_mask : bool
+            True if the protein has a predicted mask
+
+        &#34;&#34;&#34;
+        return list(self.predict_mask.values())[0] is not None
 
     def __len__(self):
         &#34;&#34;&#34;Get the total length of the protein chains.&#34;&#34;&#34;
@@ -549,6 +576,16 @@ class ProteinEntry:
         seq = ProteinEntry._to_numpy(seq)
         return &#34;&#34;.join([ALPHABET[x] for x in seq.astype(int)])
 
+    def _rename_chains(self, chain_dict):
+        &#34;&#34;&#34;Rename the chains of the protein (with no safeguards).&#34;&#34;&#34;
+        for old_chain, new_chain in chain_dict.items():
+            self.seq[new_chain] = self.seq.pop(old_chain)
+            self.crd[new_chain] = self.crd.pop(old_chain)
+            self.mask[new_chain] = self.mask.pop(old_chain)
+            self.mask_original[new_chain] = self.mask_original.pop(old_chain)
+            self.cdr[new_chain] = self.cdr.pop(old_chain)
+            self.predict_mask[new_chain] = self.predict_mask.pop(old_chain)
+
     def rename_chains(self, chain_dict):
         &#34;&#34;&#34;Rename the chains of the protein.
 
@@ -558,16 +595,18 @@ class ProteinEntry:
             A dictionary mapping old chain IDs to new chain IDs
 
         &#34;&#34;&#34;
-        for old_chain, new_chain in chain_dict.items():
-            self.seq[new_chain] = self.seq.pop(old_chain)
-            self.crd[new_chain] = self.crd.pop(old_chain)
-            self.mask[new_chain] = self.mask.pop(old_chain)
-            self.mask_original[new_chain] = self.mask_original.pop(old_chain)
-            self.cdr[new_chain] = self.cdr.pop(old_chain)
-            self.predict_mask[new_chain] = self.predict_mask.pop(old_chain)
+        self._rename_chains({k: k * 5 for k in self.get_chains()})
+        self._rename_chains({k * 5: v for k, v in chain_dict.items()})
 
     def get_predicted_entry(self):
-        &#34;&#34;&#34;Return a `ProteinEntry` object that only contains predicted residues.&#34;&#34;&#34;
+        &#34;&#34;&#34;Return a `ProteinEntry` object that only contains predicted residues.
+
+        Returns
+        -------
+        entry : ProteinEntry
+            The truncated `ProteinEntry` object
+
+        &#34;&#34;&#34;
         if self.predict_mask is None:
             raise ValueError(&#34;Predicted mask not available&#34;)
         entry_dict = self.to_dict()
@@ -588,13 +627,26 @@ class ProteinEntry:
                 entry_dict[chain][&#34;cdr&#34;] = entry_dict[chain][&#34;cdr&#34;][mask_]
         return ProteinEntry.from_dict(entry_dict)
 
+    def get_predicted_chains(self):
+        &#34;&#34;&#34;Return a list of chain IDs that contain predicted residues.
+
+        Returns
+        -------
+        chains : list of str
+            Chain IDs
+
+        &#34;&#34;&#34;
+        if self.predict_mask is None:
+            raise ValueError(&#34;Predicted mask not available&#34;)
+        return [k for k, v in self.predict_mask.items() if v.sum() != 0]
+
     def merge(self, entry):
         &#34;&#34;&#34;Merge another `ProteinEntry` object into this one.
 
         Parameters
         ----------
         entry : ProteinEntry
-            A `ProteinEntry` object
+            The merged `ProteinEntry` object
 
         &#34;&#34;&#34;
         for chain in entry.get_chains():
@@ -764,7 +816,7 @@ class ProteinEntry:
             pdb_dict[chain][&#34;crd_bb&#34;] = crd_arr[:, :4, :]
             pdb_dict[chain][&#34;crd_sc&#34;] = crd_arr[:, 4:, :]
             pdb_dict[chain][&#34;msk&#34;][
-                (pdb_dict[chain][&#34;crd_bb&#34;] == 0).sum(-1).sum(-1) &gt; 0
+                (pdb_dict[chain][&#34;crd_bb&#34;] == 0).sum(-1).sum(-1) == 4
             ] = 0
         pdb_dict[&#34;protein_id&#34;] = pdb_entry.pdb_id
         return ProteinEntry.from_dict(pdb_dict)
@@ -946,11 +998,11 @@ class ProteinEntry:
         ----------
         path : str
             Path to the output PDB file
-        only_ca : bool, default `False`
+        only_ca : bool, default False
             If `True`, only backbone atoms are saved
-        skip_oxygens : bool, default `False`
+        skip_oxygens : bool, default False
             If `True`, oxygen atoms are not saved
-        only_backbone : bool, default `False`
+        only_backbone : bool, default False
             If `True`, only backbone atoms are saved
         title : str, optional
             Title of the PDB file (by default either the protein id or &#34;Untitled&#34;)
@@ -1365,17 +1417,26 @@ class ProteinEntry:
                 highlight_mask_dict[chain] = pdb_highlight
         return highlight_mask_dict
 
-    def _get_atom_dicts(self, highlight_mask=None, style=&#34;cartoon&#34;, opacity=1):
+    def _get_atom_dicts(
+        self,
+        highlight_mask=None,
+        style=&#34;cartoon&#34;,
+        opacity=1,
+        colors=None,
+        accent_color=&#34;#D96181&#34;,
+    ):
         &#34;&#34;&#34;Get the atom dictionaries of the protein.&#34;&#34;&#34;
         highlight_mask_dict = self._get_highlight_mask_dict(highlight_mask)
-        with tempfile.NamedTemporaryFile(suffix=&#34;.pdb&#34;) as tmp:
-            self.to_pdb(tmp.name)
-            pdb_entry = PDBEntry(tmp.name)
+        pdb_entry = PDBEntry(self._temp_pdb_file())
         return pdb_entry._get_atom_dicts(
-            highlight_mask_dict=highlight_mask_dict, style=style, opacity=opacity
+            highlight_mask_dict=highlight_mask_dict,
+            style=style,
+            opacity=opacity,
+            colors=colors,
+            accent_color=accent_color,
         )
 
-    def get_predict_mask(self, chains=None):
+    def get_predict_mask(self, chains=None, only_known=False):
         &#34;&#34;&#34;Get the prediction mask of the protein.
 
         The prediction mask is a `&#39;numpy&#39;` array of shape `(L,)` with ones
@@ -1388,6 +1449,8 @@ class ProteinEntry:
         chains : list of str, optional
             If specified, only the prediction mask of the specified chains is returned (in the same order);
             otherwise, all features are concatenated in alphabetical order of the chain IDs
+        only_known : bool, default False
+            If `True`, only residues with known coordinates are returned
 
         Returns
         -------
@@ -1400,10 +1463,18 @@ class ProteinEntry:
             return None
         chains = self._get_chains_list(chains)
         predict_mask = np.concatenate([self.predict_mask[chain] for chain in chains])
+        if only_known:
+            mask = self.get_mask(chains=chains)
+            predict_mask = predict_mask[mask.astype(bool)]
         return predict_mask
 
     def visualize(
-        self, highlight_mask=None, style=&#34;cartoon&#34;, highlight_style=None, opacity=1
+        self,
+        highlight_mask=None,
+        style=&#34;cartoon&#34;,
+        highlight_style=None,
+        opacity=1,
+        canvas_size=(400, 300),
     ):
         &#34;&#34;&#34;Visualize the protein in a notebook.
 
@@ -1420,6 +1491,8 @@ class ProteinEntry:
             (defaults to the same as `style`)
         opacity : float or dict, default 1
             Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)
+        canvas_size : tuple, default (400, 300)
+            Shape of the canvas
 
         &#34;&#34;&#34;
         if highlight_mask is not None:
@@ -1439,7 +1512,570 @@ class ProteinEntry:
             style=style,
             highlight_style=highlight_style,
             opacity=opacity,
+            canvas_size=canvas_size,
         )
+
+    def blosum62_score(self, seq_before, average=True, only_predicted=True):
+        &#34;&#34;&#34;Calculate the BLOSUM62 score of the protein.
+
+        Parameters
+        ----------
+        seq_before : str
+            A string with the sequence before the mutation
+        average : bool, default True
+            If `True`, the score is averaged over the residues; otherwise, the score is summed
+        only_predicted : bool, default True
+            If `True` and prediction masks are available, only predicted residues are considered
+
+        Returns
+        -------
+        score : float
+            The BLOSUM62 score of the protein
+
+        &#34;&#34;&#34;
+        seq_after = self.get_sequence(encode=False)
+        if self.predict_mask is not None and only_predicted:
+            predict_mask = self.get_predict_mask()
+            seq_before = np.array(list(seq_before))[predict_mask.astype(bool)]
+            seq_after = np.array(list(seq_after))[predict_mask.astype(bool)]
+        score = blosum62_score(seq_before, seq_after)
+        if average:
+            score /= len(seq_before)
+        return score
+
+    def long_repeat_num(self, thr=5):
+        &#34;&#34;&#34;Calculate the number of long repeats in the protein.
+
+        Parameters
+        ----------
+        thr : int, default 5
+            The threshold for the minimum length of the repeat
+
+        Returns
+        -------
+        num : int
+            The number of long repeats in the protein
+
+        &#34;&#34;&#34;
+        seq = self.get_sequence(encode=False)
+        if self.predict_mask is not None:
+            predict_mask = self.get_predict_mask()
+            seq = np.array(list(seq))[predict_mask.astype(bool)]
+        return long_repeat_num(seq, thr=thr)
+
+    def esm_pll(
+        self,
+        esm_model_name=&#34;esm2_t30_150M_UR50D&#34;,
+        esm_model_objects=None,
+        average=False,
+    ):
+        &#34;&#34;&#34;Calculate the ESM PLL score of the protein.
+
+        Parameters
+        ----------
+        esm_model_name : str, default &#34;esm2_t30_150M_UR50D&#34;
+            Name of the ESM-2 model to use
+        esm_model_objects : tuple, optional
+            Tuple of ESM-2 model, batch converter and tok_to_idx dictionary (if not None, `esm_model_name` will be ignored)
+        average : bool, default False
+            If `True`, the score is averaged over the residues; otherwise, the score is summed
+
+        Returns
+        -------
+        score : float
+            The ESM PLL score of the protein
+
+        &#34;&#34;&#34;
+        chains = self.get_chains()
+        chain_sequences = [self.get_sequence(chains=[chain]) for chain in chains]
+        if self.predict_mask is not None:
+            predict_masks = [
+                (self.get_predict_mask(chains=[chain])).astype(float)
+                for chain in chains
+            ]
+        else:
+            predict_masks = [np.ones(len(x)) for x in chain_sequences]
+        return esm_pll(
+            chain_sequences,
+            predict_masks,
+            esm_model_name=esm_model_name,
+            esm_model_objects=esm_model_objects,
+            average=average,
+        )
+
+    def ablang_pll(self, ablang_model_name=&#34;heavy&#34;, average=False):
+        &#34;&#34;&#34;Calculate the AbLang PLL score of the protein.
+
+        Parameters
+        ----------
+        ablang_model_name : str, default &#34;heavy&#34;
+            Name of the AbLang model to use
+        average : bool, default False
+            If `True`, the score is averaged over the residues; otherwise, the score is summed
+
+        Returns
+        -------
+        score : float
+            The AbLang PLL score of the protein
+
+        &#34;&#34;&#34;
+        chains = self.get_predicted_chains()
+        chain_sequences = [self.get_sequence(chains=[chain]) for chain in chains]
+        if self.predict_mask is not None:
+            predict_masks = [
+                (self.get_predict_mask(chains=[chain])).astype(float)
+                for chain in chains
+            ]
+        else:
+            predict_masks = [np.ones(len(x)) for x in chain_sequences]
+        out = sum(
+            [
+                ablang_pll(
+                    sequence,
+                    predict_mask,
+                    ablang_model_name=ablang_model_name,
+                    average=False,
+                )
+                for sequence, predict_mask in zip(chain_sequences, predict_masks)
+            ]
+        )
+        if average:
+            out /= self.get_predict_mask(chains=chains).sum()
+        return out
+
+    def accuracy(self, seq_before):
+        &#34;&#34;&#34;Calculate the accuracy of the protein.
+
+        Parameters
+        ----------
+        seq_before : str
+            A string with the sequence before the mutation
+
+        Returns
+        -------
+        score : float
+            The accuracy of the protein
+
+        &#34;&#34;&#34;
+        seq_after = self.get_sequence(encode=False)
+        seq_before = np.array(list(seq_before))
+        seq_after = np.array(list(seq_after))
+        if self.predict_mask is not None:
+            predict_mask = self.get_predict_mask()
+            seq_before = seq_before[predict_mask.astype(bool)]
+            seq_after = seq_after[predict_mask.astype(bool)]
+        return np.mean(seq_before == seq_after)
+
+    def ca_rmsd(self, entry, only_predicted=True):
+        &#34;&#34;&#34;Calculate CA RMSD between two proteins.
+
+        Parameters
+        ----------
+        entry : ProteinEntry
+            A `ProteinEntry` object
+        only_predicted : bool, default True
+            If `True` and prediction masks are available, only predicted residues are considered
+
+        Returns
+        -------
+        rmsd : float
+            The CA RMSD between the two proteins
+
+        &#34;&#34;&#34;
+        chains = [x for x in self.get_chains() if x in entry.get_chains()]
+        structure1 = self.get_coordinates(only_known=True, chains=chains)[:, 2]
+        structure2 = entry.get_coordinates(only_known=True, chains=chains)[:, 2]
+        if only_predicted:
+            mask = self.get_predict_mask(only_known=True, chains=chains).astype(bool)
+            structure1 = structure1[mask]
+            structure2 = structure2[mask]
+        return ca_rmsd(structure1, structure2)
+
+    def tm_score(self, entry, chains=None):
+        &#34;&#34;&#34;Calculate TM score between two proteins.
+
+        Parameters
+        ----------
+        entry : ProteinEntry
+            A `ProteinEntry` object
+        chains : list of str, optional
+            A list of chain IDs to consider
+
+        Returns
+        -------
+        tm_score : float
+            The TM score between the two proteins
+
+        &#34;&#34;&#34;
+        structure1 = self.get_coordinates(only_known=True, chains=chains)[:, 2]
+        structure2 = entry.get_coordinates(only_known=True, chains=chains)[:, 2]
+        sequence1 = self.get_sequence(only_known=True, chains=chains)
+        sequence2 = entry.get_sequence(only_known=True, chains=chains)
+        return tm_score(structure1, structure2, sequence1, sequence2)
+
+    def _temp_pdb_file(self):
+        &#34;&#34;&#34;Save a protein entry to a temporary PDB file.&#34;&#34;&#34;
+        with tempfile.NamedTemporaryFile(suffix=&#34;.pdb&#34;, delete=False) as tmp:
+            self.to_pdb(tmp.name)
+        return tmp.name
+
+    @staticmethod
+    def esmfold_metrics(entries, only_antibody=False):
+        &#34;&#34;&#34;Calculate ESMFold metrics for a list of entries.
+
+        Parameters
+        ----------
+        entries : list of ProteinEntry
+            A list of `ProteinEntry` objects
+        only_antibody : bool, default False
+            If `True`, only antibody chains are considered
+
+        Returns
+        -------
+        plddts_full : list of float
+            A list of PLDDT scores averaged over all residues
+        plddts_predicted : list of float
+            A list of PLDDT scores averaged over predicted residues
+        rmsd : list of float
+            A list of RMSD values of aligned structures (predicted residues only)
+        tm_score : list of float, optional
+            A list of TM scores of aligned structures
+
+        &#34;&#34;&#34;
+        sequences = []
+        chains_list = [
+            [
+                x
+                for x in entry.get_chains()
+                if x not in entry.get_chain_type_dict()[&#34;antigen&#34;] or not only_antibody
+            ]
+            for entry in entries
+        ]
+        for chains, entry in zip(chains_list, entries):
+            sequences.append(
+                &#34;:&#34;.join(
+                    [
+                        entry.get_sequence(chains=[chain], only_known=True)
+                        for chain in chains
+                    ]
+                )
+            )
+        esmfold_generate(sequences)
+        esmfold_paths = [
+            os.path.join(&#34;esmfold_output&#34;, f&#34;seq_{i}.pdb&#34;)
+            for i in range(len(sequences))
+        ]
+        plddts_predicted = [
+            confidence_from_file(
+                path, entry.get_predict_mask(only_known=True, chains=chains)
+            )
+            for path, entry, chains in zip(esmfold_paths, entries, chains_list)
+        ]
+        plddts_full = [confidence_from_file(path) for path in esmfold_paths]
+        rmsds = []
+        tm_scores = []
+        for entry, path in zip(entries, esmfold_paths):
+            chains = [
+                x
+                for x in entry.get_chains()
+                if x not in entry.get_chain_type_dict()[&#34;antigen&#34;] or not only_antibody
+            ]
+            esm_entry = ProteinEntry.from_pdb(path)
+            chain_rename_dict = {k: v for k, v in zip(string.ascii_uppercase, chains)}
+            esm_entry.rename_chains(chain_rename_dict)
+            temp_file = entry._temp_pdb_file()
+            esm_entry.align_structure(
+                reference_pdb_path=temp_file,
+                save_pdb_path=path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;,
+                chain_ids=entry.get_predicted_chains(),
+            )
+            rmsds.append(
+                entry.ca_rmsd(
+                    ProteinEntry.from_pdb(path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;)
+                )
+            )
+            tm_scores.append(
+                entry.tm_score(
+                    esm_entry,
+                    chains=chains,
+                )
+            )
+        return plddts_full, plddts_predicted, rmsds, tm_scores
+
+    @staticmethod
+    def igfold_metrics(entries, use_openmm=False):
+        &#34;&#34;&#34;Calculate IgFold metrics for a list of entries.
+
+        Parameters
+        ----------
+        entries : list of ProteinEntry
+            A list of `ProteinEntry` objects
+        use_openmm : bool, default False
+            Whether to use refinement with OpenMM
+
+        Returns
+        -------
+        plddts_full : list of float
+            A list of PLDDT scores averaged over all residues
+        plddts_predicted : list of float
+            A list of PLDDT scores averaged over predicted residues
+        rmsds : list of float
+            A list of RMSD values of aligned structures (predicted residues only)
+        tm_scores : list of float
+            A list of TM scores of individual chains (self-consistency)
+
+        &#34;&#34;&#34;
+        chains_list = [
+            [
+                x
+                for x in entry.get_chains()
+                if x not in entry.get_chain_type_dict()[&#34;antigen&#34;]
+            ]
+            for entry in entries
+        ]
+        sequences = [
+            {
+                chain: entry.get_sequence(chains=[chain], only_known=True)
+                for chain in chains
+            }
+            for entry, chains in zip(entries, chains_list)
+        ]
+        igfold_generate(sequences, use_openmm=use_openmm)
+        folder = &#34;igfold_refine_output&#34; if use_openmm else &#34;igfold_output&#34;
+        igfold_paths = [
+            os.path.join(folder, f&#34;seq_{i}.pdb&#34;) for i in range(len(sequences))
+        ]
+        prmsds_predicted = [
+            confidence_from_file(
+                path, entry.get_predict_mask(only_known=True, chains=chains)
+            )
+            for path, entry, chains in zip(igfold_paths, entries, chains_list)
+        ]
+        prmsds_full = [confidence_from_file(path) for path in igfold_paths]
+        rmsds = []
+        tm_scores = []
+        for entry, path in zip(entries, igfold_paths):
+            igfold_entry = ProteinEntry.from_pdb(path)
+            temp_file = entry._temp_pdb_file()
+            igfold_entry.align_structure(
+                reference_pdb_path=temp_file,
+                save_pdb_path=path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;,
+                chain_ids=entry.get_predicted_chains(),
+            )
+            rmsds.append(
+                entry.ca_rmsd(
+                    ProteinEntry.from_pdb(path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;)
+                )
+            )
+            tm_scores.append(
+                entry.tm_score(
+                    igfold_entry,
+                )
+            )
+        return prmsds_full, prmsds_predicted, rmsds, tm_scores
+
+    @staticmethod
+    def immunebuilder_metrics(entries, protein_type=&#34;antibody&#34;):
+        &#34;&#34;&#34;Calculate ImmuneBuilder metrics for a list of entries.
+
+        Parameters
+        ----------
+        entries : list of ProteinEntry
+            A list of `ProteinEntry` objects
+        protein_type : {&#34;antibody&#34;, &#34;nanobody&#34;, &#34;tcr&#34;}, default &#34;antibody&#34;
+            The type of the protein
+
+        Returns
+        -------
+        prmsds_full : list of float
+            A list of PRMSD scores averaged over all residues
+        prmsds_predicted : list of float
+            A list of PRMSD scores averaged over predicted residues
+        rmsds : list of float
+            A list of RMSD values of aligned structures (predicted residues only)
+        tm_scores : list of float
+            A list of TM scores of aligned structures
+
+        &#34;&#34;&#34;
+        sequences = []
+        chains_list = [
+            [
+                x
+                for x in entry.get_chains()
+                if x not in entry.get_chain_type_dict()[&#34;antigen&#34;]
+            ]
+            for entry in entries
+        ]
+        for chains, entry in zip(chains_list, entries):
+            chain_type_dict = entry.get_chain_type_dict()
+            sequences.append(
+                {
+                    key[0].upper(): entry.get_sequence(
+                        chains=[chain_type_dict[key]], only_known=True
+                    )
+                    for key in [&#34;heavy&#34;, &#34;light&#34;]
+                    if key in chain_type_dict
+                }
+            )
+        immunebuilder_generate(sequences, protein_type=protein_type)
+        generated_paths = [
+            os.path.join(&#34;immunebuilder_output&#34;, f&#34;seq_{i}.pdb&#34;)
+            for i in range(len(sequences))
+        ]
+        prmsds_predicted = [
+            confidence_from_file(
+                path, entry.get_predict_mask(only_known=True, chains=chains)
+            )
+            for path, entry, chains in zip(generated_paths, entries, chains_list)
+        ]
+        prmsds_full = [confidence_from_file(path) for path in generated_paths]
+        rmsds = []
+        tm_scores = []
+        for entry, path, chains in zip(entries, generated_paths, chains_list):
+            generated_entry = ProteinEntry.from_pdb(path)
+            chain_type_dict = entry.get_chain_type_dict()
+            chain_rename_dict = {}
+            if &#34;light&#34; in chain_type_dict:
+                chain_rename_dict[&#34;L&#34;] = chain_type_dict[&#34;light&#34;]
+            if &#34;heavy&#34; in chain_type_dict:
+                chain_rename_dict[&#34;H&#34;] = chain_type_dict[&#34;heavy&#34;]
+            generated_entry.rename_chains(chain_rename_dict)
+            temp_file = entry._temp_pdb_file()
+            generated_entry.align_structure(
+                reference_pdb_path=temp_file,
+                save_pdb_path=path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;,
+                chain_ids=entry.get_predicted_chains(),
+            )
+            rmsds.append(
+                entry.ca_rmsd(
+                    ProteinEntry.from_pdb(path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;)
+                )
+            )
+            tm_scores.append(
+                entry.tm_score(
+                    generated_entry,
+                    chains=chains,
+                )
+            )
+        return prmsds_full, prmsds_predicted, rmsds, tm_scores
+
+    def align_structure(self, reference_pdb_path, save_pdb_path, chain_ids=None):
+        &#34;&#34;&#34;Aligns the structure to a reference structure using the CA atoms.
+
+        Parameters
+        ----------
+        reference_pdb_path : str
+            Path to the reference structure (in .pdb format)
+        save_pdb_path : str
+            Path where the aligned structure should be saved (in .pdb format)
+        chain_ids : list of str, optional
+            If specified, only the chains with the specified IDs are aligned
+
+        &#34;&#34;&#34;
+        pdb_parser = Bio.PDB.PDBParser(QUIET=True)
+
+        temp_file = self._temp_pdb_file()
+        ref_structure = pdb_parser.get_structure(&#34;reference&#34;, reference_pdb_path)
+        sample_structure = pdb_parser.get_structure(&#34;sample&#34;, temp_file)
+
+        ref_model = ref_structure[0]
+        sample_model = sample_structure[0]
+
+        ref_atoms = []
+        sample_atoms = []
+
+        for ref_chain in ref_model:
+            if chain_ids is not None and ref_chain.id not in chain_ids:
+                continue
+            for ref_res in ref_chain:
+                if &#34;CA&#34; in ref_res:
+                    ref_atoms.append(ref_res[&#34;CA&#34;])
+                elif &#34;C&#34; in ref_res:
+                    ref_atoms.append(ref_res[&#34;C&#34;])
+                    warnings.warn(
+                        &#34;Using a C atom instead of CA for alignment in the reference structure&#34;
+                    )
+
+        for sample_chain in sample_model:
+            if chain_ids is not None and sample_chain.id not in chain_ids:
+                continue
+            for sample_res in sample_chain:
+                if &#34;CA&#34; in sample_res:
+                    sample_atoms.append(sample_res[&#34;CA&#34;])
+                elif &#34;C&#34; in sample_res:
+                    sample_atoms.append(sample_res[&#34;C&#34;])
+                    warnings.warn(
+                        &#34;Using a C atom instead of CA for alignment in the sample structure&#34;
+                    )
+
+        super_imposer = Bio.PDB.Superimposer()
+        super_imposer.set_atoms(ref_atoms, sample_atoms)
+        super_imposer.apply(sample_model.get_atoms())
+
+        io = Bio.PDB.PDBIO()
+        io.set_structure(sample_structure)
+        io.save(save_pdb_path)
+
+    @staticmethod
+    def combine_multiple_frames(files, output_path=&#34;combined.pdb&#34;):
+        &#34;&#34;&#34;Combine multiple PDB files into a single multiframe PDB file.
+
+        Parameters
+        ----------
+        files : list of str
+            A list of PDB or proteinflow pickle files
+        output_path : str, default &#39;combined.pdb&#39;
+            Path to the .pdb output file
+
+        &#34;&#34;&#34;
+        with mda.Writer(output_path, multiframe=True) as writer:
+            for file in files:
+                if file.endswith(&#34;.pickle&#34;):
+                    file_ = ProteinEntry.from_pickle(file)._temp_pdb_file()
+                else:
+                    file_ = file
+                u = mda.Universe(file_)
+                writer.write(u)
+
+    def apply_mask(self, mask):
+        &#34;&#34;&#34;Apply a mask to the protein.
+
+        Parameters
+        ----------
+        mask : np.ndarray
+            A boolean mask of shape `(L,)` where `L` is the length of the protein (the chains are concatenated in alphabetical order)
+
+        Returns
+        -------
+        entry : ProteinEntry
+            A new `ProteinEntry` object
+
+        &#34;&#34;&#34;
+        start = 0
+        out_dict = {}
+        for chain in self.get_chains():
+            out_dict[chain] = {}
+            chain_mask = mask[start : start + self.get_length([chain])]
+            start += self.get_length([chain])
+            out_dict[chain][&#34;seq&#34;] = self.decode_sequence(
+                self.get_sequence(chains=[chain], encode=True)[chain_mask]
+            )
+            out_dict[chain][&#34;crd_bb&#34;] = self.get_coordinates(
+                chains=[chain], bb_only=True
+            )[chain_mask]
+            out_dict[chain][&#34;crd_sc&#34;] = self.get_coordinates(chains=[chain])[:, 4:][
+                chain_mask
+            ]
+            out_dict[chain][&#34;msk&#34;] = self.get_mask(chains=[chain])[chain_mask]
+            if self.has_cdr():
+                out_dict[chain][&#34;cdr&#34;] = self.decode_cdr(
+                    self.get_cdr([chain], encode=True)[chain_mask]
+                )
+            if self.has_predict_mask():
+                out_dict[chain][&#34;predict_msk&#34;] = self.predict_mask[chain][chain_mask]
+        if self.id is not None:
+            out_dict[&#34;protein_id&#34;] = self.id
+        return ProteinEntry.from_dict(out_dict)
 
 
 class PDBEntry:
@@ -1506,8 +2142,14 @@ class PDBEntry:
             A `PDBEntry` object
 
         &#34;&#34;&#34;
+        _chain_dict = {chain: chain * 5 for chain in self.get_chains()}
+        self.crd_df[&#34;chain_id&#34;] = self.crd_df[&#34;chain_id&#34;].replace(_chain_dict)
+        self.seq_df[&#34;chain_id&#34;] = self.seq_df[&#34;chain_id&#34;].replace(_chain_dict)
+        self.fasta_dict = {_chain_dict[k]: v for k, v in self.fasta_dict.items()}
+        chain_dict = {k * 5: v for k, v in chain_dict.items()}
         self.crd_df[&#34;chain_id&#34;] = self.crd_df[&#34;chain_id&#34;].replace(chain_dict)
         self.seq_df[&#34;chain_id&#34;] = self.seq_df[&#34;chain_id&#34;].replace(chain_dict)
+        self.fasta_dict = {chain_dict[k]: v for k, v in self.fasta_dict.items()}
         return self
 
     def merge(self, entry):
@@ -1592,10 +2234,9 @@ class PDBEntry:
         fasta_dict = {k: seqs_dict[k.split(&#34;-&#34;)[0].upper()] for k in chains}
         return fasta_dict
 
-    def _parse_structure(self, chains=None):
+    def _parse_structure(self):
         &#34;&#34;&#34;Parse the structure of the protein.&#34;&#34;&#34;
         cif = self.pdb_path.endswith(&#34;cif.gz&#34;)
-
         # load coordinates in a nice format
         try:
             with warnings.catch_warnings():
@@ -1877,7 +2518,13 @@ class PDBEntry:
         return self.get_pdb_df(chain)[&#34;unique_residue_number&#34;].unique().tolist()
 
     def _get_atom_dicts(
-        self, highlight_mask_dict=None, style=&#34;cartoon&#34;, highlight_style=None, opacity=1
+        self,
+        highlight_mask_dict=None,
+        style=&#34;cartoon&#34;,
+        highlight_style=None,
+        opacity=1,
+        colors=None,
+        accent_color=&#34;#D96181&#34;,
     ):
         &#34;&#34;&#34;Get the atom dictionaries for visualization.&#34;&#34;&#34;
         assert style in [&#34;cartoon&#34;, &#34;sphere&#34;, &#34;stick&#34;, &#34;line&#34;, &#34;cross&#34;]
@@ -1889,7 +2536,9 @@ class PDBEntry:
         for _, row in df_.iterrows():
             outstr.append(_Atom(row))
         chains = self.get_chains()
-        colors = {ch: COLORS[i % len(COLORS)] for i, ch in enumerate(chains)}
+        if colors is None:
+            colors = COLORS
+        colors = {ch: colors[i % len(colors)] for i, ch in enumerate(chains)}
         chain_counters = defaultdict(int)
         chain_last_res = defaultdict(lambda: None)
         if highlight_mask_dict is not None:
@@ -1909,12 +2558,24 @@ class PDBEntry:
             at[&#34;pymol&#34;] = {style: {&#34;color&#34;: colors[at[&#34;chain&#34;]], &#34;opacity&#34;: op_}}
             if highlight_mask_dict is not None and at[&#34;chain&#34;] in highlight_mask_dict:
                 num = chain_counters[at[&#34;chain&#34;]]
-                if highlight_mask_dict[at[&#34;chain&#34;]][num - 1] == 1:
-                    at[&#34;pymol&#34;] = {highlight_style: {&#34;color&#34;: &#34;red&#34;, &#34;opacity&#34;: op_}}
+                if (
+                    highlight_mask_dict[at[&#34;chain&#34;]][num - 1] == 1
+                    and accent_color is not None
+                ):
+                    at[&#34;pymol&#34;] = {
+                        highlight_style: {&#34;color&#34;: accent_color, &#34;opacity&#34;: op_}
+                    }
         return outstr
 
     def visualize(
-        self, highlight_mask_dict=None, style=&#34;cartoon&#34;, highlight_style=None, opacity=1
+        self,
+        highlight_mask_dict=None,
+        style=&#34;cartoon&#34;,
+        highlight_style=None,
+        opacity=1,
+        colors=None,
+        accent_color=&#34;#D96181&#34;,
+        canvas_size=(400, 300),
     ):
         &#34;&#34;&#34;Visualize the protein in a notebook.
 
@@ -1930,6 +2591,12 @@ class PDBEntry:
             (defaults to the same as `style`)
         opacity : float or dict, default 1
             Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)
+        colors : list, optional
+            A list of colors to use for different chains
+        accent_color : str, optional
+            The color of the highlighted atoms (use `None` to disable highlighting)
+        canvas_size : tuple, default (400, 300)
+            The shape of the canvas
 
         &#34;&#34;&#34;
         outstr = self._get_atom_dicts(
@@ -1937,9 +2604,11 @@ class PDBEntry:
             style=style,
             highlight_style=highlight_style,
             opacity=opacity,
+            colors=colors,
+            accent_color=accent_color,
         )
         vis_string = &#34;&#34;.join([str(x) for x in outstr])
-        view = py3Dmol.view(width=400, height=300)
+        view = py3Dmol.view(width=canvas_size[0], height=canvas_size[1])
         view.addModelsAsFrames(vis_string)
         for i, at in enumerate(outstr):
             view.setStyle(
@@ -2326,8 +2995,14 @@ from the PDB file.</p>
             A `PDBEntry` object
 
         &#34;&#34;&#34;
+        _chain_dict = {chain: chain * 5 for chain in self.get_chains()}
+        self.crd_df[&#34;chain_id&#34;] = self.crd_df[&#34;chain_id&#34;].replace(_chain_dict)
+        self.seq_df[&#34;chain_id&#34;] = self.seq_df[&#34;chain_id&#34;].replace(_chain_dict)
+        self.fasta_dict = {_chain_dict[k]: v for k, v in self.fasta_dict.items()}
+        chain_dict = {k * 5: v for k, v in chain_dict.items()}
         self.crd_df[&#34;chain_id&#34;] = self.crd_df[&#34;chain_id&#34;].replace(chain_dict)
         self.seq_df[&#34;chain_id&#34;] = self.seq_df[&#34;chain_id&#34;].replace(chain_dict)
+        self.fasta_dict = {chain_dict[k]: v for k, v in self.fasta_dict.items()}
         return self
 
     def merge(self, entry):
@@ -2412,10 +3087,9 @@ from the PDB file.</p>
         fasta_dict = {k: seqs_dict[k.split(&#34;-&#34;)[0].upper()] for k in chains}
         return fasta_dict
 
-    def _parse_structure(self, chains=None):
+    def _parse_structure(self):
         &#34;&#34;&#34;Parse the structure of the protein.&#34;&#34;&#34;
         cif = self.pdb_path.endswith(&#34;cif.gz&#34;)
-
         # load coordinates in a nice format
         try:
             with warnings.catch_warnings():
@@ -2697,7 +3371,13 @@ from the PDB file.</p>
         return self.get_pdb_df(chain)[&#34;unique_residue_number&#34;].unique().tolist()
 
     def _get_atom_dicts(
-        self, highlight_mask_dict=None, style=&#34;cartoon&#34;, highlight_style=None, opacity=1
+        self,
+        highlight_mask_dict=None,
+        style=&#34;cartoon&#34;,
+        highlight_style=None,
+        opacity=1,
+        colors=None,
+        accent_color=&#34;#D96181&#34;,
     ):
         &#34;&#34;&#34;Get the atom dictionaries for visualization.&#34;&#34;&#34;
         assert style in [&#34;cartoon&#34;, &#34;sphere&#34;, &#34;stick&#34;, &#34;line&#34;, &#34;cross&#34;]
@@ -2709,7 +3389,9 @@ from the PDB file.</p>
         for _, row in df_.iterrows():
             outstr.append(_Atom(row))
         chains = self.get_chains()
-        colors = {ch: COLORS[i % len(COLORS)] for i, ch in enumerate(chains)}
+        if colors is None:
+            colors = COLORS
+        colors = {ch: colors[i % len(colors)] for i, ch in enumerate(chains)}
         chain_counters = defaultdict(int)
         chain_last_res = defaultdict(lambda: None)
         if highlight_mask_dict is not None:
@@ -2729,12 +3411,24 @@ from the PDB file.</p>
             at[&#34;pymol&#34;] = {style: {&#34;color&#34;: colors[at[&#34;chain&#34;]], &#34;opacity&#34;: op_}}
             if highlight_mask_dict is not None and at[&#34;chain&#34;] in highlight_mask_dict:
                 num = chain_counters[at[&#34;chain&#34;]]
-                if highlight_mask_dict[at[&#34;chain&#34;]][num - 1] == 1:
-                    at[&#34;pymol&#34;] = {highlight_style: {&#34;color&#34;: &#34;red&#34;, &#34;opacity&#34;: op_}}
+                if (
+                    highlight_mask_dict[at[&#34;chain&#34;]][num - 1] == 1
+                    and accent_color is not None
+                ):
+                    at[&#34;pymol&#34;] = {
+                        highlight_style: {&#34;color&#34;: accent_color, &#34;opacity&#34;: op_}
+                    }
         return outstr
 
     def visualize(
-        self, highlight_mask_dict=None, style=&#34;cartoon&#34;, highlight_style=None, opacity=1
+        self,
+        highlight_mask_dict=None,
+        style=&#34;cartoon&#34;,
+        highlight_style=None,
+        opacity=1,
+        colors=None,
+        accent_color=&#34;#D96181&#34;,
+        canvas_size=(400, 300),
     ):
         &#34;&#34;&#34;Visualize the protein in a notebook.
 
@@ -2750,6 +3444,12 @@ from the PDB file.</p>
             (defaults to the same as `style`)
         opacity : float or dict, default 1
             Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)
+        colors : list, optional
+            A list of colors to use for different chains
+        accent_color : str, optional
+            The color of the highlighted atoms (use `None` to disable highlighting)
+        canvas_size : tuple, default (400, 300)
+            The shape of the canvas
 
         &#34;&#34;&#34;
         outstr = self._get_atom_dicts(
@@ -2757,9 +3457,11 @@ from the PDB file.</p>
             style=style,
             highlight_style=highlight_style,
             opacity=opacity,
+            colors=colors,
+            accent_color=accent_color,
         )
         vis_string = &#34;&#34;.join([str(x) for x in outstr])
-        view = py3Dmol.view(width=400, height=300)
+        view = py3Dmol.view(width=canvas_size[0], height=canvas_size[1])
         view.addModelsAsFrames(vis_string)
         for i, at in enumerate(outstr):
             view.setStyle(
@@ -3367,13 +4069,19 @@ aligned sequence has gaps and 1 where it does not)</dd>
         A `PDBEntry` object
 
     &#34;&#34;&#34;
+    _chain_dict = {chain: chain * 5 for chain in self.get_chains()}
+    self.crd_df[&#34;chain_id&#34;] = self.crd_df[&#34;chain_id&#34;].replace(_chain_dict)
+    self.seq_df[&#34;chain_id&#34;] = self.seq_df[&#34;chain_id&#34;].replace(_chain_dict)
+    self.fasta_dict = {_chain_dict[k]: v for k, v in self.fasta_dict.items()}
+    chain_dict = {k * 5: v for k, v in chain_dict.items()}
     self.crd_df[&#34;chain_id&#34;] = self.crd_df[&#34;chain_id&#34;].replace(chain_dict)
     self.seq_df[&#34;chain_id&#34;] = self.seq_df[&#34;chain_id&#34;].replace(chain_dict)
+    self.fasta_dict = {chain_dict[k]: v for k, v in self.fasta_dict.items()}
     return self</code></pre>
 </details>
 </dd>
 <dt id="proteinflow.data.PDBEntry.visualize"><code class="name flex">
-<span>def <span class="ident">visualize</span></span>(<span>self, highlight_mask_dict=None, style='cartoon', highlight_style=None, opacity=1)</span>
+<span>def <span class="ident">visualize</span></span>(<span>self, highlight_mask_dict=None, style='cartoon', highlight_style=None, opacity=1, colors=None, accent_color='#D96181', canvas_size=(400, 300))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Visualize the protein in a notebook.</p>
@@ -3389,13 +4097,26 @@ the atoms corresponding to 1s will be highlighted in red</dd>
 (defaults to the same as <code>style</code>)</dd>
 <dt><strong><code>opacity</code></strong> :&ensp;<code>float</code> or <code>dict</code>, default <code>1</code></dt>
 <dd>Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)</dd>
+<dt><strong><code>colors</code></strong> :&ensp;<code>list</code>, optional</dt>
+<dd>A list of colors to use for different chains</dd>
+<dt><strong><code>accent_color</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>The color of the highlighted atoms (use <code>None</code> to disable highlighting)</dd>
+<dt><strong><code>canvas_size</code></strong> :&ensp;<code>tuple</code>, default <code>(400, 300)</code></dt>
+<dd>The shape of the canvas</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def visualize(
-    self, highlight_mask_dict=None, style=&#34;cartoon&#34;, highlight_style=None, opacity=1
+    self,
+    highlight_mask_dict=None,
+    style=&#34;cartoon&#34;,
+    highlight_style=None,
+    opacity=1,
+    colors=None,
+    accent_color=&#34;#D96181&#34;,
+    canvas_size=(400, 300),
 ):
     &#34;&#34;&#34;Visualize the protein in a notebook.
 
@@ -3411,6 +4132,12 @@ the atoms corresponding to 1s will be highlighted in red</dd>
         (defaults to the same as `style`)
     opacity : float or dict, default 1
         Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)
+    colors : list, optional
+        A list of colors to use for different chains
+    accent_color : str, optional
+        The color of the highlighted atoms (use `None` to disable highlighting)
+    canvas_size : tuple, default (400, 300)
+        The shape of the canvas
 
     &#34;&#34;&#34;
     outstr = self._get_atom_dicts(
@@ -3418,9 +4145,11 @@ the atoms corresponding to 1s will be highlighted in red</dd>
         style=style,
         highlight_style=highlight_style,
         opacity=opacity,
+        colors=colors,
+        accent_color=accent_color,
     )
     vis_string = &#34;&#34;.join([str(x) for x in outstr])
-    view = py3Dmol.view(width=400, height=300)
+    view = py3Dmol.view(width=canvas_size[0], height=canvas_size[1])
     view.addModelsAsFrames(vis_string)
     for i, at in enumerate(outstr):
         view.setStyle(
@@ -3654,6 +4383,17 @@ indicates residues with known coordinates</dd>
 
         &#34;&#34;&#34;
         return list(self.cdr.values())[0] is not None
+
+    def has_predict_mask(self):
+        &#34;&#34;&#34;Check if the protein has a predicted mask.
+
+        Returns
+        -------
+        has_predict_mask : bool
+            True if the protein has a predicted mask
+
+        &#34;&#34;&#34;
+        return list(self.predict_mask.values())[0] is not None
 
     def __len__(self):
         &#34;&#34;&#34;Get the total length of the protein chains.&#34;&#34;&#34;
@@ -3889,6 +4629,16 @@ indicates residues with known coordinates</dd>
         seq = ProteinEntry._to_numpy(seq)
         return &#34;&#34;.join([ALPHABET[x] for x in seq.astype(int)])
 
+    def _rename_chains(self, chain_dict):
+        &#34;&#34;&#34;Rename the chains of the protein (with no safeguards).&#34;&#34;&#34;
+        for old_chain, new_chain in chain_dict.items():
+            self.seq[new_chain] = self.seq.pop(old_chain)
+            self.crd[new_chain] = self.crd.pop(old_chain)
+            self.mask[new_chain] = self.mask.pop(old_chain)
+            self.mask_original[new_chain] = self.mask_original.pop(old_chain)
+            self.cdr[new_chain] = self.cdr.pop(old_chain)
+            self.predict_mask[new_chain] = self.predict_mask.pop(old_chain)
+
     def rename_chains(self, chain_dict):
         &#34;&#34;&#34;Rename the chains of the protein.
 
@@ -3898,16 +4648,18 @@ indicates residues with known coordinates</dd>
             A dictionary mapping old chain IDs to new chain IDs
 
         &#34;&#34;&#34;
-        for old_chain, new_chain in chain_dict.items():
-            self.seq[new_chain] = self.seq.pop(old_chain)
-            self.crd[new_chain] = self.crd.pop(old_chain)
-            self.mask[new_chain] = self.mask.pop(old_chain)
-            self.mask_original[new_chain] = self.mask_original.pop(old_chain)
-            self.cdr[new_chain] = self.cdr.pop(old_chain)
-            self.predict_mask[new_chain] = self.predict_mask.pop(old_chain)
+        self._rename_chains({k: k * 5 for k in self.get_chains()})
+        self._rename_chains({k * 5: v for k, v in chain_dict.items()})
 
     def get_predicted_entry(self):
-        &#34;&#34;&#34;Return a `ProteinEntry` object that only contains predicted residues.&#34;&#34;&#34;
+        &#34;&#34;&#34;Return a `ProteinEntry` object that only contains predicted residues.
+
+        Returns
+        -------
+        entry : ProteinEntry
+            The truncated `ProteinEntry` object
+
+        &#34;&#34;&#34;
         if self.predict_mask is None:
             raise ValueError(&#34;Predicted mask not available&#34;)
         entry_dict = self.to_dict()
@@ -3928,13 +4680,26 @@ indicates residues with known coordinates</dd>
                 entry_dict[chain][&#34;cdr&#34;] = entry_dict[chain][&#34;cdr&#34;][mask_]
         return ProteinEntry.from_dict(entry_dict)
 
+    def get_predicted_chains(self):
+        &#34;&#34;&#34;Return a list of chain IDs that contain predicted residues.
+
+        Returns
+        -------
+        chains : list of str
+            Chain IDs
+
+        &#34;&#34;&#34;
+        if self.predict_mask is None:
+            raise ValueError(&#34;Predicted mask not available&#34;)
+        return [k for k, v in self.predict_mask.items() if v.sum() != 0]
+
     def merge(self, entry):
         &#34;&#34;&#34;Merge another `ProteinEntry` object into this one.
 
         Parameters
         ----------
         entry : ProteinEntry
-            A `ProteinEntry` object
+            The merged `ProteinEntry` object
 
         &#34;&#34;&#34;
         for chain in entry.get_chains():
@@ -4104,7 +4869,7 @@ indicates residues with known coordinates</dd>
             pdb_dict[chain][&#34;crd_bb&#34;] = crd_arr[:, :4, :]
             pdb_dict[chain][&#34;crd_sc&#34;] = crd_arr[:, 4:, :]
             pdb_dict[chain][&#34;msk&#34;][
-                (pdb_dict[chain][&#34;crd_bb&#34;] == 0).sum(-1).sum(-1) &gt; 0
+                (pdb_dict[chain][&#34;crd_bb&#34;] == 0).sum(-1).sum(-1) == 4
             ] = 0
         pdb_dict[&#34;protein_id&#34;] = pdb_entry.pdb_id
         return ProteinEntry.from_dict(pdb_dict)
@@ -4286,11 +5051,11 @@ indicates residues with known coordinates</dd>
         ----------
         path : str
             Path to the output PDB file
-        only_ca : bool, default `False`
+        only_ca : bool, default False
             If `True`, only backbone atoms are saved
-        skip_oxygens : bool, default `False`
+        skip_oxygens : bool, default False
             If `True`, oxygen atoms are not saved
-        only_backbone : bool, default `False`
+        only_backbone : bool, default False
             If `True`, only backbone atoms are saved
         title : str, optional
             Title of the PDB file (by default either the protein id or &#34;Untitled&#34;)
@@ -4705,17 +5470,26 @@ indicates residues with known coordinates</dd>
                 highlight_mask_dict[chain] = pdb_highlight
         return highlight_mask_dict
 
-    def _get_atom_dicts(self, highlight_mask=None, style=&#34;cartoon&#34;, opacity=1):
+    def _get_atom_dicts(
+        self,
+        highlight_mask=None,
+        style=&#34;cartoon&#34;,
+        opacity=1,
+        colors=None,
+        accent_color=&#34;#D96181&#34;,
+    ):
         &#34;&#34;&#34;Get the atom dictionaries of the protein.&#34;&#34;&#34;
         highlight_mask_dict = self._get_highlight_mask_dict(highlight_mask)
-        with tempfile.NamedTemporaryFile(suffix=&#34;.pdb&#34;) as tmp:
-            self.to_pdb(tmp.name)
-            pdb_entry = PDBEntry(tmp.name)
+        pdb_entry = PDBEntry(self._temp_pdb_file())
         return pdb_entry._get_atom_dicts(
-            highlight_mask_dict=highlight_mask_dict, style=style, opacity=opacity
+            highlight_mask_dict=highlight_mask_dict,
+            style=style,
+            opacity=opacity,
+            colors=colors,
+            accent_color=accent_color,
         )
 
-    def get_predict_mask(self, chains=None):
+    def get_predict_mask(self, chains=None, only_known=False):
         &#34;&#34;&#34;Get the prediction mask of the protein.
 
         The prediction mask is a `&#39;numpy&#39;` array of shape `(L,)` with ones
@@ -4728,6 +5502,8 @@ indicates residues with known coordinates</dd>
         chains : list of str, optional
             If specified, only the prediction mask of the specified chains is returned (in the same order);
             otherwise, all features are concatenated in alphabetical order of the chain IDs
+        only_known : bool, default False
+            If `True`, only residues with known coordinates are returned
 
         Returns
         -------
@@ -4740,10 +5516,18 @@ indicates residues with known coordinates</dd>
             return None
         chains = self._get_chains_list(chains)
         predict_mask = np.concatenate([self.predict_mask[chain] for chain in chains])
+        if only_known:
+            mask = self.get_mask(chains=chains)
+            predict_mask = predict_mask[mask.astype(bool)]
         return predict_mask
 
     def visualize(
-        self, highlight_mask=None, style=&#34;cartoon&#34;, highlight_style=None, opacity=1
+        self,
+        highlight_mask=None,
+        style=&#34;cartoon&#34;,
+        highlight_style=None,
+        opacity=1,
+        canvas_size=(400, 300),
     ):
         &#34;&#34;&#34;Visualize the protein in a notebook.
 
@@ -4760,6 +5544,8 @@ indicates residues with known coordinates</dd>
             (defaults to the same as `style`)
         opacity : float or dict, default 1
             Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)
+        canvas_size : tuple, default (400, 300)
+            Shape of the canvas
 
         &#34;&#34;&#34;
         if highlight_mask is not None:
@@ -4779,7 +5565,570 @@ indicates residues with known coordinates</dd>
             style=style,
             highlight_style=highlight_style,
             opacity=opacity,
-        )</code></pre>
+            canvas_size=canvas_size,
+        )
+
+    def blosum62_score(self, seq_before, average=True, only_predicted=True):
+        &#34;&#34;&#34;Calculate the BLOSUM62 score of the protein.
+
+        Parameters
+        ----------
+        seq_before : str
+            A string with the sequence before the mutation
+        average : bool, default True
+            If `True`, the score is averaged over the residues; otherwise, the score is summed
+        only_predicted : bool, default True
+            If `True` and prediction masks are available, only predicted residues are considered
+
+        Returns
+        -------
+        score : float
+            The BLOSUM62 score of the protein
+
+        &#34;&#34;&#34;
+        seq_after = self.get_sequence(encode=False)
+        if self.predict_mask is not None and only_predicted:
+            predict_mask = self.get_predict_mask()
+            seq_before = np.array(list(seq_before))[predict_mask.astype(bool)]
+            seq_after = np.array(list(seq_after))[predict_mask.astype(bool)]
+        score = blosum62_score(seq_before, seq_after)
+        if average:
+            score /= len(seq_before)
+        return score
+
+    def long_repeat_num(self, thr=5):
+        &#34;&#34;&#34;Calculate the number of long repeats in the protein.
+
+        Parameters
+        ----------
+        thr : int, default 5
+            The threshold for the minimum length of the repeat
+
+        Returns
+        -------
+        num : int
+            The number of long repeats in the protein
+
+        &#34;&#34;&#34;
+        seq = self.get_sequence(encode=False)
+        if self.predict_mask is not None:
+            predict_mask = self.get_predict_mask()
+            seq = np.array(list(seq))[predict_mask.astype(bool)]
+        return long_repeat_num(seq, thr=thr)
+
+    def esm_pll(
+        self,
+        esm_model_name=&#34;esm2_t30_150M_UR50D&#34;,
+        esm_model_objects=None,
+        average=False,
+    ):
+        &#34;&#34;&#34;Calculate the ESM PLL score of the protein.
+
+        Parameters
+        ----------
+        esm_model_name : str, default &#34;esm2_t30_150M_UR50D&#34;
+            Name of the ESM-2 model to use
+        esm_model_objects : tuple, optional
+            Tuple of ESM-2 model, batch converter and tok_to_idx dictionary (if not None, `esm_model_name` will be ignored)
+        average : bool, default False
+            If `True`, the score is averaged over the residues; otherwise, the score is summed
+
+        Returns
+        -------
+        score : float
+            The ESM PLL score of the protein
+
+        &#34;&#34;&#34;
+        chains = self.get_chains()
+        chain_sequences = [self.get_sequence(chains=[chain]) for chain in chains]
+        if self.predict_mask is not None:
+            predict_masks = [
+                (self.get_predict_mask(chains=[chain])).astype(float)
+                for chain in chains
+            ]
+        else:
+            predict_masks = [np.ones(len(x)) for x in chain_sequences]
+        return esm_pll(
+            chain_sequences,
+            predict_masks,
+            esm_model_name=esm_model_name,
+            esm_model_objects=esm_model_objects,
+            average=average,
+        )
+
+    def ablang_pll(self, ablang_model_name=&#34;heavy&#34;, average=False):
+        &#34;&#34;&#34;Calculate the AbLang PLL score of the protein.
+
+        Parameters
+        ----------
+        ablang_model_name : str, default &#34;heavy&#34;
+            Name of the AbLang model to use
+        average : bool, default False
+            If `True`, the score is averaged over the residues; otherwise, the score is summed
+
+        Returns
+        -------
+        score : float
+            The AbLang PLL score of the protein
+
+        &#34;&#34;&#34;
+        chains = self.get_predicted_chains()
+        chain_sequences = [self.get_sequence(chains=[chain]) for chain in chains]
+        if self.predict_mask is not None:
+            predict_masks = [
+                (self.get_predict_mask(chains=[chain])).astype(float)
+                for chain in chains
+            ]
+        else:
+            predict_masks = [np.ones(len(x)) for x in chain_sequences]
+        out = sum(
+            [
+                ablang_pll(
+                    sequence,
+                    predict_mask,
+                    ablang_model_name=ablang_model_name,
+                    average=False,
+                )
+                for sequence, predict_mask in zip(chain_sequences, predict_masks)
+            ]
+        )
+        if average:
+            out /= self.get_predict_mask(chains=chains).sum()
+        return out
+
+    def accuracy(self, seq_before):
+        &#34;&#34;&#34;Calculate the accuracy of the protein.
+
+        Parameters
+        ----------
+        seq_before : str
+            A string with the sequence before the mutation
+
+        Returns
+        -------
+        score : float
+            The accuracy of the protein
+
+        &#34;&#34;&#34;
+        seq_after = self.get_sequence(encode=False)
+        seq_before = np.array(list(seq_before))
+        seq_after = np.array(list(seq_after))
+        if self.predict_mask is not None:
+            predict_mask = self.get_predict_mask()
+            seq_before = seq_before[predict_mask.astype(bool)]
+            seq_after = seq_after[predict_mask.astype(bool)]
+        return np.mean(seq_before == seq_after)
+
+    def ca_rmsd(self, entry, only_predicted=True):
+        &#34;&#34;&#34;Calculate CA RMSD between two proteins.
+
+        Parameters
+        ----------
+        entry : ProteinEntry
+            A `ProteinEntry` object
+        only_predicted : bool, default True
+            If `True` and prediction masks are available, only predicted residues are considered
+
+        Returns
+        -------
+        rmsd : float
+            The CA RMSD between the two proteins
+
+        &#34;&#34;&#34;
+        chains = [x for x in self.get_chains() if x in entry.get_chains()]
+        structure1 = self.get_coordinates(only_known=True, chains=chains)[:, 2]
+        structure2 = entry.get_coordinates(only_known=True, chains=chains)[:, 2]
+        if only_predicted:
+            mask = self.get_predict_mask(only_known=True, chains=chains).astype(bool)
+            structure1 = structure1[mask]
+            structure2 = structure2[mask]
+        return ca_rmsd(structure1, structure2)
+
+    def tm_score(self, entry, chains=None):
+        &#34;&#34;&#34;Calculate TM score between two proteins.
+
+        Parameters
+        ----------
+        entry : ProteinEntry
+            A `ProteinEntry` object
+        chains : list of str, optional
+            A list of chain IDs to consider
+
+        Returns
+        -------
+        tm_score : float
+            The TM score between the two proteins
+
+        &#34;&#34;&#34;
+        structure1 = self.get_coordinates(only_known=True, chains=chains)[:, 2]
+        structure2 = entry.get_coordinates(only_known=True, chains=chains)[:, 2]
+        sequence1 = self.get_sequence(only_known=True, chains=chains)
+        sequence2 = entry.get_sequence(only_known=True, chains=chains)
+        return tm_score(structure1, structure2, sequence1, sequence2)
+
+    def _temp_pdb_file(self):
+        &#34;&#34;&#34;Save a protein entry to a temporary PDB file.&#34;&#34;&#34;
+        with tempfile.NamedTemporaryFile(suffix=&#34;.pdb&#34;, delete=False) as tmp:
+            self.to_pdb(tmp.name)
+        return tmp.name
+
+    @staticmethod
+    def esmfold_metrics(entries, only_antibody=False):
+        &#34;&#34;&#34;Calculate ESMFold metrics for a list of entries.
+
+        Parameters
+        ----------
+        entries : list of ProteinEntry
+            A list of `ProteinEntry` objects
+        only_antibody : bool, default False
+            If `True`, only antibody chains are considered
+
+        Returns
+        -------
+        plddts_full : list of float
+            A list of PLDDT scores averaged over all residues
+        plddts_predicted : list of float
+            A list of PLDDT scores averaged over predicted residues
+        rmsd : list of float
+            A list of RMSD values of aligned structures (predicted residues only)
+        tm_score : list of float, optional
+            A list of TM scores of aligned structures
+
+        &#34;&#34;&#34;
+        sequences = []
+        chains_list = [
+            [
+                x
+                for x in entry.get_chains()
+                if x not in entry.get_chain_type_dict()[&#34;antigen&#34;] or not only_antibody
+            ]
+            for entry in entries
+        ]
+        for chains, entry in zip(chains_list, entries):
+            sequences.append(
+                &#34;:&#34;.join(
+                    [
+                        entry.get_sequence(chains=[chain], only_known=True)
+                        for chain in chains
+                    ]
+                )
+            )
+        esmfold_generate(sequences)
+        esmfold_paths = [
+            os.path.join(&#34;esmfold_output&#34;, f&#34;seq_{i}.pdb&#34;)
+            for i in range(len(sequences))
+        ]
+        plddts_predicted = [
+            confidence_from_file(
+                path, entry.get_predict_mask(only_known=True, chains=chains)
+            )
+            for path, entry, chains in zip(esmfold_paths, entries, chains_list)
+        ]
+        plddts_full = [confidence_from_file(path) for path in esmfold_paths]
+        rmsds = []
+        tm_scores = []
+        for entry, path in zip(entries, esmfold_paths):
+            chains = [
+                x
+                for x in entry.get_chains()
+                if x not in entry.get_chain_type_dict()[&#34;antigen&#34;] or not only_antibody
+            ]
+            esm_entry = ProteinEntry.from_pdb(path)
+            chain_rename_dict = {k: v for k, v in zip(string.ascii_uppercase, chains)}
+            esm_entry.rename_chains(chain_rename_dict)
+            temp_file = entry._temp_pdb_file()
+            esm_entry.align_structure(
+                reference_pdb_path=temp_file,
+                save_pdb_path=path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;,
+                chain_ids=entry.get_predicted_chains(),
+            )
+            rmsds.append(
+                entry.ca_rmsd(
+                    ProteinEntry.from_pdb(path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;)
+                )
+            )
+            tm_scores.append(
+                entry.tm_score(
+                    esm_entry,
+                    chains=chains,
+                )
+            )
+        return plddts_full, plddts_predicted, rmsds, tm_scores
+
+    @staticmethod
+    def igfold_metrics(entries, use_openmm=False):
+        &#34;&#34;&#34;Calculate IgFold metrics for a list of entries.
+
+        Parameters
+        ----------
+        entries : list of ProteinEntry
+            A list of `ProteinEntry` objects
+        use_openmm : bool, default False
+            Whether to use refinement with OpenMM
+
+        Returns
+        -------
+        plddts_full : list of float
+            A list of PLDDT scores averaged over all residues
+        plddts_predicted : list of float
+            A list of PLDDT scores averaged over predicted residues
+        rmsds : list of float
+            A list of RMSD values of aligned structures (predicted residues only)
+        tm_scores : list of float
+            A list of TM scores of individual chains (self-consistency)
+
+        &#34;&#34;&#34;
+        chains_list = [
+            [
+                x
+                for x in entry.get_chains()
+                if x not in entry.get_chain_type_dict()[&#34;antigen&#34;]
+            ]
+            for entry in entries
+        ]
+        sequences = [
+            {
+                chain: entry.get_sequence(chains=[chain], only_known=True)
+                for chain in chains
+            }
+            for entry, chains in zip(entries, chains_list)
+        ]
+        igfold_generate(sequences, use_openmm=use_openmm)
+        folder = &#34;igfold_refine_output&#34; if use_openmm else &#34;igfold_output&#34;
+        igfold_paths = [
+            os.path.join(folder, f&#34;seq_{i}.pdb&#34;) for i in range(len(sequences))
+        ]
+        prmsds_predicted = [
+            confidence_from_file(
+                path, entry.get_predict_mask(only_known=True, chains=chains)
+            )
+            for path, entry, chains in zip(igfold_paths, entries, chains_list)
+        ]
+        prmsds_full = [confidence_from_file(path) for path in igfold_paths]
+        rmsds = []
+        tm_scores = []
+        for entry, path in zip(entries, igfold_paths):
+            igfold_entry = ProteinEntry.from_pdb(path)
+            temp_file = entry._temp_pdb_file()
+            igfold_entry.align_structure(
+                reference_pdb_path=temp_file,
+                save_pdb_path=path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;,
+                chain_ids=entry.get_predicted_chains(),
+            )
+            rmsds.append(
+                entry.ca_rmsd(
+                    ProteinEntry.from_pdb(path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;)
+                )
+            )
+            tm_scores.append(
+                entry.tm_score(
+                    igfold_entry,
+                )
+            )
+        return prmsds_full, prmsds_predicted, rmsds, tm_scores
+
+    @staticmethod
+    def immunebuilder_metrics(entries, protein_type=&#34;antibody&#34;):
+        &#34;&#34;&#34;Calculate ImmuneBuilder metrics for a list of entries.
+
+        Parameters
+        ----------
+        entries : list of ProteinEntry
+            A list of `ProteinEntry` objects
+        protein_type : {&#34;antibody&#34;, &#34;nanobody&#34;, &#34;tcr&#34;}, default &#34;antibody&#34;
+            The type of the protein
+
+        Returns
+        -------
+        prmsds_full : list of float
+            A list of PRMSD scores averaged over all residues
+        prmsds_predicted : list of float
+            A list of PRMSD scores averaged over predicted residues
+        rmsds : list of float
+            A list of RMSD values of aligned structures (predicted residues only)
+        tm_scores : list of float
+            A list of TM scores of aligned structures
+
+        &#34;&#34;&#34;
+        sequences = []
+        chains_list = [
+            [
+                x
+                for x in entry.get_chains()
+                if x not in entry.get_chain_type_dict()[&#34;antigen&#34;]
+            ]
+            for entry in entries
+        ]
+        for chains, entry in zip(chains_list, entries):
+            chain_type_dict = entry.get_chain_type_dict()
+            sequences.append(
+                {
+                    key[0].upper(): entry.get_sequence(
+                        chains=[chain_type_dict[key]], only_known=True
+                    )
+                    for key in [&#34;heavy&#34;, &#34;light&#34;]
+                    if key in chain_type_dict
+                }
+            )
+        immunebuilder_generate(sequences, protein_type=protein_type)
+        generated_paths = [
+            os.path.join(&#34;immunebuilder_output&#34;, f&#34;seq_{i}.pdb&#34;)
+            for i in range(len(sequences))
+        ]
+        prmsds_predicted = [
+            confidence_from_file(
+                path, entry.get_predict_mask(only_known=True, chains=chains)
+            )
+            for path, entry, chains in zip(generated_paths, entries, chains_list)
+        ]
+        prmsds_full = [confidence_from_file(path) for path in generated_paths]
+        rmsds = []
+        tm_scores = []
+        for entry, path, chains in zip(entries, generated_paths, chains_list):
+            generated_entry = ProteinEntry.from_pdb(path)
+            chain_type_dict = entry.get_chain_type_dict()
+            chain_rename_dict = {}
+            if &#34;light&#34; in chain_type_dict:
+                chain_rename_dict[&#34;L&#34;] = chain_type_dict[&#34;light&#34;]
+            if &#34;heavy&#34; in chain_type_dict:
+                chain_rename_dict[&#34;H&#34;] = chain_type_dict[&#34;heavy&#34;]
+            generated_entry.rename_chains(chain_rename_dict)
+            temp_file = entry._temp_pdb_file()
+            generated_entry.align_structure(
+                reference_pdb_path=temp_file,
+                save_pdb_path=path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;,
+                chain_ids=entry.get_predicted_chains(),
+            )
+            rmsds.append(
+                entry.ca_rmsd(
+                    ProteinEntry.from_pdb(path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;)
+                )
+            )
+            tm_scores.append(
+                entry.tm_score(
+                    generated_entry,
+                    chains=chains,
+                )
+            )
+        return prmsds_full, prmsds_predicted, rmsds, tm_scores
+
+    def align_structure(self, reference_pdb_path, save_pdb_path, chain_ids=None):
+        &#34;&#34;&#34;Aligns the structure to a reference structure using the CA atoms.
+
+        Parameters
+        ----------
+        reference_pdb_path : str
+            Path to the reference structure (in .pdb format)
+        save_pdb_path : str
+            Path where the aligned structure should be saved (in .pdb format)
+        chain_ids : list of str, optional
+            If specified, only the chains with the specified IDs are aligned
+
+        &#34;&#34;&#34;
+        pdb_parser = Bio.PDB.PDBParser(QUIET=True)
+
+        temp_file = self._temp_pdb_file()
+        ref_structure = pdb_parser.get_structure(&#34;reference&#34;, reference_pdb_path)
+        sample_structure = pdb_parser.get_structure(&#34;sample&#34;, temp_file)
+
+        ref_model = ref_structure[0]
+        sample_model = sample_structure[0]
+
+        ref_atoms = []
+        sample_atoms = []
+
+        for ref_chain in ref_model:
+            if chain_ids is not None and ref_chain.id not in chain_ids:
+                continue
+            for ref_res in ref_chain:
+                if &#34;CA&#34; in ref_res:
+                    ref_atoms.append(ref_res[&#34;CA&#34;])
+                elif &#34;C&#34; in ref_res:
+                    ref_atoms.append(ref_res[&#34;C&#34;])
+                    warnings.warn(
+                        &#34;Using a C atom instead of CA for alignment in the reference structure&#34;
+                    )
+
+        for sample_chain in sample_model:
+            if chain_ids is not None and sample_chain.id not in chain_ids:
+                continue
+            for sample_res in sample_chain:
+                if &#34;CA&#34; in sample_res:
+                    sample_atoms.append(sample_res[&#34;CA&#34;])
+                elif &#34;C&#34; in sample_res:
+                    sample_atoms.append(sample_res[&#34;C&#34;])
+                    warnings.warn(
+                        &#34;Using a C atom instead of CA for alignment in the sample structure&#34;
+                    )
+
+        super_imposer = Bio.PDB.Superimposer()
+        super_imposer.set_atoms(ref_atoms, sample_atoms)
+        super_imposer.apply(sample_model.get_atoms())
+
+        io = Bio.PDB.PDBIO()
+        io.set_structure(sample_structure)
+        io.save(save_pdb_path)
+
+    @staticmethod
+    def combine_multiple_frames(files, output_path=&#34;combined.pdb&#34;):
+        &#34;&#34;&#34;Combine multiple PDB files into a single multiframe PDB file.
+
+        Parameters
+        ----------
+        files : list of str
+            A list of PDB or proteinflow pickle files
+        output_path : str, default &#39;combined.pdb&#39;
+            Path to the .pdb output file
+
+        &#34;&#34;&#34;
+        with mda.Writer(output_path, multiframe=True) as writer:
+            for file in files:
+                if file.endswith(&#34;.pickle&#34;):
+                    file_ = ProteinEntry.from_pickle(file)._temp_pdb_file()
+                else:
+                    file_ = file
+                u = mda.Universe(file_)
+                writer.write(u)
+
+    def apply_mask(self, mask):
+        &#34;&#34;&#34;Apply a mask to the protein.
+
+        Parameters
+        ----------
+        mask : np.ndarray
+            A boolean mask of shape `(L,)` where `L` is the length of the protein (the chains are concatenated in alphabetical order)
+
+        Returns
+        -------
+        entry : ProteinEntry
+            A new `ProteinEntry` object
+
+        &#34;&#34;&#34;
+        start = 0
+        out_dict = {}
+        for chain in self.get_chains():
+            out_dict[chain] = {}
+            chain_mask = mask[start : start + self.get_length([chain])]
+            start += self.get_length([chain])
+            out_dict[chain][&#34;seq&#34;] = self.decode_sequence(
+                self.get_sequence(chains=[chain], encode=True)[chain_mask]
+            )
+            out_dict[chain][&#34;crd_bb&#34;] = self.get_coordinates(
+                chains=[chain], bb_only=True
+            )[chain_mask]
+            out_dict[chain][&#34;crd_sc&#34;] = self.get_coordinates(chains=[chain])[:, 4:][
+                chain_mask
+            ]
+            out_dict[chain][&#34;msk&#34;] = self.get_mask(chains=[chain])[chain_mask]
+            if self.has_cdr():
+                out_dict[chain][&#34;cdr&#34;] = self.decode_cdr(
+                    self.get_cdr([chain], encode=True)[chain_mask]
+                )
+            if self.has_predict_mask():
+                out_dict[chain][&#34;predict_msk&#34;] = self.predict_mask[chain][chain_mask]
+        if self.id is not None:
+            out_dict[&#34;protein_id&#34;] = self.id
+        return ProteinEntry.from_dict(out_dict)</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
@@ -4790,6 +6139,44 @@ indicates residues with known coordinates</dd>
 </dl>
 <h3>Static methods</h3>
 <dl>
+<dt id="proteinflow.data.ProteinEntry.combine_multiple_frames"><code class="name flex">
+<span>def <span class="ident">combine_multiple_frames</span></span>(<span>files, output_path='combined.pdb')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Combine multiple PDB files into a single multiframe PDB file.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>files</code></strong> :&ensp;<code>list</code> of <code>str</code></dt>
+<dd>A list of PDB or proteinflow pickle files</dd>
+<dt><strong><code>output_path</code></strong> :&ensp;<code>str</code>, default <code>'combined.pdb'</code></dt>
+<dd>Path to the .pdb output file</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def combine_multiple_frames(files, output_path=&#34;combined.pdb&#34;):
+    &#34;&#34;&#34;Combine multiple PDB files into a single multiframe PDB file.
+
+    Parameters
+    ----------
+    files : list of str
+        A list of PDB or proteinflow pickle files
+    output_path : str, default &#39;combined.pdb&#39;
+        Path to the .pdb output file
+
+    &#34;&#34;&#34;
+    with mda.Writer(output_path, multiframe=True) as writer:
+        for file in files:
+            if file.endswith(&#34;.pickle&#34;):
+                file_ = ProteinEntry.from_pickle(file)._temp_pdb_file()
+            else:
+                file_ = file
+            u = mda.Universe(file_)
+            writer.write(u)</code></pre>
+</details>
+</dd>
 <dt id="proteinflow.data.ProteinEntry.decode_cdr"><code class="name flex">
 <span>def <span class="ident">decode_cdr</span></span>(<span>cdr)</span>
 </code></dt>
@@ -4874,6 +6261,117 @@ def decode_sequence(seq):
     &#34;&#34;&#34;
     seq = ProteinEntry._to_numpy(seq)
     return &#34;&#34;.join([ALPHABET[x] for x in seq.astype(int)])</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.data.ProteinEntry.esmfold_metrics"><code class="name flex">
+<span>def <span class="ident">esmfold_metrics</span></span>(<span>entries, only_antibody=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate ESMFold metrics for a list of entries.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>entries</code></strong> :&ensp;<code>list</code> of <code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code></dt>
+<dd>A list of <code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code> objects</dd>
+<dt><strong><code>only_antibody</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>If <code>True</code>, only antibody chains are considered</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>plddts_full</code></strong> :&ensp;<code>list</code> of <code>float</code></dt>
+<dd>A list of PLDDT scores averaged over all residues</dd>
+<dt><strong><code>plddts_predicted</code></strong> :&ensp;<code>list</code> of <code>float</code></dt>
+<dd>A list of PLDDT scores averaged over predicted residues</dd>
+<dt><strong><code>rmsd</code></strong> :&ensp;<code>list</code> of <code>float</code></dt>
+<dd>A list of RMSD values of aligned structures (predicted residues only)</dd>
+<dt><strong><code>tm_score</code></strong> :&ensp;<code>list</code> of <code>float</code>, optional</dt>
+<dd>A list of TM scores of aligned structures</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def esmfold_metrics(entries, only_antibody=False):
+    &#34;&#34;&#34;Calculate ESMFold metrics for a list of entries.
+
+    Parameters
+    ----------
+    entries : list of ProteinEntry
+        A list of `ProteinEntry` objects
+    only_antibody : bool, default False
+        If `True`, only antibody chains are considered
+
+    Returns
+    -------
+    plddts_full : list of float
+        A list of PLDDT scores averaged over all residues
+    plddts_predicted : list of float
+        A list of PLDDT scores averaged over predicted residues
+    rmsd : list of float
+        A list of RMSD values of aligned structures (predicted residues only)
+    tm_score : list of float, optional
+        A list of TM scores of aligned structures
+
+    &#34;&#34;&#34;
+    sequences = []
+    chains_list = [
+        [
+            x
+            for x in entry.get_chains()
+            if x not in entry.get_chain_type_dict()[&#34;antigen&#34;] or not only_antibody
+        ]
+        for entry in entries
+    ]
+    for chains, entry in zip(chains_list, entries):
+        sequences.append(
+            &#34;:&#34;.join(
+                [
+                    entry.get_sequence(chains=[chain], only_known=True)
+                    for chain in chains
+                ]
+            )
+        )
+    esmfold_generate(sequences)
+    esmfold_paths = [
+        os.path.join(&#34;esmfold_output&#34;, f&#34;seq_{i}.pdb&#34;)
+        for i in range(len(sequences))
+    ]
+    plddts_predicted = [
+        confidence_from_file(
+            path, entry.get_predict_mask(only_known=True, chains=chains)
+        )
+        for path, entry, chains in zip(esmfold_paths, entries, chains_list)
+    ]
+    plddts_full = [confidence_from_file(path) for path in esmfold_paths]
+    rmsds = []
+    tm_scores = []
+    for entry, path in zip(entries, esmfold_paths):
+        chains = [
+            x
+            for x in entry.get_chains()
+            if x not in entry.get_chain_type_dict()[&#34;antigen&#34;] or not only_antibody
+        ]
+        esm_entry = ProteinEntry.from_pdb(path)
+        chain_rename_dict = {k: v for k, v in zip(string.ascii_uppercase, chains)}
+        esm_entry.rename_chains(chain_rename_dict)
+        temp_file = entry._temp_pdb_file()
+        esm_entry.align_structure(
+            reference_pdb_path=temp_file,
+            save_pdb_path=path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;,
+            chain_ids=entry.get_predicted_chains(),
+        )
+        rmsds.append(
+            entry.ca_rmsd(
+                ProteinEntry.from_pdb(path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;)
+            )
+        )
+        tm_scores.append(
+            entry.tm_score(
+                esm_entry,
+                chains=chains,
+            )
+        )
+    return plddts_full, plddts_predicted, rmsds, tm_scores</code></pre>
 </details>
 </dd>
 <dt id="proteinflow.data.ProteinEntry.from_arrays"><code class="name flex">
@@ -5256,7 +6754,7 @@ def from_pdb_entry(pdb_entry):
         pdb_dict[chain][&#34;crd_bb&#34;] = crd_arr[:, :4, :]
         pdb_dict[chain][&#34;crd_sc&#34;] = crd_arr[:, 4:, :]
         pdb_dict[chain][&#34;msk&#34;][
-            (pdb_dict[chain][&#34;crd_bb&#34;] == 0).sum(-1).sum(-1) &gt; 0
+            (pdb_dict[chain][&#34;crd_bb&#34;] == 0).sum(-1).sum(-1) == 4
         ] = 0
     pdb_dict[&#34;protein_id&#34;] = pdb_entry.pdb_id
     return ProteinEntry.from_dict(pdb_dict)</code></pre>
@@ -5299,6 +6797,219 @@ def from_pickle(path):
     with open(path, &#34;rb&#34;) as f:
         data = pickle.load(f)
     return ProteinEntry.from_dict(data)</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.data.ProteinEntry.igfold_metrics"><code class="name flex">
+<span>def <span class="ident">igfold_metrics</span></span>(<span>entries, use_openmm=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate IgFold metrics for a list of entries.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>entries</code></strong> :&ensp;<code>list</code> of <code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code></dt>
+<dd>A list of <code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code> objects</dd>
+<dt><strong><code>use_openmm</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>Whether to use refinement with OpenMM</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>plddts_full</code></strong> :&ensp;<code>list</code> of <code>float</code></dt>
+<dd>A list of PLDDT scores averaged over all residues</dd>
+<dt><strong><code>plddts_predicted</code></strong> :&ensp;<code>list</code> of <code>float</code></dt>
+<dd>A list of PLDDT scores averaged over predicted residues</dd>
+<dt><strong><code>rmsds</code></strong> :&ensp;<code>list</code> of <code>float</code></dt>
+<dd>A list of RMSD values of aligned structures (predicted residues only)</dd>
+<dt><strong><code>tm_scores</code></strong> :&ensp;<code>list</code> of <code>float</code></dt>
+<dd>A list of TM scores of individual chains (self-consistency)</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def igfold_metrics(entries, use_openmm=False):
+    &#34;&#34;&#34;Calculate IgFold metrics for a list of entries.
+
+    Parameters
+    ----------
+    entries : list of ProteinEntry
+        A list of `ProteinEntry` objects
+    use_openmm : bool, default False
+        Whether to use refinement with OpenMM
+
+    Returns
+    -------
+    plddts_full : list of float
+        A list of PLDDT scores averaged over all residues
+    plddts_predicted : list of float
+        A list of PLDDT scores averaged over predicted residues
+    rmsds : list of float
+        A list of RMSD values of aligned structures (predicted residues only)
+    tm_scores : list of float
+        A list of TM scores of individual chains (self-consistency)
+
+    &#34;&#34;&#34;
+    chains_list = [
+        [
+            x
+            for x in entry.get_chains()
+            if x not in entry.get_chain_type_dict()[&#34;antigen&#34;]
+        ]
+        for entry in entries
+    ]
+    sequences = [
+        {
+            chain: entry.get_sequence(chains=[chain], only_known=True)
+            for chain in chains
+        }
+        for entry, chains in zip(entries, chains_list)
+    ]
+    igfold_generate(sequences, use_openmm=use_openmm)
+    folder = &#34;igfold_refine_output&#34; if use_openmm else &#34;igfold_output&#34;
+    igfold_paths = [
+        os.path.join(folder, f&#34;seq_{i}.pdb&#34;) for i in range(len(sequences))
+    ]
+    prmsds_predicted = [
+        confidence_from_file(
+            path, entry.get_predict_mask(only_known=True, chains=chains)
+        )
+        for path, entry, chains in zip(igfold_paths, entries, chains_list)
+    ]
+    prmsds_full = [confidence_from_file(path) for path in igfold_paths]
+    rmsds = []
+    tm_scores = []
+    for entry, path in zip(entries, igfold_paths):
+        igfold_entry = ProteinEntry.from_pdb(path)
+        temp_file = entry._temp_pdb_file()
+        igfold_entry.align_structure(
+            reference_pdb_path=temp_file,
+            save_pdb_path=path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;,
+            chain_ids=entry.get_predicted_chains(),
+        )
+        rmsds.append(
+            entry.ca_rmsd(
+                ProteinEntry.from_pdb(path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;)
+            )
+        )
+        tm_scores.append(
+            entry.tm_score(
+                igfold_entry,
+            )
+        )
+    return prmsds_full, prmsds_predicted, rmsds, tm_scores</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.data.ProteinEntry.immunebuilder_metrics"><code class="name flex">
+<span>def <span class="ident">immunebuilder_metrics</span></span>(<span>entries, protein_type='antibody')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate ImmuneBuilder metrics for a list of entries.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>entries</code></strong> :&ensp;<code>list</code> of <code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code></dt>
+<dd>A list of <code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code> objects</dd>
+<dt><strong><code>protein_type</code></strong> :&ensp;<code>{"antibody", "nanobody", "tcr"}</code>, default <code>"antibody"</code></dt>
+<dd>The type of the protein</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>prmsds_full</code></strong> :&ensp;<code>list</code> of <code>float</code></dt>
+<dd>A list of PRMSD scores averaged over all residues</dd>
+<dt><strong><code>prmsds_predicted</code></strong> :&ensp;<code>list</code> of <code>float</code></dt>
+<dd>A list of PRMSD scores averaged over predicted residues</dd>
+<dt><strong><code>rmsds</code></strong> :&ensp;<code>list</code> of <code>float</code></dt>
+<dd>A list of RMSD values of aligned structures (predicted residues only)</dd>
+<dt><strong><code>tm_scores</code></strong> :&ensp;<code>list</code> of <code>float</code></dt>
+<dd>A list of TM scores of aligned structures</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def immunebuilder_metrics(entries, protein_type=&#34;antibody&#34;):
+    &#34;&#34;&#34;Calculate ImmuneBuilder metrics for a list of entries.
+
+    Parameters
+    ----------
+    entries : list of ProteinEntry
+        A list of `ProteinEntry` objects
+    protein_type : {&#34;antibody&#34;, &#34;nanobody&#34;, &#34;tcr&#34;}, default &#34;antibody&#34;
+        The type of the protein
+
+    Returns
+    -------
+    prmsds_full : list of float
+        A list of PRMSD scores averaged over all residues
+    prmsds_predicted : list of float
+        A list of PRMSD scores averaged over predicted residues
+    rmsds : list of float
+        A list of RMSD values of aligned structures (predicted residues only)
+    tm_scores : list of float
+        A list of TM scores of aligned structures
+
+    &#34;&#34;&#34;
+    sequences = []
+    chains_list = [
+        [
+            x
+            for x in entry.get_chains()
+            if x not in entry.get_chain_type_dict()[&#34;antigen&#34;]
+        ]
+        for entry in entries
+    ]
+    for chains, entry in zip(chains_list, entries):
+        chain_type_dict = entry.get_chain_type_dict()
+        sequences.append(
+            {
+                key[0].upper(): entry.get_sequence(
+                    chains=[chain_type_dict[key]], only_known=True
+                )
+                for key in [&#34;heavy&#34;, &#34;light&#34;]
+                if key in chain_type_dict
+            }
+        )
+    immunebuilder_generate(sequences, protein_type=protein_type)
+    generated_paths = [
+        os.path.join(&#34;immunebuilder_output&#34;, f&#34;seq_{i}.pdb&#34;)
+        for i in range(len(sequences))
+    ]
+    prmsds_predicted = [
+        confidence_from_file(
+            path, entry.get_predict_mask(only_known=True, chains=chains)
+        )
+        for path, entry, chains in zip(generated_paths, entries, chains_list)
+    ]
+    prmsds_full = [confidence_from_file(path) for path in generated_paths]
+    rmsds = []
+    tm_scores = []
+    for entry, path, chains in zip(entries, generated_paths, chains_list):
+        generated_entry = ProteinEntry.from_pdb(path)
+        chain_type_dict = entry.get_chain_type_dict()
+        chain_rename_dict = {}
+        if &#34;light&#34; in chain_type_dict:
+            chain_rename_dict[&#34;L&#34;] = chain_type_dict[&#34;light&#34;]
+        if &#34;heavy&#34; in chain_type_dict:
+            chain_rename_dict[&#34;H&#34;] = chain_type_dict[&#34;heavy&#34;]
+        generated_entry.rename_chains(chain_rename_dict)
+        temp_file = entry._temp_pdb_file()
+        generated_entry.align_structure(
+            reference_pdb_path=temp_file,
+            save_pdb_path=path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;,
+            chain_ids=entry.get_predicted_chains(),
+        )
+        rmsds.append(
+            entry.ca_rmsd(
+                ProteinEntry.from_pdb(path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;)
+            )
+        )
+        tm_scores.append(
+            entry.tm_score(
+                generated_entry,
+                chains=chains,
+            )
+        )
+    return prmsds_full, prmsds_predicted, rmsds, tm_scores</code></pre>
 </details>
 </dd>
 <dt id="proteinflow.data.ProteinEntry.retrieve_ligands_from_pickle"><code class="name flex">
@@ -5348,6 +7059,346 @@ def retrieve_ligands_from_pickle(path):
 </dl>
 <h3>Methods</h3>
 <dl>
+<dt id="proteinflow.data.ProteinEntry.ablang_pll"><code class="name flex">
+<span>def <span class="ident">ablang_pll</span></span>(<span>self, ablang_model_name='heavy', average=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate the AbLang PLL score of the protein.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>ablang_model_name</code></strong> :&ensp;<code>str</code>, default <code>"heavy"</code></dt>
+<dd>Name of the AbLang model to use</dd>
+<dt><strong><code>average</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>If <code>True</code>, the score is averaged over the residues; otherwise, the score is summed</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>score</code></strong> :&ensp;<code>float</code></dt>
+<dd>The AbLang PLL score of the protein</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def ablang_pll(self, ablang_model_name=&#34;heavy&#34;, average=False):
+    &#34;&#34;&#34;Calculate the AbLang PLL score of the protein.
+
+    Parameters
+    ----------
+    ablang_model_name : str, default &#34;heavy&#34;
+        Name of the AbLang model to use
+    average : bool, default False
+        If `True`, the score is averaged over the residues; otherwise, the score is summed
+
+    Returns
+    -------
+    score : float
+        The AbLang PLL score of the protein
+
+    &#34;&#34;&#34;
+    chains = self.get_predicted_chains()
+    chain_sequences = [self.get_sequence(chains=[chain]) for chain in chains]
+    if self.predict_mask is not None:
+        predict_masks = [
+            (self.get_predict_mask(chains=[chain])).astype(float)
+            for chain in chains
+        ]
+    else:
+        predict_masks = [np.ones(len(x)) for x in chain_sequences]
+    out = sum(
+        [
+            ablang_pll(
+                sequence,
+                predict_mask,
+                ablang_model_name=ablang_model_name,
+                average=False,
+            )
+            for sequence, predict_mask in zip(chain_sequences, predict_masks)
+        ]
+    )
+    if average:
+        out /= self.get_predict_mask(chains=chains).sum()
+    return out</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.data.ProteinEntry.accuracy"><code class="name flex">
+<span>def <span class="ident">accuracy</span></span>(<span>self, seq_before)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate the accuracy of the protein.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>seq_before</code></strong> :&ensp;<code>str</code></dt>
+<dd>A string with the sequence before the mutation</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>score</code></strong> :&ensp;<code>float</code></dt>
+<dd>The accuracy of the protein</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def accuracy(self, seq_before):
+    &#34;&#34;&#34;Calculate the accuracy of the protein.
+
+    Parameters
+    ----------
+    seq_before : str
+        A string with the sequence before the mutation
+
+    Returns
+    -------
+    score : float
+        The accuracy of the protein
+
+    &#34;&#34;&#34;
+    seq_after = self.get_sequence(encode=False)
+    seq_before = np.array(list(seq_before))
+    seq_after = np.array(list(seq_after))
+    if self.predict_mask is not None:
+        predict_mask = self.get_predict_mask()
+        seq_before = seq_before[predict_mask.astype(bool)]
+        seq_after = seq_after[predict_mask.astype(bool)]
+    return np.mean(seq_before == seq_after)</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.data.ProteinEntry.align_structure"><code class="name flex">
+<span>def <span class="ident">align_structure</span></span>(<span>self, reference_pdb_path, save_pdb_path, chain_ids=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Aligns the structure to a reference structure using the CA atoms.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>reference_pdb_path</code></strong> :&ensp;<code>str</code></dt>
+<dd>Path to the reference structure (in .pdb format)</dd>
+<dt><strong><code>save_pdb_path</code></strong> :&ensp;<code>str</code></dt>
+<dd>Path where the aligned structure should be saved (in .pdb format)</dd>
+<dt><strong><code>chain_ids</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
+<dd>If specified, only the chains with the specified IDs are aligned</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def align_structure(self, reference_pdb_path, save_pdb_path, chain_ids=None):
+    &#34;&#34;&#34;Aligns the structure to a reference structure using the CA atoms.
+
+    Parameters
+    ----------
+    reference_pdb_path : str
+        Path to the reference structure (in .pdb format)
+    save_pdb_path : str
+        Path where the aligned structure should be saved (in .pdb format)
+    chain_ids : list of str, optional
+        If specified, only the chains with the specified IDs are aligned
+
+    &#34;&#34;&#34;
+    pdb_parser = Bio.PDB.PDBParser(QUIET=True)
+
+    temp_file = self._temp_pdb_file()
+    ref_structure = pdb_parser.get_structure(&#34;reference&#34;, reference_pdb_path)
+    sample_structure = pdb_parser.get_structure(&#34;sample&#34;, temp_file)
+
+    ref_model = ref_structure[0]
+    sample_model = sample_structure[0]
+
+    ref_atoms = []
+    sample_atoms = []
+
+    for ref_chain in ref_model:
+        if chain_ids is not None and ref_chain.id not in chain_ids:
+            continue
+        for ref_res in ref_chain:
+            if &#34;CA&#34; in ref_res:
+                ref_atoms.append(ref_res[&#34;CA&#34;])
+            elif &#34;C&#34; in ref_res:
+                ref_atoms.append(ref_res[&#34;C&#34;])
+                warnings.warn(
+                    &#34;Using a C atom instead of CA for alignment in the reference structure&#34;
+                )
+
+    for sample_chain in sample_model:
+        if chain_ids is not None and sample_chain.id not in chain_ids:
+            continue
+        for sample_res in sample_chain:
+            if &#34;CA&#34; in sample_res:
+                sample_atoms.append(sample_res[&#34;CA&#34;])
+            elif &#34;C&#34; in sample_res:
+                sample_atoms.append(sample_res[&#34;C&#34;])
+                warnings.warn(
+                    &#34;Using a C atom instead of CA for alignment in the sample structure&#34;
+                )
+
+    super_imposer = Bio.PDB.Superimposer()
+    super_imposer.set_atoms(ref_atoms, sample_atoms)
+    super_imposer.apply(sample_model.get_atoms())
+
+    io = Bio.PDB.PDBIO()
+    io.set_structure(sample_structure)
+    io.save(save_pdb_path)</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.data.ProteinEntry.apply_mask"><code class="name flex">
+<span>def <span class="ident">apply_mask</span></span>(<span>self, mask)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Apply a mask to the protein.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>mask</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>A boolean mask of shape <code>(L,)</code> where <code>L</code> is the length of the protein (the chains are concatenated in alphabetical order)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>entry</code></strong> :&ensp;<code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code></dt>
+<dd>A new <code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code> object</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def apply_mask(self, mask):
+    &#34;&#34;&#34;Apply a mask to the protein.
+
+    Parameters
+    ----------
+    mask : np.ndarray
+        A boolean mask of shape `(L,)` where `L` is the length of the protein (the chains are concatenated in alphabetical order)
+
+    Returns
+    -------
+    entry : ProteinEntry
+        A new `ProteinEntry` object
+
+    &#34;&#34;&#34;
+    start = 0
+    out_dict = {}
+    for chain in self.get_chains():
+        out_dict[chain] = {}
+        chain_mask = mask[start : start + self.get_length([chain])]
+        start += self.get_length([chain])
+        out_dict[chain][&#34;seq&#34;] = self.decode_sequence(
+            self.get_sequence(chains=[chain], encode=True)[chain_mask]
+        )
+        out_dict[chain][&#34;crd_bb&#34;] = self.get_coordinates(
+            chains=[chain], bb_only=True
+        )[chain_mask]
+        out_dict[chain][&#34;crd_sc&#34;] = self.get_coordinates(chains=[chain])[:, 4:][
+            chain_mask
+        ]
+        out_dict[chain][&#34;msk&#34;] = self.get_mask(chains=[chain])[chain_mask]
+        if self.has_cdr():
+            out_dict[chain][&#34;cdr&#34;] = self.decode_cdr(
+                self.get_cdr([chain], encode=True)[chain_mask]
+            )
+        if self.has_predict_mask():
+            out_dict[chain][&#34;predict_msk&#34;] = self.predict_mask[chain][chain_mask]
+    if self.id is not None:
+        out_dict[&#34;protein_id&#34;] = self.id
+    return ProteinEntry.from_dict(out_dict)</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.data.ProteinEntry.blosum62_score"><code class="name flex">
+<span>def <span class="ident">blosum62_score</span></span>(<span>self, seq_before, average=True, only_predicted=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate the BLOSUM62 score of the protein.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>seq_before</code></strong> :&ensp;<code>str</code></dt>
+<dd>A string with the sequence before the mutation</dd>
+<dt><strong><code>average</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
+<dd>If <code>True</code>, the score is averaged over the residues; otherwise, the score is summed</dd>
+<dt><strong><code>only_predicted</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
+<dd>If <code>True</code> and prediction masks are available, only predicted residues are considered</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>score</code></strong> :&ensp;<code>float</code></dt>
+<dd>The BLOSUM62 score of the protein</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def blosum62_score(self, seq_before, average=True, only_predicted=True):
+    &#34;&#34;&#34;Calculate the BLOSUM62 score of the protein.
+
+    Parameters
+    ----------
+    seq_before : str
+        A string with the sequence before the mutation
+    average : bool, default True
+        If `True`, the score is averaged over the residues; otherwise, the score is summed
+    only_predicted : bool, default True
+        If `True` and prediction masks are available, only predicted residues are considered
+
+    Returns
+    -------
+    score : float
+        The BLOSUM62 score of the protein
+
+    &#34;&#34;&#34;
+    seq_after = self.get_sequence(encode=False)
+    if self.predict_mask is not None and only_predicted:
+        predict_mask = self.get_predict_mask()
+        seq_before = np.array(list(seq_before))[predict_mask.astype(bool)]
+        seq_after = np.array(list(seq_after))[predict_mask.astype(bool)]
+    score = blosum62_score(seq_before, seq_after)
+    if average:
+        score /= len(seq_before)
+    return score</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.data.ProteinEntry.ca_rmsd"><code class="name flex">
+<span>def <span class="ident">ca_rmsd</span></span>(<span>self, entry, only_predicted=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate CA RMSD between two proteins.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>entry</code></strong> :&ensp;<code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code></dt>
+<dd>A <code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code> object</dd>
+<dt><strong><code>only_predicted</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
+<dd>If <code>True</code> and prediction masks are available, only predicted residues are considered</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>rmsd</code></strong> :&ensp;<code>float</code></dt>
+<dd>The CA RMSD between the two proteins</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def ca_rmsd(self, entry, only_predicted=True):
+    &#34;&#34;&#34;Calculate CA RMSD between two proteins.
+
+    Parameters
+    ----------
+    entry : ProteinEntry
+        A `ProteinEntry` object
+    only_predicted : bool, default True
+        If `True` and prediction masks are available, only predicted residues are considered
+
+    Returns
+    -------
+    rmsd : float
+        The CA RMSD between the two proteins
+
+    &#34;&#34;&#34;
+    chains = [x for x in self.get_chains() if x in entry.get_chains()]
+    structure1 = self.get_coordinates(only_known=True, chains=chains)[:, 2]
+    structure2 = entry.get_coordinates(only_known=True, chains=chains)[:, 2]
+    if only_predicted:
+        mask = self.get_predict_mask(only_known=True, chains=chains).astype(bool)
+        structure1 = structure1[mask]
+        structure2 = structure2[mask]
+    return ca_rmsd(structure1, structure2)</code></pre>
+</details>
+</dd>
 <dt id="proteinflow.data.ProteinEntry.chemical_features"><code class="name flex">
 <span>def <span class="ident">chemical_features</span></span>(<span>self, chains=None)</span>
 </code></dt>
@@ -5484,6 +7535,70 @@ otherwise, all features are concatenated in alphabetical order of the chain IDs<
         angles.append(np.stack(chain_angles, -1))
     angles = np.concatenate(angles, 0)
     return angles</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.data.ProteinEntry.esm_pll"><code class="name flex">
+<span>def <span class="ident">esm_pll</span></span>(<span>self, esm_model_name='esm2_t30_150M_UR50D', esm_model_objects=None, average=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate the ESM PLL score of the protein.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>esm_model_name</code></strong> :&ensp;<code>str</code>, default <code>"esm2_t30_150M_UR50D"</code></dt>
+<dd>Name of the ESM-2 model to use</dd>
+<dt><strong><code>esm_model_objects</code></strong> :&ensp;<code>tuple</code>, optional</dt>
+<dd>Tuple of ESM-2 model, batch converter and tok_to_idx dictionary (if not None, <code>esm_model_name</code> will be ignored)</dd>
+<dt><strong><code>average</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>If <code>True</code>, the score is averaged over the residues; otherwise, the score is summed</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>score</code></strong> :&ensp;<code>float</code></dt>
+<dd>The ESM PLL score of the protein</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def esm_pll(
+    self,
+    esm_model_name=&#34;esm2_t30_150M_UR50D&#34;,
+    esm_model_objects=None,
+    average=False,
+):
+    &#34;&#34;&#34;Calculate the ESM PLL score of the protein.
+
+    Parameters
+    ----------
+    esm_model_name : str, default &#34;esm2_t30_150M_UR50D&#34;
+        Name of the ESM-2 model to use
+    esm_model_objects : tuple, optional
+        Tuple of ESM-2 model, batch converter and tok_to_idx dictionary (if not None, `esm_model_name` will be ignored)
+    average : bool, default False
+        If `True`, the score is averaged over the residues; otherwise, the score is summed
+
+    Returns
+    -------
+    score : float
+        The ESM PLL score of the protein
+
+    &#34;&#34;&#34;
+    chains = self.get_chains()
+    chain_sequences = [self.get_sequence(chains=[chain]) for chain in chains]
+    if self.predict_mask is not None:
+        predict_masks = [
+            (self.get_predict_mask(chains=[chain])).astype(float)
+            for chain in chains
+        ]
+    else:
+        predict_masks = [np.ones(len(x)) for x in chain_sequences]
+    return esm_pll(
+        chain_sequences,
+        predict_masks,
+        esm_model_name=esm_model_name,
+        esm_model_objects=esm_model_objects,
+        average=average,
+    )</code></pre>
 </details>
 </dd>
 <dt id="proteinflow.data.ProteinEntry.get_atom_mask"><code class="name flex">
@@ -6135,7 +8250,7 @@ indicates missing values</dd>
 </details>
 </dd>
 <dt id="proteinflow.data.ProteinEntry.get_predict_mask"><code class="name flex">
-<span>def <span class="ident">get_predict_mask</span></span>(<span>self, chains=None)</span>
+<span>def <span class="ident">get_predict_mask</span></span>(<span>self, chains=None, only_known=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Get the prediction mask of the protein.</p>
@@ -6148,6 +8263,8 @@ residues with known coordinates. If the prediction mask is not available,
 <dt><strong><code>chains</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
 <dd>If specified, only the prediction mask of the specified chains is returned (in the same order);
 otherwise, all features are concatenated in alphabetical order of the chain IDs</dd>
+<dt><strong><code>only_known</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>If <code>True</code>, only residues with known coordinates are returned</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -6159,7 +8276,7 @@ zeros to residues with known coordinates</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_predict_mask(self, chains=None):
+<pre><code class="python">def get_predict_mask(self, chains=None, only_known=False):
     &#34;&#34;&#34;Get the prediction mask of the protein.
 
     The prediction mask is a `&#39;numpy&#39;` array of shape `(L,)` with ones
@@ -6172,6 +8289,8 @@ zeros to residues with known coordinates</dd>
     chains : list of str, optional
         If specified, only the prediction mask of the specified chains is returned (in the same order);
         otherwise, all features are concatenated in alphabetical order of the chain IDs
+    only_known : bool, default False
+        If `True`, only residues with known coordinates are returned
 
     Returns
     -------
@@ -6184,20 +8303,63 @@ zeros to residues with known coordinates</dd>
         return None
     chains = self._get_chains_list(chains)
     predict_mask = np.concatenate([self.predict_mask[chain] for chain in chains])
+    if only_known:
+        mask = self.get_mask(chains=chains)
+        predict_mask = predict_mask[mask.astype(bool)]
     return predict_mask</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.data.ProteinEntry.get_predicted_chains"><code class="name flex">
+<span>def <span class="ident">get_predicted_chains</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Return a list of chain IDs that contain predicted residues.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>chains</code></strong> :&ensp;<code>list</code> of <code>str</code></dt>
+<dd>Chain IDs</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_predicted_chains(self):
+    &#34;&#34;&#34;Return a list of chain IDs that contain predicted residues.
+
+    Returns
+    -------
+    chains : list of str
+        Chain IDs
+
+    &#34;&#34;&#34;
+    if self.predict_mask is None:
+        raise ValueError(&#34;Predicted mask not available&#34;)
+    return [k for k, v in self.predict_mask.items() if v.sum() != 0]</code></pre>
 </details>
 </dd>
 <dt id="proteinflow.data.ProteinEntry.get_predicted_entry"><code class="name flex">
 <span>def <span class="ident">get_predicted_entry</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Return a <code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code> object that only contains predicted residues.</p></div>
+<div class="desc"><p>Return a <code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code> object that only contains predicted residues.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>entry</code></strong> :&ensp;<code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code></dt>
+<dd>The truncated <code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code> object</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def get_predicted_entry(self):
-    &#34;&#34;&#34;Return a `ProteinEntry` object that only contains predicted residues.&#34;&#34;&#34;
+    &#34;&#34;&#34;Return a `ProteinEntry` object that only contains predicted residues.
+
+    Returns
+    -------
+    entry : ProteinEntry
+        The truncated `ProteinEntry` object
+
+    &#34;&#34;&#34;
     if self.predict_mask is None:
         raise ValueError(&#34;Predicted mask not available&#34;)
     entry_dict = self.to_dict()
@@ -6316,6 +8478,32 @@ sequence as a <code>'numpy'</code> array of integers</dd>
 
     &#34;&#34;&#34;
     return list(self.cdr.values())[0] is not None</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.data.ProteinEntry.has_predict_mask"><code class="name flex">
+<span>def <span class="ident">has_predict_mask</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Check if the protein has a predicted mask.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>has_predict_mask</code></strong> :&ensp;<code>bool</code></dt>
+<dd>True if the protein has a predicted mask</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def has_predict_mask(self):
+    &#34;&#34;&#34;Check if the protein has a predicted mask.
+
+    Returns
+    -------
+    has_predict_mask : bool
+        True if the protein has a predicted mask
+
+    &#34;&#34;&#34;
+    return list(self.predict_mask.values())[0] is not None</code></pre>
 </details>
 </dd>
 <dt id="proteinflow.data.ProteinEntry.interpolate_coords"><code class="name flex">
@@ -6453,6 +8641,46 @@ def is_valid_pair(self, chain1, chain2, cutoff=10):
         return True</code></pre>
 </details>
 </dd>
+<dt id="proteinflow.data.ProteinEntry.long_repeat_num"><code class="name flex">
+<span>def <span class="ident">long_repeat_num</span></span>(<span>self, thr=5)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate the number of long repeats in the protein.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>thr</code></strong> :&ensp;<code>int</code>, default <code>5</code></dt>
+<dd>The threshold for the minimum length of the repeat</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>num</code></strong> :&ensp;<code>int</code></dt>
+<dd>The number of long repeats in the protein</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def long_repeat_num(self, thr=5):
+    &#34;&#34;&#34;Calculate the number of long repeats in the protein.
+
+    Parameters
+    ----------
+    thr : int, default 5
+        The threshold for the minimum length of the repeat
+
+    Returns
+    -------
+    num : int
+        The number of long repeats in the protein
+
+    &#34;&#34;&#34;
+    seq = self.get_sequence(encode=False)
+    if self.predict_mask is not None:
+        predict_mask = self.get_predict_mask()
+        seq = np.array(list(seq))[predict_mask.astype(bool)]
+    return long_repeat_num(seq, thr=thr)</code></pre>
+</details>
+</dd>
 <dt id="proteinflow.data.ProteinEntry.merge"><code class="name flex">
 <span>def <span class="ident">merge</span></span>(<span>self, entry)</span>
 </code></dt>
@@ -6461,7 +8689,7 @@ def is_valid_pair(self, chain1, chain2, cutoff=10):
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>entry</code></strong> :&ensp;<code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code></dt>
-<dd>A <code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code> object</dd>
+<dd>The merged <code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code> object</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -6473,7 +8701,7 @@ def is_valid_pair(self, chain1, chain2, cutoff=10):
     Parameters
     ----------
     entry : ProteinEntry
-        A `ProteinEntry` object
+        The merged `ProteinEntry` object
 
     &#34;&#34;&#34;
     for chain in entry.get_chains():
@@ -6514,13 +8742,8 @@ def is_valid_pair(self, chain1, chain2, cutoff=10):
         A dictionary mapping old chain IDs to new chain IDs
 
     &#34;&#34;&#34;
-    for old_chain, new_chain in chain_dict.items():
-        self.seq[new_chain] = self.seq.pop(old_chain)
-        self.crd[new_chain] = self.crd.pop(old_chain)
-        self.mask[new_chain] = self.mask.pop(old_chain)
-        self.mask_original[new_chain] = self.mask_original.pop(old_chain)
-        self.cdr[new_chain] = self.cdr.pop(old_chain)
-        self.predict_mask[new_chain] = self.predict_mask.pop(old_chain)</code></pre>
+    self._rename_chains({k: k * 5 for k in self.get_chains()})
+    self._rename_chains({k * 5: v for k, v in chain_dict.items()})</code></pre>
 </details>
 </dd>
 <dt id="proteinflow.data.ProteinEntry.secondary_structure"><code class="name flex">
@@ -6688,6 +8911,50 @@ otherwise, all features are concatenated in alphabetical order of the chain IDs<
     return orientation</code></pre>
 </details>
 </dd>
+<dt id="proteinflow.data.ProteinEntry.tm_score"><code class="name flex">
+<span>def <span class="ident">tm_score</span></span>(<span>self, entry, chains=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calculate TM score between two proteins.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>entry</code></strong> :&ensp;<code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code></dt>
+<dd>A <code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code> object</dd>
+<dt><strong><code>chains</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
+<dd>A list of chain IDs to consider</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>tm_score</code></strong> :&ensp;<code>float</code></dt>
+<dd>The TM score between the two proteins</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def tm_score(self, entry, chains=None):
+    &#34;&#34;&#34;Calculate TM score between two proteins.
+
+    Parameters
+    ----------
+    entry : ProteinEntry
+        A `ProteinEntry` object
+    chains : list of str, optional
+        A list of chain IDs to consider
+
+    Returns
+    -------
+    tm_score : float
+        The TM score between the two proteins
+
+    &#34;&#34;&#34;
+    structure1 = self.get_coordinates(only_known=True, chains=chains)[:, 2]
+    structure2 = entry.get_coordinates(only_known=True, chains=chains)[:, 2]
+    sequence1 = self.get_sequence(only_known=True, chains=chains)
+    sequence2 = entry.get_sequence(only_known=True, chains=chains)
+    return tm_score(structure1, structure2, sequence1, sequence2)</code></pre>
+</details>
+</dd>
 <dt id="proteinflow.data.ProteinEntry.to_dict"><code class="name flex">
 <span>def <span class="ident">to_dict</span></span>(<span>self)</span>
 </code></dt>
@@ -6788,11 +9055,11 @@ It can optionally also contain <code>protein_id</code> as a first-level key.</dd
     ----------
     path : str
         Path to the output PDB file
-    only_ca : bool, default `False`
+    only_ca : bool, default False
         If `True`, only backbone atoms are saved
-    skip_oxygens : bool, default `False`
+    skip_oxygens : bool, default False
         If `True`, oxygen atoms are not saved
-    only_backbone : bool, default `False`
+    only_backbone : bool, default False
         If `True`, only backbone atoms are saved
     title : str, optional
         Title of the PDB file (by default either the protein id or &#34;Untitled&#34;)
@@ -6868,7 +9135,7 @@ zeros to residues with known coordinates.</p>
 </details>
 </dd>
 <dt id="proteinflow.data.ProteinEntry.visualize"><code class="name flex">
-<span>def <span class="ident">visualize</span></span>(<span>self, highlight_mask=None, style='cartoon', highlight_style=None, opacity=1)</span>
+<span>def <span class="ident">visualize</span></span>(<span>self, highlight_mask=None, style='cartoon', highlight_style=None, opacity=1, canvas_size=(400, 300))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Visualize the protein in a notebook.</p>
@@ -6885,13 +9152,20 @@ marked with 1 and the rest marked with 0; if not given and
 (defaults to the same as <code>style</code>)</dd>
 <dt><strong><code>opacity</code></strong> :&ensp;<code>float</code> or <code>dict</code>, default <code>1</code></dt>
 <dd>Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)</dd>
+<dt><strong><code>canvas_size</code></strong> :&ensp;<code>tuple</code>, default <code>(400, 300)</code></dt>
+<dd>Shape of the canvas</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def visualize(
-    self, highlight_mask=None, style=&#34;cartoon&#34;, highlight_style=None, opacity=1
+    self,
+    highlight_mask=None,
+    style=&#34;cartoon&#34;,
+    highlight_style=None,
+    opacity=1,
+    canvas_size=(400, 300),
 ):
     &#34;&#34;&#34;Visualize the protein in a notebook.
 
@@ -6908,6 +9182,8 @@ marked with 1 and the rest marked with 0; if not given and
         (defaults to the same as `style`)
     opacity : float or dict, default 1
         Opacity of the visualization (can be a dictionary mapping from chain IDs to opacity values)
+    canvas_size : tuple, default (400, 300)
+        Shape of the canvas
 
     &#34;&#34;&#34;
     if highlight_mask is not None:
@@ -6927,6 +9203,7 @@ marked with 1 and the rest marked with 0; if not given and
         style=style,
         highlight_style=highlight_style,
         opacity=opacity,
+        canvas_size=canvas_size,
     )</code></pre>
 </details>
 </dd>
@@ -7499,11 +9776,20 @@ def from_id(
 <h4><code><a title="proteinflow.data.ProteinEntry" href="#proteinflow.data.ProteinEntry">ProteinEntry</a></code></h4>
 <ul class="">
 <li><code><a title="proteinflow.data.ProteinEntry.ATOM_ORDER" href="#proteinflow.data.ProteinEntry.ATOM_ORDER">ATOM_ORDER</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.ablang_pll" href="#proteinflow.data.ProteinEntry.ablang_pll">ablang_pll</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.accuracy" href="#proteinflow.data.ProteinEntry.accuracy">accuracy</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.align_structure" href="#proteinflow.data.ProteinEntry.align_structure">align_structure</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.apply_mask" href="#proteinflow.data.ProteinEntry.apply_mask">apply_mask</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.blosum62_score" href="#proteinflow.data.ProteinEntry.blosum62_score">blosum62_score</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.ca_rmsd" href="#proteinflow.data.ProteinEntry.ca_rmsd">ca_rmsd</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.chemical_features" href="#proteinflow.data.ProteinEntry.chemical_features">chemical_features</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.combine_multiple_frames" href="#proteinflow.data.ProteinEntry.combine_multiple_frames">combine_multiple_frames</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.cut_missing_edges" href="#proteinflow.data.ProteinEntry.cut_missing_edges">cut_missing_edges</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.decode_cdr" href="#proteinflow.data.ProteinEntry.decode_cdr">decode_cdr</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.decode_sequence" href="#proteinflow.data.ProteinEntry.decode_sequence">decode_sequence</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.dihedral_angles" href="#proteinflow.data.ProteinEntry.dihedral_angles">dihedral_angles</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.esm_pll" href="#proteinflow.data.ProteinEntry.esm_pll">esm_pll</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.esmfold_metrics" href="#proteinflow.data.ProteinEntry.esmfold_metrics">esmfold_metrics</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.from_arrays" href="#proteinflow.data.ProteinEntry.from_arrays">from_arrays</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.from_dict" href="#proteinflow.data.ProteinEntry.from_dict">from_dict</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.from_id" href="#proteinflow.data.ProteinEntry.from_id">from_id</a></code></li>
@@ -7524,17 +9810,23 @@ def from_id(
 <li><code><a title="proteinflow.data.ProteinEntry.get_ligand_features" href="#proteinflow.data.ProteinEntry.get_ligand_features">get_ligand_features</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.get_mask" href="#proteinflow.data.ProteinEntry.get_mask">get_mask</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.get_predict_mask" href="#proteinflow.data.ProteinEntry.get_predict_mask">get_predict_mask</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.get_predicted_chains" href="#proteinflow.data.ProteinEntry.get_predicted_chains">get_predicted_chains</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.get_predicted_entry" href="#proteinflow.data.ProteinEntry.get_predicted_entry">get_predicted_entry</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.get_sequence" href="#proteinflow.data.ProteinEntry.get_sequence">get_sequence</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.has_cdr" href="#proteinflow.data.ProteinEntry.has_cdr">has_cdr</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.has_predict_mask" href="#proteinflow.data.ProteinEntry.has_predict_mask">has_predict_mask</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.igfold_metrics" href="#proteinflow.data.ProteinEntry.igfold_metrics">igfold_metrics</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.immunebuilder_metrics" href="#proteinflow.data.ProteinEntry.immunebuilder_metrics">immunebuilder_metrics</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.interpolate_coords" href="#proteinflow.data.ProteinEntry.interpolate_coords">interpolate_coords</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.is_valid_pair" href="#proteinflow.data.ProteinEntry.is_valid_pair">is_valid_pair</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.long_repeat_num" href="#proteinflow.data.ProteinEntry.long_repeat_num">long_repeat_num</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.merge" href="#proteinflow.data.ProteinEntry.merge">merge</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.rename_chains" href="#proteinflow.data.ProteinEntry.rename_chains">rename_chains</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.retrieve_ligands_from_pickle" href="#proteinflow.data.ProteinEntry.retrieve_ligands_from_pickle">retrieve_ligands_from_pickle</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.secondary_structure" href="#proteinflow.data.ProteinEntry.secondary_structure">secondary_structure</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.sidechain_coordinates" href="#proteinflow.data.ProteinEntry.sidechain_coordinates">sidechain_coordinates</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.sidechain_orientation" href="#proteinflow.data.ProteinEntry.sidechain_orientation">sidechain_orientation</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.tm_score" href="#proteinflow.data.ProteinEntry.tm_score">tm_score</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.to_dict" href="#proteinflow.data.ProteinEntry.to_dict">to_dict</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.to_pdb" href="#proteinflow.data.ProteinEntry.to_pdb">to_pdb</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.to_pickle" href="#proteinflow.data.ProteinEntry.to_pickle">to_pickle</a></code></li>
