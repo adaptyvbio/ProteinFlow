@@ -339,6 +339,7 @@ class ProteinDataset(Dataset):
         patch_around_mask=False,
         initial_patch_size=128,
         antigen_patch_size=128,
+        debug_verbose=False,
     ):
         &#34;&#34;&#34;Initialize the dataset.
 
@@ -411,6 +412,8 @@ class ProteinDataset(Dataset):
             the size of the antigen patch (used if `patch_around_mask` is `True` and the dataset is SAbDab)
 
         &#34;&#34;&#34;
+        self.debug = debug_verbose
+
         alphabet = ALPHABET
         self.alphabet_dict = defaultdict(lambda: 0)
         for i, letter in enumerate(alphabet):
@@ -729,8 +732,6 @@ class ProteinDataset(Dataset):
         output_names = []
         if self.cut_edges:
             data_entry.cut_missing_edges()
-        if self.interpolate != &#34;none&#34;:
-            data_entry.interpolate_coords(fill_ends=(self.interpolate == &#34;all&#34;))
         for chains_i, chain_set in enumerate(chain_sets):
             output_file = os.path.join(
                 self.features_folder, no_extension_name + f&#34;_{chains_i}.pickle&#34;
@@ -766,17 +767,49 @@ class ProteinDataset(Dataset):
                             if length &gt; 0
                         ]
                     ):
-                        add_name = False
                         pass_set = True
+                        add_name = False
 
                 if self.entry_type == &#34;pair&#34;:
                     if not data_entry.is_valid_pair(*chain_set):
                         pass_set = True
                         add_name = False
+            out = {}
+            if add_name:
+                cdr_chain_set = set()
+                if data_entry.has_cdr():
+                    out[&#34;cdr&#34;] = torch.tensor(
+                        data_entry.get_cdr(chain_set, encode=True)
+                    )
+                    chain_type_dict = data_entry.get_chain_type_dict(chain_set)
+                    out[&#34;chain_type_dict&#34;] = chain_type_dict
+                    if &#34;heavy&#34; in chain_type_dict:
+                        cdr_chain_set.update(
+                            [
+                                f&#34;{chain_type_dict[&#39;heavy&#39;]}__{cdr}&#34;
+                                for cdr in [&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;]
+                            ]
+                        )
+                    if &#34;light&#34; in chain_type_dict:
+                        cdr_chain_set.update(
+                            [
+                                f&#34;{chain_type_dict[&#39;light&#39;]}__{cdr}&#34;
+                                for cdr in [&#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;]
+                            ]
+                        )
+                output_names.append(
+                    (
+                        os.path.basename(no_extension_name),
+                        output_file,
+                        chain_set if len(cdr_chain_set) == 0 else cdr_chain_set,
+                    )
+                )
             if pass_set:
                 continue
 
-            out = {}
+            if self.interpolate != &#34;none&#34;:
+                data_entry.interpolate_coords(fill_ends=(self.interpolate == &#34;all&#34;))
+
             out[&#34;pdb_id&#34;] = no_extension_name.split(&#34;-&#34;)[0]
             out[&#34;mask_original&#34;] = torch.tensor(
                 data_entry.get_mask(chain_set, original=True)
@@ -797,39 +830,12 @@ class ProteinDataset(Dataset):
                     out[&#34;ligand_smiles&#34;],
                     out[&#34;ligand_chains&#34;],
                 ) = data_entry.get_ligand_features(ligands, chain_set)
-            cdr_chain_set = set()
-            if data_entry.has_cdr():
-                out[&#34;cdr&#34;] = torch.tensor(data_entry.get_cdr(chain_set, encode=True))
-                chain_type_dict = data_entry.get_chain_type_dict(chain_set)
-                out[&#34;chain_type_dict&#34;] = chain_type_dict
-                if &#34;heavy&#34; in chain_type_dict:
-                    cdr_chain_set.update(
-                        [
-                            f&#34;{chain_type_dict[&#39;heavy&#39;]}__{cdr}&#34;
-                            for cdr in [&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;]
-                        ]
-                    )
-                if &#34;light&#34; in chain_type_dict:
-                    cdr_chain_set.update(
-                        [
-                            f&#34;{chain_type_dict[&#39;light&#39;]}__{cdr}&#34;
-                            for cdr in [&#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;]
-                        ]
-                    )
             for name in self.feature_types:
                 if name not in self.feature_functions:
                     continue
                 func = self.feature_functions[name]
                 out[name] = torch.tensor(func(data_entry, chain_set))
 
-            if add_name:
-                output_names.append(
-                    (
-                        os.path.basename(no_extension_name),
-                        output_file,
-                        chain_set if len(cdr_chain_set) == 0 else cdr_chain_set,
-                    )
-                )
             with open(output_file, &#34;wb&#34;) as f:
                 pickle.dump(out, f)
 
@@ -1044,7 +1050,7 @@ class ProteinDataset(Dataset):
 <dl>
 <dt id="proteinflow.data.torch.ProteinDataset"><code class="flex name class">
 <span>class <span class="ident">ProteinDataset</span></span>
-<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', debug_file_path=None, entry_type='biounit', classes_to_exclude=None, shuffle_clusters=True, min_cdr_length=None, feature_functions=None, classes_dict_path=None, cut_edges=False, mask_residues=True, lower_limit=15, upper_limit=100, mask_frac=None, mask_whole_chains=False, mask_sequential=False, force_binding_sites_frac=0.15, mask_all_cdrs=False, load_ligands=False, pyg_graph=False, patch_around_mask=False, initial_patch_size=128, antigen_patch_size=128)</span>
+<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', debug_file_path=None, entry_type='biounit', classes_to_exclude=None, shuffle_clusters=True, min_cdr_length=None, feature_functions=None, classes_dict_path=None, cut_edges=False, mask_residues=True, lower_limit=15, upper_limit=100, mask_frac=None, mask_whole_chains=False, mask_sequential=False, force_binding_sites_frac=0.15, mask_all_cdrs=False, load_ligands=False, pyg_graph=False, patch_around_mask=False, initial_patch_size=128, antigen_patch_size=128, debug_verbose=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Dataset to load proteinflow data.</p>
@@ -1248,6 +1254,7 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         patch_around_mask=False,
         initial_patch_size=128,
         antigen_patch_size=128,
+        debug_verbose=False,
     ):
         &#34;&#34;&#34;Initialize the dataset.
 
@@ -1320,6 +1327,8 @@ from a polymer is sampled, the center of the masked region will be forced to be 
             the size of the antigen patch (used if `patch_around_mask` is `True` and the dataset is SAbDab)
 
         &#34;&#34;&#34;
+        self.debug = debug_verbose
+
         alphabet = ALPHABET
         self.alphabet_dict = defaultdict(lambda: 0)
         for i, letter in enumerate(alphabet):
@@ -1638,8 +1647,6 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         output_names = []
         if self.cut_edges:
             data_entry.cut_missing_edges()
-        if self.interpolate != &#34;none&#34;:
-            data_entry.interpolate_coords(fill_ends=(self.interpolate == &#34;all&#34;))
         for chains_i, chain_set in enumerate(chain_sets):
             output_file = os.path.join(
                 self.features_folder, no_extension_name + f&#34;_{chains_i}.pickle&#34;
@@ -1675,17 +1682,49 @@ from a polymer is sampled, the center of the masked region will be forced to be 
                             if length &gt; 0
                         ]
                     ):
-                        add_name = False
                         pass_set = True
+                        add_name = False
 
                 if self.entry_type == &#34;pair&#34;:
                     if not data_entry.is_valid_pair(*chain_set):
                         pass_set = True
                         add_name = False
+            out = {}
+            if add_name:
+                cdr_chain_set = set()
+                if data_entry.has_cdr():
+                    out[&#34;cdr&#34;] = torch.tensor(
+                        data_entry.get_cdr(chain_set, encode=True)
+                    )
+                    chain_type_dict = data_entry.get_chain_type_dict(chain_set)
+                    out[&#34;chain_type_dict&#34;] = chain_type_dict
+                    if &#34;heavy&#34; in chain_type_dict:
+                        cdr_chain_set.update(
+                            [
+                                f&#34;{chain_type_dict[&#39;heavy&#39;]}__{cdr}&#34;
+                                for cdr in [&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;]
+                            ]
+                        )
+                    if &#34;light&#34; in chain_type_dict:
+                        cdr_chain_set.update(
+                            [
+                                f&#34;{chain_type_dict[&#39;light&#39;]}__{cdr}&#34;
+                                for cdr in [&#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;]
+                            ]
+                        )
+                output_names.append(
+                    (
+                        os.path.basename(no_extension_name),
+                        output_file,
+                        chain_set if len(cdr_chain_set) == 0 else cdr_chain_set,
+                    )
+                )
             if pass_set:
                 continue
 
-            out = {}
+            if self.interpolate != &#34;none&#34;:
+                data_entry.interpolate_coords(fill_ends=(self.interpolate == &#34;all&#34;))
+
             out[&#34;pdb_id&#34;] = no_extension_name.split(&#34;-&#34;)[0]
             out[&#34;mask_original&#34;] = torch.tensor(
                 data_entry.get_mask(chain_set, original=True)
@@ -1706,39 +1745,12 @@ from a polymer is sampled, the center of the masked region will be forced to be 
                     out[&#34;ligand_smiles&#34;],
                     out[&#34;ligand_chains&#34;],
                 ) = data_entry.get_ligand_features(ligands, chain_set)
-            cdr_chain_set = set()
-            if data_entry.has_cdr():
-                out[&#34;cdr&#34;] = torch.tensor(data_entry.get_cdr(chain_set, encode=True))
-                chain_type_dict = data_entry.get_chain_type_dict(chain_set)
-                out[&#34;chain_type_dict&#34;] = chain_type_dict
-                if &#34;heavy&#34; in chain_type_dict:
-                    cdr_chain_set.update(
-                        [
-                            f&#34;{chain_type_dict[&#39;heavy&#39;]}__{cdr}&#34;
-                            for cdr in [&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;]
-                        ]
-                    )
-                if &#34;light&#34; in chain_type_dict:
-                    cdr_chain_set.update(
-                        [
-                            f&#34;{chain_type_dict[&#39;light&#39;]}__{cdr}&#34;
-                            for cdr in [&#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;]
-                        ]
-                    )
             for name in self.feature_types:
                 if name not in self.feature_functions:
                     continue
                 func = self.feature_functions[name]
                 out[name] = torch.tensor(func(data_entry, chain_set))
 
-            if add_name:
-                output_names.append(
-                    (
-                        os.path.basename(no_extension_name),
-                        output_file,
-                        chain_set if len(cdr_chain_set) == 0 else cdr_chain_set,
-                    )
-                )
             with open(output_file, &#34;wb&#34;) as f:
                 pickle.dump(out, f)
 
@@ -2251,6 +2263,45 @@ longest protein in the batch.</p>
 <li>torch.utils.data.dataloader.DataLoader</li>
 <li>typing.Generic</li>
 </ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="proteinflow.data.torch.ProteinLoader.batch_size"><code class="name">var <span class="ident">batch_size</span> : Optional[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="proteinflow.data.torch.ProteinLoader.dataset"><code class="name">var <span class="ident">dataset</span> : torch.utils.data.dataset.Dataset[+T_co]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="proteinflow.data.torch.ProteinLoader.drop_last"><code class="name">var <span class="ident">drop_last</span> : bool</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="proteinflow.data.torch.ProteinLoader.num_workers"><code class="name">var <span class="ident">num_workers</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="proteinflow.data.torch.ProteinLoader.pin_memory"><code class="name">var <span class="ident">pin_memory</span> : bool</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="proteinflow.data.torch.ProteinLoader.pin_memory_device"><code class="name">var <span class="ident">pin_memory_device</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="proteinflow.data.torch.ProteinLoader.prefetch_factor"><code class="name">var <span class="ident">prefetch_factor</span> : Optional[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="proteinflow.data.torch.ProteinLoader.sampler"><code class="name">var <span class="ident">sampler</span> : Union[torch.utils.data.sampler.Sampler, Iterable]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="proteinflow.data.torch.ProteinLoader.timeout"><code class="name">var <span class="ident">timeout</span> : float</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
 <h3>Static methods</h3>
 <dl>
 <dt id="proteinflow.data.torch.ProteinLoader.from_args"><code class="name flex">
@@ -2471,8 +2522,17 @@ def from_args(
 </li>
 <li>
 <h4><code><a title="proteinflow.data.torch.ProteinLoader" href="#proteinflow.data.torch.ProteinLoader">ProteinLoader</a></code></h4>
-<ul class="">
+<ul class="two-column">
+<li><code><a title="proteinflow.data.torch.ProteinLoader.batch_size" href="#proteinflow.data.torch.ProteinLoader.batch_size">batch_size</a></code></li>
+<li><code><a title="proteinflow.data.torch.ProteinLoader.dataset" href="#proteinflow.data.torch.ProteinLoader.dataset">dataset</a></code></li>
+<li><code><a title="proteinflow.data.torch.ProteinLoader.drop_last" href="#proteinflow.data.torch.ProteinLoader.drop_last">drop_last</a></code></li>
 <li><code><a title="proteinflow.data.torch.ProteinLoader.from_args" href="#proteinflow.data.torch.ProteinLoader.from_args">from_args</a></code></li>
+<li><code><a title="proteinflow.data.torch.ProteinLoader.num_workers" href="#proteinflow.data.torch.ProteinLoader.num_workers">num_workers</a></code></li>
+<li><code><a title="proteinflow.data.torch.ProteinLoader.pin_memory" href="#proteinflow.data.torch.ProteinLoader.pin_memory">pin_memory</a></code></li>
+<li><code><a title="proteinflow.data.torch.ProteinLoader.pin_memory_device" href="#proteinflow.data.torch.ProteinLoader.pin_memory_device">pin_memory_device</a></code></li>
+<li><code><a title="proteinflow.data.torch.ProteinLoader.prefetch_factor" href="#proteinflow.data.torch.ProteinLoader.prefetch_factor">prefetch_factor</a></code></li>
+<li><code><a title="proteinflow.data.torch.ProteinLoader.sampler" href="#proteinflow.data.torch.ProteinLoader.sampler">sampler</a></code></li>
+<li><code><a title="proteinflow.data.torch.ProteinLoader.timeout" href="#proteinflow.data.torch.ProteinLoader.timeout">timeout</a></code></li>
 </ul>
 </li>
 </ul>

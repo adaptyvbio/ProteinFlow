@@ -465,8 +465,8 @@ def generate_data(
     missing_middle_thr=0.1,
     not_filter_methods=False,
     not_remove_redundancies=False,
-    skip_splitting=False,
     redundancy_thr=0.9,
+    skip_splitting=False,
     n=None,
     force=False,
     split_tolerance=0.2,
@@ -535,10 +535,10 @@ def generate_data(
         If `False`, only files obtained with X-ray or EM will be processed
     not_remove_redundancies : bool, default False
         If &#39;False&#39;, removes biounits that are doubles of others sequence wise
+    redundancy_thr : float, default 0.9
+        The threshold upon which sequences are considered as one and the same (default: 0.9)
     skip_splitting : bool, default False
         if `True`, skip the split dictionary creation and the file moving steps
-    redundancy_thr : float, default 0.9
-        The threshold upon which sequences are considered as one and the same (default: 90%)
     n : int, default None
         The number of files to process (for debugging purposes)
     force : bool, default False
@@ -1036,7 +1036,7 @@ def check_download_tags():
 </details>
 </dd>
 <dt id="proteinflow.generate_data"><code class="name flex">
-<span>def <span class="ident">generate_data</span></span>(<span>tag=None, pdb_id_list_path=None, local_datasets_folder='./data', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, not_filter_methods=False, not_remove_redundancies=False, skip_splitting=False, redundancy_thr=0.9, n=None, force=False, split_tolerance=0.2, test_split=0.05, valid_split=0.05, pdb_snapshot=None, load_live=False, min_seq_id=0.3, sabdab=False, sabdab_data_path=None, require_antigen=False, exclude_chains=None, exclude_chains_file=None, exclude_threshold=0.7, exclude_clusters=False, exclude_based_on_cdr=None, load_ligands=False, exclude_chains_without_ligands=False, tanimoto_clustering=False, foldseek=False, require_ligand=False, random_seed=42, max_chains=10)</span>
+<span>def <span class="ident">generate_data</span></span>(<span>tag=None, pdb_id_list_path=None, local_datasets_folder='./data', min_length=30, max_length=10000, resolution_thr=3.5, missing_ends_thr=0.3, missing_middle_thr=0.1, not_filter_methods=False, not_remove_redundancies=False, redundancy_thr=0.9, skip_splitting=False, n=None, force=False, split_tolerance=0.2, test_split=0.05, valid_split=0.05, pdb_snapshot=None, load_live=False, min_seq_id=0.3, sabdab=False, sabdab_data_path=None, require_antigen=False, exclude_chains=None, exclude_chains_file=None, exclude_threshold=0.7, exclude_clusters=False, exclude_based_on_cdr=None, load_ligands=False, exclude_chains_without_ligands=False, tanimoto_clustering=False, foldseek=False, require_ligand=False, random_seed=42, max_chains=10)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Download and parse PDB files that meet filtering criteria.</p>
@@ -1078,10 +1078,10 @@ pdb_ids can also be passed, an automatic retrieval of chain id s will be perform
 <dd>If <code>False</code>, only files obtained with X-ray or EM will be processed</dd>
 <dt><strong><code>not_remove_redundancies</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>If 'False', removes biounits that are doubles of others sequence wise</dd>
+<dt><strong><code>redundancy_thr</code></strong> :&ensp;<code>float</code>, default <code>0.9</code></dt>
+<dd>The threshold upon which sequences are considered as one and the same (default: 0.9)</dd>
 <dt><strong><code>skip_splitting</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, skip the split dictionary creation and the file moving steps</dd>
-<dt><strong><code>redundancy_thr</code></strong> :&ensp;<code>float</code>, default <code>0.9</code></dt>
-<dd>The threshold upon which sequences are considered as one and the same (default: 90%)</dd>
 <dt><strong><code>n</code></strong> :&ensp;<code>int</code>, default <code>None</code></dt>
 <dd>The number of files to process (for debugging purposes)</dd>
 <dt><strong><code>force</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
@@ -1149,8 +1149,8 @@ pdb_ids can also be passed, an automatic retrieval of chain id s will be perform
     missing_middle_thr=0.1,
     not_filter_methods=False,
     not_remove_redundancies=False,
-    skip_splitting=False,
     redundancy_thr=0.9,
+    skip_splitting=False,
     n=None,
     force=False,
     split_tolerance=0.2,
@@ -1219,10 +1219,10 @@ pdb_ids can also be passed, an automatic retrieval of chain id s will be perform
         If `False`, only files obtained with X-ray or EM will be processed
     not_remove_redundancies : bool, default False
         If &#39;False&#39;, removes biounits that are doubles of others sequence wise
+    redundancy_thr : float, default 0.9
+        The threshold upon which sequences are considered as one and the same (default: 0.9)
     skip_splitting : bool, default False
         if `True`, skip the split dictionary creation and the file moving steps
-    redundancy_thr : float, default 0.9
-        The threshold upon which sequences are considered as one and the same (default: 90%)
     n : int, default None
         The number of files to process (for debugging purposes)
     force : bool, default False
