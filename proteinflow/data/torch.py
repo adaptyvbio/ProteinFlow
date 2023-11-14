@@ -309,6 +309,7 @@ class ProteinDataset(Dataset):
         patch_around_mask=False,
         initial_patch_size=128,
         antigen_patch_size=128,
+        debug_verbose=False,
     ):
         """Initialize the dataset.
 
@@ -381,6 +382,8 @@ class ProteinDataset(Dataset):
             the size of the antigen patch (used if `patch_around_mask` is `True` and the dataset is SAbDab)
 
         """
+        self.debug = debug_verbose
+
         alphabet = ALPHABET
         self.alphabet_dict = defaultdict(lambda: 0)
         for i, letter in enumerate(alphabet):
@@ -699,8 +702,6 @@ class ProteinDataset(Dataset):
         output_names = []
         if self.cut_edges:
             data_entry.cut_missing_edges()
-        if self.interpolate != "none":
-            data_entry.interpolate_coords(fill_ends=(self.interpolate == "all"))
         for chains_i, chain_set in enumerate(chain_sets):
             output_file = os.path.join(
                 self.features_folder, no_extension_name + f"_{chains_i}.pickle"
@@ -736,17 +737,49 @@ class ProteinDataset(Dataset):
                             if length > 0
                         ]
                     ):
-                        add_name = False
                         pass_set = True
+                        add_name = False
 
                 if self.entry_type == "pair":
                     if not data_entry.is_valid_pair(*chain_set):
                         pass_set = True
                         add_name = False
+            out = {}
+            if add_name:
+                cdr_chain_set = set()
+                if data_entry.has_cdr():
+                    out["cdr"] = torch.tensor(
+                        data_entry.get_cdr(chain_set, encode=True)
+                    )
+                    chain_type_dict = data_entry.get_chain_type_dict(chain_set)
+                    out["chain_type_dict"] = chain_type_dict
+                    if "heavy" in chain_type_dict:
+                        cdr_chain_set.update(
+                            [
+                                f"{chain_type_dict['heavy']}__{cdr}"
+                                for cdr in ["H1", "H2", "H3"]
+                            ]
+                        )
+                    if "light" in chain_type_dict:
+                        cdr_chain_set.update(
+                            [
+                                f"{chain_type_dict['light']}__{cdr}"
+                                for cdr in ["L1", "L2", "L3"]
+                            ]
+                        )
+                output_names.append(
+                    (
+                        os.path.basename(no_extension_name),
+                        output_file,
+                        chain_set if len(cdr_chain_set) == 0 else cdr_chain_set,
+                    )
+                )
             if pass_set:
                 continue
 
-            out = {}
+            if self.interpolate != "none":
+                data_entry.interpolate_coords(fill_ends=(self.interpolate == "all"))
+
             out["pdb_id"] = no_extension_name.split("-")[0]
             out["mask_original"] = torch.tensor(
                 data_entry.get_mask(chain_set, original=True)
@@ -767,39 +800,12 @@ class ProteinDataset(Dataset):
                     out["ligand_smiles"],
                     out["ligand_chains"],
                 ) = data_entry.get_ligand_features(ligands, chain_set)
-            cdr_chain_set = set()
-            if data_entry.has_cdr():
-                out["cdr"] = torch.tensor(data_entry.get_cdr(chain_set, encode=True))
-                chain_type_dict = data_entry.get_chain_type_dict(chain_set)
-                out["chain_type_dict"] = chain_type_dict
-                if "heavy" in chain_type_dict:
-                    cdr_chain_set.update(
-                        [
-                            f"{chain_type_dict['heavy']}__{cdr}"
-                            for cdr in ["H1", "H2", "H3"]
-                        ]
-                    )
-                if "light" in chain_type_dict:
-                    cdr_chain_set.update(
-                        [
-                            f"{chain_type_dict['light']}__{cdr}"
-                            for cdr in ["L1", "L2", "L3"]
-                        ]
-                    )
             for name in self.feature_types:
                 if name not in self.feature_functions:
                     continue
                 func = self.feature_functions[name]
                 out[name] = torch.tensor(func(data_entry, chain_set))
 
-            if add_name:
-                output_names.append(
-                    (
-                        os.path.basename(no_extension_name),
-                        output_file,
-                        chain_set if len(cdr_chain_set) == 0 else cdr_chain_set,
-                    )
-                )
             with open(output_file, "wb") as f:
                 pickle.dump(out, f)
 
