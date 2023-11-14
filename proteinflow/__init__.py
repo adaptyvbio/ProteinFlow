@@ -229,8 +229,8 @@ def generate_data(
     missing_middle_thr=0.1,
     not_filter_methods=False,
     not_remove_redundancies=False,
-    skip_splitting=False,
     redundancy_thr=0.9,
+    skip_splitting=False,
     n=None,
     force=False,
     split_tolerance=0.2,
@@ -299,10 +299,10 @@ def generate_data(
         If `False`, only files obtained with X-ray or EM will be processed
     not_remove_redundancies : bool, default False
         If 'False', removes biounits that are doubles of others sequence wise
+    redundancy_thr : float, default 0.9
+        The threshold upon which sequences are considered as one and the same (default: 0.9)
     skip_splitting : bool, default False
         if `True`, skip the split dictionary creation and the file moving steps
-    redundancy_thr : float, default 0.9
-        The threshold upon which sequences are considered as one and the same (default: 90%)
     n : int, default None
         The number of files to process (for debugging purposes)
     force : bool, default False

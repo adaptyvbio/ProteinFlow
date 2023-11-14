@@ -107,22 +107,7 @@ def download(**kwargs):
     help="The threshold upon which sequences are considered as one and the same (default: 90%)",
 )
 @click.option(
-    "--valid_split",
-    default=0.05,
-    type=float,
-    help="The percentage of chains to put in the validation set (default 5%)",
-)
-@click.option(
-    "--test_split",
-    default=0.05,
-    type=float,
-    help="The percentage of chains to put in the test set (default 5%)",
-)
-@click.option(
-    "--split_tolerance",
-    default=0.2,
-    type=float,
-    help="The tolerance on the split ratio (default 20%)",
+    "--skip_splitting", is_flag=True, help="Use this flag to skip splitting the data"
 )
 @click.option(
     "--n",
@@ -134,17 +119,27 @@ def download(**kwargs):
     "--force", is_flag=True, help="When `True`, rewrite the files if they already exist"
 )
 @click.option(
+    "--split_tolerance",
+    default=0.2,
+    type=float,
+    help="The tolerance on the split ratio (default 20%)",
+)
+@click.option(
+    "--test_split",
+    default=0.05,
+    type=float,
+    help="The percentage of chains to put in the test set (default 5%)",
+)
+@click.option(
+    "--valid_split",
+    default=0.05,
+    type=float,
+    help="The percentage of chains to put in the validation set (default 5%)",
+)
+@click.option(
     "--pdb_snapshot",
     type=str,
     help="The pdb snapshot folder to load",
-)
-@click.option(
-    "--skip_splitting", is_flag=True, help="Use this flag to skip splitting the data"
-)
-@click.option(
-    "--skip_processing",
-    is_flag=True,
-    help="Use this flag to skip downloading and processing the data",
 )
 @click.option(
     "--load_live",
@@ -173,11 +168,6 @@ def download(**kwargs):
     help="Use this flag to require that the SAbDab files contain an antigen",
 )
 @click.option(
-    "--load_ligands",
-    is_flag=True,
-    help="Whether or not to load ligands found in the pdbs example: data['A']['ligand'][0]['X']",
-)
-@click.option(
     "--exclude_chains",
     "-e",
     multiple=True,
@@ -204,6 +194,11 @@ def download(**kwargs):
     "--exclude_based_on_cdr",
     type=click.Choice(["L1", "L2", "L3", "H1", "H2", "H3"]),
     help="if given and exclude_clusters is true + the dataset is SAbDab, exclude files based on only the given CDR clusters",
+)
+@click.option(
+    "--load_ligands",
+    is_flag=True,
+    help="Whether or not to load ligands found in the pdbs example: data['A']['ligand'][0]['X']",
 )
 @click.option(
     "--exclude_chains_without_ligands",
@@ -253,9 +248,10 @@ def generate(**kwargs):
     help="The folder where proteinflow datasets, temporary files and logs will be stored",
 )
 @click.option(
-    "--ignore_existing",
-    is_flag=True,
-    help="Unless this flag is used, proteinflow will not overwrite existing split dictionaries for this tag and will load them instead",
+    "--split_tolerance",
+    default=0.2,
+    type=float,
+    help="The tolerance on the split ratio (default 20%)",
 )
 @click.option(
     "--valid_split",
@@ -270,10 +266,9 @@ def generate(**kwargs):
     help="The percentage of chains to put in the test set (default 5%)",
 )
 @click.option(
-    "--split_tolerance",
-    default=0.2,
-    type=float,
-    help="The tolerance on the split ratio (default 20%)",
+    "--ignore_existing",
+    is_flag=True,
+    help="Unless this flag is used, proteinflow will not overwrite existing split dictionaries for this tag and will load them instead",
 )
 @click.option(
     "--min_seq_id",
@@ -310,6 +305,12 @@ def generate(**kwargs):
     help="if given and exclude_clusters is true + the dataset is SAbDab, exclude files based on only the given CDR clusters",
 )
 @click.option(
+    "--random_seed",
+    default=42,
+    type=int,
+    help="The random seed to use for splitting",
+)
+@click.option(
     "--exclude_chains_without_ligands",
     is_flag=True,
     help="Exclude chains without ligands from the generated dataset",
@@ -323,12 +324,6 @@ def generate(**kwargs):
     "--foldseek",
     is_flag=True,
     help="Whether to use FoldSeek to cluster the dataset",
-)
-@click.option(
-    "--random_seed",
-    default=42,
-    type=int,
-    help="The random seed to use for splitting",
 )
 @cli.command(
     "split",
