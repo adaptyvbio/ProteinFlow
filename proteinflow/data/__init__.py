@@ -1993,7 +1993,7 @@ class ProteinEntry:
         io.save(save_pdb_path)
 
     @staticmethod
-    @requires_extra("mda", install_name="MDAnalysis")
+    @requires_extra("MDAnalysis")
     def combine_multiple_frames(files, output_path="combined.pdb"):
         """Combine multiple PDB files into a single multiframe PDB file.
 

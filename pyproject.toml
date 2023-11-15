@@ -30,11 +30,9 @@ dependencies = [
     "bs4>=0.0.1",
     "pyyaml>=6",
     "rcsbsearch",
-    "blosum>=2.0",
     "pre-commit",
     "rdkit",
     "pypdb",
-    "prody",
     "joblib",
 ]
 keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning", "antibody"]
@@ -52,6 +50,7 @@ processing = [
     "ablang",
     "igfold",
     "immunebuilder",
+    "blosum>=2.0",
 ]
 
 [tool.setuptools.packages]

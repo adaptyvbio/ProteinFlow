@@ -3,7 +3,6 @@
 import os
 
 import biotite.structure.io as bsio
-import blosum as bl
 import numpy as np
 import torch
 from torch.nn import functional as F
@@ -11,6 +10,10 @@ from tqdm import tqdm
 
 from proteinflow.extra import requires_extra
 
+try:
+    import blosum as bl
+except ImportError:
+    pass
 try:
     import esm
 except ImportError:
@@ -33,6 +36,7 @@ except ImportError:
     pass
 
 
+@requires_extra("blosum")
 def blosum62_score(seq_before, seq_after):
     """Calculate the BLOSUM62 score between two sequences.
 
@@ -264,9 +268,7 @@ def tm_score(coordinates1, coordinates2, sequence1, sequence2):
     return (res.tm_norm_chain1 + res.tm_norm_chain2) / 2
 
 
-requires_extra("esm", install_name="fair-esm[esmfold]")
-
-
+@requires_extra("esm", install_name="fair-esm[esmfold]")
 def esmfold_generate(sequences, filepaths=None):
     """Generate PDB structures using ESMFold.
 
