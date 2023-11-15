@@ -56,18 +56,31 @@ import warnings
 from collections import defaultdict
 
 import Bio.PDB
-import MDAnalysis as mda
 import numpy as np
 import pandas as pd
-import py3Dmol
 from Bio import pairwise2
 from biopandas.pdb import PandasPdb
-from methodtools import lru_cache
 from torch import Tensor, from_numpy
+
+try:
+    import MDAnalysis as mda
+except ImportError:
+    pass
+try:
+    from methodtools import lru_cache
+except ImportError:
+
+    def lru_cache():
+        &#34;&#34;&#34;Make a dummy decorator.&#34;&#34;&#34;
+
+        def wrapper(func):
+            return func
+
+        return wrapper
+
 
 from proteinflow.constants import (
     _PMAP,
-    ACCENT_COLOR,
     ALPHABET,
     ALPHABET_REVERSE,
     ATOM_MASKS,
@@ -90,6 +103,7 @@ from proteinflow.data.utils import (
     _retrieve_chain_names,
 )
 from proteinflow.download import download_fasta, download_pdb
+from proteinflow.extra import _get_view, requires_extra
 from proteinflow.ligand import _get_ligands
 from proteinflow.metrics import (
     ablang_pll,
@@ -2017,6 +2031,7 @@ class ProteinEntry:
         io.save(save_pdb_path)
 
     @staticmethod
+    @requires_extra(&#34;MDAnalysis&#34;)
     def combine_multiple_frames(files, output_path=&#34;combined.pdb&#34;):
         &#34;&#34;&#34;Combine multiple PDB files into a single multiframe PDB file.
 
@@ -2608,7 +2623,7 @@ class PDBEntry:
             accent_color=accent_color,
         )
         vis_string = &#34;&#34;.join([str(x) for x in outstr])
-        view = py3Dmol.view(width=canvas_size[0], height=canvas_size[1])
+        view = _get_view(canvas_size)
         view.addModelsAsFrames(vis_string)
         for i, at in enumerate(outstr):
             view.setStyle(
@@ -2904,6 +2919,24 @@ coordinates and 0 indicates missing values</dd>
     else:
         interpolated_mask = np.ones_like(crd[:, :, 0])
     return crd, mask</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.data.lru_cache"><code class="name flex">
+<span>def <span class="ident">lru_cache</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Make a dummy decorator.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def lru_cache():
+    &#34;&#34;&#34;Make a dummy decorator.&#34;&#34;&#34;
+
+    def wrapper(func):
+        return func
+
+    return wrapper</code></pre>
 </details>
 </dd>
 </dl>
@@ -3461,7 +3494,7 @@ from the PDB file.</p>
             accent_color=accent_color,
         )
         vis_string = &#34;&#34;.join([str(x) for x in outstr])
-        view = py3Dmol.view(width=canvas_size[0], height=canvas_size[1])
+        view = _get_view(canvas_size)
         view.addModelsAsFrames(vis_string)
         for i, at in enumerate(outstr):
             view.setStyle(
@@ -4149,7 +4182,7 @@ the atoms corresponding to 1s will be highlighted in red</dd>
         accent_color=accent_color,
     )
     vis_string = &#34;&#34;.join([str(x) for x in outstr])
-    view = py3Dmol.view(width=canvas_size[0], height=canvas_size[1])
+    view = _get_view(canvas_size)
     view.addModelsAsFrames(vis_string)
     for i, at in enumerate(outstr):
         view.setStyle(
@@ -6070,6 +6103,7 @@ indicates residues with known coordinates</dd>
         io.save(save_pdb_path)
 
     @staticmethod
+    @requires_extra(&#34;MDAnalysis&#34;)
     def combine_multiple_frames(files, output_path=&#34;combined.pdb&#34;):
         &#34;&#34;&#34;Combine multiple PDB files into a single multiframe PDB file.
 
@@ -6140,41 +6174,21 @@ indicates residues with known coordinates</dd>
 <h3>Static methods</h3>
 <dl>
 <dt id="proteinflow.data.ProteinEntry.combine_multiple_frames"><code class="name flex">
-<span>def <span class="ident">combine_multiple_frames</span></span>(<span>files, output_path='combined.pdb')</span>
+<span>def <span class="ident">combine_multiple_frames</span></span>(<span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Combine multiple PDB files into a single multiframe PDB file.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>files</code></strong> :&ensp;<code>list</code> of <code>str</code></dt>
-<dd>A list of PDB or proteinflow pickle files</dd>
-<dt><strong><code>output_path</code></strong> :&ensp;<code>str</code>, default <code>'combined.pdb'</code></dt>
-<dd>Path to the .pdb output file</dd>
-</dl></div>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@staticmethod
-def combine_multiple_frames(files, output_path=&#34;combined.pdb&#34;):
-    &#34;&#34;&#34;Combine multiple PDB files into a single multiframe PDB file.
-
-    Parameters
-    ----------
-    files : list of str
-        A list of PDB or proteinflow pickle files
-    output_path : str, default &#39;combined.pdb&#39;
-        Path to the .pdb output file
-
-    &#34;&#34;&#34;
-    with mda.Writer(output_path, multiframe=True) as writer:
-        for file in files:
-            if file.endswith(&#34;.pickle&#34;):
-                file_ = ProteinEntry.from_pickle(file)._temp_pdb_file()
-            else:
-                file_ = file
-            u = mda.Universe(file_)
-            writer.write(u)</code></pre>
+<pre><code class="python">def wrapper(*args, **kwargs):
+    if module_name not in sys.modules:
+        raise ImportError(
+            f&#34;{install_name} must be installed to use this function. &#34;
+            f&#34;Install it with `pip install {install_name}` or together with most other optional dependencies with `pip install proteinflow[processing]`.&#34;
+        )
+    return func(*args, **kwargs)</code></pre>
 </details>
 </dd>
 <dt id="proteinflow.data.ProteinEntry.decode_cdr"><code class="name flex">
@@ -9748,6 +9762,7 @@ def from_id(
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="proteinflow.data.interpolate_coords" href="#proteinflow.data.interpolate_coords">interpolate_coords</a></code></li>
+<li><code><a title="proteinflow.data.lru_cache" href="#proteinflow.data.lru_cache">lru_cache</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>

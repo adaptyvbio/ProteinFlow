@@ -32,16 +32,26 @@
 
 import os
 
-import Bio.PDB
 import biotite.structure.io as bsio
-import blosum as bl
-import esm
 import numpy as np
 import torch
-from tmtools import tm_align
 from torch.nn import functional as F
 from tqdm import tqdm
 
+from proteinflow.extra import requires_extra
+
+try:
+    import blosum as bl
+except ImportError:
+    pass
+try:
+    import esm
+except ImportError:
+    pass
+try:
+    from tmtools import tm_align
+except ImportError:
+    pass
 try:
     import ablang
 except ImportError:
@@ -56,6 +66,7 @@ except ImportError:
     pass
 
 
+@requires_extra(&#34;blosum&#34;)
 def blosum62_score(seq_before, seq_after):
     &#34;&#34;&#34;Calculate the BLOSUM62 score between two sequences.
 
@@ -108,6 +119,7 @@ def long_repeat_num(seq, thr=5):
     return count
 
 
+@requires_extra(&#34;esm&#34;, install_name=&#34;fair-esm&#34;)
 def _get_esm_model(esm_model_name):
     &#34;&#34;&#34;Get ESM model, batch converter and tok_to_idx dictionary.&#34;&#34;&#34;
     model_dict = {
@@ -126,6 +138,7 @@ def _get_esm_model(esm_model_name):
     return esm_model, batch_converter, tok_to_idx
 
 
+@requires_extra(&#34;ablang&#34;)
 def ablang_pll(
     sequence,
     predict_mask,
@@ -179,6 +192,7 @@ def ablang_pll(
     return pll
 
 
+@requires_extra(&#34;esm&#34;, install_name=&#34;fair-esm&#34;)
 def esm_pll(
     chain_sequences,
     predict_masks,
@@ -259,6 +273,7 @@ def ca_rmsd(coordinates1, coordinates2):
     return np.sqrt(((coordinates1 - coordinates2) ** 2).sum(axis=-1).mean())
 
 
+@requires_extra(&#34;tmtools&#34;)
 def tm_score(coordinates1, coordinates2, sequence1, sequence2):
     &#34;&#34;&#34;Calculate TM-score between two structures.
 
@@ -283,6 +298,7 @@ def tm_score(coordinates1, coordinates2, sequence1, sequence2):
     return (res.tm_norm_chain1 + res.tm_norm_chain2) / 2
 
 
+@requires_extra(&#34;esm&#34;, install_name=&#34;fair-esm[esmfold]&#34;)
 def esmfold_generate(sequences, filepaths=None):
     &#34;&#34;&#34;Generate PDB structures using ESMFold.
 
@@ -316,6 +332,7 @@ def esmfold_generate(sequences, filepaths=None):
                 f.write(output)
 
 
+@requires_extra(&#34;igfold&#34;)
 def igfold_generate(sequence_dicts, filepaths=None, use_openmm=False):
     &#34;&#34;&#34;Generate PDB structures using IgFold.
 
@@ -350,6 +367,7 @@ def igfold_generate(sequence_dicts, filepaths=None, use_openmm=False):
         )
 
 
+@requires_extra(&#34;ImmuneBuilder&#34;)
 def immunebuilder_generate(sequence_dicts, filepaths=None, protein_type=&#34;antibody&#34;):
     &#34;&#34;&#34;Generate PDB structures using ImmuneBuilder.
 
@@ -427,130 +445,6 @@ def confidence_from_file(filepath, predict_mask=None):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="proteinflow.metrics.ablang_pll"><code class="name flex">
-<span>def <span class="ident">ablang_pll</span></span>(<span>sequence, predict_mask, ablang_model_name='heavy', average=False)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Compute pseudo log likelihood.</p>
-<p>Note that you need to install <code>ablang</code> (see <a href="https://github.com/oxpig/AbLang/tree/main">https://github.com/oxpig/AbLang/tree/main</a>).</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>sequence</code></strong> :&ensp;<code>str</code></dt>
-<dd>Chain sequence (string of amino acid codes)</dd>
-<dt><strong><code>predict_mask</code></strong> :&ensp;<code>np.ndarray</code></dt>
-<dd>Predict mask corresponding to the sequence (array of 0 and 1 where 1 indicates a predicted residue)</dd>
-<dt><strong><code>ablang_model_name</code></strong> :&ensp;<code>{"heavy", "light"}</code>, default <code>"heavy"</code></dt>
-<dd>Name of the AbLang model to use</dd>
-<dt><strong><code>average</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
-<dd>Whether to average the pseudo log likelihood over the residues</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><strong><code>pll</code></strong> :&ensp;<code>float</code></dt>
-<dd>Pseudo log likelihood</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def ablang_pll(
-    sequence,
-    predict_mask,
-    ablang_model_name=&#34;heavy&#34;,
-    average=False,
-):
-    &#34;&#34;&#34;Compute pseudo log likelihood.
-
-    Note that you need to install `ablang` (see https://github.com/oxpig/AbLang/tree/main).
-
-    Parameters
-    ----------
-    sequence : str
-        Chain sequence (string of amino acid codes)
-    predict_mask : np.ndarray
-        Predict mask corresponding to the sequence (array of 0 and 1 where 1 indicates a predicted residue)
-    ablang_model_name : {&#34;heavy&#34;, &#34;light&#34;}, default &#34;heavy&#34;
-        Name of the AbLang model to use
-    average : bool, default False
-        Whether to average the pseudo log likelihood over the residues
-
-    Returns
-    -------
-    pll: float
-        Pseudo log likelihood
-
-    &#34;&#34;&#34;
-    ablang_model = ablang.pretrained(
-        ablang_model_name
-    )  # Use &#34;light&#34; if you are working with light chains
-    ablang_model.freeze()
-
-    sequences = []
-    sequence = list(sequence)
-    predict_idx = np.where(predict_mask)[0]
-    for i in predict_idx:
-        sequences.append(&#34;&#34;.join(sequence[:i]) + &#34;*&#34; + &#34;&#34;.join(sequence[i + 1 :]))
-
-    logits = ablang_model(sequences, mode=&#34;likelihood&#34;)[:, 1:]
-    exp_logits = np.exp(logits)
-    prob = exp_logits / exp_logits.sum(axis=-1, keepdims=True)
-    true_idx = [
-        ablang_model.tokenizer.vocab_to_token[x] - 1
-        for x in np.array(sequence)[predict_idx]
-    ]
-
-    prob = prob[range(prob.shape[0]), predict_idx, true_idx]
-    pll = np.log(prob).sum()
-    if average:
-        pll /= len(predict_idx)
-    return pll</code></pre>
-</details>
-</dd>
-<dt id="proteinflow.metrics.blosum62_score"><code class="name flex">
-<span>def <span class="ident">blosum62_score</span></span>(<span>seq_before, seq_after)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Calculate the BLOSUM62 score between two sequences.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>seq_before</code></strong> :&ensp;<code>str</code></dt>
-<dd>The sequence before the mutation</dd>
-<dt><strong><code>seq_after</code></strong> :&ensp;<code>str</code></dt>
-<dd>The sequence after the mutation</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><strong><code>score</code></strong> :&ensp;<code>int</code></dt>
-<dd>The BLOSUM62 score between the two sequences</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def blosum62_score(seq_before, seq_after):
-    &#34;&#34;&#34;Calculate the BLOSUM62 score between two sequences.
-
-    Parameters
-    ----------
-    seq_before : str
-        The sequence before the mutation
-    seq_after : str
-        The sequence after the mutation
-
-    Returns
-    -------
-    score : int
-        The BLOSUM62 score between the two sequences
-
-    &#34;&#34;&#34;
-    assert len(seq_before) == len(seq_after)
-    matrix = bl.BLOSUM(62)
-    score = 0
-    for x_before, x_after in zip(seq_before, seq_after):
-        score += matrix[x_before][x_after]
-    return score</code></pre>
-</details>
-</dd>
 <dt id="proteinflow.metrics.ca_rmsd"><code class="name flex">
 <span>def <span class="ident">ca_rmsd</span></span>(<span>coordinates1, coordinates2)</span>
 </code></dt>
@@ -651,250 +545,6 @@ For files generated with ESMFold, the metric is pLDDT; for IgFold and ImmuneBuil
         return struct.b_factor.mean()</code></pre>
 </details>
 </dd>
-<dt id="proteinflow.metrics.esm_pll"><code class="name flex">
-<span>def <span class="ident">esm_pll</span></span>(<span>chain_sequences, predict_masks, esm_model_name='esm2_t30_150M_UR50D', esm_model_objects=None, average=False)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Compute pseudo log likelihood.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>chain_sequences</code></strong> :&ensp;<code>list</code> of <code>str</code></dt>
-<dd>List of chain sequences (strings of amino acid codes)</dd>
-<dt><strong><code>predict_masks</code></strong> :&ensp;<code>list</code> of <code>np.ndarray</code></dt>
-<dd>List of predict masks corresponding to the sequences (arrays of 0 and 1 where 1 indicates a predicted residue)</dd>
-<dt><strong><code>esm_model_name</code></strong> :&ensp;<code>str</code>, default <code>"esm2_t30_150M_UR50D"</code></dt>
-<dd>Name of the ESM-2 model to use</dd>
-<dt><strong><code>esm_model_objects</code></strong> :&ensp;<code>tuple</code>, optional</dt>
-<dd>Tuple of ESM-2 model, batch converter and tok_to_idx dictionary (if not None, <code>esm_model_name</code> will be ignored)</dd>
-<dt><strong><code>average</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
-<dd>Whether to average the pseudo log likelihood over the residues</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><strong><code>pll</code></strong> :&ensp;<code>float</code></dt>
-<dd>Pseudo log likelihood</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def esm_pll(
-    chain_sequences,
-    predict_masks,
-    esm_model_name=&#34;esm2_t30_150M_UR50D&#34;,
-    esm_model_objects=None,
-    average=False,
-):
-    &#34;&#34;&#34;Compute pseudo log likelihood.
-
-    Parameters
-    ----------
-    chain_sequences : list of str
-        List of chain sequences (strings of amino acid codes)
-    predict_masks : list of np.ndarray
-        List of predict masks corresponding to the sequences (arrays of 0 and 1 where 1 indicates a predicted residue)
-    esm_model_name : str, default &#34;esm2_t30_150M_UR50D&#34;
-        Name of the ESM-2 model to use
-    esm_model_objects : tuple, optional
-        Tuple of ESM-2 model, batch converter and tok_to_idx dictionary (if not None, `esm_model_name` will be ignored)
-    average : bool, default False
-        Whether to average the pseudo log likelihood over the residues
-
-    Returns
-    -------
-    pll: float
-        Pseudo log likelihood
-
-    &#34;&#34;&#34;
-    predict_mask = []
-    for mask in predict_masks:
-        predict_mask.append(mask)
-        predict_mask.append(np.zeros(2))
-    predict_mask = np.concatenate(predict_mask, axis=0)
-    predict_idx = np.where(predict_mask)[0]
-    sequence = []
-    for i, seq in enumerate(chain_sequences):
-        sequence += list(seq)
-        if i != len(chain_sequences) - 1:
-            sequence += [&#34;&lt;eos&gt;&#34;, &#34;&lt;cls&gt;&#34;]
-
-    if esm_model_objects is None:
-        esm_model, batch_converter, tok_to_idx = _get_esm_model(esm_model_name)
-    else:
-        esm_model, batch_converter, tok_to_idx = esm_model_objects
-    pll = 0
-    for i in predict_idx:
-        sequence_ = &#34;&#34;.join(sequence[:i]) + &#34;&lt;mask&gt;&#34; + &#34;&#34;.join(sequence[i + 1 :])
-        _, _, batch_tokens = batch_converter([(0, sequence_)])
-        if torch.cuda.is_available():
-            batch_tokens = batch_tokens.to(&#34;cuda&#34;)
-        with torch.no_grad():
-            results = esm_model(batch_tokens, repr_layers=[6], return_contacts=False)
-        logits = results[&#34;logits&#34;][0, i + 1].detach().cpu()
-        tok_idx = tok_to_idx[sequence[i]]
-        prob = F.softmax(logits[4:24], dim=-1)[tok_idx - 4]
-        pll += torch.log(prob).item()
-    if average:
-        pll /= len(predict_idx)
-    return pll</code></pre>
-</details>
-</dd>
-<dt id="proteinflow.metrics.esmfold_generate"><code class="name flex">
-<span>def <span class="ident">esmfold_generate</span></span>(<span>sequences, filepaths=None)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Generate PDB structures using ESMFold.</p>
-<p>Note that you need to install <code>fair-esm</code> with the <code>esmfold</code> option (see <a href="https://github.com/facebookresearch/esm/tree/main">https://github.com/facebookresearch/esm/tree/main</a>).
-The model also requires &gt; 16GB CPU and GPU memory.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>sequences</code></strong> :&ensp;<code>list</code> of <code>str</code></dt>
-<dd>List of sequences to be generated (chains separated with <code>':'</code>)</dd>
-<dt><strong><code>filepaths</code></strong> :&ensp;<code>list</code> of <code>str</code>, default <code>None</code></dt>
-<dd>List of filepaths for the generated structures</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def esmfold_generate(sequences, filepaths=None):
-    &#34;&#34;&#34;Generate PDB structures using ESMFold.
-
-    Note that you need to install `fair-esm` with the `esmfold` option (see https://github.com/facebookresearch/esm/tree/main).
-    The model also requires &gt; 16GB CPU and GPU memory.
-
-    Parameters
-    ----------
-    sequences : list of str
-        List of sequences to be generated (chains separated with `&#39;:&#39;`)
-    filepaths : list of str, default None
-        List of filepaths for the generated structures
-
-    &#34;&#34;&#34;
-    assert filepaths is None or len(filepaths) == len(sequences)
-    print(&#34;Loading the ESMFold model...&#34;)
-    model = esm.pretrained.esmfold_v1()
-    model = model.eval().cuda()
-    print(&#34;Model loaded.&#34;)
-    if filepaths is None:
-        if not os.path.exists(&#34;esmfold_output&#34;):
-            os.mkdir(&#34;esmfold_output&#34;)
-        filepaths = [
-            os.path.join(&#34;esmfold_output&#34;, f&#34;seq_{i}.pdb&#34;)
-            for i in range(len(sequences))
-        ]
-    with torch.no_grad():
-        for sequence, path in tqdm(zip(sequences, filepaths), total=len(sequences)):
-            output = model.infer_pdb(sequence)
-            with open(path, &#34;w&#34;) as f:
-                f.write(output)</code></pre>
-</details>
-</dd>
-<dt id="proteinflow.metrics.igfold_generate"><code class="name flex">
-<span>def <span class="ident">igfold_generate</span></span>(<span>sequence_dicts, filepaths=None, use_openmm=False)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Generate PDB structures using IgFold.</p>
-<p>Note that you need to install <code>igfold</code> (see <a href="https://github.com/Graylab/IgFold">https://github.com/Graylab/IgFold</a>).</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>sequence_dicts</code></strong> :&ensp;<code>list</code> of <code>dict</code></dt>
-<dd>List of sequence dictionaries (keys: "H", "L" for heavy and light chains)</dd>
-<dt><strong><code>filepaths</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
-<dd>List of filepaths for the generated structures</dd>
-<dt><strong><code>use_openmm</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
-<dd>Whether to use refinement with OpenMM</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def igfold_generate(sequence_dicts, filepaths=None, use_openmm=False):
-    &#34;&#34;&#34;Generate PDB structures using IgFold.
-
-    Note that you need to install `igfold` (see https://github.com/Graylab/IgFold).
-
-    Parameters
-    ----------
-    sequence_dicts : list of dict
-        List of sequence dictionaries (keys: &#34;H&#34;, &#34;L&#34; for heavy and light chains)
-    filepaths : list of str, optional
-        List of filepaths for the generated structures
-    use_openmm : bool, default False
-        Whether to use refinement with OpenMM
-
-    &#34;&#34;&#34;
-    assert filepaths is None or len(filepaths) == len(sequence_dicts)
-    igfold = IgFoldRunner()
-    folder = &#34;igfold_refine_output&#34; if use_openmm else &#34;igfold_output&#34;
-    if filepaths is None:
-        if not os.path.exists(folder):
-            os.mkdir(folder)
-        filepaths = [
-            os.path.join(folder, f&#34;seq_{i}.pdb&#34;) for i in range(len(sequence_dicts))
-        ]
-    for seqs, path in tqdm(zip(sequence_dicts, filepaths), total=len(sequence_dicts)):
-        igfold.fold(
-            path,  # Output PDB file
-            sequences=seqs,  # Antibody sequences
-            do_refine=use_openmm,  # Refine the antibody structure
-            use_openmm=use_openmm,  # Use OpenMM for refinement
-            do_renum=False,  # Renumber predicted antibody structure (Chothia)
-        )</code></pre>
-</details>
-</dd>
-<dt id="proteinflow.metrics.immunebuilder_generate"><code class="name flex">
-<span>def <span class="ident">immunebuilder_generate</span></span>(<span>sequence_dicts, filepaths=None, protein_type='antibody')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Generate PDB structures using ImmuneBuilder.</p>
-<p>Note that you need to install <code>immunebuilder</code> (see <a href="https://github.com/oxpig/ImmuneBuilder">https://github.com/oxpig/ImmuneBuilder</a>)</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>sequence_dicts</code></strong> :&ensp;<code>list</code> of <code>dict</code></dt>
-<dd>List of sequence dictionaries (keys: "H", "L" for heavy and light chains)</dd>
-<dt><strong><code>filepaths</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
-<dd>List of filepaths for the generated structures</dd>
-<dt><strong><code>protein_type</code></strong> :&ensp;<code>{"antibody", "nanobody", "tcr"}</code></dt>
-<dd>Type of the structure to generate</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def immunebuilder_generate(sequence_dicts, filepaths=None, protein_type=&#34;antibody&#34;):
-    &#34;&#34;&#34;Generate PDB structures using ImmuneBuilder.
-
-    Note that you need to install `immunebuilder` (see https://github.com/oxpig/ImmuneBuilder)
-
-    Parameters
-    ----------
-    sequence_dicts : list of dict
-        List of sequence dictionaries (keys: &#34;H&#34;, &#34;L&#34; for heavy and light chains)
-    filepaths : list of str, optional
-        List of filepaths for the generated structures
-    protein_type: {&#34;antibody&#34;, &#34;nanobody&#34;, &#34;tcr&#34;}
-        Type of the structure to generate
-
-    &#34;&#34;&#34;
-    predictor_classes = {
-        &#34;antibody&#34;: ABodyBuilder2,
-        &#34;nanobody&#34;: NanoBodyBuilder2,
-        &#34;tcr&#34;: TCRBuilder2,
-    }
-    predictor = predictor_classes[protein_type]()
-    folder = &#34;immunebuilder_output&#34;
-    if filepaths is None:
-        if not os.path.exists(folder):
-            os.mkdir(folder)
-        filepaths = [
-            os.path.join(folder, f&#34;seq_{i}.pdb&#34;) for i in range(len(sequence_dicts))
-        ]
-    for seqs, path in tqdm(zip(sequence_dicts, filepaths), total=len(sequence_dicts)):
-        out = predictor.predict(seqs)
-        out.save(path)</code></pre>
-</details>
-</dd>
 <dt id="proteinflow.metrics.long_repeat_num"><code class="name flex">
 <span>def <span class="ident">long_repeat_num</span></span>(<span>seq, thr=5)</span>
 </code></dt>
@@ -944,55 +594,6 @@ The model also requires &gt; 16GB CPU and GPU memory.</p>
     return count</code></pre>
 </details>
 </dd>
-<dt id="proteinflow.metrics.tm_score"><code class="name flex">
-<span>def <span class="ident">tm_score</span></span>(<span>coordinates1, coordinates2, sequence1, sequence2)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Calculate TM-score between two structures.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>coordinates1</code></strong> :&ensp;<code>np.ndarray</code></dt>
-<dd>The CA coordinates array of the first structure, shaped <code>(L, 3)</code></dd>
-<dt><strong><code>coordinates2</code></strong> :&ensp;<code>ProteinEntry</code></dt>
-<dd>The CA coordinates array of the second structure, shaped <code>(L, 3)</code></dd>
-<dt><strong><code>sequence1</code></strong> :&ensp;<code>str</code></dt>
-<dd>The sequence of the first structure</dd>
-<dt><strong><code>sequence2</code></strong> :&ensp;<code>str</code></dt>
-<dd>The sequence of the second structure</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><strong><code>tm_score</code></strong> :&ensp;<code>float</code></dt>
-<dd>The TM-score between the two structures</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def tm_score(coordinates1, coordinates2, sequence1, sequence2):
-    &#34;&#34;&#34;Calculate TM-score between two structures.
-
-    Parameters
-    ----------
-    coordinates1 : np.ndarray
-        The CA coordinates array of the first structure, shaped `(L, 3)`
-    coordinates2 : ProteinEntry
-        The CA coordinates array of the second structure, shaped `(L, 3)`
-    sequence1 : str
-        The sequence of the first structure
-    sequence2 : str
-        The sequence of the second structure
-
-    Returns
-    -------
-    tm_score : float
-        The TM-score between the two structures
-
-    &#34;&#34;&#34;
-    res = tm_align(coordinates1, coordinates2, sequence1, sequence2)
-    return (res.tm_norm_chain1 + res.tm_norm_chain2) / 2</code></pre>
-</details>
-</dd>
 </dl>
 </section>
 <section>
@@ -1016,16 +617,9 @@ The model also requires &gt; 16GB CPU and GPU memory.</p>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
-<li><code><a title="proteinflow.metrics.ablang_pll" href="#proteinflow.metrics.ablang_pll">ablang_pll</a></code></li>
-<li><code><a title="proteinflow.metrics.blosum62_score" href="#proteinflow.metrics.blosum62_score">blosum62_score</a></code></li>
 <li><code><a title="proteinflow.metrics.ca_rmsd" href="#proteinflow.metrics.ca_rmsd">ca_rmsd</a></code></li>
 <li><code><a title="proteinflow.metrics.confidence_from_file" href="#proteinflow.metrics.confidence_from_file">confidence_from_file</a></code></li>
-<li><code><a title="proteinflow.metrics.esm_pll" href="#proteinflow.metrics.esm_pll">esm_pll</a></code></li>
-<li><code><a title="proteinflow.metrics.esmfold_generate" href="#proteinflow.metrics.esmfold_generate">esmfold_generate</a></code></li>
-<li><code><a title="proteinflow.metrics.igfold_generate" href="#proteinflow.metrics.igfold_generate">igfold_generate</a></code></li>
-<li><code><a title="proteinflow.metrics.immunebuilder_generate" href="#proteinflow.metrics.immunebuilder_generate">immunebuilder_generate</a></code></li>
 <li><code><a title="proteinflow.metrics.long_repeat_num" href="#proteinflow.metrics.long_repeat_num">long_repeat_num</a></code></li>
-<li><code><a title="proteinflow.metrics.tm_score" href="#proteinflow.metrics.tm_score">tm_score</a></code></li>
 </ul>
 </li>
 </ul>
