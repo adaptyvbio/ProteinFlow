@@ -18,18 +18,31 @@ import warnings
 from collections import defaultdict
 
 import Bio.PDB
-import MDAnalysis as mda
 import numpy as np
 import pandas as pd
-import py3Dmol
 from Bio import pairwise2
 from biopandas.pdb import PandasPdb
-from methodtools import lru_cache
 from torch import Tensor, from_numpy
+
+try:
+    import MDAnalysis as mda
+except ImportError:
+    pass
+try:
+    from methodtools import lru_cache
+except ImportError:
+
+    def lru_cache():
+        """Make a dummy decorator."""
+
+        def wrapper(func):
+            return func
+
+        return wrapper
+
 
 from proteinflow.constants import (
     _PMAP,
-    ACCENT_COLOR,
     ALPHABET,
     ALPHABET_REVERSE,
     ATOM_MASKS,
@@ -52,6 +65,7 @@ from proteinflow.data.utils import (
     _retrieve_chain_names,
 )
 from proteinflow.download import download_fasta, download_pdb
+from proteinflow.extra import _get_view, requires_extra
 from proteinflow.ligand import _get_ligands
 from proteinflow.metrics import (
     ablang_pll,
@@ -1979,6 +1993,7 @@ class ProteinEntry:
         io.save(save_pdb_path)
 
     @staticmethod
+    @requires_extra("mda", install_name="MDAnalysis")
     def combine_multiple_frames(files, output_path="combined.pdb"):
         """Combine multiple PDB files into a single multiframe PDB file.
 
@@ -2570,7 +2585,7 @@ class PDBEntry:
             accent_color=accent_color,
         )
         vis_string = "".join([str(x) for x in outstr])
-        view = py3Dmol.view(width=canvas_size[0], height=canvas_size[1])
+        view = _get_view(canvas_size)
         view.addModelsAsFrames(vis_string)
         for i, at in enumerate(outstr):
             view.setStyle(

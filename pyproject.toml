@@ -36,16 +36,23 @@ dependencies = [
     "pypdb",
     "prody",
     "joblib",
-    "methodtools",
-    "py3Dmol",
-    "tmtools",
-    "fair-esm",
-    "MDAnalysis",
 ]
 keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning", "antibody"]
 
 [project.scripts]
 proteinflow = "proteinflow.cli:cli"
+
+[project.optional-dependencies]
+processing = [
+    "py3Dmol",
+    "methodtools",
+    "tmtools",
+    "fair-esm",
+    "MDAnalysis",
+    "ablang",
+    "igfold",
+    "immunebuilder",
+]
 
 [tool.setuptools.packages]
 find = {}

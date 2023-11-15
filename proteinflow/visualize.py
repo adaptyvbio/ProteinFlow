@@ -3,9 +3,9 @@
 import string
 
 import numpy as np
-import py3Dmol
 
 from proteinflow.data import PDBEntry, ProteinEntry
+from proteinflow.extra import _get_view
 
 
 def show_animation_from_pdb(
@@ -55,7 +55,7 @@ def show_animation_from_pdb(
         models += "".join([str(x) for x in atoms])
         models += "ENDMDL\n"
 
-    view = py3Dmol.view(width=canvas_size[0], height=canvas_size[1])
+    view = _get_view(canvas_size)
     view.addModelsAsFrames(models)
 
     for i, at in enumerate(atoms):
@@ -116,7 +116,7 @@ def show_animation_from_pickle(
         models += "".join([str(x) for x in atoms])
         models += "ENDMDL\n"
 
-    view = py3Dmol.view(width=canvas_size[0], height=canvas_size[1])
+    view = _get_view(canvas_size)
     view.addModelsAsFrames(models)
 
     for i, at in enumerate(atoms):

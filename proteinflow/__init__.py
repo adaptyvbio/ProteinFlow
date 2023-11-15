@@ -171,6 +171,7 @@ __pdoc__ = {
     "split": False,
     "cli": False,
     "ligand": False,
+    "extra": False,
 }
 __docformat__ = "numpy"
 
