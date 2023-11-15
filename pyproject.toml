@@ -30,22 +30,28 @@ dependencies = [
     "bs4>=0.0.1",
     "pyyaml>=6",
     "rcsbsearch",
-    "blosum>=2.0",
     "pre-commit",
     "rdkit",
     "pypdb",
-    "prody",
     "joblib",
-    "methodtools",
-    "py3Dmol",
-    "tmtools",
-    "fair-esm",
-    "MDAnalysis",
 ]
 keywords = ["bioinformatics", "dataset", "protein", "PDB", "deep learning", "antibody"]
 
 [project.scripts]
 proteinflow = "proteinflow.cli:cli"
+
+[project.optional-dependencies]
+processing = [
+    "py3Dmol",
+    "methodtools",
+    "tmtools",
+    "fair-esm",
+    "MDAnalysis",
+    "ablang",
+    "igfold",
+    "immunebuilder",
+    "blosum>=2.0",
+]
 
 [tool.setuptools.packages]
 find = {}

@@ -8,7 +8,5 @@ python -m pip install "fair-esm[esmfold]"
 python -m pip install 'dllogger @ git+https://github.com/NVIDIA/dllogger.git'
 python -m pip install 'openfold @ git+https://github.com/aqlaboratory/openfold.git@4b41059694619831a7db195b7e0988fc4ff3a307'
 
-python -m pip install ablang igfold immunebuilder
-
 python -m pip install -e .
-python -m pip install ipykernel
+# python -m pip install ipykernel

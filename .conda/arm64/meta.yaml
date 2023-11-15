@@ -25,12 +25,12 @@ requirements:
     - wheel
     - setuptools
   run:
-    - numpy>=1.17
+    - numpy>=1.21,<1.25
     - editdistance>=0.6.0
     - Biopython==1.79 
     - click>=8.1.3
     - biopandas>=0.4.1
-    - boto3==1.24.59
+    - boto3
     - p-tqdm
     - networkx==2.8.8
     - einops
@@ -41,8 +41,10 @@ requirements:
     - awscli==1.25.60
     - bs4
     - rcsbsearch
-    - tmtools
-    - fair-esm
+    - pyyaml
+    - rdkit
+    - pypdb
+    - joblib
 
 about:
   home: https://github.com/adaptyvbio/ProteinFlow

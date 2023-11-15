@@ -2,16 +2,26 @@
 
 import os
 
-import Bio.PDB
 import biotite.structure.io as bsio
-import blosum as bl
-import esm
 import numpy as np
 import torch
-from tmtools import tm_align
 from torch.nn import functional as F
 from tqdm import tqdm
 
+from proteinflow.extra import requires_extra
+
+try:
+    import blosum as bl
+except ImportError:
+    pass
+try:
+    import esm
+except ImportError:
+    pass
+try:
+    from tmtools import tm_align
+except ImportError:
+    pass
 try:
     import ablang
 except ImportError:
@@ -26,6 +36,7 @@ except ImportError:
     pass
 
 
+@requires_extra("blosum")
 def blosum62_score(seq_before, seq_after):
     """Calculate the BLOSUM62 score between two sequences.
 
@@ -78,6 +89,7 @@ def long_repeat_num(seq, thr=5):
     return count
 
 
+@requires_extra("esm", install_name="fair-esm")
 def _get_esm_model(esm_model_name):
     """Get ESM model, batch converter and tok_to_idx dictionary."""
     model_dict = {
@@ -96,6 +108,7 @@ def _get_esm_model(esm_model_name):
     return esm_model, batch_converter, tok_to_idx
 
 
+@requires_extra("ablang")
 def ablang_pll(
     sequence,
     predict_mask,
@@ -149,6 +162,7 @@ def ablang_pll(
     return pll
 
 
+@requires_extra("esm", install_name="fair-esm")
 def esm_pll(
     chain_sequences,
     predict_masks,
@@ -229,6 +243,7 @@ def ca_rmsd(coordinates1, coordinates2):
     return np.sqrt(((coordinates1 - coordinates2) ** 2).sum(axis=-1).mean())
 
 
+@requires_extra("tmtools")
 def tm_score(coordinates1, coordinates2, sequence1, sequence2):
     """Calculate TM-score between two structures.
 
@@ -253,6 +268,7 @@ def tm_score(coordinates1, coordinates2, sequence1, sequence2):
     return (res.tm_norm_chain1 + res.tm_norm_chain2) / 2
 
 
+@requires_extra("esm", install_name="fair-esm[esmfold]")
 def esmfold_generate(sequences, filepaths=None):
     """Generate PDB structures using ESMFold.
 
@@ -286,6 +302,7 @@ def esmfold_generate(sequences, filepaths=None):
                 f.write(output)
 
 
+@requires_extra("igfold")
 def igfold_generate(sequence_dicts, filepaths=None, use_openmm=False):
     """Generate PDB structures using IgFold.
 
@@ -320,6 +337,7 @@ def igfold_generate(sequence_dicts, filepaths=None, use_openmm=False):
         )
 
 
+@requires_extra("ImmuneBuilder")
 def immunebuilder_generate(sequence_dicts, filepaths=None, protein_type="antibody"):
     """Generate PDB structures using ImmuneBuilder.
 
