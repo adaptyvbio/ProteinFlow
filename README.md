@@ -52,6 +52,10 @@ docker:
 docker pull adaptyvbio/proteinflow
 ```
 
+By default installing `proteinflow` with conda or pip will only load the dependencies that are required for the main functions of the package: downloading, generating and splitting datasets. If you are interested in using other functions like visualization, metrics and other data processing methods, please install the package with `pip install proteinflow[processing]` or use the docker image.
+
+Some metric functions also have separate requirements, see the documentation for details.
+
 ### Troubleshooting
 - If you are using python 3.10 and encountering installation problems, try running `python -m pip install prody==2.4.0` before installing `proteinflow`.
 - If you are planning to generate new datasets and installed `proteinflow` with `pip` (or with `conda` on Mac OS with an M1 processor), you will need to additionally install [`mmseqs`](https://github.com/soedinglab/MMseqs2).
