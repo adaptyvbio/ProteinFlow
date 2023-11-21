@@ -179,7 +179,7 @@ class ProteinLoader(DataLoader):
         mask_all_cdrs : bool, default False
             if `True`, all CDRs are masked instead of just the sampled one
         classes_dict_path : str, optional
-            path to the pickled classes dictionary
+            path to the pickled classes dictionary; if not given, we will try to find split dictionaries in the parent folder of `dataset_folder`
         load_ligands : bool, default False
             if `True`, the ligands will be loaded from the PDB files and added to the features
         cut_edges : bool, default False
@@ -190,6 +190,11 @@ class ProteinLoader(DataLoader):
             additional keyword arguments to `torch.utils.data.DataLoader`
 
         """
+        if classes_dict_path is None:
+            dataset_parent = os.path.dirname(dataset_folder)
+            classes_dict_path = os.path.join(dataset_parent, "splits_dict", "classes.pickle")
+            if not os.path.exists(classes_dict_path):
+                classes_dict_path = None
         dataset = ProteinDataset(
             dataset_folder=dataset_folder,
             features_folder=features_folder,
