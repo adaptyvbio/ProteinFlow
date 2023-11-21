@@ -190,11 +190,6 @@ class ProteinLoader(DataLoader):
             additional keyword arguments to `torch.utils.data.DataLoader`
 
         """
-        if classes_dict_path is None:
-            dataset_parent = os.path.dirname(dataset_folder)
-            classes_dict_path = os.path.join(dataset_parent, "splits_dict", "classes.pickle")
-            if not os.path.exists(classes_dict_path):
-                classes_dict_path = None
         dataset = ProteinDataset(
             dataset_folder=dataset_folder,
             features_folder=features_folder,
@@ -389,6 +384,14 @@ class ProteinDataset(Dataset):
         """
         self.debug = debug_verbose
 
+        if classes_dict_path is None:
+            dataset_parent = os.path.dirname(dataset_folder)
+            classes_dict_path = os.path.join(
+                dataset_parent, "splits_dict", "classes.pickle"
+            )
+            if not os.path.exists(classes_dict_path):
+                classes_dict_path = None
+
         alphabet = ALPHABET
         self.alphabet_dict = defaultdict(lambda: 0)
         for i, letter in enumerate(alphabet):
@@ -490,7 +493,7 @@ class ProteinDataset(Dataset):
             classes_to_exclude = []
         elif classes_dict_path is None:
             raise ValueError(
-                "classes_to_exclude is not None, but classes_dict_path is None"
+                "The classes_to_exclude parameter is not None, but classes_dict_path is None. Please provide a path to a pickled classes dictionary."
             )
         if clustering_dict_path is not None:
             if entry_type == "pair":
