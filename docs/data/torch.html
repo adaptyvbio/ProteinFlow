@@ -209,7 +209,7 @@ class ProteinLoader(DataLoader):
         mask_all_cdrs : bool, default False
             if `True`, all CDRs are masked instead of just the sampled one
         classes_dict_path : str, optional
-            path to the pickled classes dictionary
+            path to the pickled classes dictionary; if not given, we will try to find split dictionaries in the parent folder of `dataset_folder`
         load_ligands : bool, default False
             if `True`, the ligands will be loaded from the PDB files and added to the features
         cut_edges : bool, default False
@@ -414,6 +414,14 @@ class ProteinDataset(Dataset):
         &#34;&#34;&#34;
         self.debug = debug_verbose
 
+        if classes_dict_path is None:
+            dataset_parent = os.path.dirname(dataset_folder)
+            classes_dict_path = os.path.join(
+                dataset_parent, &#34;splits_dict&#34;, &#34;classes.pickle&#34;
+            )
+            if not os.path.exists(classes_dict_path):
+                classes_dict_path = None
+
         alphabet = ALPHABET
         self.alphabet_dict = defaultdict(lambda: 0)
         for i, letter in enumerate(alphabet):
@@ -515,7 +523,7 @@ class ProteinDataset(Dataset):
             classes_to_exclude = []
         elif classes_dict_path is None:
             raise ValueError(
-                &#34;classes_to_exclude is not None, but classes_dict_path is None&#34;
+                &#34;The classes_to_exclude parameter is not None, but classes_dict_path is None. Please provide a path to a pickled classes dictionary.&#34;
             )
         if clustering_dict_path is not None:
             if entry_type == &#34;pair&#34;:
@@ -1329,6 +1337,14 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         &#34;&#34;&#34;
         self.debug = debug_verbose
 
+        if classes_dict_path is None:
+            dataset_parent = os.path.dirname(dataset_folder)
+            classes_dict_path = os.path.join(
+                dataset_parent, &#34;splits_dict&#34;, &#34;classes.pickle&#34;
+            )
+            if not os.path.exists(classes_dict_path):
+                classes_dict_path = None
+
         alphabet = ALPHABET
         self.alphabet_dict = defaultdict(lambda: 0)
         for i, letter in enumerate(alphabet):
@@ -1430,7 +1446,7 @@ from a polymer is sampled, the center of the masked region will be forced to be 
             classes_to_exclude = []
         elif classes_dict_path is None:
             raise ValueError(
-                &#34;classes_to_exclude is not None, but classes_dict_path is None&#34;
+                &#34;The classes_to_exclude parameter is not None, but classes_dict_path is None. Please provide a path to a pickled classes dictionary.&#34;
             )
         if clustering_dict_path is not None:
             if entry_type == &#34;pair&#34;:
@@ -2215,7 +2231,7 @@ longest protein in the batch.</p>
         mask_all_cdrs : bool, default False
             if `True`, all CDRs are masked instead of just the sampled one
         classes_dict_path : str, optional
-            path to the pickled classes dictionary
+            path to the pickled classes dictionary; if not given, we will try to find split dictionaries in the parent folder of `dataset_folder`
         load_ligands : bool, default False
             if `True`, the ligands will be loaded from the PDB files and added to the features
         cut_edges : bool, default False
@@ -2355,7 +2371,7 @@ forced to be in a binding site</dd>
 <dt><strong><code>mask_all_cdrs</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, all CDRs are masked instead of just the sampled one</dd>
 <dt><strong><code>classes_dict_path</code></strong> :&ensp;<code>str</code>, optional</dt>
-<dd>path to the pickled classes dictionary</dd>
+<dd>path to the pickled classes dictionary; if not given, we will try to find split dictionaries in the parent folder of <code>dataset_folder</code></dd>
 <dt><strong><code>load_ligands</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, the ligands will be loaded from the PDB files and added to the features</dd>
 <dt><strong><code>cut_edges</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
@@ -2446,7 +2462,7 @@ def from_args(
     mask_all_cdrs : bool, default False
         if `True`, all CDRs are masked instead of just the sampled one
     classes_dict_path : str, optional
-        path to the pickled classes dictionary
+        path to the pickled classes dictionary; if not given, we will try to find split dictionaries in the parent folder of `dataset_folder`
     load_ligands : bool, default False
         if `True`, the ligands will be loaded from the PDB files and added to the features
     cut_edges : bool, default False

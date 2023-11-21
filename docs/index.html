@@ -44,6 +44,8 @@ conda install -c conda-forge -c bioconda -c adaptyvbio proteinflow
 <p>docker:</p>
 <pre><code class="language-bash">docker pull adaptyvbio/proteinflow
 </code></pre>
+<p>By default installing <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code> with conda or pip will only load the dependencies that are required for the main functions of the package: downloading, generating and splitting datasets. If you are interested in using other functions like visualization, metrics and other data processing methods, please install the package with <code>pip install <a title="proteinflow" href="#proteinflow">proteinflow</a>[<a title="proteinflow.processing" href="processing/index.html">proteinflow.processing</a>]</code> or use the docker image.</p>
+<p>Some metric functions also have separate requirements, see the documentation for details.</p>
 <h3 id="troubleshooting">Troubleshooting</h3>
 <ul>
 <li>If you are using python 3.10 and encountering installation problems, try running <code>python -m pip install prody==2.4.0</code> before installing <code><a title="proteinflow" href="#proteinflow">proteinflow</a></code>.</li>
@@ -264,6 +266,10 @@ docker:
 ```bash
 docker pull adaptyvbio/proteinflow
 ```
+
+By default installing `proteinflow` with conda or pip will only load the dependencies that are required for the main functions of the package: downloading, generating and splitting datasets. If you are interested in using other functions like visualization, metrics and other data processing methods, please install the package with `pip install proteinflow[processing]` or use the docker image.
+
+Some metric functions also have separate requirements, see the documentation for details.
 
 ### Troubleshooting
 - If you are using python 3.10 and encountering installation problems, try running `python -m pip install prody==2.4.0` before installing `proteinflow`.
