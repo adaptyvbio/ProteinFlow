@@ -179,7 +179,7 @@ class ProteinLoader(DataLoader):
         mask_all_cdrs : bool, default False
             if `True`, all CDRs are masked instead of just the sampled one
         classes_dict_path : str, optional
-            path to the pickled classes dictionary
+            path to the pickled classes dictionary; if not given, we will try to find split dictionaries in the parent folder of `dataset_folder`
         load_ligands : bool, default False
             if `True`, the ligands will be loaded from the PDB files and added to the features
         cut_edges : bool, default False
@@ -384,6 +384,14 @@ class ProteinDataset(Dataset):
         """
         self.debug = debug_verbose
 
+        if classes_dict_path is None:
+            dataset_parent = os.path.dirname(dataset_folder)
+            classes_dict_path = os.path.join(
+                dataset_parent, "splits_dict", "classes.pickle"
+            )
+            if not os.path.exists(classes_dict_path):
+                classes_dict_path = None
+
         alphabet = ALPHABET
         self.alphabet_dict = defaultdict(lambda: 0)
         for i, letter in enumerate(alphabet):
@@ -485,7 +493,7 @@ class ProteinDataset(Dataset):
             classes_to_exclude = []
         elif classes_dict_path is None:
             raise ValueError(
-                "classes_to_exclude is not None, but classes_dict_path is None"
+                "The classes_to_exclude parameter is not None, but classes_dict_path is None. Please provide a path to a pickled classes dictionary."
             )
         if clustering_dict_path is not None:
             if entry_type == "pair":
