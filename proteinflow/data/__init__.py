@@ -612,7 +612,7 @@ class ProteinEntry:
             Chain IDs
 
         """
-        if self.predict_mask is None:
+        if not self.has_predict_mask():
             raise ValueError("Predicted mask not available")
         return [k for k, v in self.predict_mask.items() if v.sum() != 0]
 
@@ -1658,6 +1658,8 @@ class ProteinEntry:
             The CA RMSD between the two proteins
 
         """
+        if only_predicted and not self.has_predict_mask():
+            only_predicted = False
         chains = [x for x in self.get_chains() if x in entry.get_chains()]
         structure1 = self.get_coordinates(only_known=True, chains=chains)[:, 2]
         structure2 = entry.get_coordinates(only_known=True, chains=chains)[:, 2]
@@ -1723,7 +1725,9 @@ class ProteinEntry:
             [
                 x
                 for x in entry.get_chains()
-                if x not in entry.get_chain_type_dict()["antigen"] or not only_antibody
+                if not entry.has_cdr()
+                or not only_antibody
+                or x not in entry.get_chain_type_dict()["antigen"]
             ]
             for entry in entries
         ]
@@ -1754,7 +1758,9 @@ class ProteinEntry:
             chains = [
                 x
                 for x in entry.get_chains()
-                if x not in entry.get_chain_type_dict()["antigen"] or not only_antibody
+                if not entry.has_cdr()
+                or not only_antibody
+                or x not in entry.get_chain_type_dict()["antigen"]
             ]
             esm_entry = ProteinEntry.from_pdb(path)
             chain_rename_dict = {k: v for k, v in zip(string.ascii_uppercase, chains)}
@@ -1763,7 +1769,9 @@ class ProteinEntry:
             esm_entry.align_structure(
                 reference_pdb_path=temp_file,
                 save_pdb_path=path.rsplit(".", 1)[0] + "_aligned.pdb",
-                chain_ids=entry.get_predicted_chains(),
+                chain_ids=entry.get_predicted_chains()
+                if entry.has_predict_mask()
+                else chains,
             )
             rmsds.append(
                 entry.ca_rmsd(
@@ -2013,6 +2021,22 @@ class ProteinEntry:
                     file_ = file
                 u = mda.Universe(file_)
                 writer.write(u)
+
+    def set_predict_mask(self, mask_dict):
+        """Set the predicted mask.
+
+        Parameters
+        ----------
+        mask_dict : dict
+            A dictionary mapping from chain IDs to a `np.ndarray` mask of 0s and 1s of the same length as the chain sequence
+
+        """
+        for chain in mask_dict:
+            if chain not in self.get_chains():
+                raise PDBError("Chain not found")
+            if len(mask_dict[chain]) != self.get_length([chain]):
+                raise PDBError("Mask length does not match sequence length")
+        self.predict_mask = mask_dict
 
     def apply_mask(self, mask):
         """Apply a mask to the protein.
