@@ -1417,9 +1417,6 @@ def _split_data(
     with open(os.path.join(dict_folder, "test.pickle"), "rb") as f:
         test_clusters_dict = pickle.load(f)
 
-    train_biounits = _biounits_in_clusters_dict(train_clusters_dict, excluded_biounits)
-    valid_biounits = _biounits_in_clusters_dict(valid_clusters_dict, excluded_biounits)
-    test_biounits = _biounits_in_clusters_dict(test_clusters_dict, excluded_biounits)
     train_path = os.path.join(dataset_path, "train")
     valid_path = os.path.join(dataset_path, "valid")
     test_path = os.path.join(dataset_path, "test")
@@ -1481,6 +1478,7 @@ def _split_data(
         if not os.path.exists(excluded_path):
             os.makedirs(excluded_path)
         print("Updating the split dictionaries...")
+        train_biounits = _biounits_in_clusters_dict(train_clusters_dict, [])
         with open(os.path.join(dict_folder, "train.pickle"), "wb") as f:
             pickle.dump(train_clusters_dict, f)
         with open(os.path.join(dict_folder, "valid.pickle"), "wb") as f:
@@ -1492,6 +1490,10 @@ def _split_data(
         print("Moving excluded files...")
         for biounit in tqdm(excluded_biounits):
             shutil.move(os.path.join(dataset_path, biounit), excluded_path)
+
+    train_biounits = _biounits_in_clusters_dict(train_clusters_dict, excluded_biounits)
+    valid_biounits = _biounits_in_clusters_dict(valid_clusters_dict, excluded_biounits)
+    test_biounits = _biounits_in_clusters_dict(test_clusters_dict, excluded_biounits)
     print("Moving files in the train set...")
     for biounit in tqdm(train_biounits):
         shutil.move(os.path.join(dataset_path, biounit), train_path)
