@@ -1379,6 +1379,90 @@ def _get_excluded_files(
     return exclude_biounits
 
 
+def _exclude_biounits(
+    train_clusters_dict,
+    valid_clusters_dict,
+    test_clusters_dict,
+    excluded_biounits,
+    exclude_clusters,
+    exclude_based_on_cdr,
+):
+    """Exclude a set of biounits from the dataset.
+
+    The biounits from the `excluded_biounits` list are excluded from the dictionaries and added to a new dictionary.
+    If `exclude_clusters` is True, the whole cluster is excluded if at least one biounit in the cluster is excluded.
+    If additionally `exclude_based_on_cdr` is not None, the whole cluster is only excluded if the cluster name ends with `exclude_based_on_cdr`.
+
+    Since `proteinflow` assumes splitting at the level of biounits, when using `exclude_clusters` the dictionaries are adjusted to exclude
+    full biounits that the newly excluded chains / CDRs are part of. This is done by moving the full biounits to the excluded set
+    and removing the rest of the clusters they belong to from training / test / validation.
+
+    For example, if for antibody Ab CDR H1 is in cluster A, CDR H2 is in cluster B and CDR H3 is in cluster C, and cluster C is in
+    the excluded set, then clusters A and B are removed from the training / test / validation sets and added to the excluded set with only the Ab CDRs.
+
+    """
+    set_to_exclude = set(excluded_biounits)
+    excluded_biounits = set()
+    excluded_clusters_dict = defaultdict(list)
+    for clusters_dict in [
+        train_clusters_dict,
+        valid_clusters_dict,
+        test_clusters_dict,
+    ]:
+        for cluster in list(clusters_dict.keys()):
+            idx_to_exclude = []
+            exclude_whole_cluster = False
+            for i, chain in enumerate(clusters_dict[cluster]):
+                if chain[0] in set_to_exclude:
+                    if exclude_clusters:
+                        if exclude_based_on_cdr is not None and cluster.endswith(
+                            exclude_based_on_cdr
+                        ):
+                            exclude_whole_cluster = True
+                        elif exclude_based_on_cdr is None:
+                            exclude_whole_cluster = True
+                    if exclude_whole_cluster:
+                        break
+                    excluded_clusters_dict[cluster].append(chain)
+                    idx_to_exclude.append(i)
+            if exclude_whole_cluster:
+                excluded_clusters_dict[cluster] = clusters_dict.pop(cluster)
+            else:
+                clusters_dict[cluster] = [
+                    x
+                    for i, x in enumerate(clusters_dict[cluster])
+                    if i not in idx_to_exclude
+                ]
+                if len(clusters_dict[cluster]) == 0:
+                    clusters_dict.pop(cluster)
+    excluded_biounits = _biounits_in_clusters_dict(excluded_clusters_dict, [])
+    # adjust the dictionaries to account for full biounits being excluded
+    for clusters_dict in [
+        train_clusters_dict,
+        valid_clusters_dict,
+        test_clusters_dict,
+    ]:
+        for cluster in list(clusters_dict.keys()):
+            excluded_biounit_in_cluster = False
+            if cluster in excluded_clusters_dict:
+                excluded_biounit_in_cluster = True
+            for i, (file, chain) in enumerate(clusters_dict[cluster]):
+                if file in excluded_biounits:
+                    excluded_biounit_in_cluster = True
+                    excluded_clusters_dict[cluster].append((file, chain))
+            # remove cluster from training / validation / test set if at least one biounit in the cluster is excluded
+            if exclude_clusters and excluded_biounit_in_cluster:
+                clusters_dict.pop(cluster)
+    excluded_clusters_dict = {k: list(v) for k, v in excluded_clusters_dict.items()}
+    return (
+        train_clusters_dict,
+        valid_clusters_dict,
+        test_clusters_dict,
+        excluded_clusters_dict,
+        excluded_biounits,
+    )
+
+
 def _split_data(
     dataset_path="./data/proteinflow_20221110/",
     excluded_biounits=None,
@@ -1435,50 +1519,24 @@ def _split_data(
         if not os.path.exists(
             os.path.join(dataset_path, "splits_dict", "excluded.pickle")
         ):
-            set_to_exclude = set(excluded_biounits)
-            excluded_biounits = set()
-            excluded_clusters_dict = defaultdict(list)
-            for clusters_dict in [
+            (
                 train_clusters_dict,
                 valid_clusters_dict,
                 test_clusters_dict,
-            ]:
-                for cluster in list(clusters_dict.keys()):
-                    idx_to_exclude = []
-                    exclude_whole_cluster = False
-                    for i, chain in enumerate(clusters_dict[cluster]):
-                        if chain[0] in set_to_exclude:
-                            if exclude_clusters:
-                                if (
-                                    exclude_based_on_cdr is not None
-                                    and cluster.endswith(exclude_based_on_cdr)
-                                ):
-                                    exclude_whole_cluster = True
-                                elif exclude_based_on_cdr is None:
-                                    exclude_whole_cluster = True
-                            if exclude_whole_cluster:
-                                break
-                            excluded_clusters_dict[cluster].append(chain)
-                            idx_to_exclude.append(i)
-                    if exclude_whole_cluster:
-                        excluded_clusters_dict[cluster] = clusters_dict.pop(cluster)
-                    else:
-                        clusters_dict[cluster] = [
-                            x
-                            for i, x in enumerate(clusters_dict[cluster])
-                            if i not in idx_to_exclude
-                        ]
-                        if len(clusters_dict[cluster]) == 0:
-                            clusters_dict.pop(cluster)
-            excluded_clusters_dict = {
-                k: list(v) for k, v in excluded_clusters_dict.items()
-            }
-            excluded_biounits = _biounits_in_clusters_dict(excluded_clusters_dict, [])
+                excluded_clusters_dict,
+                excluded_biounits,
+            ) = _exclude_biounits(
+                train_clusters_dict,
+                valid_clusters_dict,
+                test_clusters_dict,
+                excluded_biounits,
+                exclude_clusters,
+                exclude_based_on_cdr,
+            )
         excluded_path = os.path.join(dataset_path, "excluded")
         if not os.path.exists(excluded_path):
             os.makedirs(excluded_path)
         print("Updating the split dictionaries...")
-        train_biounits = _biounits_in_clusters_dict(train_clusters_dict, [])
         with open(os.path.join(dict_folder, "train.pickle"), "wb") as f:
             pickle.dump(train_clusters_dict, f)
         with open(os.path.join(dict_folder, "valid.pickle"), "wb") as f:
