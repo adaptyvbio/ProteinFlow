@@ -207,7 +207,7 @@ def _download_fasta(pdb_id, local_folder):
     """Download a FASTA file and return a local path or the PDB ID if download failed."""
     try:
         return download_fasta(pdb_id, local_folder)
-    except RuntimeError:
+    except Exception:
         return pdb_id
 
 

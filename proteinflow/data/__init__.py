@@ -2106,7 +2106,10 @@ class PDBEntry:
             self.crd_df, self.seq_df, self.ligands = self._parse_structure()
         else:
             self.crd_df, self.seq_df = self._parse_structure()
-        self.fasta_dict = self._parse_fasta()
+        try:
+            self.fasta_dict = self._parse_fasta()
+        except FileNotFoundError:
+            raise PDBError("FASTA file not found")
 
     @staticmethod
     def from_id(pdb_id, local_folder="."):
