@@ -2947,6 +2947,24 @@ coordinates and 0 indicates missing values</dd>
     return crd, mask</code></pre>
 </details>
 </dd>
+<dt id="proteinflow.data.lru_cache"><code class="name flex">
+<span>def <span class="ident">lru_cache</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Make a dummy decorator.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def lru_cache():
+    &#34;&#34;&#34;Make a dummy decorator.&#34;&#34;&#34;
+
+    def wrapper(func):
+        return func
+
+    return wrapper</code></pre>
+</details>
+</dd>
 </dl>
 </section>
 <section>
@@ -9860,6 +9878,7 @@ def from_id(
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="proteinflow.data.interpolate_coords" href="#proteinflow.data.interpolate_coords">interpolate_coords</a></code></li>
+<li><code><a title="proteinflow.data.lru_cache" href="#proteinflow.data.lru_cache">lru_cache</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>

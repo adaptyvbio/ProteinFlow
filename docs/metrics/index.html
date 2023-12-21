@@ -90,6 +90,7 @@ def blosum62_score(seq_before, seq_after):
         score += matrix[x_before][x_after]
     return score
 
+
 @requires_extra(&#34;blosum&#34;)
 def long_repeat_num(seq, thr=5):
     &#34;&#34;&#34;Calculate the number of long repeats in a sequence.
