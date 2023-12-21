@@ -158,6 +158,9 @@ class ProteinLoader(DataLoader):
         classes_dict_path=None,
         load_ligands=False,
         cut_edges=False,
+        require_antigen=False,
+        require_light_chain=False,
+        require_heavy_chain=False,
         *args,
         **kwargs,
     ) -&gt; None:
@@ -214,6 +217,12 @@ class ProteinLoader(DataLoader):
             if `True`, the ligands will be loaded from the PDB files and added to the features
         cut_edges : bool, default False
             if `True`, missing values at the edges of the sequence will be cut off
+        require_antigen : bool, default False
+            if `True`, only entries with an antigen will be included (used if the dataset is SAbDab)
+        require_light_chain : bool, default False
+            if `True`, only entries with a light chain will be included (used if the dataset is SAbDab)
+        require_heavy_chain : bool, default False
+            if `True`, only entries with a heavy chain will be included (used if the dataset is SAbDab)
         *args
             additional arguments to `torch.utils.data.DataLoader`
         **kwargs
@@ -244,6 +253,9 @@ class ProteinLoader(DataLoader):
             mask_all_cdrs=mask_all_cdrs,
             load_ligands=load_ligands,
             cut_edges=cut_edges,
+            require_antigen=require_antigen,
+            require_light_chain=require_light_chain,
+            require_heavy_chain=require_heavy_chain,
         )
         return ProteinLoader(
             dataset=dataset,
@@ -339,7 +351,9 @@ class ProteinDataset(Dataset):
         patch_around_mask=False,
         initial_patch_size=128,
         antigen_patch_size=128,
-        debug_verbose=False,
+        require_antigen=False,
+        require_light_chain=False,
+        require_heavy_chain=False,
     ):
         &#34;&#34;&#34;Initialize the dataset.
 
@@ -410,9 +424,15 @@ class ProteinDataset(Dataset):
             the size of the initial patch (used if `patch_around_mask` is `True`)
         antigen_patch_size : int, default 128
             the size of the antigen patch (used if `patch_around_mask` is `True` and the dataset is SAbDab)
+        require_antigen : bool, default False
+            if `True`, only entries with an antigen will be included (used if the dataset is SAbDab)
+        require_light_chain : bool, default False
+            if `True`, only entries with a light chain will be included (used if the dataset is SAbDab)
+        requre_heavy_chain : bool, default False
+            if `True`, only entries with a heavy chain will be included (used if the dataset is SAbDab)
 
         &#34;&#34;&#34;
-        self.debug = debug_verbose
+        self.debug = False
 
         if classes_dict_path is None:
             dataset_parent = os.path.dirname(dataset_folder)
@@ -521,51 +541,43 @@ class ProteinDataset(Dataset):
                     self.files[id][chain].append(filename)
         if classes_to_exclude is None:
             classes_to_exclude = []
-        elif classes_dict_path is None:
-            raise ValueError(
-                &#34;The classes_to_exclude parameter is not None, but classes_dict_path is None. Please provide a path to a pickled classes dictionary.&#34;
-            )
+        classes = None
+        if classes_dict_path is not None:
+            with open(classes_dict_path, &#34;rb&#34;) as f:
+                classes = pickle.load(f)
         if clustering_dict_path is not None:
-            if entry_type == &#34;pair&#34;:
-                classes_to_exclude = set(classes_to_exclude)
-                classes_to_exclude.add(&#34;single_chains&#34;)
-                classes_to_exclude = list(classes_to_exclude)
             with open(clustering_dict_path, &#34;rb&#34;) as f:
                 self.clusters = pickle.load(f)  # list of biounit ids by cluster id
-                try:  # old way of storing class information
-                    classes = pickle.load(f)
-                except EOFError:
-                    if len(classes_to_exclude) &gt; 0:
-                        with open(classes_dict_path, &#34;rb&#34;) as f:
-                            classes = pickle.load(f)
-            to_exclude = set()
+                if classes is None:  # old way of storing class information
+                    try:
+                        classes = pickle.load(f)
+                    except EOFError:
+                        pass
+        else:
+            self.clusters = None
+        if classes is None and len(classes_to_exclude) &gt; 0:
+            raise ValueError(
+                &#34;Classes to exclude are given but no classes dictionary is found, please set classes_dict_path to the path of the classes dictionary&#34;
+            )
+        to_exclude = set()
+        if classes is not None:
             for c in classes_to_exclude:
                 for key, id_arr in classes.get(c, {}).items():
                     for id, _ in id_arr:
                         to_exclude.add(id)
-            for key in list(self.clusters.keys()):
-                cluster_list = []
-                for x in self.clusters[key]:
-                    if x[0] in to_exclude:
-                        continue
-                    id = x[0].split(&#34;.&#34;)[0]
-                    chain = x[1]
-                    if id not in self.files:
-                        continue
-                    if chain not in self.files[id]:
-                        continue
-                    if len(self.files[id][chain]) == 0:
-                        continue
-                    cluster_list.append([id, chain])
-                self.clusters[key] = cluster_list
-                if len(self.clusters[key]) == 0:
-                    self.clusters.pop(key)
+        if require_antigen or require_light_chain:
+            to_exclude.update(
+                self._exclude_by_chains(
+                    require_antigen, require_light_chain, require_heavy_chain
+                )
+            )
+        if self.clusters is not None:
+            self._exclude_ids_from_clusters(to_exclude)
             self.data = list(self.clusters.keys())
         else:
-            self.clusters = None
-            self.data = list(self.files.keys())
+            self.data = [x for x in self.files.keys() if x not in to_exclude]
         # create a smaller dataset if necessary (if we have clustering it&#39;s applied earlier)
-        if clustering_dict_path is None and use_fraction &lt; 1:
+        if self.clusters is None and use_fraction &lt; 1:
             self.data = sorted(self.data)[: int(len(self.data) * use_fraction)]
         if load_to_ram:
             print(&#34;Loading to RAM...&#34;)
@@ -584,6 +596,60 @@ class ProteinDataset(Dataset):
         self.sabdab = &#34;__&#34; in sample_chain
         self.cdr = 0
         self.set_cdr(None)
+
+    def _exclude_ids_from_clusters(self, to_exclude):
+        for key in list(self.clusters.keys()):
+            cluster_list = []
+            for x in self.clusters[key]:
+                if x[0] in to_exclude:
+                    continue
+                id = x[0].split(&#34;.&#34;)[0]
+                chain = x[1]
+                if id not in self.files:
+                    continue
+                if chain not in self.files[id]:
+                    continue
+                if len(self.files[id][chain]) == 0:
+                    continue
+                cluster_list.append([id, chain])
+            self.clusters[key] = cluster_list
+            if len(self.clusters[key]) == 0:
+                self.clusters.pop(key)
+
+    def _check_chain_types(self, file):
+        chain_types = set()
+        with open(file, &#34;rb&#34;) as f:
+            data = pickle.load(f)
+        chains = data[&#34;chain_dict&#34;].values()
+        for chain in chains:
+            chain_mask = data[&#34;chain_encoding_all&#34;] == chain
+            cdr = data[&#34;cdr&#34;][chain_mask]
+            cdr_values = cdr.unique()
+            if len(cdr_values) == 1:
+                chain_types.add(&#34;antigen&#34;)
+            elif CDR_REVERSE[&#34;H1&#34;] in cdr_values:
+                chain_types.add(&#34;heavy&#34;)
+            elif CDR_REVERSE[&#34;L1&#34;] in cdr_values:
+                chain_types.add(&#34;light&#34;)
+        return chain_types
+
+    def _exclude_by_chains(
+        self, require_antigen, require_light_chain, require_heavy_chain
+    ):
+        &#34;&#34;&#34;Exclude entries that do not have an antigen or a light chain.&#34;&#34;&#34;
+        to_exclude = set()
+        for id in self.files:
+            filename = list(self.files[id].values())[0][
+                0
+            ]  # assuming entry type is biounit
+            chain_types = self._check_chain_types(filename)
+            if require_antigen and &#34;antigen&#34; not in chain_types:
+                to_exclude.add(id)
+            if require_light_chain and &#34;light&#34; not in chain_types:
+                to_exclude.add(id)
+            if require_heavy_chain and &#34;heavy&#34; not in chain_types:
+                to_exclude.add(id)
+        return to_exclude
 
     def _get_masked_sequence(
         self,
@@ -732,6 +798,8 @@ class ProteinDataset(Dataset):
         elif self.entry_type == &#34;chain&#34;:
             chain_sets = [[x] for x in chains]
         elif self.entry_type == &#34;pair&#34;:
+            if len(chains) == 1:
+                return []
             chain_sets = list(combinations(chains, 2))
         else:
             raise RuntimeError(
@@ -1058,7 +1126,7 @@ class ProteinDataset(Dataset):
 <dl>
 <dt id="proteinflow.data.torch.ProteinDataset"><code class="flex name class">
 <span>class <span class="ident">ProteinDataset</span></span>
-<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', debug_file_path=None, entry_type='biounit', classes_to_exclude=None, shuffle_clusters=True, min_cdr_length=None, feature_functions=None, classes_dict_path=None, cut_edges=False, mask_residues=True, lower_limit=15, upper_limit=100, mask_frac=None, mask_whole_chains=False, mask_sequential=False, force_binding_sites_frac=0.15, mask_all_cdrs=False, load_ligands=False, pyg_graph=False, patch_around_mask=False, initial_patch_size=128, antigen_patch_size=128, debug_verbose=False)</span>
+<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', debug_file_path=None, entry_type='biounit', classes_to_exclude=None, shuffle_clusters=True, min_cdr_length=None, feature_functions=None, classes_dict_path=None, cut_edges=False, mask_residues=True, lower_limit=15, upper_limit=100, mask_frac=None, mask_whole_chains=False, mask_sequential=False, force_binding_sites_frac=0.15, mask_all_cdrs=False, load_ligands=False, pyg_graph=False, patch_around_mask=False, initial_patch_size=128, antigen_patch_size=128, require_antigen=False, require_light_chain=False, require_heavy_chain=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Dataset to load proteinflow data.</p>
@@ -1171,6 +1239,12 @@ from a polymer is sampled, the center of the masked region will be forced to be 
 <dd>the size of the initial patch (used if <code>patch_around_mask</code> is <code>True</code>)</dd>
 <dt><strong><code>antigen_patch_size</code></strong> :&ensp;<code>int</code>, default <code>128</code></dt>
 <dd>the size of the antigen patch (used if <code>patch_around_mask</code> is <code>True</code> and the dataset is SAbDab)</dd>
+<dt><strong><code>require_antigen</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, only entries with an antigen will be included (used if the dataset is SAbDab)</dd>
+<dt><strong><code>require_light_chain</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, only entries with a light chain will be included (used if the dataset is SAbDab)</dd>
+<dt><strong><code>requre_heavy_chain</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, only entries with a heavy chain will be included (used if the dataset is SAbDab)</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -1262,7 +1336,9 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         patch_around_mask=False,
         initial_patch_size=128,
         antigen_patch_size=128,
-        debug_verbose=False,
+        require_antigen=False,
+        require_light_chain=False,
+        require_heavy_chain=False,
     ):
         &#34;&#34;&#34;Initialize the dataset.
 
@@ -1333,9 +1409,15 @@ from a polymer is sampled, the center of the masked region will be forced to be 
             the size of the initial patch (used if `patch_around_mask` is `True`)
         antigen_patch_size : int, default 128
             the size of the antigen patch (used if `patch_around_mask` is `True` and the dataset is SAbDab)
+        require_antigen : bool, default False
+            if `True`, only entries with an antigen will be included (used if the dataset is SAbDab)
+        require_light_chain : bool, default False
+            if `True`, only entries with a light chain will be included (used if the dataset is SAbDab)
+        requre_heavy_chain : bool, default False
+            if `True`, only entries with a heavy chain will be included (used if the dataset is SAbDab)
 
         &#34;&#34;&#34;
-        self.debug = debug_verbose
+        self.debug = False
 
         if classes_dict_path is None:
             dataset_parent = os.path.dirname(dataset_folder)
@@ -1444,51 +1526,43 @@ from a polymer is sampled, the center of the masked region will be forced to be 
                     self.files[id][chain].append(filename)
         if classes_to_exclude is None:
             classes_to_exclude = []
-        elif classes_dict_path is None:
-            raise ValueError(
-                &#34;The classes_to_exclude parameter is not None, but classes_dict_path is None. Please provide a path to a pickled classes dictionary.&#34;
-            )
+        classes = None
+        if classes_dict_path is not None:
+            with open(classes_dict_path, &#34;rb&#34;) as f:
+                classes = pickle.load(f)
         if clustering_dict_path is not None:
-            if entry_type == &#34;pair&#34;:
-                classes_to_exclude = set(classes_to_exclude)
-                classes_to_exclude.add(&#34;single_chains&#34;)
-                classes_to_exclude = list(classes_to_exclude)
             with open(clustering_dict_path, &#34;rb&#34;) as f:
                 self.clusters = pickle.load(f)  # list of biounit ids by cluster id
-                try:  # old way of storing class information
-                    classes = pickle.load(f)
-                except EOFError:
-                    if len(classes_to_exclude) &gt; 0:
-                        with open(classes_dict_path, &#34;rb&#34;) as f:
-                            classes = pickle.load(f)
-            to_exclude = set()
+                if classes is None:  # old way of storing class information
+                    try:
+                        classes = pickle.load(f)
+                    except EOFError:
+                        pass
+        else:
+            self.clusters = None
+        if classes is None and len(classes_to_exclude) &gt; 0:
+            raise ValueError(
+                &#34;Classes to exclude are given but no classes dictionary is found, please set classes_dict_path to the path of the classes dictionary&#34;
+            )
+        to_exclude = set()
+        if classes is not None:
             for c in classes_to_exclude:
                 for key, id_arr in classes.get(c, {}).items():
                     for id, _ in id_arr:
                         to_exclude.add(id)
-            for key in list(self.clusters.keys()):
-                cluster_list = []
-                for x in self.clusters[key]:
-                    if x[0] in to_exclude:
-                        continue
-                    id = x[0].split(&#34;.&#34;)[0]
-                    chain = x[1]
-                    if id not in self.files:
-                        continue
-                    if chain not in self.files[id]:
-                        continue
-                    if len(self.files[id][chain]) == 0:
-                        continue
-                    cluster_list.append([id, chain])
-                self.clusters[key] = cluster_list
-                if len(self.clusters[key]) == 0:
-                    self.clusters.pop(key)
+        if require_antigen or require_light_chain:
+            to_exclude.update(
+                self._exclude_by_chains(
+                    require_antigen, require_light_chain, require_heavy_chain
+                )
+            )
+        if self.clusters is not None:
+            self._exclude_ids_from_clusters(to_exclude)
             self.data = list(self.clusters.keys())
         else:
-            self.clusters = None
-            self.data = list(self.files.keys())
+            self.data = [x for x in self.files.keys() if x not in to_exclude]
         # create a smaller dataset if necessary (if we have clustering it&#39;s applied earlier)
-        if clustering_dict_path is None and use_fraction &lt; 1:
+        if self.clusters is None and use_fraction &lt; 1:
             self.data = sorted(self.data)[: int(len(self.data) * use_fraction)]
         if load_to_ram:
             print(&#34;Loading to RAM...&#34;)
@@ -1507,6 +1581,60 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         self.sabdab = &#34;__&#34; in sample_chain
         self.cdr = 0
         self.set_cdr(None)
+
+    def _exclude_ids_from_clusters(self, to_exclude):
+        for key in list(self.clusters.keys()):
+            cluster_list = []
+            for x in self.clusters[key]:
+                if x[0] in to_exclude:
+                    continue
+                id = x[0].split(&#34;.&#34;)[0]
+                chain = x[1]
+                if id not in self.files:
+                    continue
+                if chain not in self.files[id]:
+                    continue
+                if len(self.files[id][chain]) == 0:
+                    continue
+                cluster_list.append([id, chain])
+            self.clusters[key] = cluster_list
+            if len(self.clusters[key]) == 0:
+                self.clusters.pop(key)
+
+    def _check_chain_types(self, file):
+        chain_types = set()
+        with open(file, &#34;rb&#34;) as f:
+            data = pickle.load(f)
+        chains = data[&#34;chain_dict&#34;].values()
+        for chain in chains:
+            chain_mask = data[&#34;chain_encoding_all&#34;] == chain
+            cdr = data[&#34;cdr&#34;][chain_mask]
+            cdr_values = cdr.unique()
+            if len(cdr_values) == 1:
+                chain_types.add(&#34;antigen&#34;)
+            elif CDR_REVERSE[&#34;H1&#34;] in cdr_values:
+                chain_types.add(&#34;heavy&#34;)
+            elif CDR_REVERSE[&#34;L1&#34;] in cdr_values:
+                chain_types.add(&#34;light&#34;)
+        return chain_types
+
+    def _exclude_by_chains(
+        self, require_antigen, require_light_chain, require_heavy_chain
+    ):
+        &#34;&#34;&#34;Exclude entries that do not have an antigen or a light chain.&#34;&#34;&#34;
+        to_exclude = set()
+        for id in self.files:
+            filename = list(self.files[id].values())[0][
+                0
+            ]  # assuming entry type is biounit
+            chain_types = self._check_chain_types(filename)
+            if require_antigen and &#34;antigen&#34; not in chain_types:
+                to_exclude.add(id)
+            if require_light_chain and &#34;light&#34; not in chain_types:
+                to_exclude.add(id)
+            if require_heavy_chain and &#34;heavy&#34; not in chain_types:
+                to_exclude.add(id)
+        return to_exclude
 
     def _get_masked_sequence(
         self,
@@ -1655,6 +1783,8 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         elif self.entry_type == &#34;chain&#34;:
             chain_sets = [[x] for x in chains]
         elif self.entry_type == &#34;pair&#34;:
+            if len(chains) == 1:
+                return []
             chain_sets = list(combinations(chains, 2))
         else:
             raise RuntimeError(
@@ -2180,6 +2310,9 @@ longest protein in the batch.</p>
         classes_dict_path=None,
         load_ligands=False,
         cut_edges=False,
+        require_antigen=False,
+        require_light_chain=False,
+        require_heavy_chain=False,
         *args,
         **kwargs,
     ) -&gt; None:
@@ -2236,6 +2369,12 @@ longest protein in the batch.</p>
             if `True`, the ligands will be loaded from the PDB files and added to the features
         cut_edges : bool, default False
             if `True`, missing values at the edges of the sequence will be cut off
+        require_antigen : bool, default False
+            if `True`, only entries with an antigen will be included (used if the dataset is SAbDab)
+        require_light_chain : bool, default False
+            if `True`, only entries with a light chain will be included (used if the dataset is SAbDab)
+        require_heavy_chain : bool, default False
+            if `True`, only entries with a heavy chain will be included (used if the dataset is SAbDab)
         *args
             additional arguments to `torch.utils.data.DataLoader`
         **kwargs
@@ -2266,6 +2405,9 @@ longest protein in the batch.</p>
             mask_all_cdrs=mask_all_cdrs,
             load_ligands=load_ligands,
             cut_edges=cut_edges,
+            require_antigen=require_antigen,
+            require_light_chain=require_light_chain,
+            require_heavy_chain=require_heavy_chain,
         )
         return ProteinLoader(
             dataset=dataset,
@@ -2321,7 +2463,7 @@ longest protein in the batch.</p>
 <h3>Static methods</h3>
 <dl>
 <dt id="proteinflow.data.torch.ProteinLoader.from_args"><code class="name flex">
-<span>def <span class="ident">from_args</span></span>(<span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type=None, entry_type='biounit', classes_to_exclude=None, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, force_binding_sites_frac=0, shuffle_clusters=True, shuffle_batches=True, mask_all_cdrs=False, classes_dict_path=None, load_ligands=False, cut_edges=False, *args, **kwargs) ‑> None</span>
+<span>def <span class="ident">from_args</span></span>(<span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type=None, entry_type='biounit', classes_to_exclude=None, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, force_binding_sites_frac=0, shuffle_clusters=True, shuffle_batches=True, mask_all_cdrs=False, classes_dict_path=None, load_ligands=False, cut_edges=False, require_antigen=False, require_light_chain=False, require_heavy_chain=False, *args, **kwargs) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a <code><a title="proteinflow.data.torch.ProteinLoader" href="#proteinflow.data.torch.ProteinLoader">ProteinLoader</a></code> instance with a <code><a title="proteinflow.data.torch.ProteinDataset" href="#proteinflow.data.torch.ProteinDataset">ProteinDataset</a></code> from the given arguments.</p>
@@ -2376,6 +2518,12 @@ forced to be in a binding site</dd>
 <dd>if <code>True</code>, the ligands will be loaded from the PDB files and added to the features</dd>
 <dt><strong><code>cut_edges</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, missing values at the edges of the sequence will be cut off</dd>
+<dt><strong><code>require_antigen</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, only entries with an antigen will be included (used if the dataset is SAbDab)</dd>
+<dt><strong><code>require_light_chain</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, only entries with a light chain will be included (used if the dataset is SAbDab)</dd>
+<dt><strong><code>require_heavy_chain</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, only entries with a heavy chain will be included (used if the dataset is SAbDab)</dd>
 <dt><strong><code>*args</code></strong></dt>
 <dd>additional arguments to <code>torch.utils.data.DataLoader</code></dd>
 <dt><strong><code>**kwargs</code></strong></dt>
@@ -2411,6 +2559,9 @@ def from_args(
     classes_dict_path=None,
     load_ligands=False,
     cut_edges=False,
+    require_antigen=False,
+    require_light_chain=False,
+    require_heavy_chain=False,
     *args,
     **kwargs,
 ) -&gt; None:
@@ -2467,6 +2618,12 @@ def from_args(
         if `True`, the ligands will be loaded from the PDB files and added to the features
     cut_edges : bool, default False
         if `True`, missing values at the edges of the sequence will be cut off
+    require_antigen : bool, default False
+        if `True`, only entries with an antigen will be included (used if the dataset is SAbDab)
+    require_light_chain : bool, default False
+        if `True`, only entries with a light chain will be included (used if the dataset is SAbDab)
+    require_heavy_chain : bool, default False
+        if `True`, only entries with a heavy chain will be included (used if the dataset is SAbDab)
     *args
         additional arguments to `torch.utils.data.DataLoader`
     **kwargs
@@ -2497,6 +2654,9 @@ def from_args(
         mask_all_cdrs=mask_all_cdrs,
         load_ligands=load_ligands,
         cut_edges=cut_edges,
+        require_antigen=require_antigen,
+        require_light_chain=require_light_chain,
+        require_heavy_chain=require_heavy_chain,
     )
     return ProteinLoader(
         dataset=dataset,

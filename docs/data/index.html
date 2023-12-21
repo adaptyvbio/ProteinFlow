@@ -180,7 +180,7 @@ class ProteinEntry:
         seqs : list of str
             Amino acid sequences of the protein (one-letter code)
         crds : list of np.ndarray
-            Coordinates of the protein, `&#39;numpy&#39;` arrays of shape `(L, 4, 3)`,
+            Coordinates of the protein, `numpy` arrays of shape `(L, 14, 3)`,
             in the order of `N, C, CA, O`
         masks : list of np.ndarray
             Mask arrays where 1 indicates residues with known coordinates and 0
@@ -267,6 +267,8 @@ class ProteinEntry:
         &#34;&#34;&#34;Get the chain types of the protein.
 
         If the CDRs are not annotated, this function will return `None`.
+        If there is no light or heavy chain, the corresponding key will be missing.
+        If there is no antigen chain, the `&#39;antigen&#39;` key will map to an empty list.
 
         Parameters
         ----------
@@ -650,7 +652,7 @@ class ProteinEntry:
             Chain IDs
 
         &#34;&#34;&#34;
-        if self.predict_mask is None:
+        if not self.has_predict_mask():
             raise ValueError(&#34;Predicted mask not available&#34;)
         return [k for k, v in self.predict_mask.items() if v.sum() != 0]
 
@@ -1696,6 +1698,8 @@ class ProteinEntry:
             The CA RMSD between the two proteins
 
         &#34;&#34;&#34;
+        if only_predicted and not self.has_predict_mask():
+            only_predicted = False
         chains = [x for x in self.get_chains() if x in entry.get_chains()]
         structure1 = self.get_coordinates(only_known=True, chains=chains)[:, 2]
         structure2 = entry.get_coordinates(only_known=True, chains=chains)[:, 2]
@@ -1761,7 +1765,9 @@ class ProteinEntry:
             [
                 x
                 for x in entry.get_chains()
-                if x not in entry.get_chain_type_dict()[&#34;antigen&#34;] or not only_antibody
+                if not entry.has_cdr()
+                or not only_antibody
+                or x not in entry.get_chain_type_dict()[&#34;antigen&#34;]
             ]
             for entry in entries
         ]
@@ -1792,7 +1798,9 @@ class ProteinEntry:
             chains = [
                 x
                 for x in entry.get_chains()
-                if x not in entry.get_chain_type_dict()[&#34;antigen&#34;] or not only_antibody
+                if not entry.has_cdr()
+                or not only_antibody
+                or x not in entry.get_chain_type_dict()[&#34;antigen&#34;]
             ]
             esm_entry = ProteinEntry.from_pdb(path)
             chain_rename_dict = {k: v for k, v in zip(string.ascii_uppercase, chains)}
@@ -1801,7 +1809,9 @@ class ProteinEntry:
             esm_entry.align_structure(
                 reference_pdb_path=temp_file,
                 save_pdb_path=path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;,
-                chain_ids=entry.get_predicted_chains(),
+                chain_ids=entry.get_predicted_chains()
+                if entry.has_predict_mask()
+                else chains,
             )
             rmsds.append(
                 entry.ca_rmsd(
@@ -2051,6 +2061,22 @@ class ProteinEntry:
                     file_ = file
                 u = mda.Universe(file_)
                 writer.write(u)
+
+    def set_predict_mask(self, mask_dict):
+        &#34;&#34;&#34;Set the predicted mask.
+
+        Parameters
+        ----------
+        mask_dict : dict
+            A dictionary mapping from chain IDs to a `np.ndarray` mask of 0s and 1s of the same length as the chain sequence
+
+        &#34;&#34;&#34;
+        for chain in mask_dict:
+            if chain not in self.get_chains():
+                raise PDBError(&#34;Chain not found&#34;)
+            if len(mask_dict[chain]) != self.get_length([chain]):
+                raise PDBError(&#34;Mask length does not match sequence length&#34;)
+        self.predict_mask = mask_dict
 
     def apply_mask(self, mask):
         &#34;&#34;&#34;Apply a mask to the protein.
@@ -2919,24 +2945,6 @@ coordinates and 0 indicates missing values</dd>
     else:
         interpolated_mask = np.ones_like(crd[:, :, 0])
     return crd, mask</code></pre>
-</details>
-</dd>
-<dt id="proteinflow.data.lru_cache"><code class="name flex">
-<span>def <span class="ident">lru_cache</span></span>(<span>)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Make a dummy decorator.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def lru_cache():
-    &#34;&#34;&#34;Make a dummy decorator.&#34;&#34;&#34;
-
-    def wrapper(func):
-        return func
-
-    return wrapper</code></pre>
 </details>
 </dd>
 </dl>
@@ -4207,7 +4215,7 @@ the atoms corresponding to 1s will be highlighted in red</dd>
 <dt><strong><code>seqs</code></strong> :&ensp;<code>list</code> of <code>str</code></dt>
 <dd>Amino acid sequences of the protein (one-letter code)</dd>
 <dt><strong><code>crds</code></strong> :&ensp;<code>list</code> of <code>np.ndarray</code></dt>
-<dd>Coordinates of the protein, <code>'numpy'</code> arrays of shape <code>(L, 4, 3)</code>,
+<dd>Coordinates of the protein, <code>numpy</code> arrays of shape <code>(L, 14, 3)</code>,
 in the order of <code>N, C, CA, O</code></dd>
 <dt><strong><code>masks</code></strong> :&ensp;<code>list</code> of <code>np.ndarray</code></dt>
 <dd>Mask arrays where 1 indicates residues with known coordinates and 0
@@ -4252,7 +4260,7 @@ indicates residues with known coordinates</dd>
         seqs : list of str
             Amino acid sequences of the protein (one-letter code)
         crds : list of np.ndarray
-            Coordinates of the protein, `&#39;numpy&#39;` arrays of shape `(L, 4, 3)`,
+            Coordinates of the protein, `numpy` arrays of shape `(L, 14, 3)`,
             in the order of `N, C, CA, O`
         masks : list of np.ndarray
             Mask arrays where 1 indicates residues with known coordinates and 0
@@ -4339,6 +4347,8 @@ indicates residues with known coordinates</dd>
         &#34;&#34;&#34;Get the chain types of the protein.
 
         If the CDRs are not annotated, this function will return `None`.
+        If there is no light or heavy chain, the corresponding key will be missing.
+        If there is no antigen chain, the `&#39;antigen&#39;` key will map to an empty list.
 
         Parameters
         ----------
@@ -4722,7 +4732,7 @@ indicates residues with known coordinates</dd>
             Chain IDs
 
         &#34;&#34;&#34;
-        if self.predict_mask is None:
+        if not self.has_predict_mask():
             raise ValueError(&#34;Predicted mask not available&#34;)
         return [k for k, v in self.predict_mask.items() if v.sum() != 0]
 
@@ -5768,6 +5778,8 @@ indicates residues with known coordinates</dd>
             The CA RMSD between the two proteins
 
         &#34;&#34;&#34;
+        if only_predicted and not self.has_predict_mask():
+            only_predicted = False
         chains = [x for x in self.get_chains() if x in entry.get_chains()]
         structure1 = self.get_coordinates(only_known=True, chains=chains)[:, 2]
         structure2 = entry.get_coordinates(only_known=True, chains=chains)[:, 2]
@@ -5833,7 +5845,9 @@ indicates residues with known coordinates</dd>
             [
                 x
                 for x in entry.get_chains()
-                if x not in entry.get_chain_type_dict()[&#34;antigen&#34;] or not only_antibody
+                if not entry.has_cdr()
+                or not only_antibody
+                or x not in entry.get_chain_type_dict()[&#34;antigen&#34;]
             ]
             for entry in entries
         ]
@@ -5864,7 +5878,9 @@ indicates residues with known coordinates</dd>
             chains = [
                 x
                 for x in entry.get_chains()
-                if x not in entry.get_chain_type_dict()[&#34;antigen&#34;] or not only_antibody
+                if not entry.has_cdr()
+                or not only_antibody
+                or x not in entry.get_chain_type_dict()[&#34;antigen&#34;]
             ]
             esm_entry = ProteinEntry.from_pdb(path)
             chain_rename_dict = {k: v for k, v in zip(string.ascii_uppercase, chains)}
@@ -5873,7 +5889,9 @@ indicates residues with known coordinates</dd>
             esm_entry.align_structure(
                 reference_pdb_path=temp_file,
                 save_pdb_path=path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;,
-                chain_ids=entry.get_predicted_chains(),
+                chain_ids=entry.get_predicted_chains()
+                if entry.has_predict_mask()
+                else chains,
             )
             rmsds.append(
                 entry.ca_rmsd(
@@ -6124,6 +6142,22 @@ indicates residues with known coordinates</dd>
                 u = mda.Universe(file_)
                 writer.write(u)
 
+    def set_predict_mask(self, mask_dict):
+        &#34;&#34;&#34;Set the predicted mask.
+
+        Parameters
+        ----------
+        mask_dict : dict
+            A dictionary mapping from chain IDs to a `np.ndarray` mask of 0s and 1s of the same length as the chain sequence
+
+        &#34;&#34;&#34;
+        for chain in mask_dict:
+            if chain not in self.get_chains():
+                raise PDBError(&#34;Chain not found&#34;)
+            if len(mask_dict[chain]) != self.get_length([chain]):
+                raise PDBError(&#34;Mask length does not match sequence length&#34;)
+        self.predict_mask = mask_dict
+
     def apply_mask(self, mask):
         &#34;&#34;&#34;Apply a mask to the protein.
 
@@ -6174,21 +6208,42 @@ indicates residues with known coordinates</dd>
 <h3>Static methods</h3>
 <dl>
 <dt id="proteinflow.data.ProteinEntry.combine_multiple_frames"><code class="name flex">
-<span>def <span class="ident">combine_multiple_frames</span></span>(<span>*args, **kwargs)</span>
+<span>def <span class="ident">combine_multiple_frames</span></span>(<span>files, output_path='combined.pdb')</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Combine multiple PDB files into a single multiframe PDB file.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>files</code></strong> :&ensp;<code>list</code> of <code>str</code></dt>
+<dd>A list of PDB or proteinflow pickle files</dd>
+<dt><strong><code>output_path</code></strong> :&ensp;<code>str</code>, default <code>'combined.pdb'</code></dt>
+<dd>Path to the .pdb output file</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def wrapper(*args, **kwargs):
-    if module_name not in sys.modules:
-        raise ImportError(
-            f&#34;{install_name} must be installed to use this function. &#34;
-            f&#34;Install it with `pip install {install_name}` or together with most other optional dependencies with `pip install proteinflow[processing]`.&#34;
-        )
-    return func(*args, **kwargs)</code></pre>
+<pre><code class="python">@staticmethod
+@requires_extra(&#34;MDAnalysis&#34;)
+def combine_multiple_frames(files, output_path=&#34;combined.pdb&#34;):
+    &#34;&#34;&#34;Combine multiple PDB files into a single multiframe PDB file.
+
+    Parameters
+    ----------
+    files : list of str
+        A list of PDB or proteinflow pickle files
+    output_path : str, default &#39;combined.pdb&#39;
+        Path to the .pdb output file
+
+    &#34;&#34;&#34;
+    with mda.Writer(output_path, multiframe=True) as writer:
+        for file in files:
+            if file.endswith(&#34;.pickle&#34;):
+                file_ = ProteinEntry.from_pickle(file)._temp_pdb_file()
+            else:
+                file_ = file
+            u = mda.Universe(file_)
+            writer.write(u)</code></pre>
 </details>
 </dd>
 <dt id="proteinflow.data.ProteinEntry.decode_cdr"><code class="name flex">
@@ -6332,7 +6387,9 @@ def esmfold_metrics(entries, only_antibody=False):
         [
             x
             for x in entry.get_chains()
-            if x not in entry.get_chain_type_dict()[&#34;antigen&#34;] or not only_antibody
+            if not entry.has_cdr()
+            or not only_antibody
+            or x not in entry.get_chain_type_dict()[&#34;antigen&#34;]
         ]
         for entry in entries
     ]
@@ -6363,7 +6420,9 @@ def esmfold_metrics(entries, only_antibody=False):
         chains = [
             x
             for x in entry.get_chains()
-            if x not in entry.get_chain_type_dict()[&#34;antigen&#34;] or not only_antibody
+            if not entry.has_cdr()
+            or not only_antibody
+            or x not in entry.get_chain_type_dict()[&#34;antigen&#34;]
         ]
         esm_entry = ProteinEntry.from_pdb(path)
         chain_rename_dict = {k: v for k, v in zip(string.ascii_uppercase, chains)}
@@ -6372,7 +6431,9 @@ def esmfold_metrics(entries, only_antibody=False):
         esm_entry.align_structure(
             reference_pdb_path=temp_file,
             save_pdb_path=path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;,
-            chain_ids=entry.get_predicted_chains(),
+            chain_ids=entry.get_predicted_chains()
+            if entry.has_predict_mask()
+            else chains,
         )
         rmsds.append(
             entry.ca_rmsd(
@@ -7403,6 +7464,8 @@ def retrieve_ligands_from_pickle(path):
         The CA RMSD between the two proteins
 
     &#34;&#34;&#34;
+    if only_predicted and not self.has_predict_mask():
+        only_predicted = False
     chains = [x for x in self.get_chains() if x in entry.get_chains()]
     structure1 = self.get_coordinates(only_known=True, chains=chains)[:, 2]
     structure2 = entry.get_coordinates(only_known=True, chains=chains)[:, 2]
@@ -7882,7 +7945,9 @@ otherwise, all features are concatenated in alphabetical order of the chain IDs<
 </code></dt>
 <dd>
 <div class="desc"><p>Get the chain types of the protein.</p>
-<p>If the CDRs are not annotated, this function will return <code>None</code>.</p>
+<p>If the CDRs are not annotated, this function will return <code>None</code>.
+If there is no light or heavy chain, the corresponding key will be missing.
+If there is no antigen chain, the <code>'antigen'</code> key will map to an empty list.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>chains</code></strong> :&ensp;<code>list</code> of <code>str</code>, default <code>None</code></dt>
@@ -7902,6 +7967,8 @@ the corresponding chain IDs</dd>
     &#34;&#34;&#34;Get the chain types of the protein.
 
     If the CDRs are not annotated, this function will return `None`.
+    If there is no light or heavy chain, the corresponding key will be missing.
+    If there is no antigen chain, the `&#39;antigen&#39;` key will map to an empty list.
 
     Parameters
     ----------
@@ -8346,7 +8413,7 @@ zeros to residues with known coordinates</dd>
         Chain IDs
 
     &#34;&#34;&#34;
-    if self.predict_mask is None:
+    if not self.has_predict_mask():
         raise ValueError(&#34;Predicted mask not available&#34;)
     return [k for k, v in self.predict_mask.items() if v.sum() != 0]</code></pre>
 </details>
@@ -8814,6 +8881,37 @@ otherwise, all features are concatenated in alphabetical order of the chain IDs<
         out += [sse_map[x] for x in sse]
     sse = np.array(out)
     return sse</code></pre>
+</details>
+</dd>
+<dt id="proteinflow.data.ProteinEntry.set_predict_mask"><code class="name flex">
+<span>def <span class="ident">set_predict_mask</span></span>(<span>self, mask_dict)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Set the predicted mask.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>mask_dict</code></strong> :&ensp;<code>dict</code></dt>
+<dd>A dictionary mapping from chain IDs to a <code>np.ndarray</code> mask of 0s and 1s of the same length as the chain sequence</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def set_predict_mask(self, mask_dict):
+    &#34;&#34;&#34;Set the predicted mask.
+
+    Parameters
+    ----------
+    mask_dict : dict
+        A dictionary mapping from chain IDs to a `np.ndarray` mask of 0s and 1s of the same length as the chain sequence
+
+    &#34;&#34;&#34;
+    for chain in mask_dict:
+        if chain not in self.get_chains():
+            raise PDBError(&#34;Chain not found&#34;)
+        if len(mask_dict[chain]) != self.get_length([chain]):
+            raise PDBError(&#34;Mask length does not match sequence length&#34;)
+    self.predict_mask = mask_dict</code></pre>
 </details>
 </dd>
 <dt id="proteinflow.data.ProteinEntry.sidechain_coordinates"><code class="name flex">
@@ -9762,7 +9860,6 @@ def from_id(
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="proteinflow.data.interpolate_coords" href="#proteinflow.data.interpolate_coords">interpolate_coords</a></code></li>
-<li><code><a title="proteinflow.data.lru_cache" href="#proteinflow.data.lru_cache">lru_cache</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
@@ -9839,6 +9936,7 @@ def from_id(
 <li><code><a title="proteinflow.data.ProteinEntry.rename_chains" href="#proteinflow.data.ProteinEntry.rename_chains">rename_chains</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.retrieve_ligands_from_pickle" href="#proteinflow.data.ProteinEntry.retrieve_ligands_from_pickle">retrieve_ligands_from_pickle</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.secondary_structure" href="#proteinflow.data.ProteinEntry.secondary_structure">secondary_structure</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.set_predict_mask" href="#proteinflow.data.ProteinEntry.set_predict_mask">set_predict_mask</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.sidechain_coordinates" href="#proteinflow.data.ProteinEntry.sidechain_coordinates">sidechain_coordinates</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.sidechain_orientation" href="#proteinflow.data.ProteinEntry.sidechain_orientation">sidechain_orientation</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.tm_score" href="#proteinflow.data.ProteinEntry.tm_score">tm_score</a></code></li>
