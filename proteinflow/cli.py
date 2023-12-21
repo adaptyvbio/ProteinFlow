@@ -128,13 +128,13 @@ def download(**kwargs):
     "--test_split",
     default=0.05,
     type=float,
-    help="The percentage of chains to put in the test set (default 5%)",
+    help="The fraction of chains to put in the test set (default 5%)",
 )
 @click.option(
     "--valid_split",
     default=0.05,
     type=float,
-    help="The percentage of chains to put in the validation set (default 5%)",
+    help="The fraction of chains to put in the validation set (default 5%)",
 )
 @click.option(
     "--pdb_snapshot",

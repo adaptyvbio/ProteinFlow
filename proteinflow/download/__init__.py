@@ -459,14 +459,16 @@ def download_filtered_sabdab_files(
     if sabdab_data_path is None:
         try:
             _download_sabdab_by_method(
-                methods=methods, resolution_thr=resolution_thr, tmp_folder=local_folder
+                methods=methods,
+                resolution_thr=resolution_thr,
+                local_folder=local_folder,
             )
             paths = [
                 os.path.join(local_folder, f"pdb_{'_'.join(method)}.zip")
                 for method in methods
             ]
         except RuntimeError:
-            _download_sabdab_all(tmp_folder=local_folder)
+            _download_sabdab_all(local_folder=local_folder)
             paths = [os.path.join(local_folder, "all_structures")]
             sabdab_data_path = os.path.join(local_folder, "all_structures")
     else:
