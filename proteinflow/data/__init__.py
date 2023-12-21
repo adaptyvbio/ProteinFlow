@@ -142,7 +142,7 @@ class ProteinEntry:
         seqs : list of str
             Amino acid sequences of the protein (one-letter code)
         crds : list of np.ndarray
-            Coordinates of the protein, `'numpy'` arrays of shape `(L, 4, 3)`,
+            Coordinates of the protein, `numpy` arrays of shape `(L, 14, 3)`,
             in the order of `N, C, CA, O`
         masks : list of np.ndarray
             Mask arrays where 1 indicates residues with known coordinates and 0
