@@ -229,6 +229,8 @@ class ProteinEntry:
         """Get the chain types of the protein.
 
         If the CDRs are not annotated, this function will return `None`.
+        If there is no light or heavy chain, the corresponding key will be missing.
+        If there is no antigen chain, the `'antigen'` key will map to an empty list.
 
         Parameters
         ----------
