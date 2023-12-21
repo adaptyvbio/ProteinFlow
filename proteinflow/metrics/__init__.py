@@ -61,6 +61,7 @@ def blosum62_score(seq_before, seq_after):
     return score
 
 
+@requires_extra("blosum")
 def long_repeat_num(seq, thr=5):
     """Calculate the number of long repeats in a sequence.
 

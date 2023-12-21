@@ -6,6 +6,7 @@ except ImportError:
     pass
 
 import sys
+from functools import wraps
 
 
 def requires_extra(module_name, install_name=None):
@@ -23,6 +24,7 @@ def requires_extra(module_name, install_name=None):
         install_name = module_name
 
     def decorator(func):
+        @wraps(func)
         def wrapper(*args, **kwargs):
             if module_name not in sys.modules:
                 raise ImportError(
