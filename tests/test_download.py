@@ -28,7 +28,6 @@ def test_download(tag):
             node_features_type="chemical+sidechain_orientation+dihedral+secondary_structure+sidechain_coords",
             rewrite=True,
             clustering_dict_path=cluster_dict_path,
-            classes_dict_path=os.path.join(folder, "splits_dict", "classes.pickle"),
             entry_type=entry_type,
             classes_to_exclude=classes_to_exclude,
             max_length=1000,
@@ -62,4 +61,4 @@ def test_download(tag):
 
 
 if __name__ == "__main__":
-    test_download("test")
+    test_download("test_old")

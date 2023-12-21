@@ -128,6 +128,9 @@ class ProteinLoader(DataLoader):
         classes_dict_path=None,
         load_ligands=False,
         cut_edges=False,
+        require_antigen=False,
+        require_light_chain=False,
+        require_heavy_chain=False,
         *args,
         **kwargs,
     ) -> None:
@@ -184,6 +187,12 @@ class ProteinLoader(DataLoader):
             if `True`, the ligands will be loaded from the PDB files and added to the features
         cut_edges : bool, default False
             if `True`, missing values at the edges of the sequence will be cut off
+        require_antigen : bool, default False
+            if `True`, only entries with an antigen will be included (used if the dataset is SAbDab)
+        require_light_chain : bool, default False
+            if `True`, only entries with a light chain will be included (used if the dataset is SAbDab)
+        require_heavy_chain : bool, default False
+            if `True`, only entries with a heavy chain will be included (used if the dataset is SAbDab)
         *args
             additional arguments to `torch.utils.data.DataLoader`
         **kwargs
@@ -214,6 +223,9 @@ class ProteinLoader(DataLoader):
             mask_all_cdrs=mask_all_cdrs,
             load_ligands=load_ligands,
             cut_edges=cut_edges,
+            require_antigen=require_antigen,
+            require_light_chain=require_light_chain,
+            require_heavy_chain=require_heavy_chain,
         )
         return ProteinLoader(
             dataset=dataset,
@@ -309,7 +321,9 @@ class ProteinDataset(Dataset):
         patch_around_mask=False,
         initial_patch_size=128,
         antigen_patch_size=128,
-        debug_verbose=False,
+        require_antigen=False,
+        require_light_chain=False,
+        require_heavy_chain=False,
     ):
         """Initialize the dataset.
 
@@ -380,9 +394,15 @@ class ProteinDataset(Dataset):
             the size of the initial patch (used if `patch_around_mask` is `True`)
         antigen_patch_size : int, default 128
             the size of the antigen patch (used if `patch_around_mask` is `True` and the dataset is SAbDab)
+        require_antigen : bool, default False
+            if `True`, only entries with an antigen will be included (used if the dataset is SAbDab)
+        require_light_chain : bool, default False
+            if `True`, only entries with a light chain will be included (used if the dataset is SAbDab)
+        requre_heavy_chain : bool, default False
+            if `True`, only entries with a heavy chain will be included (used if the dataset is SAbDab)
 
         """
-        self.debug = debug_verbose
+        self.debug = False
 
         if classes_dict_path is None:
             dataset_parent = os.path.dirname(dataset_folder)
@@ -491,51 +511,43 @@ class ProteinDataset(Dataset):
                     self.files[id][chain].append(filename)
         if classes_to_exclude is None:
             classes_to_exclude = []
-        elif classes_dict_path is None:
-            raise ValueError(
-                "The classes_to_exclude parameter is not None, but classes_dict_path is None. Please provide a path to a pickled classes dictionary."
-            )
+        classes = None
+        if classes_dict_path is not None:
+            with open(classes_dict_path, "rb") as f:
+                classes = pickle.load(f)
         if clustering_dict_path is not None:
-            if entry_type == "pair":
-                classes_to_exclude = set(classes_to_exclude)
-                classes_to_exclude.add("single_chains")
-                classes_to_exclude = list(classes_to_exclude)
             with open(clustering_dict_path, "rb") as f:
                 self.clusters = pickle.load(f)  # list of biounit ids by cluster id
-                try:  # old way of storing class information
-                    classes = pickle.load(f)
-                except EOFError:
-                    if len(classes_to_exclude) > 0:
-                        with open(classes_dict_path, "rb") as f:
-                            classes = pickle.load(f)
-            to_exclude = set()
+                if classes is None:  # old way of storing class information
+                    try:
+                        classes = pickle.load(f)
+                    except EOFError:
+                        pass
+        else:
+            self.clusters = None
+        if classes is None and len(classes_to_exclude) > 0:
+            raise ValueError(
+                "Classes to exclude are given but no classes dictionary is found, please set classes_dict_path to the path of the classes dictionary"
+            )
+        to_exclude = set()
+        if classes is not None:
             for c in classes_to_exclude:
                 for key, id_arr in classes.get(c, {}).items():
                     for id, _ in id_arr:
                         to_exclude.add(id)
-            for key in list(self.clusters.keys()):
-                cluster_list = []
-                for x in self.clusters[key]:
-                    if x[0] in to_exclude:
-                        continue
-                    id = x[0].split(".")[0]
-                    chain = x[1]
-                    if id not in self.files:
-                        continue
-                    if chain not in self.files[id]:
-                        continue
-                    if len(self.files[id][chain]) == 0:
-                        continue
-                    cluster_list.append([id, chain])
-                self.clusters[key] = cluster_list
-                if len(self.clusters[key]) == 0:
-                    self.clusters.pop(key)
+        if require_antigen or require_light_chain:
+            to_exclude.update(
+                self._exclude_by_chains(
+                    require_antigen, require_light_chain, require_heavy_chain
+                )
+            )
+        if self.clusters is not None:
+            self._exclude_ids_from_clusters(to_exclude)
             self.data = list(self.clusters.keys())
         else:
-            self.clusters = None
-            self.data = list(self.files.keys())
+            self.data = [x for x in self.files.keys() if x not in to_exclude]
         # create a smaller dataset if necessary (if we have clustering it's applied earlier)
-        if clustering_dict_path is None and use_fraction < 1:
+        if self.clusters is None and use_fraction < 1:
             self.data = sorted(self.data)[: int(len(self.data) * use_fraction)]
         if load_to_ram:
             print("Loading to RAM...")
@@ -554,6 +566,60 @@ class ProteinDataset(Dataset):
         self.sabdab = "__" in sample_chain
         self.cdr = 0
         self.set_cdr(None)
+
+    def _exclude_ids_from_clusters(self, to_exclude):
+        for key in list(self.clusters.keys()):
+            cluster_list = []
+            for x in self.clusters[key]:
+                if x[0] in to_exclude:
+                    continue
+                id = x[0].split(".")[0]
+                chain = x[1]
+                if id not in self.files:
+                    continue
+                if chain not in self.files[id]:
+                    continue
+                if len(self.files[id][chain]) == 0:
+                    continue
+                cluster_list.append([id, chain])
+            self.clusters[key] = cluster_list
+            if len(self.clusters[key]) == 0:
+                self.clusters.pop(key)
+
+    def _check_chain_types(self, file):
+        chain_types = set()
+        with open(file, "rb") as f:
+            data = pickle.load(f)
+        chains = data["chain_dict"].values()
+        for chain in chains:
+            chain_mask = data["chain_encoding_all"] == chain
+            cdr = data["cdr"][chain_mask]
+            cdr_values = cdr.unique()
+            if len(cdr_values) == 1:
+                chain_types.add("antigen")
+            elif CDR_REVERSE["H1"] in cdr_values:
+                chain_types.add("heavy")
+            elif CDR_REVERSE["L1"] in cdr_values:
+                chain_types.add("light")
+        return chain_types
+
+    def _exclude_by_chains(
+        self, require_antigen, require_light_chain, require_heavy_chain
+    ):
+        """Exclude entries that do not have an antigen or a light chain."""
+        to_exclude = set()
+        for id in self.files:
+            filename = list(self.files[id].values())[0][
+                0
+            ]  # assuming entry type is biounit
+            chain_types = self._check_chain_types(filename)
+            if require_antigen and "antigen" not in chain_types:
+                to_exclude.add(id)
+            if require_light_chain and "light" not in chain_types:
+                to_exclude.add(id)
+            if require_heavy_chain and "heavy" not in chain_types:
+                to_exclude.add(id)
+        return to_exclude
 
     def _get_masked_sequence(
         self,
@@ -702,6 +768,8 @@ class ProteinDataset(Dataset):
         elif self.entry_type == "chain":
             chain_sets = [[x] for x in chains]
         elif self.entry_type == "pair":
+            if len(chains) == 1:
+                return []
             chain_sets = list(combinations(chains, 2))
         else:
             raise RuntimeError(
