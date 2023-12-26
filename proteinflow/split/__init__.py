@@ -1399,6 +1399,7 @@ def _exclude_biounits(
 
     For example, if for antibody Ab CDR H1 is in cluster A, CDR H2 is in cluster B and CDR H3 is in cluster C, and cluster C is in
     the excluded set, then clusters A and B are removed from the training / test / validation sets and added to the excluded set with only the Ab CDRs.
+    The files for the other biounits that are part of the excluded clusters are also moved to the excluded set but not added to the split dictionary.
 
     """
     set_to_exclude = set(excluded_biounits)
@@ -1435,7 +1436,7 @@ def _exclude_biounits(
                 ]
                 if len(clusters_dict[cluster]) == 0:
                     clusters_dict.pop(cluster)
-    excluded_biounits = _biounits_in_clusters_dict(excluded_clusters_dict, [])
+    excluded_biounits = set(_biounits_in_clusters_dict(excluded_clusters_dict, []))
     # adjust the dictionaries to account for full biounits being excluded
     for clusters_dict in [
         train_clusters_dict,
@@ -1450,9 +1451,11 @@ def _exclude_biounits(
                 if file in excluded_biounits:
                     excluded_biounit_in_cluster = True
                     excluded_clusters_dict[cluster].append((file, chain))
+                    excluded_biounits.add(file)
             # remove cluster from training / validation / test set if at least one biounit in the cluster is excluded
             if exclude_clusters and excluded_biounit_in_cluster:
-                clusters_dict.pop(cluster)
+                chains = clusters_dict.pop(cluster)
+                excluded_biounits.update([x[0] for x in chains])
     excluded_clusters_dict = {k: list(v) for k, v in excluded_clusters_dict.items()}
     return (
         train_clusters_dict,
