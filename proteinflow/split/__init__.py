@@ -1399,6 +1399,7 @@ def _exclude_biounits(
 
     For example, if for antibody Ab CDR H1 is in cluster A, CDR H2 is in cluster B and CDR H3 is in cluster C, and cluster C is in
     the excluded set, then clusters A and B are removed from the training / test / validation sets and added to the excluded set with only the Ab CDRs.
+    The files for the other biounits that are part of the excluded clusters are also moved to the excluded set but not added to the split dictionary.
 
     """
     set_to_exclude = set(excluded_biounits)
