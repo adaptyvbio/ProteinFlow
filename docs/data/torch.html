@@ -160,6 +160,7 @@ class ProteinLoader(DataLoader):
         cut_edges=False,
         require_antigen=False,
         require_light_chain=False,
+        require_no_light_chain=False,
         require_heavy_chain=False,
         *args,
         **kwargs,
@@ -221,6 +222,8 @@ class ProteinLoader(DataLoader):
             if `True`, only entries with an antigen will be included (used if the dataset is SAbDab)
         require_light_chain : bool, default False
             if `True`, only entries with a light chain will be included (used if the dataset is SAbDab)
+        require_no_light_chain : bool, default False
+            if `True`, only entries without a light chain will be included (used if the dataset is SAbDab)
         require_heavy_chain : bool, default False
             if `True`, only entries with a heavy chain will be included (used if the dataset is SAbDab)
         *args
@@ -255,6 +258,7 @@ class ProteinLoader(DataLoader):
             cut_edges=cut_edges,
             require_antigen=require_antigen,
             require_light_chain=require_light_chain,
+            require_no_light_chain=require_no_light_chain,
             require_heavy_chain=require_heavy_chain,
         )
         return ProteinLoader(
@@ -353,6 +357,7 @@ class ProteinDataset(Dataset):
         antigen_patch_size=128,
         require_antigen=False,
         require_light_chain=False,
+        require_no_light_chain=False,
         require_heavy_chain=False,
     ):
         &#34;&#34;&#34;Initialize the dataset.
@@ -428,6 +433,8 @@ class ProteinDataset(Dataset):
             if `True`, only entries with an antigen will be included (used if the dataset is SAbDab)
         require_light_chain : bool, default False
             if `True`, only entries with a light chain will be included (used if the dataset is SAbDab)
+        require_no_light_chain : bool, default False
+            if `True`, only entries without a light chain will be included (used if the dataset is SAbDab)
         requre_heavy_chain : bool, default False
             if `True`, only entries with a heavy chain will be included (used if the dataset is SAbDab)
 
@@ -568,7 +575,10 @@ class ProteinDataset(Dataset):
         if require_antigen or require_light_chain:
             to_exclude.update(
                 self._exclude_by_chains(
-                    require_antigen, require_light_chain, require_heavy_chain
+                    require_antigen,
+                    require_light_chain,
+                    require_no_light_chain,
+                    require_heavy_chain,
                 )
             )
         if self.clusters is not None:
@@ -634,7 +644,11 @@ class ProteinDataset(Dataset):
         return chain_types
 
     def _exclude_by_chains(
-        self, require_antigen, require_light_chain, require_heavy_chain
+        self,
+        require_antigen,
+        require_light_chain,
+        require_no_light_chain,
+        require_heavy_chain,
     ):
         &#34;&#34;&#34;Exclude entries that do not have an antigen or a light chain.&#34;&#34;&#34;
         to_exclude = set()
@@ -646,6 +660,8 @@ class ProteinDataset(Dataset):
             if require_antigen and &#34;antigen&#34; not in chain_types:
                 to_exclude.add(id)
             if require_light_chain and &#34;light&#34; not in chain_types:
+                to_exclude.add(id)
+            if require_no_light_chain and &#34;light&#34; in chain_types:
                 to_exclude.add(id)
             if require_heavy_chain and &#34;heavy&#34; not in chain_types:
                 to_exclude.add(id)
@@ -1126,7 +1142,7 @@ class ProteinDataset(Dataset):
 <dl>
 <dt id="proteinflow.data.torch.ProteinDataset"><code class="flex name class">
 <span>class <span class="ident">ProteinDataset</span></span>
-<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', debug_file_path=None, entry_type='biounit', classes_to_exclude=None, shuffle_clusters=True, min_cdr_length=None, feature_functions=None, classes_dict_path=None, cut_edges=False, mask_residues=True, lower_limit=15, upper_limit=100, mask_frac=None, mask_whole_chains=False, mask_sequential=False, force_binding_sites_frac=0.15, mask_all_cdrs=False, load_ligands=False, pyg_graph=False, patch_around_mask=False, initial_patch_size=128, antigen_patch_size=128, require_antigen=False, require_light_chain=False, require_heavy_chain=False)</span>
+<span>(</span><span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type='zeros', debug_file_path=None, entry_type='biounit', classes_to_exclude=None, shuffle_clusters=True, min_cdr_length=None, feature_functions=None, classes_dict_path=None, cut_edges=False, mask_residues=True, lower_limit=15, upper_limit=100, mask_frac=None, mask_whole_chains=False, mask_sequential=False, force_binding_sites_frac=0.15, mask_all_cdrs=False, load_ligands=False, pyg_graph=False, patch_around_mask=False, initial_patch_size=128, antigen_patch_size=128, require_antigen=False, require_light_chain=False, require_no_light_chain=False, require_heavy_chain=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Dataset to load proteinflow data.</p>
@@ -1243,6 +1259,8 @@ from a polymer is sampled, the center of the masked region will be forced to be 
 <dd>if <code>True</code>, only entries with an antigen will be included (used if the dataset is SAbDab)</dd>
 <dt><strong><code>require_light_chain</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, only entries with a light chain will be included (used if the dataset is SAbDab)</dd>
+<dt><strong><code>require_no_light_chain</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, only entries without a light chain will be included (used if the dataset is SAbDab)</dd>
 <dt><strong><code>requre_heavy_chain</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, only entries with a heavy chain will be included (used if the dataset is SAbDab)</dd>
 </dl></div>
@@ -1338,6 +1356,7 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         antigen_patch_size=128,
         require_antigen=False,
         require_light_chain=False,
+        require_no_light_chain=False,
         require_heavy_chain=False,
     ):
         &#34;&#34;&#34;Initialize the dataset.
@@ -1413,6 +1432,8 @@ from a polymer is sampled, the center of the masked region will be forced to be 
             if `True`, only entries with an antigen will be included (used if the dataset is SAbDab)
         require_light_chain : bool, default False
             if `True`, only entries with a light chain will be included (used if the dataset is SAbDab)
+        require_no_light_chain : bool, default False
+            if `True`, only entries without a light chain will be included (used if the dataset is SAbDab)
         requre_heavy_chain : bool, default False
             if `True`, only entries with a heavy chain will be included (used if the dataset is SAbDab)
 
@@ -1553,7 +1574,10 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         if require_antigen or require_light_chain:
             to_exclude.update(
                 self._exclude_by_chains(
-                    require_antigen, require_light_chain, require_heavy_chain
+                    require_antigen,
+                    require_light_chain,
+                    require_no_light_chain,
+                    require_heavy_chain,
                 )
             )
         if self.clusters is not None:
@@ -1619,7 +1643,11 @@ from a polymer is sampled, the center of the masked region will be forced to be 
         return chain_types
 
     def _exclude_by_chains(
-        self, require_antigen, require_light_chain, require_heavy_chain
+        self,
+        require_antigen,
+        require_light_chain,
+        require_no_light_chain,
+        require_heavy_chain,
     ):
         &#34;&#34;&#34;Exclude entries that do not have an antigen or a light chain.&#34;&#34;&#34;
         to_exclude = set()
@@ -1631,6 +1659,8 @@ from a polymer is sampled, the center of the masked region will be forced to be 
             if require_antigen and &#34;antigen&#34; not in chain_types:
                 to_exclude.add(id)
             if require_light_chain and &#34;light&#34; not in chain_types:
+                to_exclude.add(id)
+            if require_no_light_chain and &#34;light&#34; in chain_types:
                 to_exclude.add(id)
             if require_heavy_chain and &#34;heavy&#34; not in chain_types:
                 to_exclude.add(id)
@@ -2312,6 +2342,7 @@ longest protein in the batch.</p>
         cut_edges=False,
         require_antigen=False,
         require_light_chain=False,
+        require_no_light_chain=False,
         require_heavy_chain=False,
         *args,
         **kwargs,
@@ -2373,6 +2404,8 @@ longest protein in the batch.</p>
             if `True`, only entries with an antigen will be included (used if the dataset is SAbDab)
         require_light_chain : bool, default False
             if `True`, only entries with a light chain will be included (used if the dataset is SAbDab)
+        require_no_light_chain : bool, default False
+            if `True`, only entries without a light chain will be included (used if the dataset is SAbDab)
         require_heavy_chain : bool, default False
             if `True`, only entries with a heavy chain will be included (used if the dataset is SAbDab)
         *args
@@ -2407,6 +2440,7 @@ longest protein in the batch.</p>
             cut_edges=cut_edges,
             require_antigen=require_antigen,
             require_light_chain=require_light_chain,
+            require_no_light_chain=require_no_light_chain,
             require_heavy_chain=require_heavy_chain,
         )
         return ProteinLoader(
@@ -2463,7 +2497,7 @@ longest protein in the batch.</p>
 <h3>Static methods</h3>
 <dl>
 <dt id="proteinflow.data.torch.ProteinLoader.from_args"><code class="name flex">
-<span>def <span class="ident">from_args</span></span>(<span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type=None, entry_type='biounit', classes_to_exclude=None, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, force_binding_sites_frac=0, shuffle_clusters=True, shuffle_batches=True, mask_all_cdrs=False, classes_dict_path=None, load_ligands=False, cut_edges=False, require_antigen=False, require_light_chain=False, require_heavy_chain=False, *args, **kwargs) ‑> None</span>
+<span>def <span class="ident">from_args</span></span>(<span>dataset_folder, features_folder='./data/tmp/', clustering_dict_path=None, max_length=None, rewrite=False, use_fraction=1, load_to_ram=False, debug=False, interpolate='none', node_features_type=None, entry_type='biounit', classes_to_exclude=None, lower_limit=15, upper_limit=100, mask_residues=True, mask_whole_chains=False, mask_frac=None, force_binding_sites_frac=0, shuffle_clusters=True, shuffle_batches=True, mask_all_cdrs=False, classes_dict_path=None, load_ligands=False, cut_edges=False, require_antigen=False, require_light_chain=False, require_no_light_chain=False, require_heavy_chain=False, *args, **kwargs) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a <code><a title="proteinflow.data.torch.ProteinLoader" href="#proteinflow.data.torch.ProteinLoader">ProteinLoader</a></code> instance with a <code><a title="proteinflow.data.torch.ProteinDataset" href="#proteinflow.data.torch.ProteinDataset">ProteinDataset</a></code> from the given arguments.</p>
@@ -2522,6 +2556,8 @@ forced to be in a binding site</dd>
 <dd>if <code>True</code>, only entries with an antigen will be included (used if the dataset is SAbDab)</dd>
 <dt><strong><code>require_light_chain</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, only entries with a light chain will be included (used if the dataset is SAbDab)</dd>
+<dt><strong><code>require_no_light_chain</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>if <code>True</code>, only entries without a light chain will be included (used if the dataset is SAbDab)</dd>
 <dt><strong><code>require_heavy_chain</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, only entries with a heavy chain will be included (used if the dataset is SAbDab)</dd>
 <dt><strong><code>*args</code></strong></dt>
@@ -2561,6 +2597,7 @@ def from_args(
     cut_edges=False,
     require_antigen=False,
     require_light_chain=False,
+    require_no_light_chain=False,
     require_heavy_chain=False,
     *args,
     **kwargs,
@@ -2622,6 +2659,8 @@ def from_args(
         if `True`, only entries with an antigen will be included (used if the dataset is SAbDab)
     require_light_chain : bool, default False
         if `True`, only entries with a light chain will be included (used if the dataset is SAbDab)
+    require_no_light_chain : bool, default False
+        if `True`, only entries without a light chain will be included (used if the dataset is SAbDab)
     require_heavy_chain : bool, default False
         if `True`, only entries with a heavy chain will be included (used if the dataset is SAbDab)
     *args
@@ -2656,6 +2695,7 @@ def from_args(
         cut_edges=cut_edges,
         require_antigen=require_antigen,
         require_light_chain=require_light_chain,
+        require_no_light_chain=require_no_light_chain,
         require_heavy_chain=require_heavy_chain,
     )
     return ProteinLoader(
