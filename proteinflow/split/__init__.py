@@ -1435,7 +1435,7 @@ def _exclude_biounits(
                 ]
                 if len(clusters_dict[cluster]) == 0:
                     clusters_dict.pop(cluster)
-    excluded_biounits = _biounits_in_clusters_dict(excluded_clusters_dict, [])
+    excluded_biounits = set(_biounits_in_clusters_dict(excluded_clusters_dict, []))
     # adjust the dictionaries to account for full biounits being excluded
     for clusters_dict in [
         train_clusters_dict,
@@ -1450,9 +1450,11 @@ def _exclude_biounits(
                 if file in excluded_biounits:
                     excluded_biounit_in_cluster = True
                     excluded_clusters_dict[cluster].append((file, chain))
+                    excluded_biounits.add(file)
             # remove cluster from training / validation / test set if at least one biounit in the cluster is excluded
             if exclude_clusters and excluded_biounit_in_cluster:
-                clusters_dict.pop(cluster)
+                chains = clusters_dict.pop(cluster)
+                excluded_biounits.update([x[0] for x in chains])
     excluded_clusters_dict = {k: list(v) for k, v in excluded_clusters_dict.items()}
     return (
         train_clusters_dict,
