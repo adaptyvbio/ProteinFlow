@@ -1064,7 +1064,7 @@ class ProteinDataset(Dataset):
             id = self.data[idx]  # data is already filtered by length
             chain_id = random.choice(list(self.files[id].keys()))
             if self.cdr is not None:
-                while self.cdr != chain_id.split("__")[1]:
+                while chain_id.split("__")[1] not in self.cdr:
                     chain_id = random.choice(list(self.files[id].keys()))
         else:
             cluster = self.data[idx]
