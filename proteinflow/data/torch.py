@@ -908,8 +908,9 @@ class ProteinDataset(Dataset):
 
         Parameters
         ----------
-        cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}
-            The CDR to be iterated over. Set to `None` to go back to iterating over all chains.
+        cdr : list | str | None
+            The CDR to be iterated over (choose from H1, H2, H3, L1, L2, L3).
+            Set to `None` to go back to iterating over all chains.
 
         """
         if not self.sabdab:
