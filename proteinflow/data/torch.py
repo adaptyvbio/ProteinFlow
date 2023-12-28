@@ -908,12 +908,15 @@ class ProteinDataset(Dataset):
 
         Parameters
         ----------
-        cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}
-            The CDR to be iterated over. Set to `None` to go back to iterating over all chains.
+        cdr : list | str | None
+            The CDR to be iterated over (choose from H1, H2, H3, L1, L2, L3).
+            Set to `None` to go back to iterating over all chains.
 
         """
         if not self.sabdab:
             cdr = None
+        if isinstance(cdr, str):
+            cdr = [cdr]
         if cdr == self.cdr:
             return
         self.cdr = cdr
@@ -924,12 +927,12 @@ class ProteinDataset(Dataset):
             print(f"Setting CDR to {cdr}...")
             for i, data in tqdm(enumerate(self.data)):
                 if self.clusters is not None:
-                    if data.split("__")[1] == cdr:
+                    if data.split("__")[1] in cdr:
                         self.indices.append(i)
                 else:
                     add = False
                     for chain in self.files[data]:
-                        if chain.split("__")[1] == cdr:
+                        if chain.split("__")[1] in cdr:
                             add = True
                             break
                     if add:
@@ -1061,7 +1064,7 @@ class ProteinDataset(Dataset):
             id = self.data[idx]  # data is already filtered by length
             chain_id = random.choice(list(self.files[id].keys()))
             if self.cdr is not None:
-                while self.cdr != chain_id.split("__")[1]:
+                while chain_id.split("__")[1] not in self.cdr:
                     chain_id = random.choice(list(self.files[id].keys()))
         else:
             cluster = self.data[idx]
