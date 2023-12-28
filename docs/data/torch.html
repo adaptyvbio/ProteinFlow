@@ -938,12 +938,15 @@ class ProteinDataset(Dataset):
 
         Parameters
         ----------
-        cdr : {&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;}
-            The CDR to be iterated over. Set to `None` to go back to iterating over all chains.
+        cdr : list | str | None
+            The CDR to be iterated over (choose from H1, H2, H3, L1, L2, L3).
+            Set to `None` to go back to iterating over all chains.
 
         &#34;&#34;&#34;
         if not self.sabdab:
             cdr = None
+        if isinstance(cdr, str):
+            cdr = [cdr]
         if cdr == self.cdr:
             return
         self.cdr = cdr
@@ -954,12 +957,12 @@ class ProteinDataset(Dataset):
             print(f&#34;Setting CDR to {cdr}...&#34;)
             for i, data in tqdm(enumerate(self.data)):
                 if self.clusters is not None:
-                    if data.split(&#34;__&#34;)[1] == cdr:
+                    if data.split(&#34;__&#34;)[1] in cdr:
                         self.indices.append(i)
                 else:
                     add = False
                     for chain in self.files[data]:
-                        if chain.split(&#34;__&#34;)[1] == cdr:
+                        if chain.split(&#34;__&#34;)[1] in cdr:
                             add = True
                             break
                     if add:
@@ -1091,7 +1094,7 @@ class ProteinDataset(Dataset):
             id = self.data[idx]  # data is already filtered by length
             chain_id = random.choice(list(self.files[id].keys()))
             if self.cdr is not None:
-                while self.cdr != chain_id.split(&#34;__&#34;)[1]:
+                while chain_id.split(&#34;__&#34;)[1] not in self.cdr:
                     chain_id = random.choice(list(self.files[id].keys()))
         else:
             cluster = self.data[idx]
@@ -1937,12 +1940,15 @@ from a polymer is sampled, the center of the masked region will be forced to be 
 
         Parameters
         ----------
-        cdr : {&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;}
-            The CDR to be iterated over. Set to `None` to go back to iterating over all chains.
+        cdr : list | str | None
+            The CDR to be iterated over (choose from H1, H2, H3, L1, L2, L3).
+            Set to `None` to go back to iterating over all chains.
 
         &#34;&#34;&#34;
         if not self.sabdab:
             cdr = None
+        if isinstance(cdr, str):
+            cdr = [cdr]
         if cdr == self.cdr:
             return
         self.cdr = cdr
@@ -1953,12 +1959,12 @@ from a polymer is sampled, the center of the masked region will be forced to be 
             print(f&#34;Setting CDR to {cdr}...&#34;)
             for i, data in tqdm(enumerate(self.data)):
                 if self.clusters is not None:
-                    if data.split(&#34;__&#34;)[1] == cdr:
+                    if data.split(&#34;__&#34;)[1] in cdr:
                         self.indices.append(i)
                 else:
                     add = False
                     for chain in self.files[data]:
-                        if chain.split(&#34;__&#34;)[1] == cdr:
+                        if chain.split(&#34;__&#34;)[1] in cdr:
                             add = True
                             break
                     if add:
@@ -2090,7 +2096,7 @@ from a polymer is sampled, the center of the masked region will be forced to be 
             id = self.data[idx]  # data is already filtered by length
             chain_id = random.choice(list(self.files[id].keys()))
             if self.cdr is not None:
-                while self.cdr != chain_id.split(&#34;__&#34;)[1]:
+                while chain_id.split(&#34;__&#34;)[1] not in self.cdr:
                     chain_id = random.choice(list(self.files[id].keys()))
         else:
             cluster = self.data[idx]
@@ -2210,8 +2216,9 @@ def get_anchor_ind(masked_res, mask):
 <div class="desc"><p>Set the CDR to be iterated over (only for SAbDab datasets).</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>cdr</code></strong> :&ensp;<code>{"H1", "H2", "H3", "L1", "L2", "L3"}</code></dt>
-<dd>The CDR to be iterated over. Set to <code>None</code> to go back to iterating over all chains.</dd>
+<dt><strong><code>cdr</code></strong> :&ensp;<code>list | str | None</code></dt>
+<dd>The CDR to be iterated over (choose from H1, H2, H3, L1, L2, L3).
+Set to <code>None</code> to go back to iterating over all chains.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -2222,12 +2229,15 @@ def get_anchor_ind(masked_res, mask):
 
     Parameters
     ----------
-    cdr : {&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;}
-        The CDR to be iterated over. Set to `None` to go back to iterating over all chains.
+    cdr : list | str | None
+        The CDR to be iterated over (choose from H1, H2, H3, L1, L2, L3).
+        Set to `None` to go back to iterating over all chains.
 
     &#34;&#34;&#34;
     if not self.sabdab:
         cdr = None
+    if isinstance(cdr, str):
+        cdr = [cdr]
     if cdr == self.cdr:
         return
     self.cdr = cdr
@@ -2238,12 +2248,12 @@ def get_anchor_ind(masked_res, mask):
         print(f&#34;Setting CDR to {cdr}...&#34;)
         for i, data in tqdm(enumerate(self.data)):
             if self.clusters is not None:
-                if data.split(&#34;__&#34;)[1] == cdr:
+                if data.split(&#34;__&#34;)[1] in cdr:
                     self.indices.append(i)
             else:
                 add = False
                 for chain in self.files[data]:
-                    if chain.split(&#34;__&#34;)[1] == cdr:
+                    if chain.split(&#34;__&#34;)[1] in cdr:
                         add = True
                         break
                 if add:
