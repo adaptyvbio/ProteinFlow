@@ -339,8 +339,8 @@ def generate_data(
         the sequence similarity threshold for excluding chains
     exclude_clusters : bool, default False
         if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
-    exclude_based_on_cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}, optional
-        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
+    exclude_based_on_cdr : list, optional
+        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters (choose from "H1", "H2", "H3", "L1", "L2", "L3")
     load_ligands : bool, default False
         if `True`, load ligands from the PDB files
     exclude_chains_without_ligands : bool, default False
@@ -506,8 +506,8 @@ def split_data(
         the sequence similarity threshold for excluding chains
     exclude_clusters : bool, default False
         if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
-    exclude_based_on_cdr : {"H1", "H2", "H3", "L1", "L2", "L3"}, optional
-        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
+    exclude_based_on_cdr : list, optional
+        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters (choose from "H1", "H2", "H3", "L1", "L2", "L3")
     random_seed : int, default 42
         random seed for reproducibility (set to `None` to use a random seed)
     exclude_chains_without_ligands : bool, default False
