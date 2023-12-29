@@ -593,8 +593,8 @@ def generate_data(
         the sequence similarity threshold for excluding chains
     exclude_clusters : bool, default False
         if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
-    exclude_based_on_cdr : {&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;}, optional
-        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
+    exclude_based_on_cdr : list, optional
+        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters (choose from &#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;)
     load_ligands : bool, default False
         if `True`, load ligands from the PDB files
     exclude_chains_without_ligands : bool, default False
@@ -760,8 +760,8 @@ def split_data(
         the sequence similarity threshold for excluding chains
     exclude_clusters : bool, default False
         if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
-    exclude_based_on_cdr : {&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;}, optional
-        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
+    exclude_based_on_cdr : list, optional
+        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters (choose from &#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;)
     random_seed : int, default 42
         random seed for reproducibility (set to `None` to use a random seed)
     exclude_chains_without_ligands : bool, default False
@@ -1136,8 +1136,8 @@ pdb_ids can also be passed, an automatic retrieval of chain id s will be perform
 <dd>the sequence similarity threshold for excluding chains</dd>
 <dt><strong><code>exclude_clusters</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, exclude clusters that contain chains similar to chains in the <code>exclude_chains</code> list</dd>
-<dt><strong><code>exclude_based_on_cdr</code></strong> :&ensp;<code>{"H1", "H2", "H3", "L1", "L2", "L3"}</code>, optional</dt>
-<dd>if given and <code>exclude_clusters</code> is <code>True</code> + the dataset is SAbDab, exclude files based on only the given CDR clusters</dd>
+<dt><strong><code>exclude_based_on_cdr</code></strong> :&ensp;<code>list</code>, optional</dt>
+<dd>if given and <code>exclude_clusters</code> is <code>True</code> + the dataset is SAbDab, exclude files based on only the given CDR clusters (choose from "H1", "H2", "H3", "L1", "L2", "L3")</dd>
 <dt><strong><code>load_ligands</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, load ligands from the PDB files</dd>
 <dt><strong><code>exclude_chains_without_ligands</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
@@ -1277,8 +1277,8 @@ pdb_ids can also be passed, an automatic retrieval of chain id s will be perform
         the sequence similarity threshold for excluding chains
     exclude_clusters : bool, default False
         if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
-    exclude_based_on_cdr : {&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;}, optional
-        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
+    exclude_based_on_cdr : list, optional
+        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters (choose from &#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;)
     load_ligands : bool, default False
         if `True`, load ligands from the PDB files
     exclude_chains_without_ligands : bool, default False
@@ -1454,8 +1454,8 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
 <dd>the sequence similarity threshold for excluding chains</dd>
 <dt><strong><code>exclude_clusters</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>if <code>True</code>, exclude clusters that contain chains similar to chains in the <code>exclude_chains</code> list</dd>
-<dt><strong><code>exclude_based_on_cdr</code></strong> :&ensp;<code>{"H1", "H2", "H3", "L1", "L2", "L3"}</code>, optional</dt>
-<dd>if given and <code>exclude_clusters</code> is <code>True</code> + the dataset is SAbDab, exclude files based on only the given CDR clusters</dd>
+<dt><strong><code>exclude_based_on_cdr</code></strong> :&ensp;<code>list</code>, optional</dt>
+<dd>if given and <code>exclude_clusters</code> is <code>True</code> + the dataset is SAbDab, exclude files based on only the given CDR clusters (choose from "H1", "H2", "H3", "L1", "L2", "L3")</dd>
 <dt><strong><code>random_seed</code></strong> :&ensp;<code>int</code>, default <code>42</code></dt>
 <dd>random seed for reproducibility (set to <code>None</code> to use a random seed)</dd>
 <dt><strong><code>exclude_chains_without_ligands</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
@@ -1537,8 +1537,8 @@ CDR clusters. To do so, set <code>exclude_based_on_cdr</code> to the CDR type.</
         the sequence similarity threshold for excluding chains
     exclude_clusters : bool, default False
         if `True`, exclude clusters that contain chains similar to chains in the `exclude_chains` list
-    exclude_based_on_cdr : {&#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;}, optional
-        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters
+    exclude_based_on_cdr : list, optional
+        if given and `exclude_clusters` is `True` + the dataset is SAbDab, exclude files based on only the given CDR clusters (choose from &#34;H1&#34;, &#34;H2&#34;, &#34;H3&#34;, &#34;L1&#34;, &#34;L2&#34;, &#34;L3&#34;)
     random_seed : int, default 42
         random seed for reproducibility (set to `None` to use a random seed)
     exclude_chains_without_ligands : bool, default False
