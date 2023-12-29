@@ -1421,7 +1421,11 @@ def _exclude_biounits(
                             exclude_whole_cluster = True
                     if exclude_whole_cluster:
                         break
-                    excluded_clusters_dict[cluster].append(chain)
+                    if (
+                        exclude_based_on_cdr is None
+                        or cluster.split("__")[-1] in exclude_based_on_cdr
+                    ):
+                        excluded_clusters_dict[cluster].append(chain)
                     idx_to_exclude.append(i)
             if exclude_whole_cluster:
                 excluded_clusters_dict[cluster] = clusters_dict.pop(cluster)
@@ -1434,6 +1438,9 @@ def _exclude_biounits(
                 if len(clusters_dict[cluster]) == 0:
                     clusters_dict.pop(cluster)
     excluded_biounits = set(_biounits_in_clusters_dict(excluded_clusters_dict, []))
+    print(
+        f"Excluding {len(excluded_clusters_dict)} clusters ({len(excluded_biounits)} biounits)"
+    )
     # adjust the dictionaries to account for full biounits being excluded
     for clusters_dict in [
         train_clusters_dict,
