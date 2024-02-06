@@ -10,6 +10,7 @@ and can be used to process the data and extract additional features. The process
 proteinflow pickle file or a PDB file.
 
 """
+import itertools
 import os
 import pickle
 import string
@@ -22,6 +23,7 @@ import numpy as np
 import pandas as pd
 from Bio import pairwise2
 from biopandas.pdb import PandasPdb
+from editdistance import eval as edit_distance
 from torch import Tensor, from_numpy
 
 try:
@@ -2079,6 +2081,25 @@ class ProteinEntry:
         if self.id is not None:
             out_dict["protein_id"] = self.id
         return ProteinEntry.from_dict(out_dict)
+
+    def get_protein_class(self):
+        """Get the protein class.
+
+        Returns
+        -------
+        protein_class : str
+            The protein class ("single_chain", "heteromer", "homomer")
+
+        """
+        if len(self.get_chains()) == 1:
+            return "single_chain"
+        else:
+            for chain1, chain2 in itertools.combinations(self.get_chains(), 2):
+                if len(chain1) > 0.9 * len(chain2) or len(chain2) > 0.9 * len(chain1):
+                    return "heteromer"
+                if edit_distance(chain1, chain2) / max(len(chain1), len(chain2)) > 0.1:
+                    return "heteromer"
+            return "homomer"
 
 
 class PDBEntry:
