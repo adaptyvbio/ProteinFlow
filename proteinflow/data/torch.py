@@ -162,7 +162,7 @@ class ProteinLoader(DataLoader):
         entry_type : {"biounit", "chain", "pair"}
             the type of entries to generate (`"biounit"` for biounit-level, `"chain"` for chain-level, `"pair"` for chain-chain pairs)
         classes_to_exclude : list of str, optional
-            a list of classes to exclude from the dataset (select from `"single_chains"`, `"heteromers"`, `"homomers"`)
+            a list of classes to exclude from the dataset (select from `"single_chain"`, `"heteromer"`, `"homomer"`)
         lower_limit : int, default 15
             the minimum number of residues to mask
         upper_limit : int, default 100
@@ -360,7 +360,7 @@ class ProteinDataset(Dataset):
             the type of entries to generate (`"biounit"` for biounit-level complexes, `"chain"` for chain-level, `"pair"`
             for chain-chain pairs (all pairs that are seen in the same biounit and have intersecting coordinate clouds))
         classes_to_exclude : list of str, optional
-            a list of classes to exclude from the dataset (select from `"single_chains"`, `"heteromers"`, `"homomers"`)
+            a list of classes to exclude from the dataset (select from `"single_chain"`, `"heteromer"`, `"homomer"`)
         shuffle_clusters : bool, default True
             if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
         min_cdr_length : int, optional
