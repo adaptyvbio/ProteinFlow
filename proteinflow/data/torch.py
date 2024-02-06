@@ -162,7 +162,7 @@ class ProteinLoader(DataLoader):
         entry_type : {"biounit", "chain", "pair"}
             the type of entries to generate (`"biounit"` for biounit-level, `"chain"` for chain-level, `"pair"` for chain-chain pairs)
         classes_to_exclude : list of str, optional
-            a list of classes to exclude from the dataset (select from `"single_chains"`, `"heteromers"`, `"homomers"`)
+            a list of classes to exclude from the dataset (select from `"single_chain"`, `"heteromer"`, `"homomer"`)
         lower_limit : int, default 15
             the minimum number of residues to mask
         upper_limit : int, default 100
@@ -360,7 +360,7 @@ class ProteinDataset(Dataset):
             the type of entries to generate (`"biounit"` for biounit-level complexes, `"chain"` for chain-level, `"pair"`
             for chain-chain pairs (all pairs that are seen in the same biounit and have intersecting coordinate clouds))
         classes_to_exclude : list of str, optional
-            a list of classes to exclude from the dataset (select from `"single_chains"`, `"heteromers"`, `"homomers"`)
+            a list of classes to exclude from the dataset (select from `"single_chain"`, `"heteromer"`, `"homomer"`)
         shuffle_clusters : bool, default True
             if `True`, a new representative is randomly selected for each cluster at each epoch (if `clustering_dict_path` is given)
         min_cdr_length : int, optional
@@ -456,13 +456,10 @@ class ProteinDataset(Dataset):
         }
         self.feature_functions.update(feature_functions or {})
         if classes_to_exclude is not None and not all(
-            [
-                x in ["single_chains", "heteromers", "homomers"]
-                for x in classes_to_exclude
-            ]
+            [x in ["single_chain", "heteromer", "homomer"] for x in classes_to_exclude]
         ):
             raise ValueError(
-                "Invalid class to exclude, choose from 'single_chains', 'heteromers', 'homomers'"
+                "Invalid class to exclude, choose from 'single_chain', 'heteromer', 'homomer'"
             )
 
         if debug_file_path is not None:
@@ -507,7 +504,11 @@ class ProteinDataset(Dataset):
             )
         output_tuples_list = p_map(
             lambda x: self._process(
-                x, rewrite=rewrite, max_length=max_length, min_cdr_length=min_cdr_length
+                x,
+                rewrite=rewrite,
+                max_length=max_length,
+                min_cdr_length=min_cdr_length,
+                classes_to_exclude=classes_to_exclude,
             ),
             to_process,
         )
@@ -537,11 +538,12 @@ class ProteinDataset(Dataset):
                 "Classes to exclude are given but no classes dictionary is found, please set classes_dict_path to the path of the classes dictionary"
             )
         to_exclude = set()
-        if classes is not None:
-            for c in classes_to_exclude:
-                for key, id_arr in classes.get(c, {}).items():
-                    for id, _ in id_arr:
-                        to_exclude.add(id)
+
+        # if classes is not None:
+        #     for c in classes_to_exclude:
+        #         for key, id_arr in classes.get(c, {}).items():
+        #             for id, _ in id_arr:
+        #                 to_exclude.add(id)
         if require_antigen or require_light_chain:
             to_exclude.update(
                 self._exclude_by_chains(
@@ -612,6 +614,21 @@ class ProteinDataset(Dataset):
             elif CDR_REVERSE["L1"] in cdr_values:
                 chain_types.add("light")
         return chain_types
+
+    def _exclude_by_class(
+        self,
+        classes_to_exclude,
+    ):
+        """Exclude entries that are in the classes to exclude."""
+        to_exclude = set()
+        for id in self.files:
+            for chain in self.files[id]:
+                filename = self.files[id][chain][0]
+                with open(filename, "rb") as f:
+                    data = pickle.load(f)
+                if classes_to_exclude in data["classes"]:
+                    to_exclude.add(id)
+        return to_exclude
 
     def _exclude_by_chains(
         self,
@@ -771,13 +788,23 @@ class ProteinDataset(Dataset):
         """Return idechain coordinates."""
         return data_entry.sidechain_coordinates(chains)
 
-    def _process(self, filename, rewrite=False, max_length=None, min_cdr_length=None):
+    def _process(
+        self,
+        filename,
+        rewrite=False,
+        max_length=None,
+        min_cdr_length=None,
+        classes_to_exclude=None,
+    ):
         """Process a proteinflow file and save it as ProteinMPNN features."""
         input_file = os.path.join(self.dataset_folder, filename)
         no_extension_name = filename.split(".")[0]
         data_entry = ProteinEntry.from_pickle(input_file)
         if self.load_ligands:
             ligands = ProteinEntry.retrieve_ligands_from_pickle(input_file)
+        if classes_to_exclude is not None:
+            if data_entry.get_protein_class() in classes_to_exclude:
+                return []
         chains = data_entry.get_chains()
         if self.entry_type == "biounit":
             chain_sets = [chains]

@@ -19,7 +19,7 @@ def test_download(tag):
     )
     subprocess.run(["proteinflow", "split", "--tag", tag], check=True)
     for cluster_dict_path, entry_type, classes_to_exclude in [
-        (os.path.join(folder, "splits_dict/valid.pickle"), "chain", ["homomers"]),
+        (os.path.join(folder, "splits_dict/valid.pickle"), "chain", ["homomer"]),
         (None, "pair", None),
     ]:
         valid_loader = ProteinLoader.from_args(
