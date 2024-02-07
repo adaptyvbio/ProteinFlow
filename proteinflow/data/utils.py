@@ -256,7 +256,8 @@ class PDBBuilder:
     def save_pdb(self, path, title="UntitledProtein"):
         """Write out the generated PDB file as a string to the specified path."""
         with open(path, "w") as outfile:
-            outfile.write(self.get_pdb_string(title))
+            text = self.get_pdb_string(title)
+            outfile.write(text)
 
 
 def _split_every(n, iterable):

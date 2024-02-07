@@ -575,6 +575,9 @@ class ProteinEntry:
             A dictionary mapping old chain IDs to new chain IDs
 
         """
+        for chain in self.get_chains():
+            if chain not in chain_dict:
+                chain_dict[chain] = chain
         self._rename_chains({k: k * 5 for k in self.get_chains()})
         self._rename_chains({k * 5: v for k, v in chain_dict.items()})
 
@@ -988,6 +991,10 @@ class ProteinEntry:
             Title of the PDB file (by default either the protein id or "Untitled")
 
         """
+        if any([x[0].upper() != x for x in self.get_chains()]):
+            raise ValueError(
+                "Chain IDs must be single uppercase letters, please rename with `rename_chains` before saving."
+            )
         pdb_builder = PDBBuilder(
             self,
             only_ca=only_ca,
