@@ -48,6 +48,8 @@ and can be used to process the data and extract additional features. The process
 proteinflow pickle file or a PDB file.
 
 &#34;&#34;&#34;
+
+import itertools
 import os
 import pickle
 import string
@@ -60,6 +62,7 @@ import numpy as np
 import pandas as pd
 from Bio import pairwise2
 from biopandas.pdb import PandasPdb
+from editdistance import eval as edit_distance
 from torch import Tensor, from_numpy
 
 try:
@@ -611,6 +614,9 @@ class ProteinEntry:
             A dictionary mapping old chain IDs to new chain IDs
 
         &#34;&#34;&#34;
+        for chain in self.get_chains():
+            if chain not in chain_dict:
+                chain_dict[chain] = chain
         self._rename_chains({k: k * 5 for k in self.get_chains()})
         self._rename_chains({k * 5: v for k, v in chain_dict.items()})
 
@@ -1024,6 +1030,10 @@ class ProteinEntry:
             Title of the PDB file (by default either the protein id or &#34;Untitled&#34;)
 
         &#34;&#34;&#34;
+        if any([x[0].upper() != x for x in self.get_chains()]):
+            raise ValueError(
+                &#34;Chain IDs must be single uppercase letters, please rename with `rename_chains` before saving.&#34;
+            )
         pdb_builder = PDBBuilder(
             self,
             only_ca=only_ca,
@@ -1809,9 +1819,9 @@ class ProteinEntry:
             esm_entry.align_structure(
                 reference_pdb_path=temp_file,
                 save_pdb_path=path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;,
-                chain_ids=entry.get_predicted_chains()
-                if entry.has_predict_mask()
-                else chains,
+                chain_ids=(
+                    entry.get_predicted_chains() if entry.has_predict_mask() else chains
+                ),
             )
             rmsds.append(
                 entry.ca_rmsd(
@@ -2117,6 +2127,25 @@ class ProteinEntry:
         if self.id is not None:
             out_dict[&#34;protein_id&#34;] = self.id
         return ProteinEntry.from_dict(out_dict)
+
+    def get_protein_class(self):
+        &#34;&#34;&#34;Get the protein class.
+
+        Returns
+        -------
+        protein_class : str
+            The protein class (&#34;single_chain&#34;, &#34;heteromer&#34;, &#34;homomer&#34;)
+
+        &#34;&#34;&#34;
+        if len(self.get_chains()) == 1:
+            return &#34;single_chain&#34;
+        else:
+            for chain1, chain2 in itertools.combinations(self.get_chains(), 2):
+                if len(chain1) &gt; 0.9 * len(chain2) or len(chain2) &gt; 0.9 * len(chain1):
+                    return &#34;heteromer&#34;
+                if edit_distance(chain1, chain2) / max(len(chain1), len(chain2)) &gt; 0.1:
+                    return &#34;heteromer&#34;
+            return &#34;homomer&#34;
 
 
 class PDBEntry:
@@ -4715,6 +4744,9 @@ indicates residues with known coordinates</dd>
             A dictionary mapping old chain IDs to new chain IDs
 
         &#34;&#34;&#34;
+        for chain in self.get_chains():
+            if chain not in chain_dict:
+                chain_dict[chain] = chain
         self._rename_chains({k: k * 5 for k in self.get_chains()})
         self._rename_chains({k * 5: v for k, v in chain_dict.items()})
 
@@ -5128,6 +5160,10 @@ indicates residues with known coordinates</dd>
             Title of the PDB file (by default either the protein id or &#34;Untitled&#34;)
 
         &#34;&#34;&#34;
+        if any([x[0].upper() != x for x in self.get_chains()]):
+            raise ValueError(
+                &#34;Chain IDs must be single uppercase letters, please rename with `rename_chains` before saving.&#34;
+            )
         pdb_builder = PDBBuilder(
             self,
             only_ca=only_ca,
@@ -5913,9 +5949,9 @@ indicates residues with known coordinates</dd>
             esm_entry.align_structure(
                 reference_pdb_path=temp_file,
                 save_pdb_path=path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;,
-                chain_ids=entry.get_predicted_chains()
-                if entry.has_predict_mask()
-                else chains,
+                chain_ids=(
+                    entry.get_predicted_chains() if entry.has_predict_mask() else chains
+                ),
             )
             rmsds.append(
                 entry.ca_rmsd(
@@ -6220,7 +6256,26 @@ indicates residues with known coordinates</dd>
                 out_dict[chain][&#34;predict_msk&#34;] = self.predict_mask[chain][chain_mask]
         if self.id is not None:
             out_dict[&#34;protein_id&#34;] = self.id
-        return ProteinEntry.from_dict(out_dict)</code></pre>
+        return ProteinEntry.from_dict(out_dict)
+
+    def get_protein_class(self):
+        &#34;&#34;&#34;Get the protein class.
+
+        Returns
+        -------
+        protein_class : str
+            The protein class (&#34;single_chain&#34;, &#34;heteromer&#34;, &#34;homomer&#34;)
+
+        &#34;&#34;&#34;
+        if len(self.get_chains()) == 1:
+            return &#34;single_chain&#34;
+        else:
+            for chain1, chain2 in itertools.combinations(self.get_chains(), 2):
+                if len(chain1) &gt; 0.9 * len(chain2) or len(chain2) &gt; 0.9 * len(chain1):
+                    return &#34;heteromer&#34;
+                if edit_distance(chain1, chain2) / max(len(chain1), len(chain2)) &gt; 0.1:
+                    return &#34;heteromer&#34;
+            return &#34;homomer&#34;</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
@@ -6455,9 +6510,9 @@ def esmfold_metrics(entries, only_antibody=False):
         esm_entry.align_structure(
             reference_pdb_path=temp_file,
             save_pdb_path=path.rsplit(&#34;.&#34;, 1)[0] + &#34;_aligned.pdb&#34;,
-            chain_ids=entry.get_predicted_chains()
-            if entry.has_predict_mask()
-            else chains,
+            chain_ids=(
+                entry.get_predicted_chains() if entry.has_predict_mask() else chains
+            ),
         )
         rmsds.append(
             entry.ca_rmsd(
@@ -8486,6 +8541,40 @@ zeros to residues with known coordinates</dd>
     return ProteinEntry.from_dict(entry_dict)</code></pre>
 </details>
 </dd>
+<dt id="proteinflow.data.ProteinEntry.get_protein_class"><code class="name flex">
+<span>def <span class="ident">get_protein_class</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Get the protein class.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>protein_class</code></strong> :&ensp;<code>str</code></dt>
+<dd>The protein class ("single_chain", "heteromer", "homomer")</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_protein_class(self):
+    &#34;&#34;&#34;Get the protein class.
+
+    Returns
+    -------
+    protein_class : str
+        The protein class (&#34;single_chain&#34;, &#34;heteromer&#34;, &#34;homomer&#34;)
+
+    &#34;&#34;&#34;
+    if len(self.get_chains()) == 1:
+        return &#34;single_chain&#34;
+    else:
+        for chain1, chain2 in itertools.combinations(self.get_chains(), 2):
+            if len(chain1) &gt; 0.9 * len(chain2) or len(chain2) &gt; 0.9 * len(chain1):
+                return &#34;heteromer&#34;
+            if edit_distance(chain1, chain2) / max(len(chain1), len(chain2)) &gt; 0.1:
+                return &#34;heteromer&#34;
+        return &#34;homomer&#34;</code></pre>
+</details>
+</dd>
 <dt id="proteinflow.data.ProteinEntry.get_sequence"><code class="name flex">
 <span>def <span class="ident">get_sequence</span></span>(<span>self, chains=None, encode=False, cdr=None, only_known=False)</span>
 </code></dt>
@@ -8847,6 +8936,9 @@ def is_valid_pair(self, chain1, chain2, cutoff=10):
         A dictionary mapping old chain IDs to new chain IDs
 
     &#34;&#34;&#34;
+    for chain in self.get_chains():
+        if chain not in chain_dict:
+            chain_dict[chain] = chain
     self._rename_chains({k: k * 5 for k in self.get_chains()})
     self._rename_chains({k * 5: v for k, v in chain_dict.items()})</code></pre>
 </details>
@@ -9201,6 +9293,10 @@ It can optionally also contain <code>protein_id</code> as a first-level key.</dd
         Title of the PDB file (by default either the protein id or &#34;Untitled&#34;)
 
     &#34;&#34;&#34;
+    if any([x[0].upper() != x for x in self.get_chains()]):
+        raise ValueError(
+            &#34;Chain IDs must be single uppercase letters, please rename with `rename_chains` before saving.&#34;
+        )
     pdb_builder = PDBBuilder(
         self,
         only_ca=only_ca,
@@ -9949,6 +10045,7 @@ def from_id(
 <li><code><a title="proteinflow.data.ProteinEntry.get_predict_mask" href="#proteinflow.data.ProteinEntry.get_predict_mask">get_predict_mask</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.get_predicted_chains" href="#proteinflow.data.ProteinEntry.get_predicted_chains">get_predicted_chains</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.get_predicted_entry" href="#proteinflow.data.ProteinEntry.get_predicted_entry">get_predicted_entry</a></code></li>
+<li><code><a title="proteinflow.data.ProteinEntry.get_protein_class" href="#proteinflow.data.ProteinEntry.get_protein_class">get_protein_class</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.get_sequence" href="#proteinflow.data.ProteinEntry.get_sequence">get_sequence</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.has_cdr" href="#proteinflow.data.ProteinEntry.has_cdr">has_cdr</a></code></li>
 <li><code><a title="proteinflow.data.ProteinEntry.has_predict_mask" href="#proteinflow.data.ProteinEntry.has_predict_mask">has_predict_mask</a></code></li>

@@ -1,4 +1,5 @@
 """Utility functions for working with protein data."""
+
 import itertools
 from copy import deepcopy
 

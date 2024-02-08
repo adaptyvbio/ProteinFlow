@@ -1,4 +1,5 @@
 """Test generate_data with `sabdab=True`."""
+
 import os
 import shutil
 from time import time

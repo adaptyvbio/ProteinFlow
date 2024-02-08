@@ -1,4 +1,5 @@
 """Test ProteinEntry class."""
+
 import numpy as np
 
 from proteinflow.data import ProteinEntry

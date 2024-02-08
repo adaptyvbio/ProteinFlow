@@ -10,6 +10,7 @@ and can be used to process the data and extract additional features. The process
 proteinflow pickle file or a PDB file.
 
 """
+
 import itertools
 import os
 import pickle
@@ -1780,9 +1781,9 @@ class ProteinEntry:
             esm_entry.align_structure(
                 reference_pdb_path=temp_file,
                 save_pdb_path=path.rsplit(".", 1)[0] + "_aligned.pdb",
-                chain_ids=entry.get_predicted_chains()
-                if entry.has_predict_mask()
-                else chains,
+                chain_ids=(
+                    entry.get_predicted_chains() if entry.has_predict_mask() else chains
+                ),
             )
             rmsds.append(
                 entry.ca_rmsd(

@@ -1,6 +1,5 @@
 """Update the docstring in __init__.py with the README.md file."""
 
-
 with open("README.md") as f:
     readme = list(f.readlines())
 
